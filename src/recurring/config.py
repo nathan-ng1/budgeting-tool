@@ -3,7 +3,8 @@ from pathlib import Path
 
 import openpyxl
 
-from recurring.rules import RecurringRule
+from recurring.rules import Occurrence, RecurringRule
+from recurring.schedule import expand
 
 COLUMNS = [
     "Amount",
@@ -52,6 +53,13 @@ def parse_config(path: Path) -> list[RecurringRule]:
             )
         )
     return rules
+
+
+def due_occurrences(path: Path, through: date) -> list[Occurrence]:
+    occurrences = []
+    for rule in parse_config(path):
+        occurrences.extend(expand(rule, through))
+    return occurrences
 
 
 def _to_date(value) -> date:

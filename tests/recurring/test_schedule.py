@@ -1,27 +1,10 @@
 from datetime import date
 
-from recurring.rules import RecurringRule
 from recurring.schedule import expand
 
 
-def _rule(**overrides):
-    defaults = dict(
-        amount=100.0,
-        category="Bills & Subscriptions",
-        sub_category="Subscriptions",
-        notes="Test rule",
-        frequency="Weekly",
-        interval=1,
-        day="Wednesday",
-        start_date=date(2026, 8, 5),
-        end_date=None,
-    )
-    defaults.update(overrides)
-    return RecurringRule(**defaults)
-
-
-def test_weekly_fortnightly_produces_correct_cadence():
-    rule = _rule(frequency="Weekly", interval=2, day="Wednesday", start_date=date(2026, 8, 5))
+def test_weekly_fortnightly_produces_correct_cadence(make_rule):
+    rule = make_rule(frequency="Weekly", interval=2, day="Wednesday", start_date=date(2026, 8, 5))
 
     occurrences = expand(rule, through=date(2026, 9, 15))
 
@@ -32,8 +15,8 @@ def test_weekly_fortnightly_produces_correct_cadence():
     ]
 
 
-def test_monthly_produces_one_occurrence_per_interval_month_on_given_day():
-    rule = _rule(frequency="Monthly", interval=1, day=15, start_date=date(2026, 1, 15))
+def test_monthly_produces_one_occurrence_per_interval_month_on_given_day(make_rule):
+    rule = make_rule(frequency="Monthly", interval=1, day=15, start_date=date(2026, 1, 15))
 
     occurrences = expand(rule, through=date(2026, 4, 15))
 
@@ -45,8 +28,8 @@ def test_monthly_produces_one_occurrence_per_interval_month_on_given_day():
     ]
 
 
-def test_monthly_clamps_day_to_last_day_of_shorter_month():
-    rule = _rule(frequency="Monthly", interval=1, day=31, start_date=date(2026, 1, 31))
+def test_monthly_clamps_day_to_last_day_of_shorter_month(make_rule):
+    rule = make_rule(frequency="Monthly", interval=1, day=31, start_date=date(2026, 1, 31))
 
     occurrences = expand(rule, through=date(2026, 3, 31))
 
@@ -57,8 +40,8 @@ def test_monthly_clamps_day_to_last_day_of_shorter_month():
     ]
 
 
-def test_end_date_stops_future_occurrences():
-    rule = _rule(
+def test_end_date_stops_future_occurrences(make_rule):
+    rule = make_rule(
         frequency="Monthly",
         interval=1,
         day=1,
@@ -75,8 +58,8 @@ def test_end_date_stops_future_occurrences():
     ]
 
 
-def test_no_end_date_keeps_producing_occurrences_up_to_through_date():
-    rule = _rule(
+def test_no_end_date_keeps_producing_occurrences_up_to_through_date(make_rule):
+    rule = make_rule(
         frequency="Monthly",
         interval=3,
         day=1,
