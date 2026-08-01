@@ -2,49 +2,74 @@ from pathlib import Path
 
 import pytest
 
-from sanitising.run import run
+from sanitising.run import sanitise_inbox
 
-FIXTURE_CONTENT = (
-    "30/07/2026,-4.95,KFC NORTHMEAD             NORTHMEAD\n"
-    "27/07/2026,-35.19,ANTHROPIC* CLAUDE SUB     ANTHROPIC.COM\n"
-    "13/07/2026,2143.68,PAYMENT - THANKYOU\n"
+FIXTURE_BYTES = (
+    b"30/07/2026,-4.95,KFC NORTHMEAD             NORTHMEAD\n"
+    b"27/07/2026,-35.19,ANTHROPIC* CLAUDE SUB     ANTHROPIC.COM\n"
+    b"13/07/2026,2143.68,PAYMENT - THANKYOU\n"
 )
 
 
-def test_anz_export_moves_from_inbox_to_data_unchanged(tmp_path: Path):
-    inbox = tmp_path / "inbox"
-    data = tmp_path / "data"
-    inbox.mkdir()
-    data.mkdir()
-    (inbox / "ANZ_20260730.csv").write_text(FIXTURE_CONTENT)
+@pytest.fixture
+def inbox(tmp_path: Path) -> Path:
+    path = tmp_path / "inbox"
+    path.mkdir()
+    return path
 
-    run(inbox, data)
+
+@pytest.fixture
+def data(tmp_path: Path) -> Path:
+    path = tmp_path / "data"
+    path.mkdir()
+    return path
+
+
+def test_anz_export_moves_from_inbox_to_data_unchanged(inbox: Path, data: Path):
+    (inbox / "ANZ_20260730.csv").write_bytes(FIXTURE_BYTES)
+
+    sanitise_inbox(inbox, data)
 
     assert not (inbox / "ANZ_20260730.csv").exists()
-    assert (data / "ANZ_20260730.csv").read_text() == FIXTURE_CONTENT
+    assert (data / "ANZ_20260730.csv").read_bytes() == FIXTURE_BYTES
 
 
-def test_empty_inbox_is_a_noop(tmp_path: Path):
-    inbox = tmp_path / "inbox"
-    data = tmp_path / "data"
-    inbox.mkdir()
-    data.mkdir()
-
-    written = run(inbox, data)
+def test_empty_inbox_is_a_noop(inbox: Path, data: Path):
+    written = sanitise_inbox(inbox, data)
 
     assert written == []
     assert list(data.iterdir()) == []
 
 
-def test_unrecognised_issuer_leaves_source_file_in_place(tmp_path: Path):
-    inbox = tmp_path / "inbox"
-    data = tmp_path / "data"
-    inbox.mkdir()
-    data.mkdir()
-    (inbox / "CHASE_20260730.csv").write_text(FIXTURE_CONTENT)
+def test_unrecognised_issuer_leaves_source_file_in_place(inbox: Path, data: Path):
+    (inbox / "CHASE_20260730.csv").write_bytes(FIXTURE_BYTES)
 
     with pytest.raises(ValueError):
-        run(inbox, data)
+        sanitise_inbox(inbox, data)
 
     assert (inbox / "CHASE_20260730.csv").exists()
     assert list(data.iterdir()) == []
+
+
+def test_unrecognised_issuer_stops_processing_leaving_later_files_untouched(inbox: Path, data: Path):
+    (inbox / "ANZ_20260101.csv").write_bytes(FIXTURE_BYTES)
+    (inbox / "BAD_20260102.csv").write_bytes(FIXTURE_BYTES)
+    (inbox / "CBA_20260103.csv").write_bytes(FIXTURE_BYTES)
+
+    with pytest.raises(ValueError):
+        sanitise_inbox(inbox, data)
+
+    assert not (inbox / "ANZ_20260101.csv").exists()
+    assert (data / "ANZ_20260101.csv").read_bytes() == FIXTURE_BYTES
+    assert (inbox / "BAD_20260102.csv").exists()
+    assert (inbox / "CBA_20260103.csv").exists()
+    assert not (data / "CBA_20260103.csv").exists()
+
+
+def test_creates_data_dir_if_missing(inbox: Path, tmp_path: Path):
+    data = tmp_path / "data"
+    (inbox / "ANZ_20260730.csv").write_bytes(FIXTURE_BYTES)
+
+    sanitise_inbox(inbox, data)
+
+    assert (data / "ANZ_20260730.csv").read_bytes() == FIXTURE_BYTES
