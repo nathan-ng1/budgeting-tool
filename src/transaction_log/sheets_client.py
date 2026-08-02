@@ -37,6 +37,18 @@ TRANSACTION_LOG_SHEET_ID = 1652281908
 # data than the row it now sits in after the reorder.
 SORT_COLUMN_RANGE = {"startColumnIndex": 0, "endColumnIndex": 21}
 FULL_DATE_COLUMN_INDEX = 4  # E, 0-based from A
+SUB_CATEGORY_COLUMN_INDEX = 11  # L, 0-based from A
+
+# Sub-category (L)'s dropdown is a per-row ONE_OF_RANGE validation rule
+# pointing at that row's own U:AN (the Setup-driven Sub-category list spilled
+# by column U's formula) — e.g. row 9's rule reads '...!U9:AN9'. Unlike a
+# regular formula, this range is a literal baked into the rule and does NOT
+# get reflowed to the new row when Sheets sorts — the rule moves with its row,
+# but the row number inside its range string stays frozen. So after every
+# sort, every row's rule must be rebuilt by hand to point at its own row
+# again. Confirmed against the live sheet: see docs/agents/google-sheets-mcp.md.
+VALIDATION_SOURCE_START_COLUMN = "U"
+VALIDATION_SOURCE_END_COLUMN = "AN"
 
 
 def _offset(column: str) -> int:
@@ -108,28 +120,33 @@ class GoogleSheetsClient:
             body={"valueInputOption": "USER_ENTERED", "data": data},
         ).execute()
 
-        self._sort_by_full_date_descending(through_row=end_row)
+        self._sort_and_realign_validation(through_row=end_row)
 
-    def _sort_by_full_date_descending(self, through_row: int) -> None:
+    def _sort_and_realign_validation(self, through_row: int) -> None:
+        sort_request = {
+            "sortRange": {
+                "range": {
+                    "sheetId": TRANSACTION_LOG_SHEET_ID,
+                    "startRowIndex": DATA_START_ROW - 1,
+                    "endRowIndex": through_row,
+                    **SORT_COLUMN_RANGE,
+                },
+                "sortSpecs": [
+                    {"dimensionIndex": FULL_DATE_COLUMN_INDEX, "sortOrder": "DESCENDING"}
+                ],
+            }
+        }
+        # Requests apply in order, so this runs after the sort above and
+        # rebuilds every row's Sub-category dropdown against its own (now
+        # final) row position.
+        validation_requests = [
+            _sub_category_validation_request(row)
+            for row in range(DATA_START_ROW, through_row + 1)
+        ]
+
         self._service.spreadsheets().batchUpdate(
             spreadsheetId=self._spreadsheet_id,
-            body={
-                "requests": [
-                    {
-                        "sortRange": {
-                            "range": {
-                                "sheetId": TRANSACTION_LOG_SHEET_ID,
-                                "startRowIndex": DATA_START_ROW - 1,
-                                "endRowIndex": through_row,
-                                **SORT_COLUMN_RANGE,
-                            },
-                            "sortSpecs": [
-                                {"dimensionIndex": FULL_DATE_COLUMN_INDEX, "sortOrder": "DESCENDING"}
-                            ],
-                        }
-                    }
-                ]
-            },
+            body={"requests": [sort_request, *validation_requests]},
         ).execute()
 
     def _next_empty_row(self) -> int:
@@ -143,6 +160,35 @@ class GoogleSheetsClient:
 
     def _values(self):
         return self._service.spreadsheets().values()
+
+
+def _sub_category_validation_request(row: int) -> dict:
+    return {
+        "setDataValidation": {
+            "range": {
+                "sheetId": TRANSACTION_LOG_SHEET_ID,
+                "startRowIndex": row - 1,
+                "endRowIndex": row,
+                "startColumnIndex": SUB_CATEGORY_COLUMN_INDEX,
+                "endColumnIndex": SUB_CATEGORY_COLUMN_INDEX + 1,
+            },
+            "rule": {
+                "condition": {
+                    "type": "ONE_OF_RANGE",
+                    "values": [
+                        {
+                            "userEnteredValue": (
+                                f"='{SHEET_NAME}'!{VALIDATION_SOURCE_START_COLUMN}{row}:"
+                                f"{VALIDATION_SOURCE_END_COLUMN}{row}"
+                            )
+                        }
+                    ],
+                },
+                "strict": True,
+                "showCustomUi": True,
+            },
+        }
+    }
 
 
 def _cell(row: list, offset: int):

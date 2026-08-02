@@ -80,6 +80,33 @@ by mistake. If another field's column is ever in doubt, check the sheet's `merge
 (which fields actually have a merged label) rather than assuming every field follows the same
 one-column offset.
 
+## Data validation does not follow a sort
+
+Sub-category (L)'s dropdown is a per-row `ONE_OF_RANGE` validation rule pointing at that row's
+own `U:AN` (a `FILTER`/`TRANSPOSE` formula in U, keyed off Category, that spills the row's valid
+Sub-categories rightward through AN) — e.g. row 9's rule criteria is `='Transaction Log'!U9:AN9`.
+
+Regular formulas in a sorted row get their relative references reflowed to the row's new
+position — confirmed true for the helper formulas in columns T/U, which is why the dropdown's
+*source list* stays correct after a sort. But the row number baked into a data validation rule's
+`ONE_OF_RANGE` range string is **not** reflowed the same way: the rule moves with its row, but
+the literal range inside it stays frozen to whatever row it was originally written for. After a
+sort, a row's validation can end up pointing at a completely different row's list (e.g. L11
+pointing at `U146:AN146`).
+
+Category (J) is unaffected — its validation is `ONE_OF_LIST` with a fixed literal list, identical
+for every row, so there's nothing for a sort to misalign.
+
+This means any code that sorts the Transaction Log must also rebuild column L's per-row
+`ONE_OF_RANGE` validation afterwards for every row in the sorted range (not just newly written
+ones — existing rows get reshuffled too). `GoogleSheetsClient._sort_and_realign_validation` in
+`src/transaction_log/sheets_client.py` does this in the same `batchUpdate` call as the sort
+itself (requests apply in order, so the rebuild lands on the post-sort row positions).
+
+Diagnosed via `get_sheet_data(..., include_grid_data=True)`, which — unlike `get_sheet_formulas`
+— includes each cell's `dataValidation` metadata. If a dropdown/validation mismatch shows up
+again, that's the tool to reach for.
+
 ## API usage vs. free-tier quotas
 
 The round-trip test and connection verification made **12 MCP calls** against this server in
