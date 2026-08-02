@@ -14,30 +14,34 @@ MONTH_NAMES = [
     "July", "August", "September", "October", "November", "December",
 ]
 
-# The Transaction Log's non-formula columns — single source of truth for both
-# the read offsets (into a row read from f"{SHEET_NAME}!{_ROW_START_COLUMN}{row}:M{row}")
-# and the write targets in append_rows. Columns E/F/H/I/K hold live formulas
-# (Full date, currency helper) or are blank spacers and must never be touched.
-# Month, Amount, Category and Sub-Category each have a wide merged header label
-# one column left of their value column, but Notes' header is a single
-# unmerged cell directly above M (like Day/Full date) — its value goes in M,
-# not N (confirmed against the live sheet; N is unused).
-_ROW_START_COLUMN = "C"
-FULL_DATE_COLUMN = "E"
-AMOUNT_COLUMN = "G"
-NOTES_COLUMN = "M"
+# The Transaction Log's non-formula columns — single source of truth for
+# every column reference below (read offsets, write targets, sort/validation
+# indices). Columns not listed here (E/F/H/I/K) hold live formulas (Full date,
+# currency helper) or are blank spacers and must never be touched. Month,
+# Amount, Category and Sub-Category each have a wide merged header label one
+# column left of their value column, but Notes' header is a single unmerged
+# cell directly above M (like Day/Full date) — its value goes in M, not N
+# (confirmed against the live sheet; N is unused).
+COLUMN = {
+    "month": "C",
+    "day": "D",
+    "full_date": "E",
+    "amount": "G",
+    "category": "J",
+    "sub_category": "L",
+    "notes": "M",
+}
+_ROW_START_COLUMN = COLUMN["month"]
 
 # gid for the "Transaction Log" tab — stable unless the tab itself is deleted
 # and recreated; re-fetch via spreadsheets().get() if this ever needs updating.
 TRANSACTION_LOG_SHEET_ID = 1652281908
 
-# Columns A:U — U is the last column holding a per-row helper formula (a
-# Setup-driven Sub-category lookup keyed off J). A sort must move every column
-# in this span together, or a helper formula ends up reading a different row's
-# data than the row it now sits in after the reorder.
-SORT_COLUMN_RANGE = {"startColumnIndex": 0, "endColumnIndex": 21}
-FULL_DATE_COLUMN_INDEX = 4  # E, 0-based from A
-SUB_CATEGORY_COLUMN_INDEX = 11  # L, 0-based from A
+# Last column holding a per-row helper formula (a Setup-driven Sub-category
+# lookup keyed off J). A sort must move every column through here together,
+# or a helper formula ends up reading a different row's data than the row it
+# now sits in after the reorder.
+LAST_HELPER_COLUMN = "U"
 
 # Sub-category (L)'s dropdown is a per-row ONE_OF_RANGE validation rule
 # pointing at that row's own U:AN (the Setup-driven Sub-category list spilled
@@ -47,12 +51,28 @@ SUB_CATEGORY_COLUMN_INDEX = 11  # L, 0-based from A
 # but the row number inside its range string stays frozen. So after every
 # sort, every row's rule must be rebuilt by hand to point at its own row
 # again. Confirmed against the live sheet: see docs/agents/google-sheets-mcp.md.
-VALIDATION_SOURCE_START_COLUMN = "U"
+VALIDATION_SOURCE_START_COLUMN = LAST_HELPER_COLUMN
 VALIDATION_SOURCE_END_COLUMN = "AN"
 
 
+def _column_index(column: str) -> int:
+    """0-based index from column A (e.g. "A" -> 0, "M" -> 12, "AN" -> 39)."""
+    index = 0
+    for char in column:
+        index = index * 26 + (ord(char) - ord("A") + 1)
+    return index - 1
+
+
 def _offset(column: str) -> int:
-    return ord(column) - ord(_ROW_START_COLUMN)
+    """0-based index relative to _ROW_START_COLUMN, for a row read via that range."""
+    return _column_index(column) - _column_index(_ROW_START_COLUMN)
+
+
+# Derived, not hand-counted, so a column move is a one-line edit to COLUMN or
+# LAST_HELPER_COLUMN above rather than a hunt through separately-tracked indices.
+FULL_DATE_COLUMN_INDEX = _column_index(COLUMN["full_date"])
+SUB_CATEGORY_COLUMN_INDEX = _column_index(COLUMN["sub_category"])
+SORT_COLUMN_RANGE = {"startColumnIndex": 0, "endColumnIndex": _column_index(LAST_HELPER_COLUMN) + 1}
 
 
 class GoogleSheetsClient:
@@ -71,7 +91,7 @@ class GoogleSheetsClient:
             self._values()
             .get(
                 spreadsheetId=self._spreadsheet_id,
-                range=f"{SHEET_NAME}!{_ROW_START_COLUMN}{DATA_START_ROW}:M",
+                range=f"{SHEET_NAME}!{_ROW_START_COLUMN}{DATA_START_ROW}:{COLUMN['notes']}",
                 valueRenderOption="UNFORMATTED_VALUE",
             )
             .execute()
@@ -79,13 +99,13 @@ class GoogleSheetsClient:
 
         existing_rows = []
         for row in response.get("values", []):
-            amount = _cell(row, _offset(AMOUNT_COLUMN))
-            full_date = _cell(row, _offset(FULL_DATE_COLUMN))
+            amount = _cell(row, _offset(COLUMN["amount"]))
+            full_date = _cell(row, _offset(COLUMN["full_date"]))
             if amount in (None, "") or full_date in (None, "", "-"):
                 # No Amount means this isn't a logged Transaction — e.g. the
                 # sheet's built-in dropdown example row at row 8.
                 continue
-            notes = _cell(row, _offset(NOTES_COLUMN))
+            notes = _cell(row, _offset(COLUMN["notes"]))
             existing_rows.append(
                 ExistingRow(
                     date=_from_serial(full_date),
@@ -103,12 +123,12 @@ class GoogleSheetsClient:
         end_row = start_row + len(candidates) - 1
 
         columns = {
-            "C": [MONTH_NAMES[c.date.month - 1] for c in candidates],
-            "D": [c.date.day for c in candidates],
-            AMOUNT_COLUMN: [round(abs(c.amount), 2) for c in candidates],
-            "J": [c.category for c in candidates],
-            "L": [c.sub_category for c in candidates],
-            NOTES_COLUMN: [c.notes for c in candidates],
+            COLUMN["month"]: [MONTH_NAMES[c.date.month - 1] for c in candidates],
+            COLUMN["day"]: [c.date.day for c in candidates],
+            COLUMN["amount"]: [round(abs(c.amount), 2) for c in candidates],
+            COLUMN["category"]: [c.category for c in candidates],
+            COLUMN["sub_category"]: [c.sub_category for c in candidates],
+            COLUMN["notes"]: [c.notes for c in candidates],
         }
         data = [
             {"range": f"{SHEET_NAME}!{column}{start_row}:{column}{end_row}", "values": [[v] for v in values]}
@@ -152,7 +172,7 @@ class GoogleSheetsClient:
     def _next_empty_row(self) -> int:
         response = (
             self._values()
-            .get(spreadsheetId=self._spreadsheet_id, range=f"{SHEET_NAME}!{_ROW_START_COLUMN}{DATA_START_ROW}:C")
+            .get(spreadsheetId=self._spreadsheet_id, range=f"{SHEET_NAME}!{_ROW_START_COLUMN}{DATA_START_ROW}:{COLUMN['month']}")
             .execute()
         )
         filled_rows = len(response.get("values", []))

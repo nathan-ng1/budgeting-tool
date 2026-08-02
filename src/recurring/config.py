@@ -3,8 +3,7 @@ from pathlib import Path
 
 import openpyxl
 
-from recurring.rules import Occurrence, RecurringRule
-from recurring.schedule import expand
+from recurring.rules import RecurringRule
 
 COLUMNS = [
     "Amount",
@@ -17,16 +16,6 @@ COLUMNS = [
     "Start Date",
     "End Date",
 ]
-
-
-def create_template(path: Path) -> None:
-    workbook = openpyxl.Workbook()
-    worksheet = workbook.active
-    worksheet.title = "Recurring Transactions"
-    worksheet.append(COLUMNS)
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-    workbook.save(path)
 
 
 def parse_config(path: Path) -> list[RecurringRule]:
@@ -53,13 +42,6 @@ def parse_config(path: Path) -> list[RecurringRule]:
             )
         )
     return rules
-
-
-def due_occurrences(path: Path, through: date) -> list[Occurrence]:
-    occurrences = []
-    for rule in parse_config(path):
-        occurrences.extend(expand(rule, through))
-    return occurrences
 
 
 def _to_date(value) -> date:

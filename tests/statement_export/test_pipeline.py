@@ -8,10 +8,14 @@ from statement_export.pipeline import Archive, run
 
 @pytest.fixture
 def recurring_config(tmp_path: Path) -> Path:
-    from recurring.config import create_template
+    import openpyxl
+
+    from recurring.config import COLUMNS
 
     path = tmp_path / "recurring-transactions.xlsx"
-    create_template(path)
+    workbook = openpyxl.Workbook()
+    workbook.active.append(COLUMNS)
+    workbook.save(path)
     return path
 
 
