@@ -54,24 +54,31 @@ executable:
 
 ## Transaction Log column layout (as built, not as documented in CONTEXT.md)
 
-The sheet uses **merged header cells one column left of the data cell** — e.g. the "Month"
-label sits in column B, but the value goes in column C. Verified empirically via
-`get_sheet_formulas`:
+Month, Amount, Category and Sub-category each have a **wide merged header label one column
+left of the data cell** (verified via the sheet's `merges` metadata — e.g. the "Month" label
+is merged across B:C, but the value goes in C). Day, Full date and Notes have **no header
+merge** — their label sits directly in their own single value column, same as Day/Full date.
 
 | Field | Column | Notes |
 |---|---|---|
-| Month | C | free text, e.g. `"January"` |
-| Day | D | number, 1–31 |
-| Full date | E | formula, derived from C+D — never write directly |
-| (year helper) | F | formula, derived from G being blank/filled — never write directly |
-| Amount | G | positive number, 2dp |
-| Category | J | must match Setup sheet's dropdown list |
-| Sub-category | L | must match Setup sheet's dropdown list |
-| Notes | N | free text |
+| Month | C | free text, e.g. `"January"` — label merged B:C |
+| Day | D | number, 1–31 — unmerged, label and value share the column |
+| Full date | E | formula, derived from C+D — never write directly; unmerged |
+| (currency helper) | F | formula, shows "$" once Amount is filled — never write directly |
+| Amount | G | positive number, 2dp — label merged F:H |
+| Category | J | must match Setup sheet's dropdown list — label merged I:J |
+| Sub-category | L | must match Setup sheet's dropdown list — label merged K:L |
+| Notes | M | free text — unmerged, label and value share the column |
 
-This was found to differ from `CONTEXT.md`'s Transaction Log definition at the time (it listed
-Sub-Category as column K and Notes as column L) and has since been corrected there to match the
-verified layout above.
+Column N is unused (blank).
+
+This was corrected twice now: `CONTEXT.md` originally listed Sub-Category as K and Notes as L;
+that was fixed to L/N based on the merge pattern holding for every field. It doesn't — Notes'
+header isn't merged like Month/Amount/Category/Sub-category are, so there's no offset for it,
+and the real column is M. Confirmed against the live sheet after a real write landed Notes in N
+by mistake. If another field's column is ever in doubt, check the sheet's `merges` metadata
+(which fields actually have a merged label) rather than assuming every field follows the same
+one-column offset.
 
 ## API usage vs. free-tier quotas
 

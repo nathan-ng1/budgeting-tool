@@ -15,13 +15,28 @@ MONTH_NAMES = [
 ]
 
 # The Transaction Log's non-formula columns — single source of truth for both
-# the read offsets (into a row read from f"{SHEET_NAME}!{_ROW_START_COLUMN}{row}:N{row}")
-# and the write targets in append_rows. Columns E/F/H/I/K/M hold live formulas
+# the read offsets (into a row read from f"{SHEET_NAME}!{_ROW_START_COLUMN}{row}:M{row}")
+# and the write targets in append_rows. Columns E/F/H/I/K hold live formulas
 # (Full date, currency helper) or are blank spacers and must never be touched.
+# Month, Amount, Category and Sub-Category each have a wide merged header label
+# one column left of their value column, but Notes' header is a single
+# unmerged cell directly above M (like Day/Full date) — its value goes in M,
+# not N (confirmed against the live sheet; N is unused).
 _ROW_START_COLUMN = "C"
 FULL_DATE_COLUMN = "E"
 AMOUNT_COLUMN = "G"
-NOTES_COLUMN = "N"
+NOTES_COLUMN = "M"
+
+# gid for the "Transaction Log" tab — stable unless the tab itself is deleted
+# and recreated; re-fetch via spreadsheets().get() if this ever needs updating.
+TRANSACTION_LOG_SHEET_ID = 1652281908
+
+# Columns A:U — U is the last column holding a per-row helper formula (a
+# Setup-driven Sub-category lookup keyed off J). A sort must move every column
+# in this span together, or a helper formula ends up reading a different row's
+# data than the row it now sits in after the reorder.
+SORT_COLUMN_RANGE = {"startColumnIndex": 0, "endColumnIndex": 21}
+FULL_DATE_COLUMN_INDEX = 4  # E, 0-based from A
 
 
 def _offset(column: str) -> int:
@@ -44,7 +59,7 @@ class GoogleSheetsClient:
             self._values()
             .get(
                 spreadsheetId=self._spreadsheet_id,
-                range=f"{SHEET_NAME}!{_ROW_START_COLUMN}{DATA_START_ROW}:N",
+                range=f"{SHEET_NAME}!{_ROW_START_COLUMN}{DATA_START_ROW}:M",
                 valueRenderOption="UNFORMATTED_VALUE",
             )
             .execute()
@@ -91,6 +106,30 @@ class GoogleSheetsClient:
         self._values().batchUpdate(
             spreadsheetId=self._spreadsheet_id,
             body={"valueInputOption": "USER_ENTERED", "data": data},
+        ).execute()
+
+        self._sort_by_full_date_descending(through_row=end_row)
+
+    def _sort_by_full_date_descending(self, through_row: int) -> None:
+        self._service.spreadsheets().batchUpdate(
+            spreadsheetId=self._spreadsheet_id,
+            body={
+                "requests": [
+                    {
+                        "sortRange": {
+                            "range": {
+                                "sheetId": TRANSACTION_LOG_SHEET_ID,
+                                "startRowIndex": DATA_START_ROW - 1,
+                                "endRowIndex": through_row,
+                                **SORT_COLUMN_RANGE,
+                            },
+                            "sortSpecs": [
+                                {"dimensionIndex": FULL_DATE_COLUMN_INDEX, "sortOrder": "DESCENDING"}
+                            ],
+                        }
+                    }
+                ]
+            },
         ).execute()
 
     def _next_empty_row(self) -> int:
