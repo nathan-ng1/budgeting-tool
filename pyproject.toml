@@ -5,6 +5,9 @@ requires-python = ">=3.12"
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+# mcp-google-sheets 0.6.3 declares `mcp>=1.8.0` with no upper bound, but breaks
+# against the real mcp 2.0.0 (mcp.server.fastmcp was restructured away) — pin below 2.0.
+mcp = ["mcp-google-sheets==0.6.3", "mcp<2.0.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

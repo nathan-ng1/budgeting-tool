@@ -1,3 +1,6 @@
+#Environments
+env/
+.env
 # Real transaction data — never commit actual financial data
 .data/
 
@@ -9,6 +12,7 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+*.egg-info/
 
 # Editor/OS
 .vscode/
