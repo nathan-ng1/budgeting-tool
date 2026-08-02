@@ -31,6 +31,23 @@ def test_candidate_matching_existing_row_on_full_date_amount_and_notes_is_skippe
     assert result.skipped == [candidate]
 
 
+def test_candidate_still_carrying_the_source_transactions_negative_sign_dedupes_against_the_positive_logged_amount(
+    make_candidate, make_existing_row, fake_sheets_client
+):
+    # A raw Statement Export Transaction is negative-signed for spend; the
+    # writer normalises to positive only when it writes (see sheets_client),
+    # so a not-yet-normalised Candidate must still dedupe correctly.
+    candidate = make_candidate(notes="Woolworths", amount=-42.50)
+    client = fake_sheets_client(
+        existing_rows=[make_existing_row(notes="Woolworths", amount=42.50)]
+    )
+
+    result = resolve_writes([candidate], existing_rows=client.read_existing_rows())
+
+    assert result.to_write == []
+    assert result.skipped == [candidate]
+
+
 def test_near_miss_on_amount_or_date_is_written_not_skipped(
     make_candidate, make_existing_row, fake_sheets_client
 ):

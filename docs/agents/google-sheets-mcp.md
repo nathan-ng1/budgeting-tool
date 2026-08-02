@@ -54,24 +54,58 @@ executable:
 
 ## Transaction Log column layout (as built, not as documented in CONTEXT.md)
 
-The sheet uses **merged header cells one column left of the data cell** — e.g. the "Month"
-label sits in column B, but the value goes in column C. Verified empirically via
-`get_sheet_formulas`:
+Month, Amount, Category and Sub-category each have a **wide merged header label one column
+left of the data cell** (verified via the sheet's `merges` metadata — e.g. the "Month" label
+is merged across B:C, but the value goes in C). Day, Full date and Notes have **no header
+merge** — their label sits directly in their own single value column, same as Day/Full date.
 
 | Field | Column | Notes |
 |---|---|---|
-| Month | C | free text, e.g. `"January"` |
-| Day | D | number, 1–31 |
-| Full date | E | formula, derived from C+D — never write directly |
-| (year helper) | F | formula, derived from G being blank/filled — never write directly |
-| Amount | G | positive number, 2dp |
-| Category | J | must match Setup sheet's dropdown list |
-| Sub-category | L | must match Setup sheet's dropdown list |
-| Notes | N | free text |
+| Month | C | free text, e.g. `"January"` — label merged B:C |
+| Day | D | number, 1–31 — unmerged, label and value share the column |
+| Full date | E | formula, derived from C+D — never write directly; unmerged |
+| (currency helper) | F | formula, shows "$" once Amount is filled — never write directly |
+| Amount | G | positive number, 2dp — label merged F:H |
+| Category | J | must match Setup sheet's dropdown list — label merged I:J |
+| Sub-category | L | must match Setup sheet's dropdown list — label merged K:L |
+| Notes | M | free text — unmerged, label and value share the column |
 
-This was found to differ from `CONTEXT.md`'s Transaction Log definition at the time (it listed
-Sub-Category as column K and Notes as column L) and has since been corrected there to match the
-verified layout above.
+Column N is unused (blank).
+
+This was corrected twice now: `CONTEXT.md` originally listed Sub-Category as K and Notes as L;
+that was fixed to L/N based on the merge pattern holding for every field. It doesn't — Notes'
+header isn't merged like Month/Amount/Category/Sub-category are, so there's no offset for it,
+and the real column is M. Confirmed against the live sheet after a real write landed Notes in N
+by mistake. If another field's column is ever in doubt, check the sheet's `merges` metadata
+(which fields actually have a merged label) rather than assuming every field follows the same
+one-column offset.
+
+## Data validation does not follow a sort
+
+Sub-category (L)'s dropdown is a per-row `ONE_OF_RANGE` validation rule pointing at that row's
+own `U:AN` (a `FILTER`/`TRANSPOSE` formula in U, keyed off Category, that spills the row's valid
+Sub-categories rightward through AN) — e.g. row 9's rule criteria is `='Transaction Log'!U9:AN9`.
+
+Regular formulas in a sorted row get their relative references reflowed to the row's new
+position — confirmed true for the helper formulas in columns T/U, which is why the dropdown's
+*source list* stays correct after a sort. But the row number baked into a data validation rule's
+`ONE_OF_RANGE` range string is **not** reflowed the same way: the rule moves with its row, but
+the literal range inside it stays frozen to whatever row it was originally written for. After a
+sort, a row's validation can end up pointing at a completely different row's list (e.g. L11
+pointing at `U146:AN146`).
+
+Category (J) is unaffected — its validation is `ONE_OF_LIST` with a fixed literal list, identical
+for every row, so there's nothing for a sort to misalign.
+
+This means any code that sorts the Transaction Log must also rebuild column L's per-row
+`ONE_OF_RANGE` validation afterwards for every row in the sorted range (not just newly written
+ones — existing rows get reshuffled too). `GoogleSheetsClient._sort_and_realign_validation` in
+`src/transaction_log/sheets_client.py` does this in the same `batchUpdate` call as the sort
+itself (requests apply in order, so the rebuild lands on the post-sort row positions).
+
+Diagnosed via `get_sheet_data(..., include_grid_data=True)`, which — unlike `get_sheet_formulas`
+— includes each cell's `dataValidation` metadata. If a dropdown/validation mismatch shows up
+again, that's the tool to reach for.
 
 ## API usage vs. free-tier quotas
 

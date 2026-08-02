@@ -44,4 +44,7 @@ def _as_candidates(occurrences: list[Occurrence]) -> list[Candidate]:
 
 
 def _key(entry: Candidate | ExistingRow) -> tuple:
-    return (entry.date, round(entry.amount, 2), entry.notes)
+    # Candidate.amount may still carry the source Statement Export's sign;
+    # ExistingRow.amount is always positive (what's actually in the log) — so
+    # dedupe on magnitude, matching how the writer normalises on write.
+    return (entry.date, round(abs(entry.amount), 2), entry.notes)
