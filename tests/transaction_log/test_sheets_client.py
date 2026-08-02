@@ -177,28 +177,66 @@ def test_append_rows_sorts_the_whole_data_body_by_full_date_descending(make_clie
 
     client.append_rows(candidates)
 
-    assert service.spreadsheet_batch_update_calls == [
-        {
-            "spreadsheetId": SPREADSHEET_ID,
-            "body": {
-                "requests": [
-                    {
-                        "sortRange": {
-                            "range": {
-                                "sheetId": TRANSACTION_LOG_SHEET_ID,
-                                "startRowIndex": DATA_START_ROW - 1,
-                                "endRowIndex": 12,
-                                **SORT_COLUMN_RANGE,
-                            },
-                            "sortSpecs": [
-                                {"dimensionIndex": FULL_DATE_COLUMN_INDEX, "sortOrder": "DESCENDING"}
-                            ],
-                        }
-                    }
-                ]
+    assert len(service.spreadsheet_batch_update_calls) == 1
+    call = service.spreadsheet_batch_update_calls[0]
+    assert call["spreadsheetId"] == SPREADSHEET_ID
+    requests = call["body"]["requests"]
+    assert requests[0] == {
+        "sortRange": {
+            "range": {
+                "sheetId": TRANSACTION_LOG_SHEET_ID,
+                "startRowIndex": DATA_START_ROW - 1,
+                "endRowIndex": 12,
+                **SORT_COLUMN_RANGE,
             },
+            "sortSpecs": [
+                {"dimensionIndex": FULL_DATE_COLUMN_INDEX, "sortOrder": "DESCENDING"}
+            ],
         }
-    ]
+    }
+
+
+def test_append_rows_realigns_sub_category_validation_for_every_row_after_sorting(
+    make_client, make_candidate
+):
+    # The Sub-category dropdown's ONE_OF_RANGE criteria bakes in a literal row
+    # number and does not get reflowed by a sort the way a formula would — so
+    # every row in the sorted body (not just the newly appended ones) needs
+    # its rule rebuilt against its own row.
+    client, service = make_client(
+        {f"{SHEET_NAME}!C8:C": {"values": [["May"], ["June"], ["July"]]}}
+    )
+    candidates = [make_candidate(), make_candidate()]
+
+    client.append_rows(candidates)
+
+    requests = service.spreadsheet_batch_update_calls[0]["body"]["requests"]
+    validation_requests = requests[1:]
+    assert [r["setDataValidation"]["range"]["startRowIndex"] for r in validation_requests] == list(
+        range(DATA_START_ROW - 1, 12)
+    )
+    for row, request in zip(range(DATA_START_ROW, 13), validation_requests):
+        assert request == {
+            "setDataValidation": {
+                "range": {
+                    "sheetId": TRANSACTION_LOG_SHEET_ID,
+                    "startRowIndex": row - 1,
+                    "endRowIndex": row,
+                    "startColumnIndex": 11,
+                    "endColumnIndex": 12,
+                },
+                "rule": {
+                    "condition": {
+                        "type": "ONE_OF_RANGE",
+                        "values": [
+                            {"userEnteredValue": f"='{SHEET_NAME}'!U{row}:AN{row}"}
+                        ],
+                    },
+                    "strict": True,
+                    "showCustomUi": True,
+                },
+            }
+        }
 
 
 def test_append_rows_with_no_candidates_does_not_sort(make_client):
