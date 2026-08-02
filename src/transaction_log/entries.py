@@ -12,7 +12,7 @@ class Candidate:
 
 
 @dataclass(frozen=True)
-class LoggedTransaction:
+class ExistingRow:
     date: date
     amount: float
     notes: str

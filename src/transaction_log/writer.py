@@ -2,12 +2,12 @@ from datetime import date
 
 from recurring.rules import Occurrence, RecurringRule
 from recurring.schedule import expand
-from transaction_log.entries import Candidate, LoggedTransaction, WriteResult
+from transaction_log.entries import Candidate, ExistingRow, WriteResult
 
 
 def resolve_writes(
     candidates: list[Candidate],
-    existing_rows: list[LoggedTransaction],
+    existing_rows: list[ExistingRow],
     recurring_rules: list[RecurringRule] | None = None,
     through: date | None = None,
 ) -> WriteResult:
@@ -43,5 +43,5 @@ def _as_candidates(occurrences: list[Occurrence]) -> list[Candidate]:
     ]
 
 
-def _key(entry: Candidate | LoggedTransaction) -> tuple:
+def _key(entry: Candidate | ExistingRow) -> tuple:
     return (entry.date, round(entry.amount, 2), entry.notes)
