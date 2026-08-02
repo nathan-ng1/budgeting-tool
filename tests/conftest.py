@@ -8,15 +8,20 @@ from transaction_log.entries import Candidate, ExistingRow
 class FakeSheetsClient:
     """In-memory stand-in for the Transaction Log's Google Sheets client.
 
-    Issue #5 requires no live Sheets access; this is what tests read existing
-    Transaction Log rows from instead. Issue #6 swaps in the real client.
+    Used wherever a test needs Transaction Log reads/writes without live
+    Sheets access — GoogleSheetsClient (transaction_log.sheets_client) is the
+    real counterpart.
     """
 
     def __init__(self, existing_rows: list[ExistingRow] | None = None):
         self._existing_rows = list(existing_rows or [])
+        self.appended: list[Candidate] = []
 
     def read_existing_rows(self) -> list[ExistingRow]:
         return list(self._existing_rows)
+
+    def append_rows(self, candidates: list[Candidate]) -> None:
+        self.appended.extend(candidates)
 
 
 @pytest.fixture
