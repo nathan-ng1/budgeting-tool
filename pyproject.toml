@@ -2,12 +2,19 @@
 name = "budgeting-tool"
 version = "0.1.0"
 requires-python = ">=3.12"
+dependencies = [
+    "openpyxl>=3.1",
+    "google-api-python-client>=2",
+    "google-auth>=2",
+]
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
 # mcp-google-sheets 0.6.3 declares `mcp>=1.8.0` with no upper bound, but breaks
 # against the real mcp 2.0.0 (mcp.server.fastmcp was restructured away) — pin below 2.0.
 mcp = ["mcp-google-sheets==0.6.3", "mcp<2.0.0"]
+
+[dependency-groups]
+dev = ["pytest>=8"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
