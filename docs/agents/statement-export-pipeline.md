@@ -10,7 +10,7 @@ Review, Recurring Transaction, etc).
    Transactions Inbox (`D:\natha\Documents\Transactions`) — Claude never reads this location
    directly (see [ADR-0001](../adr/0001-sanitising-happens-outside-claudes-read-access.md)).
    Name it `{Issuer}_{yyyymmdd}.csv` (e.g. `ANZ_20260830.csv`) — the issuer prefix must match
-   a handler registered in `src/sanitising/sanitise.py` (currently `ANZ` and `Beem`). A Beem
+   a handler registered in `src/sanitising/sanitise.py` (currently `ANZ`, `Beem`, and `NAB`). A Beem
    Report (see `CONTEXT.md`) follows the same naming convention (e.g. `Beem_20260830.csv`) and
    can sit in the Inbox alongside a card export — both are sanitised and processed in the same
    run.

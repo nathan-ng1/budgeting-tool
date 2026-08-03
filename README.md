@@ -104,7 +104,7 @@ $env:BEEM_USERNAME = "your_beem_username"
    Claude never reads it directly; see
    [ADR-0001](docs/adr/0001-sanitising-happens-outside-claudes-read-access.md)). Name it
    `{Issuer}_{yyyymmdd}.csv` (e.g. `ANZ_20260830.csv`) — the issuer prefix must match a handler
-   registered in `src/sanitising/sanitise.py` (currently `ANZ` and `Beem`).
+   registered in `src/sanitising/sanitise.py` (currently `ANZ`, `Beem`, and `NAB`).
 
 2. **Sanitise it yourself** (not via Claude):
 

@@ -21,7 +21,7 @@ Any Transaction with a positive Amount (a credit to the card — a bill payment 
 _Avoid_: Credit, income
 
 **Sanitising**:
-An issuer-specific step that strips personal information from a Statement Export before it's processed further. Runs as a Python script, never as something Claude does directly — see [ADR-0001](./docs/adr/0001-sanitising-happens-outside-claudes-read-access.md). For ANZ, sanitising is a no-op: ANZ exports contain no personal identifiers (no name, account number, or card number).
+An issuer-specific step that strips personal information from a Statement Export before it's processed further. Runs as a Python script, never as something Claude does directly — see [ADR-0001](./docs/adr/0001-sanitising-happens-outside-claudes-read-access.md). For ANZ, sanitising is a no-op: ANZ exports contain no personal identifiers (no name, account number, or card number). For NAB, sanitising drops the Account Number, Balance, and NAB's own Category columns, and collapses Merchant Name/Transaction Details into a single Notes field (falling back to Transaction Details when Merchant Name is blank) — the raw NAB export is not itself in the 3-column Statement Export shape.
 _Avoid_: Cleaning, scrubbing
 
 **Category**:
@@ -30,7 +30,7 @@ _Avoid_: Type, group
 
 **Sub-category**:
 The finer-grained budget label under a Category. Each Sub-category has one fixed Category — never determined per-Transaction:
-- **Bills & Subscriptions**: Donations & Giving, Subscriptions, Insurance & Bills
+- **Bills & Subscriptions**: Donations & Giving, Subscriptions, Insurance & Bills, Rental Expense
 - **Expenses**: Groceries, Dining & Takeaway, Transport, Shopping & Retail, Holidays & Travel, Entertainment & Leisure, Health & Medical
 - **Income**: Salary, Rental, Beem Adjustment
 - **Debt**: Mortgage Repayment

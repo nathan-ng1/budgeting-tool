@@ -1,5 +1,10 @@
 SUB_CATEGORIES_BY_CATEGORY = {
-    "Bills & Subscriptions": {"Donations & Giving", "Subscriptions", "Insurance & Bills"},
+    "Bills & Subscriptions": {
+        "Donations & Giving",
+        "Subscriptions",
+        "Insurance & Bills",
+        "Rental Expense",
+    },
     "Expenses": {
         "Groceries",
         "Dining & Takeaway",

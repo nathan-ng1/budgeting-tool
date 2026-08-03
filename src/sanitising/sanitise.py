@@ -1,8 +1,22 @@
 import os
+from datetime import datetime
 
 
 def _sanitise_anz(raw_rows: list[list[str]]) -> list[list[str]]:
     return list(raw_rows)
+
+
+def _sanitise_nab(raw_rows: list[list[str]]) -> list[list[str]]:
+    header, *rows = raw_rows
+    col = {name: index for index, name in enumerate(header)}
+
+    sanitised = []
+    for row in rows:
+        date = datetime.strptime(row[col["Date"]], "%d-%b-%y")
+        amount = str(float(row[col["Amount"]]))
+        notes = row[col["Merchant Name"]] or row[col["Transaction Details"]]
+        sanitised.append([date.strftime("%d/%m/%Y"), amount, notes])
+    return sanitised
 
 
 def _sanitise_beem(raw_rows: list[list[str]]) -> list[list[str]]:
@@ -27,6 +41,7 @@ def _sanitise_beem(raw_rows: list[list[str]]) -> list[list[str]]:
 ISSUER_HANDLERS = {
     "ANZ": _sanitise_anz,
     "Beem": _sanitise_beem,
+    "NAB": _sanitise_nab,
 }
 
 
