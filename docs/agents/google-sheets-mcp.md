@@ -52,6 +52,12 @@ executable:
   (including the `Full date` formula recomputing correctly from Month/Day), then cleared it back
   to blank and confirmed the row reads as empty again. No residual test data left in the sheet.
 
+## Beem Adjustment Sub-category verified (2026-08-03)
+
+- `Setup!F13` already listed `Beem Adjustment` under the Income column (alongside Salary/Rental in `F11:F12`) — within the `Setup!C11:R30` range the Transaction Log's per-row Sub-category filter formula reads from, so no Setup sheet edit was needed.
+- Wrote `Category: Income, Sub-category: Beem Adjustment` to test row 166 (first blank row past the real data, which ends at row 164) and confirmed the row's resolved dropdown source (`U166:AN166`, driven by `T166` mirroring `J166`) resolved to `Salary, Rental, Beem Adjustment`, with the write persisting without being rejected.
+- Cleared the test row back to blank and confirmed it reads empty again. No residual test data left in the sheet.
+
 ## Transaction Log column layout (as built, not as documented in CONTEXT.md)
 
 Month, Amount, Category and Sub-category each have a **wide merged header label one column
