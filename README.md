@@ -82,8 +82,15 @@ figures.
 ### 5. Set your Beem username (optional, only needed for Beem reports)
 
 The Beem sanitising handler needs to know which side of each row (`Payer`/`Recipient`) is you, so
-it can derive a signed amount. Set it as a real environment variable (not in `.env` — nothing in
-this repo loads one) before running `uv run python -m sanitising` against a Beem export:
+it can derive a signed amount. Add it to a `.env` file in the repo root (gitignored, so it never
+gets committed) — `uv run python -m sanitising` loads it automatically:
+
+```
+BEEM_USERNAME=your_beem_username
+```
+
+Alternatively, set it as a real environment variable in your shell for the session — it takes
+the same effect either way:
 
 ```
 $env:BEEM_USERNAME = "your_beem_username"
@@ -109,10 +116,14 @@ $env:BEEM_USERNAME = "your_beem_username"
    identifiers per-issuer. Anything sitting directly in `.data/` afterwards is outstanding and
    hasn't been written to the Transaction Log yet.
 
-3. **Ask Claude to process it** — e.g. "process the new statement export", in this repo. Claude
-   will parse it, drop Payments & Refunds, categorise every remaining transaction, list anything
-   it's unsure about as Needs Review and wait for your input, then write the deduped result to
-   the live Transaction Log and archive the source file to `.data/processed/`.
+3. **Ask Claude to process it** — e.g. "process the new statement export", in this repo. For a
+   card export, Claude parses it, drops Payments & Refunds, and categorises every remaining
+   transaction. For a Beem Report, incoming rows become deterministic Income/Beem Adjustment
+   entries with no chat step needed, and outgoing rows are categorised from their message
+   against the same fixed Sub-category list. Either way, Claude lists anything it's unsure about
+   as Needs Review and waits for your input, then writes the deduped result to the live
+   Transaction Log and archives the source file to `.data/processed/`. A card export and a Beem
+   Report present together are each processed and archived on their own.
 
 Want a preview before anything is written? Ask Claude to list the categorisation first without
 running the pipeline.
@@ -136,6 +147,7 @@ env/                       Service account key (gitignored)
 .data/                     Sanitised exports awaiting processing; .data/processed/ once written
 src/sanitising/            Sanitising script (run manually)
 src/statement_export/      Statement Export parsing + pipeline wiring
+src/beem/                  Beem Report parsing + deterministic Income categorisation
 src/recurring/             Recurring Transactions Config expansion
 src/transaction_log/       Dedupe + Google Sheets writer
 tests/                     pytest suite

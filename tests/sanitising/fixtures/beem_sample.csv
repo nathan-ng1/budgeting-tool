@@ -1,4 +1,4 @@
-Date,Type,Payer,Recipient,Amount,Reference,Message
-30/07/2026,PAYMENT,nathan_ng,jane_doe,15.50,REF001,mahjong + coke
-28/07/2026,PAYMENT,john_smith,nathan_ng,42.00,REF002,trip repayment
-27/07/2026,TOPUP,nathan_ng,nathan_ng,100.00,REF003,balance top-up
+Date/Time,Type,Reference,Amount,Payer,Recipient,Message
+30/07/2026 10:00,PAYMENT,REF001,$15.50,nathan_ng,jane_doe,mahjong + coke
+28/07/2026 09:00,PAYMENT,REF002,$42.00,john_smith,nathan_ng,trip repayment
+27/07/2026 08:00,TOPUP,REF003,$100.00,nathan_ng,nathan_ng,balance top-up

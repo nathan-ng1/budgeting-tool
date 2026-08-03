@@ -8,11 +8,18 @@ def _sanitise_anz(raw_rows: list[list[str]]) -> list[list[str]]:
 def _sanitise_beem(raw_rows: list[list[str]]) -> list[list[str]]:
     username = os.environ["BEEM_USERNAME"]
 
+    header, *rows = raw_rows
+    col = {name: index for index, name in enumerate(header)}
+
     sanitised = []
-    for date_str, row_type, payer, _recipient, amount, _reference, message in raw_rows[1:]:
-        if row_type != "PAYMENT":
+    for row in rows:
+        if row[col["Type"]] != "PAYMENT":
             continue
-        signed_amount = -float(amount) if payer == username else float(amount)
+        date_str = row[col["Date/Time"]].split(" ")[0]
+        payer = row[col["Payer"]]
+        amount = float(row[col["Amount"]].removeprefix("$"))
+        message = row[col["Message"]]
+        signed_amount = -amount if payer == username else amount
         sanitised.append([date_str, str(signed_amount), message])
     return sanitised
 

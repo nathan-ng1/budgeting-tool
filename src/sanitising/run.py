@@ -21,7 +21,7 @@ def sanitise_inbox(inbox_dir: Path, data_dir: Path) -> list[Path]:
         issuer = match.group("issuer")
 
         raw_bytes = source.read_bytes()
-        raw_rows = list(csv.reader(raw_bytes.decode().splitlines()))
+        raw_rows = list(csv.reader(raw_bytes.decode("utf-8-sig").splitlines()))
 
         sanitised_rows = sanitise(raw_rows, issuer)
 
