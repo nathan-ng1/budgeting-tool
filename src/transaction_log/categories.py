@@ -9,7 +9,7 @@ SUB_CATEGORIES_BY_CATEGORY = {
         "Entertainment & Leisure",
         "Health & Medical",
     },
-    "Income": {"Salary", "Rental"},
+    "Income": {"Salary", "Rental", "Beem Adjustment"},
     "Debt": {"Mortgage Repayment"},
 }
 

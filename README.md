@@ -79,6 +79,16 @@ If you have predictable recurring items (salary, rent, mortgage, subscriptions),
 frequency/interval/day, start/end date). This file is gitignored since it holds real financial
 figures.
 
+### 5. Set your Beem username (optional, only needed for Beem reports)
+
+The Beem sanitising handler needs to know which side of each row (`Payer`/`Recipient`) is you, so
+it can derive a signed amount. Set it as a real environment variable (not in `.env` — nothing in
+this repo loads one) before running `uv run python -m sanitising` against a Beem export:
+
+```
+$env:BEEM_USERNAME = "your_beem_username"
+```
+
 ## Day-to-day usage
 
 ### Processing a new Statement Export
@@ -87,7 +97,7 @@ figures.
    Claude never reads it directly; see
    [ADR-0001](docs/adr/0001-sanitising-happens-outside-claudes-read-access.md)). Name it
    `{Issuer}_{yyyymmdd}.csv` (e.g. `ANZ_20260830.csv`) — the issuer prefix must match a handler
-   registered in `src/sanitising/sanitise.py` (currently just `ANZ`).
+   registered in `src/sanitising/sanitise.py` (currently `ANZ` and `Beem`).
 
 2. **Sanitise it yourself** (not via Claude):
 
