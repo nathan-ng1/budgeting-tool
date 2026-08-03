@@ -1,0 +1,4 @@
+Date,Amount,Account Number,,Transaction Type,Transaction Details,Balance,Category,Merchant Name,Processed On
+27-Jul-26,-29.27,Card ending 0226,,CREDIT CARD PURCHASE,7-ELEVEN 2128 CARLINGFORD,-5719.26,Fuel,7-Eleven (Carlingford),27-Jul-26
+13-Jul-26,494.21,Card ending 0226,,CREDIT CARD PAYMENT,CASH/TRANSFER PAYMENT - THANK YOU,0,Internal transfers,,13-Jul-26
+8-Jul-26,-195,Card ending 0226,,FEES,ANNUAL FEE,-484.16,Fees,,8-Jul-26

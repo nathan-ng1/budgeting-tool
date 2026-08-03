@@ -12,26 +12,30 @@ _Avoid_: Raw CSV, transaction file
 A single row within a Statement Export: a date, a signed amount (negative = spend, positive = payment/credit), and a merchant description.
 _Avoid_: Line, entry, record
 
+**Beem Report**:
+A CSV export from the Beem P2P payment app, dropped into `.data/` following the same `{Issuer}_{yyyymmdd}.csv` naming convention as a Statement Export (e.g. `Beem_20260730.csv`). Distinct from a Statement Export: it has a header row, each row's sign is bidirectional — derived from whether the user was Payer or Recipient, not a fixed sign-per-column convention — and it is Income-eligible: an incoming Beem Transaction is written to the Transaction Log as Income, not dropped the way a Payments & Refunds credit is.
+_Avoid_: Beem export, Beem statement
+
 **Payments & Refunds**:
 Any Transaction with a positive Amount (a credit to the card — a bill payment or a refund). Dropped from processing entirely: never categorised, never written to the Transaction Log. This is a plain sign check with no netting or refund-matching logic — a spend Transaction that was later refunded is still categorised and logged as spending; only its matching positive-Amount credit is dropped.
 _Avoid_: Credit, income
 
 **Sanitising**:
-An issuer-specific step that strips personal information from a Statement Export before it's processed further. Runs as a Python script, never as something Claude does directly — see [ADR-0001](./docs/adr/0001-sanitising-happens-outside-claudes-read-access.md). For ANZ, sanitising is a no-op: ANZ exports contain no personal identifiers (no name, account number, or card number).
+An issuer-specific step that strips personal information from a Statement Export before it's processed further. Runs as a Python script, never as something Claude does directly — see [ADR-0001](./docs/adr/0001-sanitising-happens-outside-claudes-read-access.md). For ANZ, sanitising is a no-op: ANZ exports contain no personal identifiers (no name, account number, or card number). For NAB, sanitising drops the Account Number, Balance, and NAB's own Category columns, and collapses Merchant Name/Transaction Details into a single Notes field (falling back to Transaction Details when Merchant Name is blank) — the raw NAB export is not itself in the 3-column Statement Export shape.
 _Avoid_: Cleaning, scrubbing
 
 **Category**:
-The top-level budget grouping in the Google Sheet: Income, Expenses, Bills & Subscriptions, Savings, Debt, Investments. Credit card Transactions (from a Statement Export) only ever land in **Expenses** or **Bills & Subscriptions**; the other four Categories are populated exclusively by Recurring Transactions, not Statement Export processing.
+The top-level budget grouping in the Google Sheet: Income, Expenses, Bills & Subscriptions, Savings, Debt, Investments. Credit card Transactions (from a Statement Export) only ever land in **Expenses** or **Bills & Subscriptions**; the other four Categories are populated exclusively by Recurring Transactions, not Statement Export processing — except Income, which incoming Beem Report Transactions also populate, via the Beem Adjustment Sub-category.
 _Avoid_: Type, group
 
 **Sub-category**:
 The finer-grained budget label under a Category. Each Sub-category has one fixed Category — never determined per-Transaction:
-- **Bills & Subscriptions**: Donations & Giving, Subscriptions, Insurance & Bills
+- **Bills & Subscriptions**: Donations & Giving, Subscriptions, Insurance & Bills, Rental Expense
 - **Expenses**: Groceries, Dining & Takeaway, Transport, Shopping & Retail, Holidays & Travel, Entertainment & Leisure, Health & Medical
-- **Income**: Salary, Rental
+- **Income**: Salary, Rental, Beem Adjustment
 - **Debt**: Mortgage Repayment
 
-Every categorised Transaction gets exactly one Sub-category, which determines its Category. Sub-categories for Income/Debt/Savings/Investments only need to exist for what's actually configured in the Recurring Transactions Config — built from real cases, not speculatively.
+Every categorised Transaction gets exactly one Sub-category, which determines its Category. Sub-categories for Income/Debt/Savings/Investments only need to exist for what's actually configured in the Recurring Transactions Config or, for Income, in Beem Report processing — built from real cases, not speculatively.
 
 **Subscriptions** (sub-category) means the Transaction *itself* is a recurring charge (same merchant, regular cadence — e.g. the Anthropic Claude charge), not "sold by a platform that also offers subscriptions." A one-off purchase from a subscription-style platform (e.g. a single Steam game purchase) goes by what was bought, landing in Entertainment & Leisure instead.
 _Avoid_: Label, tag, Bill (a Bill is a Transaction whose Sub-category maps to Bills & Subscriptions, not a category name itself)

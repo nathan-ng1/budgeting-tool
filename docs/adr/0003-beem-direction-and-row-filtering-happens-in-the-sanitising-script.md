@@ -1,0 +1,5 @@
+# Beem direction derivation and row-type filtering happen in the sanitising script, not Claude's judgement
+
+A Beem Report's rows are bidirectional — the signed amount for each Transaction depends on whether the user was the `Payer` or `Recipient` — and mix `PAYMENT` rows with other row types (balance top-ups, withdrawals) that must never reach the Transaction Log. The sanitising script — not Claude — resolves both: it derives the sign by comparing `Payer`/`Recipient` against the user's own Beem username, and it keeps only `Type == PAYMENT` rows, silently dropping everything else.
+
+We considered letting Claude read the raw Payer/Recipient/Type columns and work out direction and filtering itself. We rejected it for the same reason as [ADR-0001](./0001-sanitising-happens-outside-claudes-read-access.md) and [ADR-0002](./0002-recurring-schedule-expansion-happens-in-a-script.md): this is a deterministic lookup that must be exactly right on every run, not a judgement call, and doing it in the script also means the raw Payer/Recipient usernames never need to reach Claude's context at all.
