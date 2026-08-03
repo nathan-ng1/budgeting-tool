@@ -31,6 +31,14 @@ executable:
 - `DRIVE_FOLDER_ID` — scopes `list_spreadsheets`/`search_spreadsheets` to the Drive folder
   containing the budget spreadsheet, so the tool doesn't enumerate unrelated Drive content.
 
+The deterministic write path (`transaction_log.sheets_client.connect`, used by
+`statement_export.pipeline.run`) is a separate connection from this MCP server — it talks to the
+Sheets API directly rather than through MCP tools. It reads `SERVICE_ACCOUNT_PATH` and
+`SPREADSHEET_ID` from the environment, loaded from the repo-root `.env` (see `.env.example`) if
+not already set in the shell. `SPREADSHEET_ID` is the budget spreadsheet's ID from its Google
+Sheets URL (`.../spreadsheets/d/<SPREADSHEET_ID>/edit`) — it's what used to be a hardcoded
+constant in `sheets_client.py` before both these connections were made configurable per-person.
+
 ## Reproducing / refreshing credentials
 
 1. In Google Cloud Console, create (or reuse) a service account on the project backing this

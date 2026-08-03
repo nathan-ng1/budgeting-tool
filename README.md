@@ -20,13 +20,51 @@ Transaction Log, Needs Review, Recurring Transaction, etc).
 
 There is no dry-run mode — writes land in your real spreadsheet.
 
+## Prerequisites
+
+- **Windows** — the day-to-day flow uses a `.bat` script and Windows-style paths by convention.
+  It should work on macOS/Linux with small tweaks (a shell script instead of `.bat`,
+  forward-slash paths in your `.env`), but that's untested.
+- **[Claude Code](https://docs.claude.com/en/docs/claude-code)**, installed and logged in.
+  **A Claude Pro/Max subscription is not required** — Claude Code also works with pay-as-you-go
+  API billing through the [Anthropic Console](https://console.anthropic.com/), which is enough
+  to drive this pipeline. A subscription is generally cheaper if you use Claude a lot elsewhere
+  too, but isn't a requirement just for this.
+- **[`uv`](https://docs.astral.sh/uv/)** and **Python 3.12+**.
+- **Git**, to clone this repo.
+- A **Google account** with access to Google Cloud Console, to create the service account used
+  for Sheets/Drive access (step 2 below).
+- Your **own budget spreadsheet** in Google Sheets with a Transaction Log tab matching the column
+  layout in `docs/agents/google-sheets-mcp.md` — this repo doesn't include or provision one.
+- Optional: **[GitHub CLI (`gh`)](https://cli.github.com/)**, only needed if you also want
+  Claude's issue-tracker agent skill (`docs/agents/issue-tracker.md`) to file/read GitHub issues
+  against your own fork/clone.
+
+## Setting this up for someone else
+
+Nothing personal is hardcoded in source — every per-person setting (`TRANSACTIONS_INBOX`,
+`SERVICE_ACCOUNT_PATH`, `SPREADSHEET_ID`, `BEEM_USERNAME`) lives in a gitignored `.env`, copied
+from `.env.example` (step 3 below). To hand this repo to someone else:
+
+1. They clone the repo and copy their own `.env` from `.env.example` — nothing from your `.env`,
+   `env/` (service account key), or `config/recurring-transactions.xlsx` should be shared, since
+   those hold real financial figures/identifiers and are all gitignored for that reason.
+2. **Spreadsheet + service account are per-user** — the Google Sheets MCP connection is scoped
+   to a Drive folder (`DRIVE_FOLDER_ID`) expected to contain exactly one spreadsheet. Each person
+   needs their own budget spreadsheet, in its own Drive folder, shared to their own Google Cloud
+   service account.
+3. Otherwise, they run through "One-time setup" below as-is, using their own Google Cloud
+   project, service account key, spreadsheet, and MCP registration.
+
 ## One-time setup
 
-### 1. Install dependencies
+### 1. Clone the repo and install dependencies
 
 This project uses [`uv`](https://docs.astral.sh/uv/) and Python 3.12+.
 
 ```
+git clone <this-repo-url>
+cd budgeting-tool
 uv sync --extra mcp
 ```
 
@@ -43,7 +81,28 @@ OAuth login.
    email address, giving it **Editor** access — the same way you'd share it with any other
    Google account.
 
-### 3. Register the Google Sheets MCP server
+### 3. Configure your `.env` file
+
+Every per-person setting — none of them are hardcoded in source — is read from environment
+variables, loaded from a `.env` file in the repo root (gitignored, so it never gets committed).
+Copy the template and fill it in:
+
+```
+cp .env.example .env
+```
+
+| Variable | Required | Meaning |
+|---|---|---|
+| `TRANSACTIONS_INBOX` | yes | Absolute path to the folder outside this repo where you download raw Statement Exports. Read by `uv run python -m sanitising`. |
+| `SERVICE_ACCOUNT_PATH` | yes | Path to the service account key JSON from step 2. Read by the write path (`transaction_log.sheets_client.connect`) — also set separately as `SERVICE_ACCOUNT_PATH` in the MCP server's own registration in step 4, since MCP config doesn't read this file. |
+| `SPREADSHEET_ID` | yes | Your budget spreadsheet's ID, from its Google Sheets URL (`.../spreadsheets/d/<SPREADSHEET_ID>/edit`). Read by the write path when it connects. |
+| `BEEM_USERNAME` | only for Beem reports | Which side of each row (`Payer`/`Recipient`) is you, so the Beem sanitising handler can derive a signed amount. |
+
+Any of these also work as a real environment variable set in your shell for the session (e.g.
+`$env:BEEM_USERNAME = "your_beem_username"` in PowerShell) — `.env` just saves you from setting
+them every session.
+
+### 4. Register the Google Sheets MCP server
 
 Add an MCP server entry (e.g. via `claude mcp add`, project-scoped) pointing at the
 venv-installed executable:
@@ -64,7 +123,8 @@ venv-installed executable:
 }
 ```
 
-- `SERVICE_ACCOUNT_PATH` — path to the key file from step 2.
+- `SERVICE_ACCOUNT_PATH` — path to the key file from step 2 (same value as your `.env`, but this
+  MCP registration is a separate config that doesn't read `.env`).
 - `DRIVE_FOLDER_ID` — the Drive folder ID containing your budget spreadsheet (from its folder's
   URL), so the MCP server's listing tools don't enumerate unrelated Drive content.
 
@@ -72,29 +132,12 @@ Verify the connection by asking Claude to call `list_spreadsheets` — it should
 your budget spreadsheet. Full details, including the verified Transaction Log column layout, are
 in `docs/agents/google-sheets-mcp.md`.
 
-### 4. Set up the recurring transactions config (optional)
+### 5. Set up the recurring transactions config (optional)
 
 If you have predictable recurring items (salary, rent, mortgage, subscriptions), fill out
 `config/recurring-transactions.xlsx` — one row per rule (amount, category, sub-category, notes,
 frequency/interval/day, start/end date). This file is gitignored since it holds real financial
 figures.
-
-### 5. Set your Beem username (optional, only needed for Beem reports)
-
-The Beem sanitising handler needs to know which side of each row (`Payer`/`Recipient`) is you, so
-it can derive a signed amount. Add it to a `.env` file in the repo root (gitignored, so it never
-gets committed) — `uv run python -m sanitising` loads it automatically:
-
-```
-BEEM_USERNAME=your_beem_username
-```
-
-Alternatively, set it as a real environment variable in your shell for the session — it takes
-the same effect either way:
-
-```
-$env:BEEM_USERNAME = "your_beem_username"
-```
 
 ## Day-to-day usage
 
@@ -142,6 +185,7 @@ Full walkthrough: `docs/agents/statement-export-pipeline.md`.
 CONTEXT.md                 Domain glossary
 docs/adr/                  Architecture decisions
 docs/agents/                Agent-facing runbooks (issue tracker, MCP, pipeline)
+.env.example               Template for your .env (TRANSACTIONS_INBOX, SPREADSHEET_ID, etc.)
 config/recurring-transactions.xlsx   Recurring items config (gitignored)
 env/                       Service account key (gitignored)
 .data/                     Sanitised exports awaiting processing; .data/processed/ once written

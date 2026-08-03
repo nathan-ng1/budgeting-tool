@@ -13,11 +13,13 @@ def test_main_reads_beem_username_from_dotenv_file(monkeypatch, tmp_path: Path):
     inbox = tmp_path / "inbox"
     inbox.mkdir()
     data_dir = tmp_path / "data"
-    (tmp_path / ".env").write_text("BEEM_USERNAME=nathan_ng\n")
+    (tmp_path / ".env").write_text(
+        f"BEEM_USERNAME=nathan_ng\nTRANSACTIONS_INBOX={inbox}\n"
+    )
     (inbox / "Beem_20260730.csv").write_text(BEEM_FIXTURE)
 
     monkeypatch.delenv("BEEM_USERNAME", raising=False)
-    monkeypatch.setattr(sanitising_main, "TRANSACTIONS_INBOX", inbox)
+    monkeypatch.delenv("TRANSACTIONS_INBOX", raising=False)
     monkeypatch.setattr(sanitising_main, "DATA_DIR", data_dir)
     monkeypatch.setattr(sanitising_main, "REPO_ROOT", tmp_path)
 
@@ -30,5 +32,6 @@ def test_main_reads_beem_username_from_dotenv_file(monkeypatch, tmp_path: Path):
     finally:
         # load_dotenv() writes straight to os.environ, bypassing monkeypatch's
         # tracking, so its own teardown won't undo this — clean up explicitly
-        # or BEEM_USERNAME leaks into the rest of the test session.
+        # or these leak into the rest of the test session.
         monkeypatch.delenv("BEEM_USERNAME", raising=False)
+        monkeypatch.delenv("TRANSACTIONS_INBOX", raising=False)
