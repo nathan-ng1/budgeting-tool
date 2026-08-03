@@ -1,11 +1,10 @@
 import os
 from datetime import date, timedelta
+from pathlib import Path
 
 from transaction_log.entries import Candidate, ExistingRow
 
-# Same spreadsheet the Google Sheets MCP connection was verified against —
-# see docs/agents/google-sheets-mcp.md.
-SPREADSHEET_ID = "1BBvEsmSSUy5Vdv5LyALWnTUSSEeppvaNl09T_DLQFT4"
+REPO_ROOT = Path(__file__).resolve().parents[2]
 SHEET_NAME = "Transaction Log"
 DATA_START_ROW = 8
 SHEETS_EPOCH = date(1899, 12, 30)
@@ -219,15 +218,19 @@ def _from_serial(serial: float) -> date:
     return SHEETS_EPOCH + timedelta(days=int(serial))
 
 
-def connect(spreadsheet_id: str = SPREADSHEET_ID) -> GoogleSheetsClient:
+def connect(spreadsheet_id: str | None = None) -> GoogleSheetsClient:
     """Build a GoogleSheetsClient against the live spreadsheet.
 
-    Uses the same service account credentials as the Google Sheets MCP
-    connection (SERVICE_ACCOUNT_PATH) — see docs/agents/google-sheets-mcp.md.
+    Reads SPREADSHEET_ID and SERVICE_ACCOUNT_PATH from the environment (loaded
+    from a repo-root `.env` if present, same as a real shell env var) — see
+    docs/agents/google-sheets-mcp.md.
     """
+    from dotenv import load_dotenv
     from google.oauth2 import service_account
     from googleapiclient.discovery import build
 
+    load_dotenv(REPO_ROOT / ".env")
+    spreadsheet_id = spreadsheet_id or os.environ["SPREADSHEET_ID"]
     credentials_path = os.environ["SERVICE_ACCOUNT_PATH"]
     credentials = service_account.Credentials.from_service_account_file(
         credentials_path, scopes=["https://www.googleapis.com/auth/spreadsheets"]

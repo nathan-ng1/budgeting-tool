@@ -41,7 +41,7 @@ Every categorised Transaction gets exactly one Sub-category, which determines it
 _Avoid_: Label, tag, Bill (a Bill is a Transaction whose Sub-category maps to Bills & Subscriptions, not a category name itself)
 
 **Transactions Inbox**:
-The external folder (`D:\natha\Documents\Transactions`) where unsanitised Statement Exports are saved directly from a card issuer's site. Claude never reads this location — only the Sanitising script does.
+The external folder (path set via `TRANSACTIONS_INBOX` in `.env`) where unsanitised Statement Exports are saved directly from a card issuer's site. Claude never reads this location — only the Sanitising script does.
 _Avoid_: Raw folder, landing directory, local directory
 
 **Transaction Log**:

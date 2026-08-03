@@ -7,8 +7,8 @@ Review, Recurring Transaction, etc).
 ## When a new export arrives
 
 1. **Download** the export from your card issuer's online banking, unchanged, into the
-   Transactions Inbox (`D:\natha\Documents\Transactions`) — Claude never reads this location
-   directly (see [ADR-0001](../adr/0001-sanitising-happens-outside-claudes-read-access.md)).
+   Transactions Inbox (path set via `TRANSACTIONS_INBOX` in `.env`) — Claude never reads this
+   location directly (see [ADR-0001](../adr/0001-sanitising-happens-outside-claudes-read-access.md)).
    Name it `{Issuer}_{yyyymmdd}.csv` (e.g. `ANZ_20260830.csv`) — the issuer prefix must match
    a handler registered in `src/sanitising/sanitise.py` (currently `ANZ`, `Beem`, and `NAB`). A Beem
    Report (see `CONTEXT.md`) follows the same naming convention (e.g. `Beem_20260830.csv`) and
