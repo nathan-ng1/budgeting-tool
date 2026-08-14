@@ -4,6 +4,32 @@ from categorisation.interface import BatchResult, CategoryResult, MalformedRespo
 from statement_export.parser import RawTransaction
 from transaction_log.categories import is_valid_category_pair
 
+# The structured-output contract every backend requests (schema-constrained where the backend
+# supports it - claude_backend's --json-schema, openai_compatible_backend's response_format) and
+# every backend's response is validated against via parse_batch_response below, regardless of
+# whether the backend itself enforced it.
+RESULTS_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "results": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "category": {"type": "string"},
+                    "sub_category": {"type": "string"},
+                    "needs_review": {"type": "boolean"},
+                    "reason": {"type": ["string", "null"]},
+                },
+                "required": ["category", "sub_category", "needs_review", "reason"],
+                "additionalProperties": False,
+            },
+        }
+    },
+    "required": ["results"],
+    "additionalProperties": False,
+}
+
 RESPONSE_INSTRUCTIONS = """Respond with a single JSON object only - no prose, no markdown code \
 fences - of exactly this shape:
 

@@ -50,6 +50,17 @@ def test_posts_to_chat_completions_under_the_configured_base_url():
     assert body["model"] == "llama3"
 
 
+def test_requests_schema_constrained_output():
+    transport = FakeTransport(chat_completion_response(batch_json()))
+    categoriser = OpenAICompatibleCategoriser(base_url="http://x", api_key="key", model="m", post=transport)
+
+    categoriser.categorise([make_transaction()], CATEGORY_LIST)
+
+    [(_, _, body)] = transport.calls
+    assert body["response_format"]["type"] == "json_schema"
+    assert body["response_format"]["json_schema"]["schema"]["required"] == ["results"]
+
+
 def test_trailing_slash_on_base_url_does_not_double_up():
     transport = FakeTransport(chat_completion_response(batch_json()))
     categoriser = OpenAICompatibleCategoriser(

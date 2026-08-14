@@ -1,13 +1,9 @@
-import os
 import subprocess
-from pathlib import Path
 from typing import Callable
 
 from categorisation.interface import BatchResult
 from categorisation.prompt import build_prompt, parse_batch_response
 from statement_export.parser import RawTransaction
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _run_subprocess(args: list[str]) -> str:
@@ -28,23 +24,15 @@ class CodexCategoriser:
     exec` before relying on it, per docs/agents/statement-export-pipeline.md.
     """
 
-    def __init__(self, run_process: Callable[[list[str]], str] = _run_subprocess, model: str | None = None):
+    def __init__(self, run_process: Callable[[list[str]], str] = _run_subprocess):
         self._run_process = run_process
-        self._model = model
 
     def categorise(self, transactions: list[RawTransaction], category_list: dict[str, set[str]]) -> BatchResult:
         prompt = build_prompt(transactions, category_list)
-        args = ["codex", "exec", prompt]
-        if self._model:
-            args += ["--model", self._model]
-
-        stdout = self._run_process(args)
+        stdout = self._run_process(["codex", "exec", prompt])
         return parse_batch_response(stdout, expected_count=len(transactions))
 
 
-def connect(model: str | None = None) -> CodexCategoriser:
+def connect() -> CodexCategoriser:
     """Build a CodexCategoriser using the `codex` CLI already on PATH."""
-    from dotenv import load_dotenv
-
-    load_dotenv(REPO_ROOT / ".env")
-    return CodexCategoriser(model=model or os.environ.get("CODEX_CATEGORISER_MODEL"))
+    return CodexCategoriser()

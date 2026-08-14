@@ -4,12 +4,11 @@ from pathlib import Path
 from typing import Callable
 
 from categorisation.interface import Categoriser, MalformedResponseError
-from recurring.config import parse_config
+from statement_export import pipeline
 from statement_export.parser import RawTransaction
 from statement_export.pipeline import Archive
 from transaction_log.categories import SUB_CATEGORIES_BY_CATEGORY
 from transaction_log.entries import Candidate, WriteResult
-from transaction_log.writer import resolve_writes
 
 NeedsReviewResolver = Callable[[RawTransaction, str | None], tuple[str, str]]
 
@@ -36,24 +35,14 @@ def run(
     if abort_reason is not None:
         return OrchestrationResult(write_result=None, aborted=True, reason=abort_reason)
 
-    recurring_rules = parse_config(recurring_config_path)
-    existing_rows = client.read_existing_rows()
-    result = resolve_writes(
+    result = pipeline.run(
         candidates=deterministic_candidates + categorised,
-        existing_rows=existing_rows,
-        recurring_rules=recurring_rules,
+        client=client,
+        recurring_config_path=recurring_config_path,
         through=through,
+        archive=archive,
+        dry_run=dry_run,
     )
-
-    if dry_run:
-        return OrchestrationResult(write_result=result, aborted=False)
-
-    client.append_rows(result.to_write)
-
-    if archive is not None:
-        archive.processed_dir.mkdir(parents=True, exist_ok=True)
-        archive.source_path.rename(archive.processed_dir / archive.source_path.name)
-
     return OrchestrationResult(write_result=result, aborted=False)
 
 

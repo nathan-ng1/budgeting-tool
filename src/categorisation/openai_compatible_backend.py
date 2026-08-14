@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Callable
 
 from categorisation.interface import BatchResult, MalformedResponseError
-from categorisation.prompt import build_prompt, parse_batch_response
+from categorisation.prompt import RESULTS_JSON_SCHEMA, build_prompt, parse_batch_response
 from statement_export.parser import RawTransaction
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -24,7 +24,15 @@ class OpenAICompatibleCategoriser:
 
     Covers local Ollama (pointed at its own OpenAI-compatible endpoint) and
     any other compatible provider (OpenAI itself, OpenRouter, LM Studio,
-    etc.) via a configurable base URL, API key, and model name.
+    etc.) via a configurable base URL, API key, and model name. Requests
+    schema-constrained output via response_format's json_schema type where
+    the endpoint honours it; parse_batch_response still re-validates the
+    result regardless, since not every OpenAI-compatible server enforces it.
+
+    Not manually verified against a real endpoint (no local Ollama or other
+    OpenAI-compatible server available in the environment this was built
+    in) - verify once against a real endpoint before relying on it, per
+    docs/agents/statement-export-pipeline.md.
     """
 
     def __init__(self, base_url: str, api_key: str, model: str, post: Callable[[str, dict, dict], dict] = _http_post):
@@ -38,7 +46,10 @@ class OpenAICompatibleCategoriser:
         body = {
             "model": self._model,
             "messages": [{"role": "user", "content": prompt}],
-            "response_format": {"type": "json_object"},
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {"name": "categorisation_results", "schema": RESULTS_JSON_SCHEMA, "strict": True},
+            },
         }
         headers = {"Content-Type": "application/json", "Authorization": f"Bearer {self._api_key}"}
 

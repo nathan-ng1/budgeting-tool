@@ -99,3 +99,23 @@ Pass `--dry-run` to `uv run python -m statement_export` (or `process_statement_e
 Review items, so you see and answer them, but nothing is written to the live spreadsheet and no
 source file is archived. Useful when trying an unfamiliar or weaker local model backend for the
 first time.
+
+## Manual backend verification
+
+Real subprocess/network calls to each backend are deliberately out of scope for the automated
+test suite (every test injects a fake process runner or HTTP transport) — each backend needs a
+one-off manual check against the real CLI/endpoint before you rely on it:
+
+- **`claude`** (`CATEGORISER_BACKEND=claude`) — verified manually: a real `claude -p ... --output-format
+  json --json-schema ...` call against two sample transactions returned a valid, correctly
+  schema-shaped `structured_output` and categorised both transactions sensibly (a grocery store
+  as Expenses/Groceries, a streaming service as Bills & Subscriptions/Subscriptions).
+- **`codex`** (`CATEGORISER_BACKEND=codex`) — **not yet manually verified.** `codex_backend.py`'s
+  invocation (`codex exec <prompt>`, stdout parsed directly as the batch JSON) is based on Codex
+  CLI's documented non-interactive behaviour, not a live run. Verify once against a real Codex
+  CLI install and update this note with the result.
+- **`openai-compatible`** (`CATEGORISER_BACKEND=openai-compatible`) — **not yet manually
+  verified.** `openai_compatible_backend.py`'s request shape (chat-completions endpoint,
+  `response_format` with a `json_schema`) is based on the OpenAI-compatible convention most
+  providers (including modern Ollama) follow, not a live call. Verify once against a real local
+  Ollama or other OpenAI-compatible endpoint and update this note with the result.

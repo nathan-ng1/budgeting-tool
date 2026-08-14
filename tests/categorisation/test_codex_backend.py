@@ -70,14 +70,3 @@ def test_non_json_stdout_raises_malformed_response_error():
 
     with pytest.raises(MalformedResponseError):
         categoriser.categorise([make_transaction()], CATEGORY_LIST)
-
-
-def test_model_override_is_passed_through():
-    runner = FakeProcessRunner(batch_json())
-    categoriser = CodexCategoriser(run_process=runner, model="gpt-5-codex")
-
-    categoriser.categorise([make_transaction()], CATEGORY_LIST)
-
-    [args] = runner.calls
-    assert "--model" in args
-    assert args[args.index("--model") + 1] == "gpt-5-codex"

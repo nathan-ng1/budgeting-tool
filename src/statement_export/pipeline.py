@@ -19,6 +19,7 @@ def run(
     recurring_config_path: Path,
     through: date,
     archive: Archive | None = None,
+    dry_run: bool = False,
 ) -> WriteResult:
     recurring_rules = parse_config(recurring_config_path)
     existing_rows = client.read_existing_rows()
@@ -29,6 +30,10 @@ def run(
         recurring_rules=recurring_rules,
         through=through,
     )
+
+    if dry_run:
+        return result
+
     client.append_rows(result.to_write)
 
     if archive is not None:

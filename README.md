@@ -114,8 +114,6 @@ cp .env.example .env
 | `SPREADSHEET_ID` | yes | Your budget spreadsheet's ID, from its Google Sheets URL (`.../spreadsheets/d/<SPREADSHEET_ID>/edit`). Read by the write path when it connects. |
 | `BEEM_USERNAME` | only for Beem reports | Which side of each row (`Payer`/`Recipient`) is you, so the Beem sanitising handler can derive a signed amount. |
 | `CATEGORISER_BACKEND` | yes | Which categorisation backend to use: `claude`, `codex`, or `openai-compatible`. Read by `uv run python -m statement_export`. |
-| `CLAUDE_CATEGORISER_MODEL` | no | Overrides the model `claude -p` uses for categorisation, if you don't want Claude Code's default. Only read when `CATEGORISER_BACKEND=claude`. |
-| `CODEX_CATEGORISER_MODEL` | no | Overrides the model `codex exec` uses for categorisation, if you don't want Codex CLI's default. Only read when `CATEGORISER_BACKEND=codex`. |
 | `OPENAI_COMPATIBLE_BASE_URL` | only for the `openai-compatible` backend | Base URL of the OpenAI-compatible chat-completions endpoint (e.g. `http://localhost:11434/v1` for a local Ollama). |
 | `OPENAI_COMPATIBLE_API_KEY` | only if your endpoint requires one | API key sent as a Bearer token. Most local Ollama installs don't need a real one. |
 | `OPENAI_COMPATIBLE_MODEL` | only for the `openai-compatible` backend | Model name to request (e.g. `llama3`). |
