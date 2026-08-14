@@ -49,7 +49,7 @@ The Google Sheet tab this process writes to. Six columns are filled per categori
 _Avoid_: Budget sheet, spreadsheet
 
 **Needs Review**:
-The checkpoint where Claude lists every Transaction it can't confidently assign a Sub-category to, inline in the chat, and waits for you to assign one. Nothing is written to the Transaction Log until every Needs Review item is resolved.
+The checkpoint where the configured categorisation backend flags every Transaction it can't confidently assign a Sub-category to (a `needs_review` flag in its structured response), and `uv run python -m statement_export` prompts you for each one right in the terminal. Nothing is written to the Transaction Log until every Needs Review item for that file is resolved.
 _Avoid_: Uncategorised, low-confidence
 
 **Processed archive**:

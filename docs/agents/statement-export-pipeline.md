@@ -7,10 +7,11 @@ Review, Recurring Transaction, etc).
 ## When a new export arrives
 
 1. **Download** the export from your card issuer's online banking, unchanged, into the
-   Transactions Inbox (path set via `TRANSACTIONS_INBOX` in `.env`) — Claude never reads this
-   location directly (see [ADR-0001](../adr/0001-sanitising-happens-outside-claudes-read-access.md)).
-   Name it `{Issuer}_{yyyymmdd}.csv` (e.g. `ANZ_20260830.csv`) — the issuer prefix must match
-   a handler registered in `src/sanitising/sanitise.py` (currently `ANZ`, `Beem`, and `NAB`). A Beem
+   Transactions Inbox (path set via `TRANSACTIONS_INBOX` in `.env`) — the sanitising step never
+   lets Claude read this location directly (see
+   [ADR-0001](../adr/0001-sanitising-happens-outside-claudes-read-access.md)). Name it
+   `{Issuer}_{yyyymmdd}.csv` (e.g. `ANZ_20260830.csv`) — the issuer prefix must match a handler
+   registered in `src/sanitising/sanitise.py` (currently `ANZ`, `Beem`, and `NAB`). A Beem
    Report (see `CONTEXT.md`) follows the same naming convention (e.g. `Beem_20260830.csv`) and
    can sit in the Inbox alongside a card export — both are sanitised and processed in the same
    run.
@@ -23,57 +24,78 @@ Review, Recurring Transaction, etc).
    identifiers per-issuer (a no-op for ANZ). Anything sitting directly in `.data\` afterwards
    is outstanding and hasn't been processed into the Transaction Log yet.
 
-3. **Ask Claude to process it** — e.g. "process the new statement export" in this repo. Claude
+3. **Process it** — run this yourself, not via Claude:
+   ```
+   uv run python -m statement_export
+   ```
+   (Or just run `process_statement_export.bat`, which does steps 2 and 3 together.) The script
    looks at what's sitting in `.data\` and handles each file there by issuer:
    - **Card export (e.g. ANZ)**: parse the export and drop any Payments & Refunds (positive-
      Amount rows) before categorising anything, then assign a Category/Sub-category to every
-     remaining transaction against the fixed mapping in `CONTEXT.md`.
+     remaining transaction against the fixed mapping in `src/transaction_log/categories.py`, via
+     whichever backend `CATEGORISER_BACKEND` selects.
    - **Beem Report**: `beem.parser.parse()` keeps both directions (unlike a card export, a
      positive row here is real Income, not a droppable Payments & Refunds credit).
      `beem.parser.categorise()` splits the parsed rows: incoming (positive) rows become
-     deterministic `Category: Income, Sub-category: Beem Adjustment` candidates with no chat
-     step needed; outgoing (negative) rows are categorised from their Message against the same
+     deterministic `Category: Income, Sub-category: Beem Adjustment` candidates with no model
+     call needed; outgoing (negative) rows are categorised from their Message against the same
      fixed Expense/Bills & Subscriptions Sub-category list used for card Transactions.
-   - Either way: list anything it isn't confident about as **Needs Review**, inline in chat, and
-     wait for you to assign those before writing anything.
-   - Once every Needs Review item for a given source file is resolved, expand any due Recurring
-     Transactions (from `config\recurring-transactions.xlsx`, capped at that file's own last
-     transaction date), merge them with that file's candidates, and write the combined, deduped
-     list to the live Transaction Log via `transaction_log.writer.resolve_writes` /
-     `statement_export.pipeline.run` — the same generic write path regardless of source.
-   - Archive that source file from `.data\` to `.data\processed\` on a successful write. If a
-     card export and a Beem Report are both present, each is categorised, written and archived
-     as its own `statement_export.pipeline.run` call — dedupe against the live log means running
-     the pipeline more than once in a session is always safe.
+   - Either way: anything the backend flags `needs_review` is prompted right there in the
+     terminal (via `statement_export.terminal_review.TerminalReviewer`), and nothing is written
+     until every Needs Review item for that file is resolved.
+   - Once resolved, due Recurring Transactions (from `config\recurring-transactions.xlsx`,
+     capped at that file's own last transaction date) are expanded and merged with that file's
+     candidates, and the combined, deduped list is written to the live Transaction Log via
+     `transaction_log.writer.resolve_writes` / `statement_export.orchestrator.run` — the same
+     generic write path regardless of source or backend.
+   - That source file is archived from `.data\` to `.data\processed\` on a successful write. If
+     a card export and a Beem Report are both present, each is categorised, written and archived
+     as its own `statement_export.orchestrator.run` call — dedupe against the live log means
+     running the script more than once in a session (e.g. after an aborted run) is always safe.
+   - If a file's categorisation backend returns something that doesn't match the expected
+     structured response (malformed JSON, wrong result count, an invalid Category/Sub-category
+     pair), that file's run **aborts**: nothing is written or archived for it, and the script
+     moves on to any other outstanding file. Rerun once the underlying issue (backend config,
+     model choice, etc.) is fixed.
 
 No statement export needed? Recurring Transactions (salary, mortgage, subscriptions, etc.)
 still get checked and written on their own — you can ask Claude to "check for due recurring
-transactions" at any time without a new export present.
+transactions" at any time without a new export present. This one check remains an interactive,
+chat-driven use of `transaction_log.writer.resolve_writes` — there's no standalone script for it,
+since (unlike categorisation) it was never the thing this feature scripted.
 
-## What's deterministic vs. what needs Claude's judgement
+## What's deterministic vs. what needs a model's judgement
 
-Per [ADR-0002](../adr/0002-recurring-schedule-expansion-happens-in-a-script.md), the mechanical
-parts run as plain scripts so they're exactly right every time:
+Per [ADR-0002](../adr/0002-recurring-schedule-expansion-happens-in-a-script.md) and
+[ADR-0004](../adr/0004-categorisation-backend-is-pluggable-and-scripted.md), the mechanical parts
+run as plain scripts so they're exactly right every time, and even the judgement-call part
+(categorisation) runs through a script now, with the judgement itself delegated to a pluggable
+model backend rather than improvised in chat:
 
 - `src/sanitising/` — moves and sanitises exports (run manually, step 2 above).
 - `src/statement_export/parser.py` — parses a Statement Export into raw Transactions, dropping
   Payments & Refunds.
 - `src/beem/parser.py` — parses a Beem Report (keeping both directions) and splits it into
   deterministic Income candidates and outgoing rows still needing categorisation.
+- `src/categorisation/` — the pluggable `Categoriser` interface and its three backends
+  (`claude_backend.py`, `codex_backend.py`, `openai_compatible_backend.py`). This is where a
+  model's judgement call happens (is this Square charge a donation or a coffee?) — a fixed rule
+  set can't make that call reliably, so it's delegated to whichever backend `CATEGORISER_BACKEND`
+  selects, not hand-coded.
+- `src/statement_export/orchestrator.py` — drives categorise → Needs Review terminal prompt loop
+  → Recurring Transaction merge → dedupe/write/archive, for a single source file. Aborts (no
+  write, no archive) if the backend's response doesn't match the expected structured contract.
+- `src/statement_export/run.py` + `src/statement_export/__main__.py` — the actual entry point
+  (`uv run python -m statement_export`): discovers outstanding files in `.data\`, routes each to
+  the orchestrator by issuer, and prints a summary.
 - `src/recurring/config.py` — expands the Recurring Transactions Config into due occurrences.
 - `src/transaction_log/writer.py` + `src/transaction_log/sheets_client.py` — dedupe against the
   live log and write.
-- `src/statement_export/pipeline.py` — wires the above together: given an already-categorised
-  candidate list, resolve what's new, write it, archive the source file.
 
-Categorising each transaction (assigning Category/Sub-category, and flagging Needs Review) is
-the one step that isn't scripted — it needs judgement calls a fixed rule set can't make
-reliably (is this Square charge a donation or a coffee?), so it's Claude's job each run, not
-`src/statement_export/pipeline.py`'s.
+## Dry runs
 
-## Live writes are real
-
-Running this against a live `.data\` export writes real rows to your real budget spreadsheet
-and archives the source file — there's no dry-run mode. If you want to preview what would be
-written before committing to it, ask Claude to list the categorisation first without running
-the pipeline.
+Pass `--dry-run` to `uv run python -m statement_export` (or `process_statement_export.bat
+--dry-run`) to preview a run before committing to it — you're still prompted through any Needs
+Review items, so you see and answer them, but nothing is written to the live spreadsheet and no
+source file is archived. Useful when trying an unfamiliar or weaker local model backend for the
+first time.

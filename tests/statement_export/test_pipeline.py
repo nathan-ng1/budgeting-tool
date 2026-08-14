@@ -1,22 +1,7 @@
 from datetime import date
 from pathlib import Path
 
-import pytest
-
 from statement_export.pipeline import Archive, run
-
-
-@pytest.fixture
-def recurring_config(tmp_path: Path) -> Path:
-    import openpyxl
-
-    from recurring.config import COLUMNS
-
-    path = tmp_path / "recurring-transactions.xlsx"
-    workbook = openpyxl.Workbook()
-    workbook.active.append(COLUMNS)
-    workbook.save(path)
-    return path
 
 
 def test_candidates_are_written_and_source_file_is_archived(
