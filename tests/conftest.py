@@ -55,6 +55,9 @@ class FakeStore:
     def read_recurring_rules(self) -> list[RecurringRule]:
         return list(self._recurring_rules)
 
+    def append_recurring_rules(self, rules: list[RecurringRule]) -> None:
+        self._recurring_rules.extend(rules)
+
 
 @pytest.fixture
 def make_candidate():

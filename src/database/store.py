@@ -63,6 +63,31 @@ class LocalStore:
         )
         self._connection.commit()
 
+    def append_recurring_rules(self, rules: list[RecurringRule]) -> None:
+        if not rules:
+            return
+
+        self._connection.executemany(
+            "INSERT INTO recurring_rules "
+            "(amount, type, category, notes, frequency, interval, day, start_date, end_date) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                (
+                    r.amount,
+                    r.type,
+                    r.category,
+                    r.notes,
+                    r.frequency,
+                    r.interval,
+                    str(r.day),
+                    r.start_date.isoformat(),
+                    r.end_date.isoformat() if r.end_date is not None else None,
+                )
+                for r in rules
+            ],
+        )
+        self._connection.commit()
+
     def read_recurring_rules(self) -> list[RecurringRule]:
         rows = self._connection.execute(
             "SELECT amount, type, category, notes, frequency, interval, day, start_date, end_date "

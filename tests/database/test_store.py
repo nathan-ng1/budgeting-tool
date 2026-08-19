@@ -111,6 +111,23 @@ def test_read_recurring_rules_round_trips_a_weekly_rule_with_an_end_date(tmp_pat
     assert rule.end_date == date(2026, 12, 31)
 
 
+def test_append_recurring_rules_then_read_recurring_rules_round_trips(tmp_path: Path, make_rule):
+    store = connect(tmp_path / "budget.db")
+    rule = make_rule(notes="Employer Pty Ltd")
+
+    store.append_recurring_rules([rule])
+
+    assert store.read_recurring_rules() == [rule]
+
+
+def test_append_recurring_rules_with_no_rules_is_a_noop(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    store.append_recurring_rules([])
+
+    assert store.read_recurring_rules() == []
+
+
 def _insert_recurring_rule(database_path: Path, **fields) -> None:
     connection = sqlite3.connect(database_path)
     connection.execute(
