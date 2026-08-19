@@ -31,8 +31,8 @@ def categorise(
                 Candidate(
                     date=transaction.date,
                     amount=transaction.amount,
-                    category="Income",
-                    sub_category="Beem Adjustment",
+                    type="Income",
+                    category="Beem Adjustment",
                     notes=transaction.notes,
                 )
             )

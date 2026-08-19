@@ -14,8 +14,8 @@ def expand(rule: RecurringRule, through: date) -> list[Occurrence]:
         Occurrence(
             date=d,
             amount=rule.amount,
+            type=rule.type,
             category=rule.category,
-            sub_category=rule.sub_category,
             notes=rule.notes,
         )
         for d in dates

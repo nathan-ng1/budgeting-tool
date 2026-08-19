@@ -7,8 +7,8 @@ from recurring.rules import RecurringRule
 
 COLUMNS = [
     "Amount",
+    "Type",
     "Category",
-    "Sub-Category",
     "Notes",
     "Frequency",
     "Interval",
@@ -27,12 +27,12 @@ def parse_config(path: Path) -> list[RecurringRule]:
         if row[0] is None:
             continue
 
-        amount, category, sub_category, notes, frequency, interval, day, start_date, end_date = row
+        amount, transaction_type, category, notes, frequency, interval, day, start_date, end_date = row
         rules.append(
             RecurringRule(
                 amount=float(amount),
+                type=transaction_type,
                 category=category,
-                sub_category=sub_category,
                 notes=notes or "",
                 frequency=frequency,
                 interval=int(interval),

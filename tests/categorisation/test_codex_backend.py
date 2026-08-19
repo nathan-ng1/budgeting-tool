@@ -7,7 +7,7 @@ from categorisation.codex_backend import CodexCategoriser
 from categorisation.interface import MalformedResponseError
 from statement_export.parser import RawTransaction
 
-CATEGORY_LIST = {"Expenses": {"Groceries"}}
+CATEGORIES_BY_TYPE = {"Expense": {"Groceries"}}
 
 
 def make_transaction(**overrides):
@@ -26,9 +26,9 @@ class FakeProcessRunner:
         return self.stdout
 
 
-def batch_json(category="Expenses", sub_category="Groceries", needs_review=False):
+def batch_json(transaction_type="Expense", category="Groceries", needs_review=False):
     return json.dumps(
-        {"results": [{"category": category, "sub_category": sub_category, "needs_review": needs_review, "reason": None}]}
+        {"results": [{"type": transaction_type, "category": category, "needs_review": needs_review, "reason": None}]}
     )
 
 
@@ -36,7 +36,7 @@ def test_invokes_codex_exec_non_interactively():
     runner = FakeProcessRunner(batch_json())
     categoriser = CodexCategoriser(run_process=runner)
 
-    categoriser.categorise([make_transaction()], CATEGORY_LIST)
+    categoriser.categorise([make_transaction()], CATEGORIES_BY_TYPE)
 
     [args] = runner.calls
     assert args[0] == "codex"
@@ -47,7 +47,7 @@ def test_prompt_is_passed_as_an_argument():
     runner = FakeProcessRunner(batch_json())
     categoriser = CodexCategoriser(run_process=runner)
 
-    categoriser.categorise([make_transaction(notes="Woolworths")], CATEGORY_LIST)
+    categoriser.categorise([make_transaction(notes="Woolworths")], CATEGORIES_BY_TYPE)
 
     [args] = runner.calls
     assert any("Woolworths" in arg for arg in args)
@@ -57,10 +57,10 @@ def test_stdout_is_the_final_message_and_parses_directly_into_a_batch_result():
     runner = FakeProcessRunner(batch_json(needs_review=True))
     categoriser = CodexCategoriser(run_process=runner)
 
-    batch = categoriser.categorise([make_transaction()], CATEGORY_LIST)
+    batch = categoriser.categorise([make_transaction()], CATEGORIES_BY_TYPE)
 
     assert len(batch.results) == 1
-    assert batch.results[0].category == "Expenses"
+    assert batch.results[0].type == "Expense"
     assert batch.results[0].needs_review is True
 
 
@@ -69,4 +69,4 @@ def test_non_json_stdout_raises_malformed_response_error():
     categoriser = CodexCategoriser(run_process=runner)
 
     with pytest.raises(MalformedResponseError):
-        categoriser.categorise([make_transaction()], CATEGORY_LIST)
+        categoriser.categorise([make_transaction()], CATEGORIES_BY_TYPE)

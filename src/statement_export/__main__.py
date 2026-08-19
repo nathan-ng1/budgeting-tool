@@ -40,7 +40,7 @@ def main() -> None:
         verb = "Would write" if dry_run else "Wrote"
         print(f"\n{verb} {len(result.write_result.to_write)} row(s) for {source.name}:")
         for candidate in result.write_result.to_write:
-            print(f"  {candidate.date}  {candidate.amount:>10.2f}  {candidate.category} / {candidate.sub_category}  {candidate.notes}")
+            print(f"  {candidate.date}  {candidate.amount:>10.2f}  {candidate.type} / {candidate.category}  {candidate.notes}")
         if result.write_result.skipped:
             print(f"  ({len(result.write_result.skipped)} already logged, skipped)")
 

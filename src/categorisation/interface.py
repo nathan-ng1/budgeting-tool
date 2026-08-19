@@ -10,8 +10,8 @@ class MalformedResponseError(Exception):
 
 @dataclass(frozen=True)
 class CategoryResult:
+    type: str
     category: str
-    sub_category: str
     needs_review: bool
     reason: str | None = None
 
@@ -25,5 +25,5 @@ class Categoriser(Protocol):
     def categorise(
         self,
         transactions: list[RawTransaction],
-        category_list: dict[str, set[str]],
+        categories_by_type: dict[str, set[str]],
     ) -> BatchResult: ...

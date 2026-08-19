@@ -38,8 +38,8 @@ def test_categorised_transactions_are_written_and_archived(
 
     assert not result.aborted
     assert len(result.write_result.to_write) == 1
-    assert result.write_result.to_write[0].category == "Expenses"
-    assert result.write_result.to_write[0].sub_category == "Groceries"
+    assert result.write_result.to_write[0].type == "Expense"
+    assert result.write_result.to_write[0].category == "Groceries"
     assert client.appended == result.write_result.to_write
     assert not source.exists()
     assert (processed_dir / "ANZ_20260805.csv").exists()
@@ -50,7 +50,7 @@ def test_deterministic_candidates_bypass_categorisation(
 ):
     categoriser = fake_categoriser(results=[])
     client = fake_sheets_client()
-    deterministic = [make_candidate(category="Income", sub_category="Beem Adjustment", notes="Beem in")]
+    deterministic = [make_candidate(type="Income", category="Beem Adjustment", notes="Beem in")]
 
     result = run(
         deterministic_candidates=deterministic,
@@ -79,7 +79,7 @@ def test_needs_review_item_is_resolved_via_the_injected_resolver(
     def resolve(txn, reason):
         assert txn == transaction
         assert reason == "not sure if this is a donation"
-        return ("Bills & Subscriptions", "Donations & Giving")
+        return ("Expense", "Donations & Giving")
 
     result = run(
         deterministic_candidates=[],
@@ -92,8 +92,8 @@ def test_needs_review_item_is_resolved_via_the_injected_resolver(
     )
 
     assert not result.aborted
-    assert result.write_result.to_write[0].category == "Bills & Subscriptions"
-    assert result.write_result.to_write[0].sub_category == "Donations & Giving"
+    assert result.write_result.to_write[0].type == "Expense"
+    assert result.write_result.to_write[0].category == "Donations & Giving"
 
 
 def test_malformed_categoriser_response_aborts_with_no_write_or_archive(
@@ -144,14 +144,14 @@ def test_result_count_mismatch_aborts(fake_categoriser, fake_sheets_client, recu
     assert client.appended == []
 
 
-def test_invalid_category_pair_from_resolver_aborts(
+def test_invalid_type_category_pair_from_resolver_aborts(
     fake_categoriser, fake_sheets_client, make_category_result, recurring_config: Path
 ):
     categoriser = fake_categoriser(results=[make_category_result(needs_review=True)])
     client = fake_sheets_client()
 
     def resolve(txn, reason):
-        return ("Expenses", "Salary")  # Salary isn't a valid Expenses sub-category
+        return ("Expense", "Salary")  # Salary is an Income Category, not an Expense one
 
     result = run(
         deterministic_candidates=[],
@@ -179,7 +179,7 @@ def test_dry_run_resolves_needs_review_but_skips_write_and_archive(
 
     def resolve(txn, reason):
         resolver_calls.append((txn, reason))
-        return ("Expenses", "Groceries")
+        return ("Expense", "Groceries")
 
     result = run(
         deterministic_candidates=[],

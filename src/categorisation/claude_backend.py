@@ -26,8 +26,8 @@ class ClaudeCodeCategoriser:
     def __init__(self, run_process: Callable[[list[str]], str] = _run_subprocess):
         self._run_process = run_process
 
-    def categorise(self, transactions: list[RawTransaction], category_list: dict[str, set[str]]) -> BatchResult:
-        prompt = build_prompt(transactions, category_list)
+    def categorise(self, transactions: list[RawTransaction], categories_by_type: dict[str, set[str]]) -> BatchResult:
+        prompt = build_prompt(transactions, categories_by_type)
         args = [
             "claude", "-p", prompt,
             "--output-format", "json",

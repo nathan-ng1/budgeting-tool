@@ -22,8 +22,8 @@ def test_parse_config_round_trips_a_rule(tmp_path: Path):
     assert rules == [
         RecurringRule(
             amount=4200.0,
-            category="Income",
-            sub_category="Salary",
+            type="Income",
+            category="Salary",
             notes="Employer Pty Ltd",
             frequency="Monthly",
             interval=1,

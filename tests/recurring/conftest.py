@@ -10,8 +10,8 @@ def make_rule():
     def _make_rule(**overrides):
         defaults = dict(
             amount=100.0,
-            category="Bills & Subscriptions",
-            sub_category="Subscriptions",
+            type="Expense",
+            category="Subscriptions",
             notes="Test rule",
             frequency="Weekly",
             interval=1,

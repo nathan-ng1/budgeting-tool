@@ -17,17 +17,22 @@ MONTH_NAMES = [
 # every column reference below (read offsets, write targets, sort/validation
 # indices). Columns not listed here (E/F/H/I/K) hold live formulas (Full date,
 # currency helper) or are blank spacers and must never be touched. Month,
-# Amount, Category and Sub-Category each have a wide merged header label one
-# column left of their value column, but Notes' header is a single unmerged
-# cell directly above M (like Day/Full date) — its value goes in M, not N
+# Amount, Type and Category each have a wide merged header label one column
+# left of their value column, but Notes' header is a single unmerged cell
+# directly above M (like Day/Full date) — its value goes in M, not N
 # (confirmed against the live sheet; N is unused).
+#
+# The sheet's own header labels still read "Category" (J) and "Sub-category"
+# (L) — the pre-ADR-0006 vocabulary for what the domain model now calls Type
+# and Category. The keys below use the domain names; the column letters are
+# what actually bind to the sheet.
 COLUMN = {
     "month": "C",
     "day": "D",
     "full_date": "E",
     "amount": "G",
-    "category": "J",
-    "sub_category": "L",
+    "type": "J",
+    "category": "L",
     "notes": "M",
 }
 _ROW_START_COLUMN = COLUMN["month"]
@@ -36,14 +41,14 @@ _ROW_START_COLUMN = COLUMN["month"]
 # and recreated; re-fetch via spreadsheets().get() if this ever needs updating.
 TRANSACTION_LOG_SHEET_ID = 1652281908
 
-# Last column holding a per-row helper formula (a Setup-driven Sub-category
+# Last column holding a per-row helper formula (a Setup-driven Category
 # lookup keyed off J). A sort must move every column through here together,
 # or a helper formula ends up reading a different row's data than the row it
 # now sits in after the reorder.
 LAST_HELPER_COLUMN = "U"
 
-# Sub-category (L)'s dropdown is a per-row ONE_OF_RANGE validation rule
-# pointing at that row's own U:AN (the Setup-driven Sub-category list spilled
+# Category (L)'s dropdown is a per-row ONE_OF_RANGE validation rule
+# pointing at that row's own U:AN (the Setup-driven Category list spilled
 # by column U's formula) — e.g. row 9's rule reads '...!U9:AN9'. Unlike a
 # regular formula, this range is a literal baked into the rule and does NOT
 # get reflowed to the new row when Sheets sorts — the rule moves with its row,
@@ -70,7 +75,7 @@ def _offset(column: str) -> int:
 # Derived, not hand-counted, so a column move is a one-line edit to COLUMN or
 # LAST_HELPER_COLUMN above rather than a hunt through separately-tracked indices.
 FULL_DATE_COLUMN_INDEX = _column_index(COLUMN["full_date"])
-SUB_CATEGORY_COLUMN_INDEX = _column_index(COLUMN["sub_category"])
+CATEGORY_COLUMN_INDEX = _column_index(COLUMN["category"])
 SORT_COLUMN_RANGE = {"startColumnIndex": 0, "endColumnIndex": _column_index(LAST_HELPER_COLUMN) + 1}
 
 
@@ -125,8 +130,8 @@ class GoogleSheetsClient:
             COLUMN["month"]: [MONTH_NAMES[c.date.month - 1] for c in candidates],
             COLUMN["day"]: [c.date.day for c in candidates],
             COLUMN["amount"]: [round(abs(c.amount), 2) for c in candidates],
+            COLUMN["type"]: [c.type for c in candidates],
             COLUMN["category"]: [c.category for c in candidates],
-            COLUMN["sub_category"]: [c.sub_category for c in candidates],
             COLUMN["notes"]: [c.notes for c in candidates],
         }
         data = [
@@ -156,10 +161,10 @@ class GoogleSheetsClient:
             }
         }
         # Requests apply in order, so this runs after the sort above and
-        # rebuilds every row's Sub-category dropdown against its own (now
+        # rebuilds every row's Category dropdown against its own (now
         # final) row position.
         validation_requests = [
-            _sub_category_validation_request(row)
+            _category_validation_request(row)
             for row in range(DATA_START_ROW, through_row + 1)
         ]
 
@@ -181,15 +186,15 @@ class GoogleSheetsClient:
         return self._service.spreadsheets().values()
 
 
-def _sub_category_validation_request(row: int) -> dict:
+def _category_validation_request(row: int) -> dict:
     return {
         "setDataValidation": {
             "range": {
                 "sheetId": TRANSACTION_LOG_SHEET_ID,
                 "startRowIndex": row - 1,
                 "endRowIndex": row,
-                "startColumnIndex": SUB_CATEGORY_COLUMN_INDEX,
-                "endColumnIndex": SUB_CATEGORY_COLUMN_INDEX + 1,
+                "startColumnIndex": CATEGORY_COLUMN_INDEX,
+                "endColumnIndex": CATEGORY_COLUMN_INDEX + 1,
             },
             "rule": {
                 "condition": {

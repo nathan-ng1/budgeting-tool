@@ -21,7 +21,7 @@ class FakeCategoriser:
         self._error = error
         self.calls: list[list[RawTransaction]] = []
 
-    def categorise(self, transactions: list[RawTransaction], category_list: dict[str, set[str]]) -> BatchResult:
+    def categorise(self, transactions: list[RawTransaction], categories_by_type: dict[str, set[str]]) -> BatchResult:
         self.calls.append(transactions)
         if self._error is not None:
             raise self._error
@@ -53,8 +53,8 @@ def make_candidate():
         defaults = dict(
             date=date(2026, 8, 5),
             amount=42.50,
-            category="Expenses",
-            sub_category="Groceries",
+            type="Expense",
+            category="Groceries",
             notes="Woolworths",
         )
         defaults.update(overrides)
@@ -85,7 +85,7 @@ def fake_sheets_client():
 @pytest.fixture
 def make_category_result():
     def _make_category_result(**overrides):
-        defaults = dict(category="Expenses", sub_category="Groceries", needs_review=False, reason=None)
+        defaults = dict(type="Expense", category="Groceries", needs_review=False, reason=None)
         defaults.update(overrides)
         return CategoryResult(**defaults)
 

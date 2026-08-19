@@ -2,7 +2,7 @@ import json
 
 from categorisation.interface import BatchResult, CategoryResult, MalformedResponseError
 from statement_export.parser import RawTransaction
-from transaction_log.categories import is_valid_category_pair
+from transaction_log.categories import is_valid_type_category_pair, types_with_categories
 
 # The structured-output contract every backend requests (schema-constrained where the backend
 # supports it - claude_backend's --json-schema, openai_compatible_backend's response_format) and
@@ -16,12 +16,12 @@ RESULTS_JSON_SCHEMA = {
             "items": {
                 "type": "object",
                 "properties": {
+                    "type": {"type": "string"},
                     "category": {"type": "string"},
-                    "sub_category": {"type": "string"},
                     "needs_review": {"type": "boolean"},
                     "reason": {"type": ["string", "null"]},
                 },
-                "required": ["category", "sub_category", "needs_review", "reason"],
+                "required": ["type", "category", "needs_review", "reason"],
                 "additionalProperties": False,
             },
         }
@@ -33,21 +33,21 @@ RESULTS_JSON_SCHEMA = {
 RESPONSE_INSTRUCTIONS = """Respond with a single JSON object only - no prose, no markdown code \
 fences - of exactly this shape:
 
-{"results": [{"category": "...", "sub_category": "...", "needs_review": true, "reason": "..."}]}
+{"results": [{"type": "...", "category": "...", "needs_review": true, "reason": "..."}]}
 
 "results" must have exactly one object per transaction listed above, in the same order. Each \
 object has exactly these keys:
-- "category": one of the Category names listed above
-- "sub_category": one of that Category's Sub-category names listed above
+- "type": one of the Type names listed above
+- "category": one of that Type's Category names listed above
 - "needs_review": true or false - true if you aren't confident in this assignment and want the \
 user to confirm it
 - "reason": a short one-sentence explanation, or null if needs_review is false"""
 
 
-def build_prompt(transactions: list[RawTransaction], category_list: dict[str, set[str]]) -> str:
-    category_lines = [
-        f"- {category}: {', '.join(sorted(sub_categories))}"
-        for category, sub_categories in sorted(category_list.items())
+def build_prompt(transactions: list[RawTransaction], categories_by_type: dict[str, set[str]]) -> str:
+    type_lines = [
+        f"- {transaction_type}: {', '.join(sorted(categories_by_type[transaction_type]))}"
+        for transaction_type in types_with_categories(categories_by_type)
     ]
     transaction_lines = [
         f"{i}. date={transaction.date.isoformat()} amount={transaction.amount} notes={transaction.notes!r}"
@@ -56,8 +56,8 @@ def build_prompt(transactions: list[RawTransaction], category_list: dict[str, se
 
     return (
         "You are categorising credit card / bank transactions for a personal budget.\n\n"
-        "Assign each transaction a Category and Sub-category from this fixed list:\n"
-        + "\n".join(category_lines)
+        "Assign each transaction a Type and Category from this fixed list:\n"
+        + "\n".join(type_lines)
         + "\n\nTransactions:\n"
         + "\n".join(transaction_lines)
         + "\n\n"
@@ -89,23 +89,23 @@ def _parse_result(index: int, item) -> CategoryResult:
         raise MalformedResponseError(f"Result {index} is not a JSON object")
 
     try:
+        transaction_type = item["type"]
         category = item["category"]
-        sub_category = item["sub_category"]
         needs_review = item["needs_review"]
     except KeyError as exc:
         raise MalformedResponseError(f"Result {index} is missing key {exc}") from exc
 
-    if not isinstance(category, str) or not isinstance(sub_category, str):
-        raise MalformedResponseError(f"Result {index}'s category/sub_category must be strings")
+    if not isinstance(transaction_type, str) or not isinstance(category, str):
+        raise MalformedResponseError(f"Result {index}'s type/category must be strings")
     if not isinstance(needs_review, bool):
         raise MalformedResponseError(f"Result {index}'s needs_review must be a boolean")
-    if not is_valid_category_pair(category, sub_category):
+    if not is_valid_type_category_pair(transaction_type, category):
         raise MalformedResponseError(
-            f"Result {index}: {sub_category!r} is not a valid Sub-category for {category!r}"
+            f"Result {index}: {category!r} is not a valid Category for {transaction_type!r}"
         )
 
     reason = item.get("reason")
     if reason is not None and not isinstance(reason, str):
         raise MalformedResponseError(f"Result {index}'s reason must be a string or null")
 
-    return CategoryResult(category=category, sub_category=sub_category, needs_review=needs_review, reason=reason)
+    return CategoryResult(type=transaction_type, category=category, needs_review=needs_review, reason=reason)

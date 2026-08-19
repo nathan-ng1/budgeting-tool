@@ -47,7 +47,7 @@ def test_beem_report_splits_deterministic_income_from_categorised_outgoings(
         "05/08/2026,15.00,From Alex\n06/08/2026,-9.00,Coffee split\n"
     )
 
-    categoriser = fake_categoriser(results=[make_category_result(category="Expenses", sub_category="Dining & Takeaway")])
+    categoriser = fake_categoriser(results=[make_category_result(type="Expense", category="Dining & Takeaway")])
     client = fake_sheets_client()
 
     results = process_data_dir(
@@ -63,9 +63,9 @@ def test_beem_report_splits_deterministic_income_from_categorised_outgoings(
     written = result.write_result.to_write
     assert len(written) == 2
     income = next(c for c in written if c.notes == "From Alex")
-    assert (income.category, income.sub_category) == ("Income", "Beem Adjustment")
+    assert (income.type, income.category) == ("Income", "Beem Adjustment")
     outgoing = next(c for c in written if c.notes == "Coffee split")
-    assert (outgoing.category, outgoing.sub_category) == ("Expenses", "Dining & Takeaway")
+    assert (outgoing.type, outgoing.category) == ("Expense", "Dining & Takeaway")
     [categorised_call] = categoriser.calls
     assert [t.notes for t in categorised_call] == ["Coffee split"]
 
@@ -79,10 +79,10 @@ def test_one_files_malformed_response_aborts_only_that_file(
     (data_dir / "NAB_20260805.csv").write_text("05/08/2026,-10.00,Coles\n")
 
     class RoutingCategoriser:
-        def categorise(self, transactions, category_list):
+        def categorise(self, transactions, categories_by_type):
             if transactions[0].notes == "Woolworths":
                 raise MalformedResponseError("bad output")
-            return fake_categoriser(results=[make_category_result()]).categorise(transactions, category_list)
+            return fake_categoriser(results=[make_category_result()]).categorise(transactions, categories_by_type)
 
     client = fake_sheets_client()
 

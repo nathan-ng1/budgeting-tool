@@ -1,24 +1,24 @@
 from typing import Callable
 
 from statement_export.parser import RawTransaction
-from transaction_log.categories import SUB_CATEGORIES_BY_CATEGORY
+from transaction_log.categories import CATEGORIES_BY_TYPE, types_with_categories
 
 
 class TerminalReviewer:
     """Resolves a Needs Review transaction via a prompt loop in the terminal.
 
-    Callable as (transaction, reason) -> (category, sub_category), matching
+    Callable as (transaction, reason) -> (type, category), matching
     statement_export.orchestrator.NeedsReviewResolver - the default resolver
     process_statement_export's __main__ wires in for real runs.
     """
 
     def __init__(
         self,
-        category_list: dict[str, set[str]] = SUB_CATEGORIES_BY_CATEGORY,
+        categories_by_type: dict[str, set[str]] = CATEGORIES_BY_TYPE,
         input_fn: Callable[[str], str] = input,
         print_fn: Callable[[str], None] = print,
     ):
-        self._category_list = category_list
+        self._categories_by_type = categories_by_type
         self._input = input_fn
         self._print = print_fn
 
@@ -29,10 +29,11 @@ class TerminalReviewer:
         if reason:
             self._print(f"  ({reason})")
 
-        categories = sorted(self._category_list)
-        category = self._choose("Category", categories)
-        sub_category = self._choose(f"Sub-category for {category}", sorted(self._category_list[category]))
-        return category, sub_category
+        transaction_type = self._choose("Type", types_with_categories(self._categories_by_type))
+        category = self._choose(
+            f"Category for {transaction_type}", sorted(self._categories_by_type[transaction_type])
+        )
+        return transaction_type, category
 
     def _choose(self, label: str, options: list[str]) -> str:
         while True:

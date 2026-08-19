@@ -27,8 +27,8 @@ class CodexCategoriser:
     def __init__(self, run_process: Callable[[list[str]], str] = _run_subprocess):
         self._run_process = run_process
 
-    def categorise(self, transactions: list[RawTransaction], category_list: dict[str, set[str]]) -> BatchResult:
-        prompt = build_prompt(transactions, category_list)
+    def categorise(self, transactions: list[RawTransaction], categories_by_type: dict[str, set[str]]) -> BatchResult:
+        prompt = build_prompt(transactions, categories_by_type)
         stdout = self._run_process(["codex", "exec", prompt])
         return parse_batch_response(stdout, expected_count=len(transactions))
 

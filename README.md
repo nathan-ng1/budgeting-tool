@@ -12,7 +12,7 @@ Transaction Log, Needs Review, Recurring Transaction, etc).
    a local Transactions Inbox.
 2. A script **sanitises** it — strips personal identifiers — and moves it into `.data/`.
 3. You run `process_statement_export.bat` (or `uv run python -m statement_export`) to process it.
-   The script parses the export, assigns a Category/Sub-category to each transaction via
+   The script parses the export, assigns a Type/Category to each transaction via
    whichever **categorisation backend** you've configured (Claude Code, Codex CLI, or an
    OpenAI-compatible endpoint like a local Ollama), prompts you in the terminal to resolve
    anything it isn't confident about (**Needs Review**), then writes the categorised transactions
@@ -161,7 +161,7 @@ in `docs/agents/google-sheets-mcp.md`.
 ### 5. Set up the recurring transactions config (optional)
 
 If you have predictable recurring items (salary, rent, mortgage, subscriptions), fill out
-`config/recurring-transactions.xlsx` — one row per rule (amount, category, sub-category, notes,
+`config/recurring-transactions.xlsx` — one row per rule (amount, type, category, notes,
 frequency/interval/day, start/end date). This file is gitignored since it holds real financial
 figures.
 
@@ -189,7 +189,7 @@ figures.
    issuer: for a card export, it parses it, drops Payments & Refunds, and categorises every
    remaining transaction via your configured `CATEGORISER_BACKEND`. For a Beem Report, incoming
    rows become deterministic Income/Beem Adjustment entries with no model call needed, and
-   outgoing rows are categorised from their message against the same fixed Sub-category list.
+   outgoing rows are categorised from their message against the same fixed Category list.
    Either way, anything the backend isn't confident about is prompted as Needs Review right in
    the terminal, then the deduped result is written to the live Transaction Log and the source
    file is archived to `.data/processed/`. A card export and a Beem Report present together are

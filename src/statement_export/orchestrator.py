@@ -7,9 +7,10 @@ from categorisation.interface import Categoriser, MalformedResponseError
 from statement_export import pipeline
 from statement_export.parser import RawTransaction
 from statement_export.pipeline import Archive
-from transaction_log.categories import SUB_CATEGORIES_BY_CATEGORY
+from transaction_log.categories import CATEGORIES_BY_TYPE
 from transaction_log.entries import Candidate, WriteResult
 
+# Resolves a Needs Review transaction to a (Type, Category) pair.
 NeedsReviewResolver = Callable[[RawTransaction, str | None], tuple[str, str]]
 
 
@@ -55,7 +56,7 @@ def _categorise(
         return [], None
 
     try:
-        batch = categoriser.categorise(to_categorise, SUB_CATEGORIES_BY_CATEGORY)
+        batch = categoriser.categorise(to_categorise, CATEGORIES_BY_TYPE)
     except MalformedResponseError as exc:
         return [], str(exc)
 
@@ -64,16 +65,16 @@ def _categorise(
 
     candidates = []
     for transaction, result in zip(to_categorise, batch.results):
-        category, sub_category = result.category, result.sub_category
+        transaction_type, category = result.type, result.category
         if result.needs_review:
-            category, sub_category = resolve_needs_review(transaction, result.reason)
+            transaction_type, category = resolve_needs_review(transaction, result.reason)
         try:
             candidates.append(
                 Candidate(
                     date=transaction.date,
                     amount=transaction.amount,
+                    type=transaction_type,
                     category=category,
-                    sub_category=sub_category,
                     notes=transaction.notes,
                 )
             )

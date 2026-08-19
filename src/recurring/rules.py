@@ -8,8 +8,8 @@ WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturd
 @dataclass(frozen=True)
 class RecurringRule:
     amount: float
+    type: str
     category: str
-    sub_category: str
     notes: str
     frequency: str
     interval: int
@@ -50,6 +50,6 @@ class RecurringRule:
 class Occurrence:
     date: date
     amount: float
+    type: str
     category: str
-    sub_category: str
     notes: str

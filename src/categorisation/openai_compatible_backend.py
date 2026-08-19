@@ -29,10 +29,14 @@ class OpenAICompatibleCategoriser:
     the endpoint honours it; parse_batch_response still re-validates the
     result regardless, since not every OpenAI-compatible server enforces it.
 
-    Not manually verified against a real endpoint (no local Ollama or other
-    OpenAI-compatible server available in the environment this was built
-    in) - verify once against a real endpoint before relying on it, per
-    docs/agents/statement-export-pipeline.md.
+    Verified against a real local Ollama endpoint (qwen3.5:9b): the request/response contract
+    works end-to-end (small batches categorise correctly, including sensible needs_review
+    flags), but a full statement-sized batch (125 transactions) exhausted the model's context
+    before finishing, and parse_batch_response's expected-count check correctly caught the
+    truncated result and aborted cleanly rather than writing partial data. Not practically usable
+    against a small local model without further work (larger context, disabling "thinking" mode,
+    or batching) - see docs/agents/statement-export-pipeline.md's "Manual backend verification"
+    section for details.
     """
 
     def __init__(self, base_url: str, api_key: str, model: str, post: Callable[[str, dict, dict], dict] = _http_post):
@@ -41,8 +45,8 @@ class OpenAICompatibleCategoriser:
         self._model = model
         self._post = post
 
-    def categorise(self, transactions: list[RawTransaction], category_list: dict[str, set[str]]) -> BatchResult:
-        prompt = build_prompt(transactions, category_list)
+    def categorise(self, transactions: list[RawTransaction], categories_by_type: dict[str, set[str]]) -> BatchResult:
+        prompt = build_prompt(transactions, categories_by_type)
         body = {
             "model": self._model,
             "messages": [{"role": "user", "content": prompt}],

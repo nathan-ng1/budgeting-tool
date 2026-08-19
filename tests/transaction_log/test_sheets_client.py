@@ -82,10 +82,10 @@ def test_read_existing_rows_on_empty_body_returns_no_rows(make_client):
 
 
 def test_read_existing_rows_skips_rows_with_no_amount(make_client):
-    # A row with Category/Sub-category filled in but no Amount (e.g. the sheet's
+    # A row with Type/Category filled in but no Amount (e.g. the sheet's
     # built-in dropdown example row) must not be treated as a logged Transaction.
     row_missing_amount = [
-        "January", 1, 46216, "", "", "", "", "Bills & Subscriptions", "", "Donations & Giving",
+        "January", 1, 46216, "", "", "", "", "Expense", "", "Donations & Giving",
     ]
     client, _ = make_client({f"{SHEET_NAME}!C8:M": {"values": [row_missing_amount]}})
 
@@ -94,7 +94,7 @@ def test_read_existing_rows_skips_rows_with_no_amount(make_client):
 
 def test_read_existing_rows_parses_full_date_amount_and_notes(make_client):
     row = [
-        "August", 5, 46239, "", 42.5, "", "", "Expenses", "", "Groceries", "Woolworths",
+        "August", 5, 46239, "", 42.5, "", "", "Expense", "", "Groceries", "Woolworths",
     ]
     client, _ = make_client({f"{SHEET_NAME}!C8:M": {"values": [row]}})
 
@@ -122,8 +122,8 @@ def test_append_rows_writes_only_the_six_non_formula_columns_at_the_next_empty_r
     candidate = make_candidate(
         date=date(2026, 8, 5),
         amount=42.5,
-        category="Expenses",
-        sub_category="Groceries",
+        type="Expense",
+        category="Groceries",
         notes="Woolworths",
     )
 
@@ -136,7 +136,7 @@ def test_append_rows_writes_only_the_six_non_formula_columns_at_the_next_empty_r
         f"{SHEET_NAME}!C10:C10": [["August"]],
         f"{SHEET_NAME}!D10:D10": [[5]],
         f"{SHEET_NAME}!G10:G10": [[42.5]],
-        f"{SHEET_NAME}!J10:J10": [["Expenses"]],
+        f"{SHEET_NAME}!J10:J10": [["Expense"]],
         f"{SHEET_NAME}!L10:L10": [["Groceries"]],
         f"{SHEET_NAME}!M10:M10": [["Woolworths"]],
     }
@@ -196,10 +196,10 @@ def test_append_rows_sorts_the_whole_data_body_by_full_date_descending(make_clie
     }
 
 
-def test_append_rows_realigns_sub_category_validation_for_every_row_after_sorting(
+def test_append_rows_realigns_category_validation_for_every_row_after_sorting(
     make_client, make_candidate
 ):
-    # The Sub-category dropdown's ONE_OF_RANGE criteria bakes in a literal row
+    # The Category dropdown's ONE_OF_RANGE criteria bakes in a literal row
     # number and does not get reflowed by a sort the way a formula would — so
     # every row in the sorted body (not just the newly appended ones) needs
     # its rule rebuilt against its own row.

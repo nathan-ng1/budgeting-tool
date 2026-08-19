@@ -68,8 +68,8 @@ def test_due_recurring_occurrence_already_in_log_is_merged_in_and_then_skipped(
 ):
     salary_rule = RecurringRule(
         amount=5000.0,
-        category="Income",
-        sub_category="Salary",
+        type="Income",
+        category="Salary",
         notes="Employer Pty Ltd",
         frequency="Monthly",
         interval=1,
@@ -101,8 +101,8 @@ def test_combined_candidates_and_recurring_occurrences_dedupe_as_one_unit(
     already_logged_candidate = make_candidate(notes="Coles", amount=15.00, date=date(2026, 8, 4))
     rent_rule = RecurringRule(
         amount=500.0,
-        category="Income",
-        sub_category="Rental",
+        type="Income",
+        category="Rental",
         notes="Tenant Payment",
         frequency="Monthly",
         interval=1,

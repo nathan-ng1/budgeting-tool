@@ -31,15 +31,15 @@ Review, Recurring Transaction, etc).
    (Or just run `process_statement_export.bat`, which does steps 2 and 3 together.) The script
    looks at what's sitting in `.data\` and handles each file there by issuer:
    - **Card export (e.g. ANZ)**: parse the export and drop any Payments & Refunds (positive-
-     Amount rows) before categorising anything, then assign a Category/Sub-category to every
+     Amount rows) before categorising anything, then assign a Type/Category to every
      remaining transaction against the fixed mapping in `src/transaction_log/categories.py`, via
      whichever backend `CATEGORISER_BACKEND` selects.
    - **Beem Report**: `beem.parser.parse()` keeps both directions (unlike a card export, a
      positive row here is real Income, not a droppable Payments & Refunds credit).
      `beem.parser.categorise()` splits the parsed rows: incoming (positive) rows become
-     deterministic `Category: Income, Sub-category: Beem Adjustment` candidates with no model
+     deterministic `Type: Income, Category: Beem Adjustment` candidates with no model
      call needed; outgoing (negative) rows are categorised from their Message against the same
-     fixed Expense/Bills & Subscriptions Sub-category list used for card Transactions.
+     fixed Expense Category list used for card Transactions.
    - Either way: anything the backend flags `needs_review` is prompted right there in the
      terminal (via `statement_export.terminal_review.TerminalReviewer`), and nothing is written
      until every Needs Review item for that file is resolved.
@@ -53,7 +53,7 @@ Review, Recurring Transaction, etc).
      as its own `statement_export.orchestrator.run` call — dedupe against the live log means
      running the script more than once in a session (e.g. after an aborted run) is always safe.
    - If a file's categorisation backend returns something that doesn't match the expected
-     structured response (malformed JSON, wrong result count, an invalid Category/Sub-category
+     structured response (malformed JSON, wrong result count, an invalid Type/Category
      pair), that file's run **aborts**: nothing is written or archived for it, and the script
      moves on to any other outstanding file. Rerun once the underlying issue (backend config,
      model choice, etc.) is fixed.
@@ -109,13 +109,27 @@ one-off manual check against the real CLI/endpoint before you rely on it:
 - **`claude`** (`CATEGORISER_BACKEND=claude`) — verified manually: a real `claude -p ... --output-format
   json --json-schema ...` call against two sample transactions returned a valid, correctly
   schema-shaped `structured_output` and categorised both transactions sensibly (a grocery store
-  as Expenses/Groceries, a streaming service as Bills & Subscriptions/Subscriptions).
+  as Expenses/Groceries, a streaming service as Bills & Subscriptions/Subscriptions). Note this
+  run predates the Type/Category rename (ADR-0006) — the two Categories it reports are under the
+  retired names; the equivalents now are Expense/Groceries and Expense/Subscriptions.
 - **`codex`** (`CATEGORISER_BACKEND=codex`) — **not yet manually verified.** `codex_backend.py`'s
   invocation (`codex exec <prompt>`, stdout parsed directly as the batch JSON) is based on Codex
   CLI's documented non-interactive behaviour, not a live run. Verify once against a real Codex
   CLI install and update this note with the result.
-- **`openai-compatible`** (`CATEGORISER_BACKEND=openai-compatible`) — **not yet manually
-  verified.** `openai_compatible_backend.py`'s request shape (chat-completions endpoint,
-  `response_format` with a `json_schema`) is based on the OpenAI-compatible convention most
-  providers (including modern Ollama) follow, not a live call. Verify once against a real local
-  Ollama or other OpenAI-compatible endpoint and update this note with the result.
+- **`openai-compatible`** (`CATEGORISER_BACKEND=openai-compatible`) — **request/response
+  contract verified, but not viable against a small local model for a real statement.** A live
+  call against local Ollama (`qwen3.5:9b`, 6.6GB q4, on an 8GB-VRAM RTX 3060 Ti) confirmed the
+  request shape and JSON-schema contract work end-to-end: an isolated 3-transaction batch
+  categorised correctly (including a sensible `needs_review` flag on an ambiguous merchant). But
+  a full statement (125 transactions) failed with `Expected 125 results, got 18` — the model
+  ran out of context mid-response and the schema-constrained decoder silently closed the JSON
+  early rather than erroring. Ollama's VRAM-based default context is only 4096 tokens; raising it
+  to 16384 via a custom Modelfile (`PARAMETER num_ctx 16384`) improved this to 50/125, and 32768
+  was tried but not completed. Qwen3-family models generate hidden "thinking" tokens by default,
+  which is the likely reason so few results fit even at 16k-32k context — this wasn't
+  investigated further (e.g. disabling thinking mode, or batching transactions into smaller
+  chunks). `parse_batch_response` correctly detected the short result count and aborted cleanly
+  (nothing written, no corruption) both times, so the failure mode itself is safe — this backend
+  just isn't practically usable for a full statement against this model/hardware combination
+  without further work. `CATEGORISER_BACKEND` was reverted to `claude` for real use. Worth
+  revisiting with either a larger/faster local model, thinking disabled, or batched requests.

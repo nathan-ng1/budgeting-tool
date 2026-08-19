@@ -7,7 +7,7 @@ from categorisation.interface import MalformedResponseError
 from categorisation.openai_compatible_backend import OpenAICompatibleCategoriser
 from statement_export.parser import RawTransaction
 
-CATEGORY_LIST = {"Expenses": {"Groceries"}}
+CATEGORIES_BY_TYPE = {"Expense": {"Groceries"}}
 
 
 def make_transaction(**overrides):
@@ -26,9 +26,9 @@ class FakeTransport:
         return self.response
 
 
-def batch_json(category="Expenses", sub_category="Groceries", needs_review=False):
+def batch_json(transaction_type="Expense", category="Groceries", needs_review=False):
     return json.dumps(
-        {"results": [{"category": category, "sub_category": sub_category, "needs_review": needs_review, "reason": None}]}
+        {"results": [{"type": transaction_type, "category": category, "needs_review": needs_review, "reason": None}]}
     )
 
 
@@ -42,7 +42,7 @@ def test_posts_to_chat_completions_under_the_configured_base_url():
         base_url="http://localhost:11434/v1", api_key="key", model="llama3", post=transport
     )
 
-    categoriser.categorise([make_transaction()], CATEGORY_LIST)
+    categoriser.categorise([make_transaction()], CATEGORIES_BY_TYPE)
 
     [(url, headers, body)] = transport.calls
     assert url == "http://localhost:11434/v1/chat/completions"
@@ -54,7 +54,7 @@ def test_requests_schema_constrained_output():
     transport = FakeTransport(chat_completion_response(batch_json()))
     categoriser = OpenAICompatibleCategoriser(base_url="http://x", api_key="key", model="m", post=transport)
 
-    categoriser.categorise([make_transaction()], CATEGORY_LIST)
+    categoriser.categorise([make_transaction()], CATEGORIES_BY_TYPE)
 
     [(_, _, body)] = transport.calls
     assert body["response_format"]["type"] == "json_schema"
@@ -67,7 +67,7 @@ def test_trailing_slash_on_base_url_does_not_double_up():
         base_url="http://localhost:11434/v1/", api_key="key", model="llama3", post=transport
     )
 
-    categoriser.categorise([make_transaction()], CATEGORY_LIST)
+    categoriser.categorise([make_transaction()], CATEGORIES_BY_TYPE)
 
     [(url, _, _)] = transport.calls
     assert url == "http://localhost:11434/v1/chat/completions"
@@ -77,7 +77,7 @@ def test_prompt_is_sent_as_a_user_message():
     transport = FakeTransport(chat_completion_response(batch_json()))
     categoriser = OpenAICompatibleCategoriser(base_url="http://x", api_key="key", model="m", post=transport)
 
-    categoriser.categorise([make_transaction(notes="Woolworths")], CATEGORY_LIST)
+    categoriser.categorise([make_transaction(notes="Woolworths")], CATEGORIES_BY_TYPE)
 
     [(_, _, body)] = transport.calls
     assert body["messages"] == [{"role": "user", "content": body["messages"][0]["content"]}]
@@ -88,7 +88,7 @@ def test_extracts_and_parses_message_content_into_a_batch_result():
     transport = FakeTransport(chat_completion_response(batch_json(needs_review=True)))
     categoriser = OpenAICompatibleCategoriser(base_url="http://x", api_key="key", model="m", post=transport)
 
-    batch = categoriser.categorise([make_transaction()], CATEGORY_LIST)
+    batch = categoriser.categorise([make_transaction()], CATEGORIES_BY_TYPE)
 
     assert len(batch.results) == 1
     assert batch.results[0].needs_review is True
@@ -99,7 +99,7 @@ def test_unexpected_response_shape_raises_malformed_response_error():
     categoriser = OpenAICompatibleCategoriser(base_url="http://x", api_key="key", model="m", post=transport)
 
     with pytest.raises(MalformedResponseError):
-        categoriser.categorise([make_transaction()], CATEGORY_LIST)
+        categoriser.categorise([make_transaction()], CATEGORIES_BY_TYPE)
 
 
 def test_transport_failure_raises_malformed_response_error():
@@ -109,7 +109,7 @@ def test_transport_failure_raises_malformed_response_error():
     categoriser = OpenAICompatibleCategoriser(base_url="http://x", api_key="key", model="m", post=failing_transport)
 
     with pytest.raises(MalformedResponseError):
-        categoriser.categorise([make_transaction()], CATEGORY_LIST)
+        categoriser.categorise([make_transaction()], CATEGORIES_BY_TYPE)
 
 
 def test_non_json_message_content_raises_malformed_response_error():
@@ -117,4 +117,4 @@ def test_non_json_message_content_raises_malformed_response_error():
     categoriser = OpenAICompatibleCategoriser(base_url="http://x", api_key="key", model="m", post=transport)
 
     with pytest.raises(MalformedResponseError):
-        categoriser.categorise([make_transaction()], CATEGORY_LIST)
+        categoriser.categorise([make_transaction()], CATEGORIES_BY_TYPE)
