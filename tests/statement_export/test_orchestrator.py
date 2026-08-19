@@ -17,10 +17,10 @@ def fail_if_called(transaction, reason):
 
 
 def test_categorised_transactions_are_written_and_archived(
-    fake_categoriser, fake_sheets_client, make_category_result, tmp_path: Path, recurring_config: Path
+    fake_categoriser, fake_store, make_category_result, tmp_path: Path
 ):
     categoriser = fake_categoriser(results=[make_category_result()])
-    client = fake_sheets_client()
+    store = fake_store()
     source = tmp_path / "ANZ_20260805.csv"
     source.write_text("irrelevant")
     processed_dir = tmp_path / "processed"
@@ -29,8 +29,7 @@ def test_categorised_transactions_are_written_and_archived(
         deterministic_candidates=[],
         to_categorise=[make_transaction()],
         categoriser=categoriser,
-        client=client,
-        recurring_config_path=recurring_config,
+        store=store,
         through=date(2026, 8, 5),
         archive=Archive(source_path=source, processed_dir=processed_dir),
         resolve_needs_review=fail_if_called,
@@ -40,40 +39,37 @@ def test_categorised_transactions_are_written_and_archived(
     assert len(result.write_result.to_write) == 1
     assert result.write_result.to_write[0].type == "Expense"
     assert result.write_result.to_write[0].category == "Groceries"
-    assert client.appended == result.write_result.to_write
+    assert store.appended == result.write_result.to_write
     assert not source.exists()
     assert (processed_dir / "ANZ_20260805.csv").exists()
 
 
-def test_deterministic_candidates_bypass_categorisation(
-    fake_categoriser, fake_sheets_client, make_candidate, recurring_config: Path
-):
+def test_deterministic_candidates_bypass_categorisation(fake_categoriser, fake_store, make_candidate):
     categoriser = fake_categoriser(results=[])
-    client = fake_sheets_client()
+    store = fake_store()
     deterministic = [make_candidate(type="Income", category="Beem Adjustment", notes="Beem in")]
 
     result = run(
         deterministic_candidates=deterministic,
         to_categorise=[],
         categoriser=categoriser,
-        client=client,
-        recurring_config_path=recurring_config,
+        store=store,
         through=date(2026, 8, 5),
         resolve_needs_review=fail_if_called,
     )
 
     assert categoriser.calls == []
     assert result.write_result.to_write == deterministic
-    assert client.appended == deterministic
+    assert store.appended == deterministic
 
 
 def test_needs_review_item_is_resolved_via_the_injected_resolver(
-    fake_categoriser, fake_sheets_client, make_category_result, recurring_config: Path
+    fake_categoriser, fake_store, make_category_result
 ):
     categoriser = fake_categoriser(
         results=[make_category_result(needs_review=True, reason="not sure if this is a donation")]
     )
-    client = fake_sheets_client()
+    store = fake_store()
     transaction = make_transaction(notes="Square Payment")
 
     def resolve(txn, reason):
@@ -85,8 +81,7 @@ def test_needs_review_item_is_resolved_via_the_injected_resolver(
         deterministic_candidates=[],
         to_categorise=[transaction],
         categoriser=categoriser,
-        client=client,
-        recurring_config_path=recurring_config,
+        store=store,
         through=date(2026, 8, 5),
         resolve_needs_review=resolve,
     )
@@ -97,12 +92,12 @@ def test_needs_review_item_is_resolved_via_the_injected_resolver(
 
 
 def test_malformed_categoriser_response_aborts_with_no_write_or_archive(
-    fake_categoriser, fake_sheets_client, tmp_path: Path, recurring_config: Path
+    fake_categoriser, fake_store, tmp_path: Path
 ):
     from categorisation.interface import MalformedResponseError
 
     categoriser = fake_categoriser(error=MalformedResponseError("bad output"))
-    client = fake_sheets_client()
+    store = fake_store()
     source = tmp_path / "ANZ_20260805.csv"
     source.write_text("irrelevant")
     processed_dir = tmp_path / "processed"
@@ -111,8 +106,7 @@ def test_malformed_categoriser_response_aborts_with_no_write_or_archive(
         deterministic_candidates=[],
         to_categorise=[make_transaction()],
         categoriser=categoriser,
-        client=client,
-        recurring_config_path=recurring_config,
+        store=store,
         through=date(2026, 8, 5),
         archive=Archive(source_path=source, processed_dir=processed_dir),
         resolve_needs_review=fail_if_called,
@@ -121,34 +115,31 @@ def test_malformed_categoriser_response_aborts_with_no_write_or_archive(
     assert result.aborted
     assert result.reason == "bad output"
     assert result.write_result is None
-    assert client.appended == []
+    assert store.appended == []
     assert source.exists()
     assert not (processed_dir / "ANZ_20260805.csv").exists()
 
 
-def test_result_count_mismatch_aborts(fake_categoriser, fake_sheets_client, recurring_config: Path):
+def test_result_count_mismatch_aborts(fake_categoriser, fake_store):
     categoriser = fake_categoriser(results=[])  # zero results for one transaction
-    client = fake_sheets_client()
+    store = fake_store()
 
     result = run(
         deterministic_candidates=[],
         to_categorise=[make_transaction()],
         categoriser=categoriser,
-        client=client,
-        recurring_config_path=recurring_config,
+        store=store,
         through=date(2026, 8, 5),
         resolve_needs_review=fail_if_called,
     )
 
     assert result.aborted
-    assert client.appended == []
+    assert store.appended == []
 
 
-def test_invalid_type_category_pair_from_resolver_aborts(
-    fake_categoriser, fake_sheets_client, make_category_result, recurring_config: Path
-):
+def test_invalid_type_category_pair_from_resolver_aborts(fake_categoriser, fake_store, make_category_result):
     categoriser = fake_categoriser(results=[make_category_result(needs_review=True)])
-    client = fake_sheets_client()
+    store = fake_store()
 
     def resolve(txn, reason):
         return ("Expense", "Salary")  # Salary is an Income Category, not an Expense one
@@ -157,21 +148,20 @@ def test_invalid_type_category_pair_from_resolver_aborts(
         deterministic_candidates=[],
         to_categorise=[make_transaction()],
         categoriser=categoriser,
-        client=client,
-        recurring_config_path=recurring_config,
+        store=store,
         through=date(2026, 8, 5),
         resolve_needs_review=resolve,
     )
 
     assert result.aborted
-    assert client.appended == []
+    assert store.appended == []
 
 
 def test_dry_run_resolves_needs_review_but_skips_write_and_archive(
-    fake_categoriser, fake_sheets_client, make_category_result, tmp_path: Path, recurring_config: Path
+    fake_categoriser, fake_store, make_category_result, tmp_path: Path
 ):
     categoriser = fake_categoriser(results=[make_category_result(needs_review=True, reason="unsure")])
-    client = fake_sheets_client()
+    store = fake_store()
     source = tmp_path / "ANZ_20260805.csv"
     source.write_text("irrelevant")
     processed_dir = tmp_path / "processed"
@@ -185,8 +175,7 @@ def test_dry_run_resolves_needs_review_but_skips_write_and_archive(
         deterministic_candidates=[],
         to_categorise=[make_transaction()],
         categoriser=categoriser,
-        client=client,
-        recurring_config_path=recurring_config,
+        store=store,
         through=date(2026, 8, 5),
         archive=Archive(source_path=source, processed_dir=processed_dir),
         dry_run=True,
@@ -196,48 +185,49 @@ def test_dry_run_resolves_needs_review_but_skips_write_and_archive(
     assert not result.aborted
     assert len(resolver_calls) == 1
     assert len(result.write_result.to_write) == 1
-    assert client.appended == []
+    assert store.appended == []
     assert source.exists()
     assert not processed_dir.exists()
 
 
 def test_already_logged_transaction_is_not_reappended(
-    fake_categoriser, fake_sheets_client, make_category_result, make_existing_row, recurring_config: Path
+    fake_categoriser, fake_store, make_category_result, make_existing_row
 ):
     categoriser = fake_categoriser(results=[make_category_result()])
-    client = fake_sheets_client(existing_rows=[make_existing_row(notes="Woolworths", amount=42.50)])
+    store = fake_store(existing_rows=[make_existing_row(notes="Woolworths", amount=42.50)])
 
     result = run(
         deterministic_candidates=[],
         to_categorise=[make_transaction(notes="Woolworths", amount=-42.50)],
         categoriser=categoriser,
-        client=client,
-        recurring_config_path=recurring_config,
+        store=store,
         through=date(2026, 8, 5),
         resolve_needs_review=fail_if_called,
     )
 
     assert result.write_result.to_write == []
-    assert client.appended == []
+    assert store.appended == []
 
 
-def test_due_recurring_transactions_are_merged_in(fake_categoriser, fake_sheets_client, recurring_config: Path):
-    from openpyxl import load_workbook
-
-    workbook = load_workbook(recurring_config)
-    worksheet = workbook.active
-    worksheet.append([5000.0, "Income", "Salary", "Employer Pty Ltd", "Monthly", 1, 5, date(2026, 8, 5), None])
-    workbook.save(recurring_config)
-
+def test_due_recurring_transactions_are_merged_in(fake_categoriser, fake_store, make_rule):
+    rule = make_rule(
+        amount=5000.0,
+        type="Income",
+        category="Salary",
+        notes="Employer Pty Ltd",
+        frequency="Monthly",
+        interval=1,
+        day=5,
+        start_date=date(2026, 8, 5),
+    )
     categoriser = fake_categoriser(results=[])
-    client = fake_sheets_client()
+    store = fake_store(recurring_rules=[rule])
 
     result = run(
         deterministic_candidates=[],
         to_categorise=[],
         categoriser=categoriser,
-        client=client,
-        recurring_config_path=recurring_config,
+        store=store,
         through=date(2026, 8, 5),
         resolve_needs_review=fail_if_called,
     )

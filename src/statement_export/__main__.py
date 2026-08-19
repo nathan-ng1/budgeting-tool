@@ -4,13 +4,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from categorisation import factory
+from database import store as database_store
 from statement_export.run import process_data_dir
 from statement_export.terminal_review import TerminalReviewer
-from transaction_log import sheets_client
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = REPO_ROOT / ".data"
-RECURRING_CONFIG_PATH = REPO_ROOT / "config" / "recurring-transactions.xlsx"
 
 
 def main() -> None:
@@ -20,8 +19,7 @@ def main() -> None:
     results = process_data_dir(
         data_dir=DATA_DIR,
         categoriser=factory.connect(),
-        client=sheets_client.connect(),
-        recurring_config_path=RECURRING_CONFIG_PATH,
+        store=database_store.connect(),
         resolve_needs_review=TerminalReviewer(),
         dry_run=dry_run,
     )

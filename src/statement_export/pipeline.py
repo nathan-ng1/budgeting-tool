@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
-from recurring.config import parse_config
 from transaction_log.entries import Candidate, WriteResult
 from transaction_log.writer import resolve_writes
 
@@ -15,14 +14,13 @@ class Archive:
 
 def run(
     candidates: list[Candidate],
-    client,
-    recurring_config_path: Path,
+    store,
     through: date,
     archive: Archive | None = None,
     dry_run: bool = False,
 ) -> WriteResult:
-    recurring_rules = parse_config(recurring_config_path)
-    existing_rows = client.read_existing_rows()
+    recurring_rules = store.read_recurring_rules()
+    existing_rows = store.read_existing_rows()
 
     result = resolve_writes(
         candidates=candidates,
@@ -34,7 +32,7 @@ def run(
     if dry_run:
         return result
 
-    client.append_rows(result.to_write)
+    store.append_rows(result.to_write)
 
     if archive is not None:
         archive.processed_dir.mkdir(parents=True, exist_ok=True)

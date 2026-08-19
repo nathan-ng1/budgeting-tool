@@ -43,9 +43,9 @@ Review, Recurring Transaction, etc).
    - Either way: anything the backend flags `needs_review` is prompted right there in the
      terminal (via `statement_export.terminal_review.TerminalReviewer`), and nothing is written
      until every Needs Review item for that file is resolved.
-   - Once resolved, due Recurring Transactions (from `config\recurring-transactions.xlsx`,
-     capped at that file's own last transaction date) are expanded and merged with that file's
-     candidates, and the combined, deduped list is written to the live Transaction Log via
+   - Once resolved, due Recurring Transactions (from the local database's `recurring_rules`
+     table, capped at that file's own last transaction date) are expanded and merged with that
+     file's candidates, and the combined, deduped list is written to the live Transaction Log via
      `transaction_log.writer.resolve_writes` / `statement_export.orchestrator.run` — the same
      generic write path regardless of source or backend.
    - That source file is archived from `.data\` to `.data\processed\` on a successful write. If
@@ -88,15 +88,16 @@ model backend rather than improvised in chat:
 - `src/statement_export/run.py` + `src/statement_export/__main__.py` — the actual entry point
   (`uv run python -m statement_export`): discovers outstanding files in `.data\`, routes each to
   the orchestrator by issuer, and prints a summary.
-- `src/recurring/config.py` — expands the Recurring Transactions Config into due occurrences.
-- `src/transaction_log/writer.py` + `src/transaction_log/sheets_client.py` — dedupe against the
-  live log and write.
+- `src/database/store.py` — reads Recurring Transactions Config rows from the local database.
+  `src/recurring/schedule.py` — expands them into due occurrences.
+- `src/transaction_log/writer.py` + `src/database/store.py` — dedupe against the live log and
+  write.
 
 ## Dry runs
 
 Pass `--dry-run` to `uv run python -m statement_export` (or `process_statement_export.bat
 --dry-run`) to preview a run before committing to it — you're still prompted through any Needs
-Review items, so you see and answer them, but nothing is written to the live spreadsheet and no
+Review items, so you see and answer them, but nothing is written to the local database and no
 source file is archived. Useful when trying an unfamiliar or weaker local model backend for the
 first time.
 

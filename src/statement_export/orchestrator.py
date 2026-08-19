@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from datetime import date
-from pathlib import Path
 from typing import Callable
 
 from categorisation.interface import Categoriser, MalformedResponseError
@@ -25,8 +24,7 @@ def run(
     deterministic_candidates: list[Candidate],
     to_categorise: list[RawTransaction],
     categoriser: Categoriser,
-    client,
-    recurring_config_path: Path,
+    store,
     through: date,
     resolve_needs_review: NeedsReviewResolver,
     archive: Archive | None = None,
@@ -38,8 +36,7 @@ def run(
 
     result = pipeline.run(
         candidates=deterministic_candidates + categorised,
-        client=client,
-        recurring_config_path=recurring_config_path,
+        store=store,
         through=through,
         archive=archive,
         dry_run=dry_run,

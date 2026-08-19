@@ -12,20 +12,19 @@ def fail_if_called(transaction, reason):
 
 
 def test_card_export_is_categorised_written_and_archived(
-    fake_categoriser, fake_sheets_client, make_category_result, tmp_path: Path, recurring_config: Path
+    fake_categoriser, fake_store, make_category_result, tmp_path: Path
 ):
     data_dir = tmp_path / ".data"
     data_dir.mkdir()
     (data_dir / "ANZ_20260805.csv").write_text("05/08/2026,-42.50,Woolworths\n")
 
     categoriser = fake_categoriser(results=[make_category_result()])
-    client = fake_sheets_client()
+    store = fake_store()
 
     results = process_data_dir(
         data_dir=data_dir,
         categoriser=categoriser,
-        client=client,
-        recurring_config_path=recurring_config,
+        store=store,
         resolve_needs_review=fail_if_called,
     )
 
@@ -33,13 +32,13 @@ def test_card_export_is_categorised_written_and_archived(
     assert source.name == "ANZ_20260805.csv"
     assert not result.aborted
     assert len(result.write_result.to_write) == 1
-    assert client.appended == result.write_result.to_write
+    assert store.appended == result.write_result.to_write
     assert not source.exists()
     assert (data_dir / "processed" / "ANZ_20260805.csv").exists()
 
 
 def test_beem_report_splits_deterministic_income_from_categorised_outgoings(
-    fake_categoriser, fake_sheets_client, make_category_result, tmp_path: Path, recurring_config: Path
+    fake_categoriser, fake_store, make_category_result, tmp_path: Path
 ):
     data_dir = tmp_path / ".data"
     data_dir.mkdir()
@@ -48,13 +47,12 @@ def test_beem_report_splits_deterministic_income_from_categorised_outgoings(
     )
 
     categoriser = fake_categoriser(results=[make_category_result(type="Expense", category="Dining & Takeaway")])
-    client = fake_sheets_client()
+    store = fake_store()
 
     results = process_data_dir(
         data_dir=data_dir,
         categoriser=categoriser,
-        client=client,
-        recurring_config_path=recurring_config,
+        store=store,
         resolve_needs_review=fail_if_called,
     )
 
@@ -71,7 +69,7 @@ def test_beem_report_splits_deterministic_income_from_categorised_outgoings(
 
 
 def test_one_files_malformed_response_aborts_only_that_file(
-    fake_categoriser, fake_sheets_client, make_category_result, tmp_path: Path, recurring_config: Path
+    fake_categoriser, fake_store, make_category_result, tmp_path: Path
 ):
     data_dir = tmp_path / ".data"
     data_dir.mkdir()
@@ -84,13 +82,12 @@ def test_one_files_malformed_response_aborts_only_that_file(
                 raise MalformedResponseError("bad output")
             return fake_categoriser(results=[make_category_result()]).categorise(transactions, categories_by_type)
 
-    client = fake_sheets_client()
+    store = fake_store()
 
     results = process_data_dir(
         data_dir=data_dir,
         categoriser=RoutingCategoriser(),
-        client=client,
-        recurring_config_path=recurring_config,
+        store=store,
         resolve_needs_review=fail_if_called,
     )
 
@@ -102,7 +99,7 @@ def test_one_files_malformed_response_aborts_only_that_file(
     assert (data_dir / "processed" / "NAB_20260805.csv").exists()
 
 
-def test_unrecognised_filename_raises(fake_categoriser, fake_sheets_client, tmp_path: Path, recurring_config: Path):
+def test_unrecognised_filename_raises(fake_categoriser, fake_store, tmp_path: Path):
     data_dir = tmp_path / ".data"
     data_dir.mkdir()
     (data_dir / "not-a-statement-export.csv").write_text("irrelevant")
@@ -111,27 +108,23 @@ def test_unrecognised_filename_raises(fake_categoriser, fake_sheets_client, tmp_
         process_data_dir(
             data_dir=data_dir,
             categoriser=fake_categoriser(results=[]),
-            client=fake_sheets_client(),
-            recurring_config_path=recurring_config,
+            store=fake_store(),
             resolve_needs_review=fail_if_called,
         )
 
 
-def test_dry_run_does_not_write_or_archive(
-    fake_categoriser, fake_sheets_client, make_category_result, tmp_path: Path, recurring_config: Path
-):
+def test_dry_run_does_not_write_or_archive(fake_categoriser, fake_store, make_category_result, tmp_path: Path):
     data_dir = tmp_path / ".data"
     data_dir.mkdir()
     (data_dir / "ANZ_20260805.csv").write_text("05/08/2026,-42.50,Woolworths\n")
 
     categoriser = fake_categoriser(results=[make_category_result()])
-    client = fake_sheets_client()
+    store = fake_store()
 
     results = process_data_dir(
         data_dir=data_dir,
         categoriser=categoriser,
-        client=client,
-        recurring_config_path=recurring_config,
+        store=store,
         resolve_needs_review=fail_if_called,
         dry_run=True,
     )
@@ -139,20 +132,19 @@ def test_dry_run_does_not_write_or_archive(
     [(source, result)] = results
     assert not result.aborted
     assert len(result.write_result.to_write) == 1
-    assert client.appended == []
+    assert store.appended == []
     assert source.exists()
     assert not (data_dir / "processed").exists()
 
 
-def test_no_files_returns_empty_list(fake_categoriser, fake_sheets_client, tmp_path: Path, recurring_config: Path):
+def test_no_files_returns_empty_list(fake_categoriser, fake_store, tmp_path: Path):
     data_dir = tmp_path / ".data"
     data_dir.mkdir()
 
     results = process_data_dir(
         data_dir=data_dir,
         categoriser=fake_categoriser(results=[]),
-        client=fake_sheets_client(),
-        recurring_config_path=recurring_config,
+        store=fake_store(),
         resolve_needs_review=fail_if_called,
     )
 

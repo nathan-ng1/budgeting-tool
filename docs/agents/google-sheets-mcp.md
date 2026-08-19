@@ -1,5 +1,11 @@
 # Google Sheets MCP connection
 
+**Historical/reference only.** The live Transaction Log and Recurring Transactions Config now
+live in a local SQLite database (`src/database/store.py`, `DATABASE_PATH` in `.env`) — see
+[ADR-0005](../adr/0005-migrate-transaction-log-and-recurring-config-to-a-local-database.md). This
+doc describes the retired Google Sheets connection and its footguns, kept for reference in case
+Sheets is ever reused as a one-off export target.
+
 Read/write access to the budget spreadsheet's Transaction Log is provided by
 [xing5's `mcp-google-sheets`](https://github.com/xing5/mcp-google-sheets) server, connected via
 a service account (not interactive OAuth).
@@ -31,13 +37,13 @@ executable:
 - `DRIVE_FOLDER_ID` — scopes `list_spreadsheets`/`search_spreadsheets` to the Drive folder
   containing the budget spreadsheet, so the tool doesn't enumerate unrelated Drive content.
 
-The deterministic write path (`transaction_log.sheets_client.connect`, used by
-`statement_export.pipeline.run`) is a separate connection from this MCP server — it talks to the
-Sheets API directly rather than through MCP tools. It reads `SERVICE_ACCOUNT_PATH` and
-`SPREADSHEET_ID` from the environment, loaded from the repo-root `.env` (see `.env.example`) if
-not already set in the shell. `SPREADSHEET_ID` is the budget spreadsheet's ID from its Google
-Sheets URL (`.../spreadsheets/d/<SPREADSHEET_ID>/edit`) — it's what used to be a hardcoded
-constant in `sheets_client.py` before both these connections were made configurable per-person.
+The deterministic write path used to be a separate connection from this MCP server
+(`transaction_log.sheets_client.connect`, used by `statement_export.pipeline.run`) that talked to
+the Sheets API directly rather than through MCP tools, reading `SERVICE_ACCOUNT_PATH` and
+`SPREADSHEET_ID` from the environment. That module is retired as of ADR-0005 — the live pipeline
+now reads/writes `DATABASE_PATH` instead, and neither `SERVICE_ACCOUNT_PATH` nor `SPREADSHEET_ID`
+is required for it to run. They're still read by this MCP server's own registration above, if
+you keep it configured.
 
 ## Reproducing / refreshing credentials
 

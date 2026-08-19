@@ -15,8 +15,7 @@ STATEMENT_EXPORT_PATTERN = re.compile(r"^(?P<issuer>[A-Za-z]+)_\d{8}\.csv$")
 def process_data_dir(
     data_dir: Path,
     categoriser: Categoriser,
-    client,
-    recurring_config_path: Path,
+    store,
     resolve_needs_review: NeedsReviewResolver,
     dry_run: bool = False,
 ) -> list[tuple[Path, OrchestrationResult]]:
@@ -43,8 +42,7 @@ def process_data_dir(
             deterministic_candidates=deterministic,
             to_categorise=to_categorise,
             categoriser=categoriser,
-            client=client,
-            recurring_config_path=recurring_config_path,
+            store=store,
             through=through,
             resolve_needs_review=resolve_needs_review,
             archive=Archive(source_path=source, processed_dir=processed_dir),

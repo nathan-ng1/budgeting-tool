@@ -3,6 +3,7 @@ from datetime import date
 import pytest
 
 from categorisation.interface import BatchResult, CategoryResult
+from recurring.rules import RecurringRule
 from statement_export.parser import RawTransaction
 from transaction_log.entries import Candidate, ExistingRow
 
@@ -28,16 +29,21 @@ class FakeCategoriser:
         return BatchResult(results=self._results)
 
 
-class FakeSheetsClient:
-    """In-memory stand-in for the Transaction Log's Google Sheets client.
+class FakeStore:
+    """In-memory stand-in for the local database store.
 
-    Used wherever a test needs Transaction Log reads/writes without live
-    Sheets access — GoogleSheetsClient (transaction_log.sheets_client) is the
-    real counterpart.
+    Used wherever a test needs Transaction Log/Recurring Transactions Config
+    reads or writes without a real SQLite database — LocalStore
+    (database.store) is the real counterpart.
     """
 
-    def __init__(self, existing_rows: list[ExistingRow] | None = None):
+    def __init__(
+        self,
+        existing_rows: list[ExistingRow] | None = None,
+        recurring_rules: list[RecurringRule] | None = None,
+    ):
         self._existing_rows = list(existing_rows or [])
+        self._recurring_rules = list(recurring_rules or [])
         self.appended: list[Candidate] = []
 
     def read_existing_rows(self) -> list[ExistingRow]:
@@ -45,6 +51,9 @@ class FakeSheetsClient:
 
     def append_rows(self, candidates: list[Candidate]) -> None:
         self.appended.extend(candidates)
+
+    def read_recurring_rules(self) -> list[RecurringRule]:
+        return list(self._recurring_rules)
 
 
 @pytest.fixture
@@ -78,8 +87,28 @@ def make_existing_row():
 
 
 @pytest.fixture
-def fake_sheets_client():
-    return FakeSheetsClient
+def fake_store():
+    return FakeStore
+
+
+@pytest.fixture
+def make_rule():
+    def _make_rule(**overrides):
+        defaults = dict(
+            amount=100.0,
+            type="Expense",
+            category="Subscriptions",
+            notes="Test rule",
+            frequency="Weekly",
+            interval=1,
+            day="Wednesday",
+            start_date=date(2026, 8, 5),  # a Wednesday
+            end_date=None,
+        )
+        defaults.update(overrides)
+        return RecurringRule(**defaults)
+
+    return _make_rule
 
 
 @pytest.fixture
