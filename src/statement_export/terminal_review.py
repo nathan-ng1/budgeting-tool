@@ -3,13 +3,16 @@ from typing import Callable
 from statement_export.parser import RawTransaction
 from transaction_log.categories import CATEGORIES_BY_TYPE, types_with_categories
 
+DROP_BILL_PAYMENT = "Drop — Bill Payment"
+
 
 class TerminalReviewer:
     """Resolves a Needs Review transaction via a prompt loop in the terminal.
 
-    Callable as (transaction, reason) -> (type, category), matching
+    Callable as (transaction, reason) -> (type, category) | None, matching
     statement_export.orchestrator.NeedsReviewResolver - the default resolver
-    process_statement_export's __main__ wires in for real runs.
+    process_statement_export's __main__ wires in for real runs. None means the
+    user resolved a positive-Amount transaction as a Bill Payment to drop.
     """
 
     def __init__(
@@ -22,14 +25,23 @@ class TerminalReviewer:
         self._input = input_fn
         self._print = print_fn
 
-    def __call__(self, transaction: RawTransaction, reason: str | None) -> tuple[str, str]:
+    def __call__(self, transaction: RawTransaction, reason: str | None) -> tuple[str, str] | None:
         self._print(
             f"\nNeeds Review: {transaction.date.isoformat()}  {transaction.amount:.2f}  {transaction.notes}"
         )
         if reason:
             self._print(f"  ({reason})")
 
-        transaction_type = self._choose("Type", types_with_categories(self._categories_by_type))
+        type_options = types_with_categories(self._categories_by_type)
+        if transaction.amount > 0:
+            # Only a positive-Amount row can be a Bill Payment - offering this
+            # for an ordinary spend row would be nonsensical.
+            type_options = type_options + [DROP_BILL_PAYMENT]
+
+        transaction_type = self._choose("Type", type_options)
+        if transaction_type == DROP_BILL_PAYMENT:
+            return None
+
         category = self._choose(
             f"Category for {transaction_type}", sorted(self._categories_by_type[transaction_type])
         )

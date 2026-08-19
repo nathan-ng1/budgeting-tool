@@ -9,8 +9,9 @@ from statement_export.pipeline import Archive
 from transaction_log.categories import CATEGORIES_BY_TYPE
 from transaction_log.entries import Candidate, WriteResult
 
-# Resolves a Needs Review transaction to a (Type, Category) pair.
-NeedsReviewResolver = Callable[[RawTransaction, str | None], tuple[str, str]]
+# Resolves a Needs Review transaction to a (Type, Category) pair, or None if the
+# user resolves it as a Bill Payment to drop instead.
+NeedsReviewResolver = Callable[[RawTransaction, str | None], tuple[str, str] | None]
 
 
 @dataclass(frozen=True)
@@ -62,9 +63,15 @@ def _categorise(
 
     candidates = []
     for transaction, result in zip(to_categorise, batch.results):
-        transaction_type, category = result.type, result.category
         if result.needs_review:
-            transaction_type, category = resolve_needs_review(transaction, result.reason)
+            resolution = resolve_needs_review(transaction, result.reason)
+            if resolution is None:
+                continue  # resolved as a Bill Payment — drop, never written
+            transaction_type, category = resolution
+        elif result.is_bill_payment:
+            continue  # Bill Payment — drop, never written, never blocks archiving
+        else:
+            transaction_type, category = result.type, result.category
         try:
             candidates.append(
                 Candidate(

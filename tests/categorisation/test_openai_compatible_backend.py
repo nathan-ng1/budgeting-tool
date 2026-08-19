@@ -28,7 +28,17 @@ class FakeTransport:
 
 def batch_json(transaction_type="Expense", category="Groceries", needs_review=False):
     return json.dumps(
-        {"results": [{"type": transaction_type, "category": category, "needs_review": needs_review, "reason": None}]}
+        {
+            "results": [
+                {
+                    "type": transaction_type,
+                    "category": category,
+                    "needs_review": needs_review,
+                    "is_bill_payment": False,
+                    "reason": None,
+                }
+            ]
+        }
     )
 
 

@@ -27,7 +27,17 @@ class FakeProcessRunner:
 
 
 def batch_dict(transaction_type="Expense", category="Groceries", needs_review=False):
-    return {"results": [{"type": transaction_type, "category": category, "needs_review": needs_review, "reason": None}]}
+    return {
+        "results": [
+            {
+                "type": transaction_type,
+                "category": category,
+                "needs_review": needs_review,
+                "is_bill_payment": False,
+                "reason": None,
+            }
+        ]
+    }
 
 
 def envelope_with_structured_output(result: dict) -> str:

@@ -81,6 +81,44 @@ def test_a_type_with_no_categories_is_not_offered():
     assert "Transfer" not in "\n".join(printed)
 
 
+def test_drop_bill_payment_option_is_offered_for_a_positive_amount_transaction():
+    # Types sorted: Expense(1), Income(2), then Drop — Bill Payment(3).
+    printed = []
+    fake_input = FakeInput(["3"])
+    reviewer = TerminalReviewer(
+        categories_by_type=CATEGORIES_BY_TYPE, input_fn=fake_input, print_fn=printed.append
+    )
+
+    result = reviewer(make_transaction(amount=2143.68, notes="PAYMENT - THANKYOU"), reason=None)
+
+    assert result is None
+    assert "Drop — Bill Payment" in "\n".join(printed)
+
+
+def test_drop_bill_payment_option_is_not_offered_for_a_negative_amount_transaction():
+    printed = []
+    fake_input = FakeInput(["1", "1"])
+    reviewer = TerminalReviewer(
+        categories_by_type=CATEGORIES_BY_TYPE, input_fn=fake_input, print_fn=printed.append
+    )
+
+    result = reviewer(make_transaction(amount=-42.50), reason=None)
+
+    assert result == ("Expense", "Dining & Takeaway")
+    assert "Drop — Bill Payment" not in "\n".join(printed)
+
+
+def test_choosing_a_type_after_declining_to_drop_a_bill_payment_still_works():
+    fake_input = FakeInput(["1", "2"])
+    reviewer = TerminalReviewer(
+        categories_by_type=CATEGORIES_BY_TYPE, input_fn=fake_input, print_fn=lambda *_: None
+    )
+
+    result = reviewer(make_transaction(amount=2143.68, notes="Refunded item"), reason=None)
+
+    assert result == ("Expense", "Groceries")
+
+
 def test_transaction_and_reason_are_printed():
     printed = []
     fake_input = FakeInput(["1", "1"])

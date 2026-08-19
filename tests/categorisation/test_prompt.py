@@ -49,14 +49,34 @@ def test_prompt_instructs_a_results_wrapped_json_object():
 
     assert '"results"' in prompt
     assert "needs_review" in prompt
+    assert "is_bill_payment" in prompt
+
+
+def test_prompt_explains_the_positive_amount_bill_payment_vs_refund_distinction():
+    prompt = build_prompt([make_transaction()], CATEGORIES_BY_TYPE)
+
+    assert "Bill Payment" in prompt
+    assert "Refund" in prompt
 
 
 def test_valid_response_parses_into_a_batch_result_in_order():
     raw = json.dumps(
         {
             "results": [
-                {"type": "Expense", "category": "Groceries", "needs_review": False, "reason": None},
-                {"type": "Income", "category": "Salary", "needs_review": True, "reason": "unsure"},
+                {
+                    "type": "Expense",
+                    "category": "Groceries",
+                    "needs_review": False,
+                    "is_bill_payment": False,
+                    "reason": None,
+                },
+                {
+                    "type": "Income",
+                    "category": "Salary",
+                    "needs_review": True,
+                    "is_bill_payment": False,
+                    "reason": "unsure",
+                },
             ]
         }
     )
@@ -71,12 +91,62 @@ def test_valid_response_parses_into_a_batch_result_in_order():
 
 def test_reason_defaults_to_none_when_omitted():
     raw = json.dumps(
-        {"results": [{"type": "Expense", "category": "Groceries", "needs_review": False}]}
+        {
+            "results": [
+                {
+                    "type": "Expense",
+                    "category": "Groceries",
+                    "needs_review": False,
+                    "is_bill_payment": False,
+                }
+            ]
+        }
     )
 
     batch = parse_batch_response(raw, expected_count=1)
 
     assert batch.results[0].reason is None
+
+
+def test_is_bill_payment_result_parses_with_null_type_and_category():
+    raw = json.dumps(
+        {
+            "results": [
+                {
+                    "type": None,
+                    "category": None,
+                    "needs_review": False,
+                    "is_bill_payment": True,
+                    "reason": None,
+                }
+            ]
+        }
+    )
+
+    batch = parse_batch_response(raw, expected_count=1)
+
+    assert batch.results[0].is_bill_payment is True
+    assert batch.results[0].type is None
+    assert batch.results[0].category is None
+
+
+def test_is_bill_payment_result_with_non_null_type_raises_malformed_response_error():
+    raw = json.dumps(
+        {
+            "results": [
+                {
+                    "type": "Income",
+                    "category": "Refund",
+                    "needs_review": False,
+                    "is_bill_payment": True,
+                    "reason": None,
+                }
+            ]
+        }
+    )
+
+    with pytest.raises(MalformedResponseError):
+        parse_batch_response(raw, expected_count=1)
 
 
 @pytest.mark.parametrize(
@@ -95,7 +165,16 @@ def test_structurally_invalid_response_raises_malformed_response_error(raw):
 
 def test_wrong_result_count_raises_malformed_response_error():
     raw = json.dumps(
-        {"results": [{"type": "Expense", "category": "Groceries", "needs_review": False}]}
+        {
+            "results": [
+                {
+                    "type": "Expense",
+                    "category": "Groceries",
+                    "needs_review": False,
+                    "is_bill_payment": False,
+                }
+            ]
+        }
     )
 
     with pytest.raises(MalformedResponseError):
@@ -111,7 +190,16 @@ def test_missing_key_raises_malformed_response_error():
 
 def test_invalid_type_category_pair_raises_malformed_response_error():
     raw = json.dumps(
-        {"results": [{"type": "Expense", "category": "Salary", "needs_review": False}]}
+        {
+            "results": [
+                {
+                    "type": "Expense",
+                    "category": "Salary",
+                    "needs_review": False,
+                    "is_bill_payment": False,
+                }
+            ]
+        }
     )
 
     with pytest.raises(MalformedResponseError):
@@ -120,7 +208,34 @@ def test_invalid_type_category_pair_raises_malformed_response_error():
 
 def test_non_boolean_needs_review_raises_malformed_response_error():
     raw = json.dumps(
-        {"results": [{"type": "Expense", "category": "Groceries", "needs_review": "yes"}]}
+        {
+            "results": [
+                {
+                    "type": "Expense",
+                    "category": "Groceries",
+                    "needs_review": "yes",
+                    "is_bill_payment": False,
+                }
+            ]
+        }
+    )
+
+    with pytest.raises(MalformedResponseError):
+        parse_batch_response(raw, expected_count=1)
+
+
+def test_non_boolean_is_bill_payment_raises_malformed_response_error():
+    raw = json.dumps(
+        {
+            "results": [
+                {
+                    "type": "Expense",
+                    "category": "Groceries",
+                    "needs_review": False,
+                    "is_bill_payment": "yes",
+                }
+            ]
+        }
     )
 
     with pytest.raises(MalformedResponseError):

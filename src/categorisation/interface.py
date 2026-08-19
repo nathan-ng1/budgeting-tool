@@ -10,10 +10,13 @@ class MalformedResponseError(Exception):
 
 @dataclass(frozen=True)
 class CategoryResult:
-    type: str
-    category: str
+    # type/category are None when is_bill_payment is True — a Bill Payment is
+    # dropped, never assigned a Type/Category. See ADR-0007.
+    type: str | None
+    category: str | None
     needs_review: bool
     reason: str | None = None
+    is_bill_payment: bool = False
 
 
 @dataclass(frozen=True)

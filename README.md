@@ -126,8 +126,9 @@ UI for this yet (see ADR-0008 for the planned Dashboard).
 
    Sanitising moves every recognised export from the inbox into `.data/`, stripping personal
    identifiers per-issuer. `statement_export` then handles each file sitting in `.data/` by
-   issuer: for a card export, it parses it, drops Payments & Refunds, and categorises every
-   remaining transaction via your configured `CATEGORISER_BACKEND`. For a Beem Report, incoming
+   issuer: for a card export, it parses it and categorises every transaction via your configured
+   `CATEGORISER_BACKEND` — a positive-Amount row is classified as a genuine Refund (written as
+   Income/Refund) or a Bill Payment (dropped, never written). For a Beem Report, incoming
    rows become deterministic Income/Beem Adjustment entries with no model call needed, and
    outgoing rows are categorised from their message against the same fixed Category list.
    Either way, anything the backend isn't confident about is prompted as Needs Review right in

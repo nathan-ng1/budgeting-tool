@@ -30,12 +30,18 @@ Review, Recurring Transaction, etc).
    ```
    (Or just run `process_statement_export.bat`, which does steps 2 and 3 together.) The script
    looks at what's sitting in `.data\` and handles each file there by issuer:
-   - **Card export (e.g. ANZ)**: parse the export and drop any Payments & Refunds (positive-
-     Amount rows) before categorising anything, then assign a Type/Category to every
-     remaining transaction against the fixed mapping in `src/transaction_log/categories.py`, via
-     whichever backend `CATEGORISER_BACKEND` selects.
+   - **Card export (e.g. ANZ)**: parse the export (both signs — negative spend and positive
+     Bill Payment/Refund rows all flow into categorisation, see
+     [ADR-0007](../adr/0007-classify-refunds-vs-bill-payments-via-the-categorisation-backend.md))
+     and assign a Type/Category to every transaction against the fixed mapping in
+     `src/transaction_log/categories.py`, via whichever backend `CATEGORISER_BACKEND` selects. A
+     positive-Amount row is classified by the backend as a genuine Refund (written as Type
+     Income, Category Refund) or a Bill Payment (`is_bill_payment: true` — dropped before
+     `Candidate`s are built, never written, never blocks archiving); an ambiguous one goes to
+     Needs Review, where the terminal resolver can pick a Type/Category or drop it as a Bill
+     Payment.
    - **Beem Report**: `beem.parser.parse()` keeps both directions (unlike a card export, a
-     positive row here is real Income, not a droppable Payments & Refunds credit).
+     positive row here is real Income, not a Bill Payment/Refund judgement call).
      `beem.parser.categorise()` splits the parsed rows: incoming (positive) rows become
      deterministic `Type: Income, Category: Beem Adjustment` candidates with no model
      call needed; outgoing (negative) rows are categorised from their Message against the same
@@ -73,8 +79,8 @@ run as plain scripts so they're exactly right every time, and even the judgement
 model backend rather than improvised in chat:
 
 - `src/sanitising/` — moves and sanitises exports (run manually, step 2 above).
-- `src/statement_export/parser.py` — parses a Statement Export into raw Transactions, dropping
-  Payments & Refunds.
+- `src/statement_export/parser.py` — parses a Statement Export into raw Transactions, both signs
+  (negative spend and positive Bill Payment/Refund rows all flow into categorisation).
 - `src/beem/parser.py` — parses a Beem Report (keeping both directions) and splits it into
   deterministic Income candidates and outgoing rows still needing categorisation.
 - `src/categorisation/` — the pluggable `Categoriser` interface and its three backends
