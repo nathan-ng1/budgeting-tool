@@ -48,8 +48,9 @@ real database or archiving anything.
   against your own fork/clone.
 - Optional: a **Google account** with access to Google Cloud Console and your own budget
   spreadsheet, only if you want the historical/reference Google Sheets MCP connection for ad hoc
-  chat queries or a one-off export — see `docs/agents/google-sheets-mcp.md`. Not needed to run the
-  pipeline itself; the live Transaction Log is a local SQLite database (step 3 below).
+  chat queries or a one-off export — see `docs/agents/google-sheets-mcp.md` for setup (install
+  with `uv sync --extra mcp` instead of step 1's plain `uv sync`). Not needed to run the pipeline
+  itself; the live Transaction Log is a local SQLite database (step 2 below).
 
 ## Setting this up for someone else
 
