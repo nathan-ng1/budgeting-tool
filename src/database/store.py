@@ -4,6 +4,7 @@ from datetime import date
 from pathlib import Path
 
 from recurring.rules import RecurringRule
+from transaction_log.categories import is_valid_type_category_pair
 from transaction_log.entries import Candidate, ExistingRow
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -29,6 +30,11 @@ CREATE TABLE IF NOT EXISTS recurring_rules (
     day TEXT NOT NULL,
     start_date TEXT NOT NULL,
     end_date TEXT
+);
+
+CREATE TABLE IF NOT EXISTS category_budgets (
+    category TEXT PRIMARY KEY,
+    monthly_amount NUMERIC NOT NULL
 );
 """
 
@@ -111,13 +117,33 @@ class LocalStore:
             )
         return rules
 
+    def read_category_budgets(self) -> dict[str, float]:
+        rows = self._connection.execute("SELECT category, monthly_amount FROM category_budgets").fetchall()
+        return {category: monthly_amount for category, monthly_amount in rows}
+
+    def upsert_category_budget(self, category: str, monthly_amount: float) -> None:
+        if not is_valid_type_category_pair("Expense", category):
+            raise ValueError(f"Category {category!r} is not a valid Expense Category")
+
+        self._connection.execute(
+            "INSERT INTO category_budgets (category, monthly_amount) VALUES (?, ?) "
+            "ON CONFLICT(category) DO UPDATE SET monthly_amount = excluded.monthly_amount",
+            (category, monthly_amount),
+        )
+        self._connection.commit()
+
+    def delete_category_budget(self, category: str) -> None:
+        self._connection.execute("DELETE FROM category_budgets WHERE category = ?", (category,))
+        self._connection.commit()
+
 
 def connect(database_path: Path | None = None) -> LocalStore:
     """Build a LocalStore against the local SQLite database.
 
     Reads DATABASE_PATH from the environment (loaded from a repo-root `.env`
     if present) when database_path isn't given explicitly. Creates the
-    transactions/recurring_rules tables if they don't exist yet.
+    transactions/recurring_rules/category_budgets tables if they don't exist
+    yet.
     """
     if database_path is None:
         from dotenv import load_dotenv

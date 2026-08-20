@@ -2,6 +2,8 @@ import sqlite3
 from datetime import date
 from pathlib import Path
 
+import pytest
+
 from database.store import connect
 from recurring.rules import RecurringRule
 from transaction_log.entries import ExistingRow
@@ -126,6 +128,70 @@ def test_append_recurring_rules_with_no_rules_is_a_noop(tmp_path: Path):
     store.append_recurring_rules([])
 
     assert store.read_recurring_rules() == []
+
+
+def test_read_category_budgets_on_a_fresh_database_returns_no_budgets(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    assert store.read_category_budgets() == {}
+
+
+def test_upsert_category_budget_then_read_category_budgets_round_trips(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    store.upsert_category_budget("Groceries", 500.0)
+
+    assert store.read_category_budgets() == {"Groceries": 500.0}
+
+
+def test_read_category_budgets_omits_categories_with_none_configured(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    store.upsert_category_budget("Groceries", 500.0)
+
+    assert "Dining & Takeaway" not in store.read_category_budgets()
+
+
+def test_upsert_category_budget_overwrites_an_existing_budget(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+    store.upsert_category_budget("Groceries", 500.0)
+
+    store.upsert_category_budget("Groceries", 600.0)
+
+    assert store.read_category_budgets() == {"Groceries": 600.0}
+
+
+def test_upsert_category_budget_rejects_a_category_not_in_the_expense_set(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    with pytest.raises(ValueError):
+        store.upsert_category_budget("Salary", 500.0)
+
+    assert store.read_category_budgets() == {}
+
+
+def test_upsert_category_budget_rejects_an_unknown_category(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    with pytest.raises(ValueError):
+        store.upsert_category_budget("Not A Real Category", 500.0)
+
+
+def test_delete_category_budget_removes_it_so_it_no_longer_appears(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+    store.upsert_category_budget("Groceries", 500.0)
+
+    store.delete_category_budget("Groceries")
+
+    assert store.read_category_budgets() == {}
+
+
+def test_delete_category_budget_for_a_category_with_no_budget_is_a_noop(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    store.delete_category_budget("Groceries")
+
+    assert store.read_category_budgets() == {}
 
 
 def _insert_recurring_rule(database_path: Path, **fields) -> None:

@@ -5,6 +5,7 @@ import pytest
 from categorisation.interface import BatchResult, CategoryResult
 from recurring.rules import RecurringRule
 from statement_export.parser import RawTransaction
+from transaction_log.categories import is_valid_type_category_pair
 from transaction_log.entries import Candidate, ExistingRow
 
 
@@ -41,9 +42,11 @@ class FakeStore:
         self,
         existing_rows: list[ExistingRow] | None = None,
         recurring_rules: list[RecurringRule] | None = None,
+        category_budgets: dict[str, float] | None = None,
     ):
         self._existing_rows = list(existing_rows or [])
         self._recurring_rules = list(recurring_rules or [])
+        self._category_budgets: dict[str, float] = dict(category_budgets or {})
         self.appended: list[Candidate] = []
 
     def read_existing_rows(self) -> list[ExistingRow]:
@@ -57,6 +60,17 @@ class FakeStore:
 
     def append_recurring_rules(self, rules: list[RecurringRule]) -> None:
         self._recurring_rules.extend(rules)
+
+    def read_category_budgets(self) -> dict[str, float]:
+        return dict(self._category_budgets)
+
+    def upsert_category_budget(self, category: str, monthly_amount: float) -> None:
+        if not is_valid_type_category_pair("Expense", category):
+            raise ValueError(f"Category {category!r} is not a valid Expense Category")
+        self._category_budgets[category] = monthly_amount
+
+    def delete_category_budget(self, category: str) -> None:
+        self._category_budgets.pop(category, None)
 
 
 @pytest.fixture
