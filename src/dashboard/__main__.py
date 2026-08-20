@@ -14,7 +14,7 @@ def main() -> None:
     port = int(os.environ.get("DASHBOARD_PORT", "8765"))
 
     server = build_server(database_store.connect(), port=port)
-    print(f"Dashboard backend serving on http://127.0.0.1:{server.server_port} (Ctrl+C to stop)")
+    print(f"Dashboard serving on http://127.0.0.1:{server.server_port} (Ctrl+C to stop)")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

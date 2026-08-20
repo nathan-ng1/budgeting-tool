@@ -1,0 +1,636 @@
+/* Design tokens and component classes lifted from the approved Claude Design
+   mockup (docs/mockups/overview-dashboard.html), whose design system is called
+   "Organic". The mockup carries its styling as inline attributes on every
+   element; the same values live here as classes so the components stay
+   readable. Fonts are vendored under public/fonts so the Dashboard renders
+   fully offline - nothing about this page reaches the network (ADR-0008). */
+
+@font-face {
+  font-family: "Caprasimo";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/caprasimo-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Caprasimo";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/caprasimo-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
+    U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Figtree";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/figtree-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Figtree";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/figtree-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
+    U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+:root {
+  --color-text: #201e1d;
+  --color-accent: #c67139;
+
+  --color-neutral-100: #f9f4ed;
+  --color-neutral-200: #eee7db;
+  --color-neutral-300: #dcd3c4;
+  --color-neutral-400: #c0b6a5;
+  --color-neutral-500: #a19786;
+  --color-neutral-600: #82796a;
+  --color-neutral-700: #645c50;
+
+  --color-accent-300: #ffc6a5;
+  --color-accent-600: #b2622d;
+  --color-accent-700: #8c491a;
+  --color-accent-800: #643312;
+
+  --color-accent-2-500: #8fa073;
+  --color-accent-2-700: #56633f;
+
+  --color-card: #fffdf9;
+
+  --font-heading: "Caprasimo", system-ui, sans-serif;
+  --font-body: "Figtree", system-ui, sans-serif;
+
+  --radius-md: 16px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.55;
+  background: var(--color-neutral-100);
+  color: var(--color-text);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-heading);
+  font-weight: 400;
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  margin: 0;
+}
+
+.numeric {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.muted {
+  color: var(--color-neutral-600);
+}
+
+/* A figure that went the wrong way (overspent, negative Net Balance) reads in
+   the warm accent; one that went the right way reads in the green. */
+.figure--adverse {
+  color: var(--color-accent-700);
+}
+
+.figure--favourable {
+  color: var(--color-accent-2-700);
+}
+
+/* — page shell — */
+
+.page {
+  min-height: 100vh;
+  padding: 36px 44px 56px;
+}
+
+.page__inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.header h1 {
+  font-size: 34px;
+  letter-spacing: -0.02em;
+}
+
+.header__subtitle {
+  margin-top: 6px;
+  font-size: 13.5px;
+  color: var(--color-neutral-600);
+  letter-spacing: 0.01em;
+}
+
+/* — nav tabs — */
+
+.nav {
+  display: flex;
+  align-items: flex-end;
+  gap: 26px;
+  border-bottom: 1px solid var(--color-neutral-300);
+  flex-wrap: wrap;
+}
+
+.nav__tab {
+  padding: 0 2px 11px;
+  font-size: 14px;
+  color: var(--color-neutral-500);
+}
+
+.nav__tab--active {
+  font-weight: 600;
+  color: var(--color-text);
+  box-shadow: inset 0 -2px 0 0 var(--color-accent);
+}
+
+.nav__asat {
+  margin-left: auto;
+  padding: 0 2px 11px;
+  font-size: 12.5px;
+  color: var(--color-neutral-500);
+  white-space: nowrap;
+}
+
+/* — month selector — */
+
+.months {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.months__pill {
+  padding: 6px 15px;
+  border-radius: 999px;
+  border: 1px solid var(--color-neutral-300);
+  background: var(--color-card);
+  font-size: 13px;
+  color: var(--color-neutral-600);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.months__pill:hover {
+  border-color: var(--color-neutral-400);
+}
+
+.months__pill[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  font-weight: 600;
+  color: var(--color-neutral-100);
+}
+
+.months__pill:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* — cards — */
+
+.card {
+  background: var(--color-card);
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-md);
+  padding: 24px 26px 26px;
+}
+
+.card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.card h3 {
+  font-size: 19px;
+}
+
+.card__aside {
+  text-align: right;
+}
+
+.card__aside-figure {
+  font-family: var(--font-heading);
+  font-size: 22px;
+  letter-spacing: -0.015em;
+}
+
+.card__aside-label {
+  font-size: 11.5px;
+  color: var(--color-neutral-500);
+}
+
+/* — stat tiles — */
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.tile {
+  background: var(--color-card);
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-md);
+  padding: 20px 22px;
+}
+
+.tile__label {
+  font-size: 11.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--color-neutral-600);
+  font-weight: 600;
+}
+
+.tile__value {
+  font-family: var(--font-heading);
+  font-size: 31px;
+  line-height: 1.15;
+  margin-top: 10px;
+  letter-spacing: -0.015em;
+}
+
+/* — income allocation — */
+
+.allocation__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  align-items: center;
+}
+
+.allocation__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.allocation__bar-wrap {
+  position: relative;
+  margin-top: 20px;
+}
+
+.allocation__bar {
+  display: flex;
+  height: 26px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--color-neutral-200);
+}
+
+.allocation__segment {
+  flex: none;
+}
+
+.allocation__marker {
+  position: absolute;
+  top: -6px;
+  bottom: -6px;
+  width: 0;
+  border-left: 1.5px dashed var(--color-neutral-700);
+}
+
+.allocation__ticks {
+  position: relative;
+  height: 20px;
+  margin-top: 8px;
+}
+
+.allocation__tick {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 11.5px;
+  color: var(--color-neutral-500);
+}
+
+/* — two-column rows — */
+
+.row--donut {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.row--split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+@media (max-width: 900px) {
+  .tiles {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .row--donut,
+  .row--split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .page {
+    padding: 24px 18px 40px;
+  }
+}
+
+/* — donut — */
+
+.donut {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 14px 0 6px;
+  position: relative;
+}
+
+.donut svg {
+  width: 196px;
+  height: 196px;
+  transform: rotate(-90deg);
+}
+
+.donut__centre {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.donut__total {
+  font-family: var(--font-heading);
+  font-size: 25px;
+  letter-spacing: -0.015em;
+}
+
+.donut__caption {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-neutral-500);
+}
+
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 14px;
+}
+
+.legend__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--color-neutral-200);
+  font-size: 13.5px;
+}
+
+.legend__row:last-child {
+  border-bottom: 0;
+}
+
+.legend__name {
+  flex: 1;
+}
+
+.legend__amount {
+  font-weight: 600;
+}
+
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  flex: none;
+}
+
+.dot--sm {
+  width: 8px;
+  height: 8px;
+}
+
+.dot--lg {
+  width: 10px;
+  height: 10px;
+}
+
+/* — budgeted vs actual — */
+
+.bva__row {
+  display: grid;
+  grid-template-columns: 20px minmax(78px, 1.3fr) 62px 62px 66px 46px;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--color-neutral-200);
+  font-size: 13.5px;
+}
+
+.bva__row:last-child {
+  border-bottom: 0;
+}
+
+.bva__head {
+  padding: 14px 0 8px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-neutral-500);
+  font-weight: 600;
+  border-bottom: 1px solid var(--color-neutral-300);
+}
+
+.bva__total {
+  margin-top: 6px;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--color-neutral-300);
+  border-bottom: 0;
+}
+
+.bva__num {
+  text-align: right;
+}
+
+.bva__actual {
+  text-align: right;
+  font-weight: 600;
+}
+
+/* — top 5 — */
+
+.top5 {
+  display: flex;
+  flex-direction: column;
+  margin-top: 14px;
+}
+
+.top5__row {
+  display: grid;
+  grid-template-columns: 20px minmax(90px, 1fr) 58px 74px;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--color-neutral-200);
+}
+
+.top5__row:last-child {
+  border-bottom: 0;
+}
+
+.top5__rank {
+  font-size: 12.5px;
+  color: var(--color-neutral-500);
+}
+
+.top5__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.top5__notes {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.top5__category {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  color: var(--color-neutral-600);
+}
+
+.top5__date {
+  font-size: 13px;
+  color: var(--color-neutral-500);
+  white-space: nowrap;
+}
+
+.top5__amount {
+  font-size: 14.5px;
+  font-weight: 600;
+  text-align: right;
+}
+
+/* — expenses over time — */
+
+.timechart {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1fr);
+  grid-template-rows: minmax(300px, 1fr) auto;
+  margin-top: 18px;
+}
+
+.timechart__yaxis {
+  position: relative;
+  padding-right: 10px;
+  font-size: 11.5px;
+  color: var(--color-neutral-600);
+}
+
+.timechart__ylabel {
+  position: absolute;
+  right: 10px;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+
+.timechart__plot {
+  position: relative;
+}
+
+.timechart__plot svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.timechart__marker {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  border-radius: 999px;
+  background: var(--color-accent-600);
+}
+
+.timechart__xaxis {
+  position: relative;
+  height: 22px;
+  font-size: 11.5px;
+  color: var(--color-neutral-600);
+}
+
+.timechart__xlabel {
+  position: absolute;
+  top: 6px;
+  white-space: nowrap;
+}
+
+.card--chart {
+  display: flex;
+  flex-direction: column;
+}
+
+/* — states — */
+
+.state {
+  padding: 28px 0;
+  text-align: center;
+  color: var(--color-neutral-600);
+  font-size: 13.5px;
+}
+
+.state--page {
+  padding: 64px 0;
+}
+
+.state--error {
+  color: var(--color-accent-700);
+}

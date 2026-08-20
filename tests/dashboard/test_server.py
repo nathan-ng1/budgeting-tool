@@ -1,30 +1,17 @@
 import json
-import threading
 from dataclasses import asdict
 from datetime import date
-from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import urlopen
 
 import pytest
 
 from dashboard.queries import get_month_overview
-from dashboard.server import build_server
-from database.store import connect
 
 
 @pytest.fixture
-def running_server(tmp_path: Path):
-    store = connect(tmp_path / "budget.db")
-    server = build_server(store)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    try:
-        yield store, server
-    finally:
-        server.shutdown()
-        thread.join()
-        server.server_close()
+def running_server(serve, store):
+    return store, serve(store)
 
 
 def test_overview_endpoint_returns_the_same_view_model_shape_the_query_function_produces(

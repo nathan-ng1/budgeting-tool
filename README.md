@@ -43,6 +43,8 @@ real database or archiving anything.
     key, and model name.
 - **[`uv`](https://docs.astral.sh/uv/)** and **Python 3.12+**.
 - **Git**, to clone this repo.
+- Optional: **[Node.js](https://nodejs.org/) 20+**, only needed to build the Dashboard's frontend
+  (step 4 of "One-time setup"). The Statement Export pipeline doesn't need it.
 - Optional: **[GitHub CLI (`gh`)](https://cli.github.com/)**, only needed if you also want
   Claude's issue-tracker agent skill (`docs/agents/issue-tracker.md`) to file/read GitHub issues
   against your own fork/clone.
@@ -105,6 +107,20 @@ per rule into your database's `recurring_rules` table (amount, type, category, n
 frequency/interval/day, start/end date) — e.g. via `sqlite3 <DATABASE_PATH>`. There's no editing
 UI for this yet (see ADR-0008 for the planned Dashboard).
 
+### 4. Build the Dashboard frontend (optional)
+
+Only needed if you want the Dashboard (below). It's a React app built with Vite, so it needs
+[Node.js](https://nodejs.org/) 20+ alongside `uv`:
+
+```
+cd frontend
+npm install
+npm run build
+```
+
+That writes the built page into `src/dashboard/static/`, which the Dashboard's own server serves.
+Both the built output and `node_modules/` are gitignored — rebuild after pulling frontend changes.
+
 ## Day-to-day usage
 
 ### Processing a new Statement Export
@@ -150,6 +166,27 @@ transactions" — this specific check is still an interactive, chat-driven use o
 
 Full walkthrough: `docs/agents/statement-export-pipeline.md`.
 
+### Viewing the Dashboard
+
+```
+uv run python -m dashboard
+```
+
+Then open <http://127.0.0.1:8765>. The Dashboard's Overview tab shows one month at a time: the
+Income/Expenses/Net Balance/Transferred tiles, where your income went, spending by Category,
+Budgeted vs Actual, your top 5 expenses, and expenses over the month. Pick a month with the
+Jul–Jun pills — it opens on the current month of the current Financial Year.
+
+It runs entirely on your machine and reads the local database directly; no transaction data
+leaves the machine ([ADR-0008](docs/adr/0008-dashboard-is-a-local-web-app-not-a-hosted-artifact.md)),
+and the page loads no fonts, scripts, or styles from the network. Set `DASHBOARD_PORT` in `.env`
+to serve on a different port. If the page tells you the frontend hasn't been built, run step 4 of
+the one-time setup above.
+
+To work on the frontend itself, `npm run dev` in `frontend/` starts Vite with hot reload on
+<http://127.0.0.1:5173>, proxying `/api` through to `uv run python -m dashboard` on 8765 — so run
+both together.
+
 ## Repo layout
 
 ```
@@ -165,6 +202,9 @@ src/categorisation/        Pluggable Categoriser interface + Claude/Codex/OpenAI
 src/recurring/             Recurring Transactions Config schedule expansion
 src/database/              Local SQLite store (Transaction Log + Recurring Transactions Config)
 src/transaction_log/       Dedupe logic + Candidate/ExistingRow types
+src/dashboard/             Dashboard server + Month Overview query; serves the built frontend
+frontend/                  Dashboard frontend (React + Vite), built into src/dashboard/static/
+docs/mockups/              Approved Claude Design mockup the Overview tab is built to
 tests/                     pytest suite
 ```
 
@@ -172,4 +212,11 @@ tests/                     pytest suite
 
 ```
 uv run pytest
+```
+
+The Dashboard frontend has its own suite (Vitest + Testing Library):
+
+```
+cd frontend
+npm test
 ```
