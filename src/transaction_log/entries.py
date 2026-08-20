@@ -29,6 +29,15 @@ class ExistingRow:
 
 
 @dataclass(frozen=True)
+class Transaction:
+    date: date
+    amount: float
+    type: str
+    category: str
+    notes: str
+
+
+@dataclass(frozen=True)
 class WriteResult:
     to_write: list[Candidate]
     skipped: list[Candidate]

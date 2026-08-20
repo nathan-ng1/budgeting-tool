@@ -6,7 +6,7 @@ import pytest
 
 from database.store import connect
 from recurring.rules import RecurringRule
-from transaction_log.entries import ExistingRow
+from transaction_log.entries import ExistingRow, Transaction
 
 
 def test_read_existing_rows_on_a_fresh_database_returns_no_rows(tmp_path: Path):
@@ -51,6 +51,23 @@ def test_append_rows_persists_across_reconnects(tmp_path: Path, make_candidate):
     reopened = connect(database_path)
 
     assert [row.notes for row in reopened.read_existing_rows()] == ["Woolworths"]
+
+
+def test_read_transactions_on_a_fresh_database_returns_no_transactions(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    assert store.read_transactions() == []
+
+
+def test_append_rows_then_read_transactions_round_trips_type_and_category(tmp_path: Path, make_candidate):
+    store = connect(tmp_path / "budget.db")
+    candidate = make_candidate(date=date(2026, 8, 5), amount=42.5, type="Expense", category="Groceries", notes="Woolworths")
+
+    store.append_rows([candidate])
+
+    assert store.read_transactions() == [
+        Transaction(date=date(2026, 8, 5), amount=42.5, type="Expense", category="Groceries", notes="Woolworths")
+    ]
 
 
 def test_read_recurring_rules_on_a_fresh_database_returns_no_rules(tmp_path: Path):

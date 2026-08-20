@@ -6,7 +6,7 @@ from categorisation.interface import BatchResult, CategoryResult
 from recurring.rules import RecurringRule
 from statement_export.parser import RawTransaction
 from transaction_log.categories import is_valid_type_category_pair
-from transaction_log.entries import Candidate, ExistingRow
+from transaction_log.entries import Candidate, ExistingRow, Transaction
 
 
 class FakeCategoriser:
@@ -43,14 +43,19 @@ class FakeStore:
         existing_rows: list[ExistingRow] | None = None,
         recurring_rules: list[RecurringRule] | None = None,
         category_budgets: dict[str, float] | None = None,
+        transactions: list[Transaction] | None = None,
     ):
         self._existing_rows = list(existing_rows or [])
         self._recurring_rules = list(recurring_rules or [])
         self._category_budgets: dict[str, float] = dict(category_budgets or {})
+        self._transactions = list(transactions or [])
         self.appended: list[Candidate] = []
 
     def read_existing_rows(self) -> list[ExistingRow]:
         return list(self._existing_rows)
+
+    def read_transactions(self) -> list[Transaction]:
+        return list(self._transactions)
 
     def append_rows(self, candidates: list[Candidate]) -> None:
         self.appended.extend(candidates)
@@ -101,6 +106,22 @@ def make_existing_row():
         return ExistingRow(**defaults)
 
     return _make_existing_row
+
+
+@pytest.fixture
+def make_transaction():
+    def _make_transaction(**overrides):
+        defaults = dict(
+            date=date(2026, 8, 5),
+            amount=42.50,
+            type="Expense",
+            category="Groceries",
+            notes="Woolworths",
+        )
+        defaults.update(overrides)
+        return Transaction(**defaults)
+
+    return _make_transaction
 
 
 @pytest.fixture

@@ -5,7 +5,7 @@ from pathlib import Path
 
 from recurring.rules import RecurringRule
 from transaction_log.categories import is_valid_type_category_pair
-from transaction_log.entries import Candidate, ExistingRow
+from transaction_log.entries import Candidate, ExistingRow, Transaction
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -68,6 +68,21 @@ class LocalStore:
             ],
         )
         self._connection.commit()
+
+    def read_transactions(self) -> list[Transaction]:
+        rows = self._connection.execute(
+            "SELECT date, amount, type, category, notes FROM transactions"
+        ).fetchall()
+        return [
+            Transaction(
+                date=date.fromisoformat(row_date),
+                amount=amount,
+                type=transaction_type,
+                category=category,
+                notes=notes,
+            )
+            for row_date, amount, transaction_type, category, notes in rows
+        ]
 
     def append_recurring_rules(self, rules: list[RecurringRule]) -> None:
         if not rules:
@@ -152,7 +167,10 @@ def connect(database_path: Path | None = None) -> LocalStore:
         database_path = Path(os.environ["DATABASE_PATH"])
 
     database_path.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(database_path)
+    # check_same_thread=False: the Dashboard's local HTTP server runs its
+    # request-handling loop on a different thread than the one that opens
+    # this connection, but serves one request at a time - never concurrent.
+    connection = sqlite3.connect(database_path, check_same_thread=False)
     connection.executescript(SCHEMA)
     connection.commit()
     return LocalStore(connection=connection)
