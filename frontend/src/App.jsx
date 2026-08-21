@@ -153,23 +153,33 @@ export default function App() {
                 <StatTiles tiles={overview.stat_tiles} average={selected === null ? overview.monthly_average : undefined} />
                 <IncomeAllocation allocation={overview.income_allocation} income={overview.stat_tiles.income} />
 
-                <div className="row--donut">
-                  <SpendingByCategory spending={overview.spending_by_category} total={overview.stat_tiles.expenses} />
-                  <BudgetedVsActual rows={overview.budgeted_vs_actual} />
-                </div>
-
                 {selected !== null ? (
-                  <div className="row--split">
-                    <TopExpenses expenses={overview.top_expenses} count={5} />
-                    <ExpensesOverTime overTime={overview.expenses_over_time} />
-                  </div>
-                ) : (
                   <>
-                    <div className="row--split">
-                      <MonthByMonth months={overview.month_by_month} />
-                      <IncomeVsExpensesByMonth months={overview.income_vs_expenses_by_month} />
+                    <div className="row--donut">
+                      <SpendingByCategory spending={overview.spending_by_category} total={overview.stat_tiles.expenses} />
+                      <BudgetedVsActual rows={overview.budgeted_vs_actual} />
                     </div>
-                    <TopExpenses expenses={overview.top_expenses} count={10} />
+                    <div className="row--split">
+                      <TopExpenses expenses={overview.top_expenses} count={5} />
+                      <ExpensesOverTime overTime={overview.expenses_over_time} />
+                    </div>
+                  </>
+                ) : (
+                  // Full year pairs the donut with Month by Month rather than
+                  // with Budgeted vs Actual: over a whole Financial Year the
+                  // month-by-month shape is what the donut begs the reader to
+                  // ask about, and Full year's Budgeted vs Actual has no
+                  // Expected column to compare against anyway (ADR-0011).
+                  <>
+                    <IncomeVsExpensesByMonth months={overview.income_vs_expenses_by_month} />
+                    <div className="row--donut">
+                      <SpendingByCategory spending={overview.spending_by_category} total={overview.stat_tiles.expenses} />
+                      <MonthByMonth months={overview.month_by_month} />
+                    </div>
+                    <div className="row--split">
+                      <BudgetedVsActual rows={overview.budgeted_vs_actual} />
+                      <TopExpenses expenses={overview.top_expenses} count={10} />
+                    </div>
                   </>
                 )}
               </>

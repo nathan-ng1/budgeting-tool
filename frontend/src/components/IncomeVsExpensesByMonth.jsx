@@ -9,7 +9,7 @@ export default function IncomeVsExpensesByMonth({ months }) {
   return (
     <section className="card card--chart">
       <div className="card__head">
-        <h3>Income vs Expenses by month</h3>
+        <h3>Income vs Expenses by Month</h3>
         <div className="allocation__legend">
           <span className="allocation__legend-item">
             <span className="dot dot--lg" style={{ background: "var(--color-accent-2-500)" }} />

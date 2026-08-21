@@ -42,7 +42,7 @@ export function donutSegments(spendingByCategory) {
   });
 }
 
-// Income vs Expenses by month: the mockup's grouped-bar-plus-line plot area,
+// Income vs Expenses by Month: the mockup's grouped-bar-plus-line plot area,
 // sized for 12 equal month slots (Issue #41).
 export const MONTH_CHART_WIDTH = 720;
 export const MONTH_CHART_HEIGHT = 240;
