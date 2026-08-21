@@ -106,36 +106,22 @@ class LocalStore:
         # and the non-zero Amount - there is no invalid Candidate to reject.
         cursor = self._connection.execute(
             "INSERT INTO transactions (date, amount, type, category, notes) VALUES (?, ?, ?, ?, ?)",
-            (candidate.date.isoformat(), candidate.amount, candidate.type, candidate.category, candidate.notes),
+            _transaction_columns(candidate),
         )
         self._connection.commit()
-        return Transaction(
-            id=cursor.lastrowid,
-            date=candidate.date,
-            amount=candidate.amount,
-            type=candidate.type,
-            category=candidate.category,
-            notes=candidate.notes,
-        )
+        return _as_transaction(cursor.lastrowid, candidate)
 
     def update_transaction(self, transaction_id: int, candidate: Candidate) -> Transaction:
         cursor = self._connection.execute(
             "UPDATE transactions SET date = ?, amount = ?, type = ?, category = ?, notes = ? WHERE id = ?",
-            (candidate.date.isoformat(), candidate.amount, candidate.type, candidate.category, candidate.notes, transaction_id),
+            (*_transaction_columns(candidate), transaction_id),
         )
         if cursor.rowcount == 0:
             self._connection.rollback()
             raise TransactionNotFound(f"No Transaction has id {transaction_id}")
 
         self._connection.commit()
-        return Transaction(
-            id=transaction_id,
-            date=candidate.date,
-            amount=candidate.amount,
-            type=candidate.type,
-            category=candidate.category,
-            notes=candidate.notes,
-        )
+        return _as_transaction(transaction_id, candidate)
 
     def delete_transaction(self, transaction_id: int) -> None:
         cursor = self._connection.execute("DELETE FROM transactions WHERE id = ?", (transaction_id,))
@@ -232,6 +218,21 @@ class LocalStore:
     def delete_category_budget(self, category: str) -> None:
         self._connection.execute("DELETE FROM category_budgets WHERE category = ?", (category,))
         self._connection.commit()
+
+
+def _transaction_columns(candidate: Candidate) -> tuple:
+    return (candidate.date.isoformat(), candidate.amount, candidate.type, candidate.category, candidate.notes)
+
+
+def _as_transaction(transaction_id: int, candidate: Candidate) -> Transaction:
+    return Transaction(
+        id=transaction_id,
+        date=candidate.date,
+        amount=candidate.amount,
+        type=candidate.type,
+        category=candidate.category,
+        notes=candidate.notes,
+    )
 
 
 def _validate_pair(rule: RecurringRule) -> None:

@@ -306,7 +306,11 @@ export default function Transactions() {
   );
 }
 
-function TransactionForm({ initial, categories, onCancel, onSave }) {
+// Shared state behind TransactionForm (a block above the table, for Add) and
+// EditableRow (in-row, for Edit) - same values/error/saving/save behaviour,
+// just wrapped in a <form> versus a <tr> because the two live in different
+// places on the page (see Issue #35).
+function useTransactionEditor(initial, categories, onSave) {
   const [values, setValues] = useState(initial);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -318,19 +322,37 @@ function TransactionForm({ initial, categories, onCancel, onSave }) {
     setValues((current) => ({ ...current, [field]: value }));
   }
 
-  async function submit(event) {
-    event.preventDefault();
+  function setType(type) {
+    setValues((current) => withType(current, type, categories));
+  }
+
+  async function save() {
     setError(null);
     setSaving(true);
     try {
       await onSave(values);
     } catch (cause) {
       // The store is the authority on what a valid transaction is, so its
-      // message is the one worth showing - the form stays open to be corrected.
+      // message is the one worth showing - the form/row stays open to be corrected.
       setError(cause.message);
     } finally {
       setSaving(false);
     }
+  }
+
+  return { values, set, setType, types, allowed, error, saving, save };
+}
+
+function TransactionForm({ initial, categories, onCancel, onSave }) {
+  const { values, set, setType, types, allowed, error, saving, save } = useTransactionEditor(
+    initial,
+    categories,
+    onSave,
+  );
+
+  function submit(event) {
+    event.preventDefault();
+    save();
   }
 
   return (
@@ -361,7 +383,7 @@ function TransactionForm({ initial, categories, onCancel, onSave }) {
 
         <label className="field">
           <span className="field__label">Type</span>
-          <select value={values.type} onChange={(event) => setValues(withType(values, event.target.value, categories))}>
+          <select value={values.type} onChange={(event) => setType(event.target.value)}>
             {types.map((type) => (
               <option key={type}>{type}</option>
             ))}
@@ -397,28 +419,11 @@ function TransactionForm({ initial, categories, onCancel, onSave }) {
 }
 
 function EditableRow({ initial, categories, onCancel, onSave }) {
-  const [values, setValues] = useState(initial);
-  const [error, setError] = useState(null);
-  const [saving, setSaving] = useState(false);
-
-  const types = Object.keys(categories);
-  const allowed = categories[values.type] ?? [];
-
-  function set(field, value) {
-    setValues((current) => ({ ...current, [field]: value }));
-  }
-
-  async function save() {
-    setError(null);
-    setSaving(true);
-    try {
-      await onSave(values);
-    } catch (cause) {
-      setError(cause.message);
-    } finally {
-      setSaving(false);
-    }
-  }
+  const { values, set, setType, types, allowed, error, saving, save } = useTransactionEditor(
+    initial,
+    categories,
+    onSave,
+  );
 
   return (
     <tr>
@@ -436,11 +441,7 @@ function EditableRow({ initial, categories, onCancel, onSave }) {
         />
       </td>
       <td>
-        <select
-          aria-label="Type"
-          value={values.type}
-          onChange={(event) => setValues(withType(values, event.target.value, categories))}
-        >
+        <select aria-label="Type" value={values.type} onChange={(event) => setType(event.target.value)}>
           {types.map((type) => (
             <option key={type}>{type}</option>
           ))}
