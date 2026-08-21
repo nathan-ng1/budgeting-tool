@@ -156,13 +156,15 @@ export default function App() {
                   <BudgetedVsActual rows={overview.budgeted_vs_actual} />
                 </div>
 
-                {/* Full year's remaining sections (Issues #40-#41) aren't on
-                    /api/annual-overview yet (ADR-0011). */}
-                {selected !== null && (
+                {selected !== null ? (
                   <div className="row--split">
-                    <TopExpenses expenses={overview.top_expenses} />
+                    <TopExpenses expenses={overview.top_expenses} count={5} />
                     <ExpensesOverTime overTime={overview.expenses_over_time} />
                   </div>
+                ) : (
+                  // Full year's remaining sections (Issue #41) aren't on
+                  // /api/annual-overview yet (ADR-0011).
+                  <TopExpenses expenses={overview.top_expenses} count={10} />
                 )}
               </>
             )}

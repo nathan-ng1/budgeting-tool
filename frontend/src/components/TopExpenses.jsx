@@ -1,18 +1,20 @@
 import { colourForCategory } from "../lib/categoryColours.js";
 import { dayMonth, money } from "../lib/format.js";
 
-export default function TopExpenses({ expenses }) {
+export default function TopExpenses({ expenses, count }) {
+  const rows = expenses.slice(0, count);
+
   return (
     <section className="card">
       <div className="card__head">
-        <h3>Top 5 expenses</h3>
+        <h3>Top {count} expenses</h3>
       </div>
 
-      {expenses.length === 0 ? (
-        <p className="state">No expenses recorded for this month.</p>
+      {rows.length === 0 ? (
+        <p className="state">No expenses recorded for this period.</p>
       ) : (
         <div className="top5">
-          {expenses.map((expense, index) => (
+          {rows.map((expense, index) => (
             <div key={`${expense.date}-${expense.notes}-${expense.amount}`} className="top5__row">
               <span className="top5__rank numeric">{String(index + 1).padStart(2, "0")}</span>
               <div className="top5__detail">

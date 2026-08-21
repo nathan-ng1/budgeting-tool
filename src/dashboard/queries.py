@@ -90,6 +90,7 @@ class AnnualOverview:
     income_allocation: IncomeAllocation
     spending_by_category: list[CategorySpend]
     budgeted_vs_actual: list[BudgetVsActual]
+    top_expenses: list[TopExpense]
 
 
 def get_month_overview(store, year: int, month: int) -> MonthOverview:
@@ -103,7 +104,7 @@ def get_month_overview(store, year: int, month: int) -> MonthOverview:
         income_allocation=_income_allocation(stat_tiles.income, stat_tiles.expenses, stat_tiles.transferred),
         spending_by_category=_spending_by_category(transactions, stat_tiles.expenses),
         budgeted_vs_actual=_budgeted_vs_actual(transactions, store.read_category_budgets()),
-        top_expenses=_top_expenses(transactions),
+        top_expenses=_top_expenses(transactions, limit=5),
         expenses_over_time=_expenses_over_time(transactions, year, month),
     )
 
@@ -128,6 +129,7 @@ def get_annual_overview(store, year: int, today: date | None = None) -> AnnualOv
         income_allocation=_income_allocation(stat_tiles.income, stat_tiles.expenses, stat_tiles.transferred),
         spending_by_category=_spending_by_category(transactions, stat_tiles.expenses),
         budgeted_vs_actual=_annual_budgeted_vs_actual(transactions),
+        top_expenses=_top_expenses(transactions, limit=10),
     )
 
 
@@ -272,12 +274,12 @@ def _annual_budgeted_vs_actual(transactions: list[Transaction]) -> list[BudgetVs
     return sorted(rows, key=lambda row: row.category)
 
 
-def _top_expenses(transactions: list[Transaction]) -> list[TopExpense]:
+def _top_expenses(transactions: list[Transaction], limit: int) -> list[TopExpense]:
     expenses = [t for t in transactions if t.type == "Expense"]
     ranked = sorted(expenses, key=lambda t: (-t.amount, t.date, t.notes))
     return [
         TopExpense(notes=t.notes, category=t.category, date=t.date.isoformat(), amount=_round(t.amount))
-        for t in ranked[:5]
+        for t in ranked[:limit]
     ]
 
 
