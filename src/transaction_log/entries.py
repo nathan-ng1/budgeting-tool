@@ -30,6 +30,7 @@ class ExistingRow:
 
 @dataclass(frozen=True)
 class Transaction:
+    id: int
     date: date
     amount: float
     type: str

@@ -146,6 +146,7 @@ def make_existing_row():
 def make_transaction():
     def _make_transaction(**overrides):
         defaults = dict(
+            id=1,
             date=date(2026, 8, 5),
             amount=42.50,
             type="Expense",

@@ -4,7 +4,7 @@
 
 import { MONTH_LABELS_SHORT } from "./months.js";
 
-const FINANCIAL_YEAR_START_MONTH = 7;
+export const FINANCIAL_YEAR_START_MONTH = 7;
 
 export function financialYearFor(year, month) {
   return month >= FINANCIAL_YEAR_START_MONTH ? year : year - 1;

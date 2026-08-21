@@ -8,7 +8,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
-from dashboard import queries, recurring
+from dashboard import queries, recurring, transactions
 from database.store import RecurringRuleNotFound
 from transaction_log.categories import CATEGORIES_BY_TYPE, types_with_categories
 
@@ -28,6 +28,7 @@ CONTENT_TYPES = {
 }
 
 RECURRING_RULES_PATH = "/api/recurring-rules"
+TRANSACTIONS_PATH = "/api/transactions"
 
 BUILD_INSTRUCTIONS = (
     "The Dashboard has not been built yet. Run `npm install` and `npm run build` "
@@ -56,6 +57,8 @@ def _make_handler(store, static_root: Path):
                 self._send_json(200, {"date": latest.isoformat() if latest is not None else None})
             elif parsed.path == RECURRING_RULES_PATH:
                 self._send_json(200, [recurring.as_payload(r) for r in store.read_stored_recurring_rules()])
+            elif parsed.path == TRANSACTIONS_PATH:
+                self._serve_transactions(parse_qs(parsed.query))
             elif parsed.path == "/api/categories":
                 # What the Settings screen's Type/Category selects offer, so
                 # transaction_log.categories stays the one place the valid pairs
@@ -141,15 +144,29 @@ def _make_handler(store, static_root: Path):
                 raise ValueError("Request body must be JSON") from None
 
         def _serve_overview(self, params) -> None:
-            try:
-                year = int(params["year"][0])
-                month = int(params["month"][0])
-            except (KeyError, ValueError, IndexError):
-                self._send_json(400, {"error": "year and month query parameters are required integers"})
+            parsed = self._year_month(params)
+            if parsed is None:
                 return
 
-            overview = queries.get_month_overview(store, year=year, month=month)
+            overview = queries.get_month_overview(store, year=parsed[0], month=parsed[1])
             self._send_json(200, asdict(overview))
+
+        def _serve_transactions(self, params) -> None:
+            parsed = self._year_month(params)
+            if parsed is None:
+                return
+
+            rows = queries.get_financial_year_transactions(store, year=parsed[0], month=parsed[1])
+            self._send_json(200, [transactions.as_payload(t) for t in rows])
+
+        def _year_month(self, params) -> tuple[int, int] | None:
+            """The (year, month) query params, or None - with a 400 already
+            sent - if either is missing or not an integer."""
+            try:
+                return int(params["year"][0]), int(params["month"][0])
+            except (KeyError, ValueError, IndexError):
+                self._send_json(400, {"error": "year and month query parameters are required integers"})
+                return None
 
         def _serve_static(self, path: str) -> None:
             # The Dashboard is one page with no client-side router, so only "/"

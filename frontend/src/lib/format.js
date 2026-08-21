@@ -16,6 +16,13 @@ export function money(value) {
   return Math.round(value) < 0 ? `-${dollars(value)}` : dollars(value);
 }
 
+// Cents-precision, unlike money() above - for editable/raw figures (a
+// Recurring Rule's Amount, a Transaction's Amount) rather than the Overview's
+// rounded-to-the-dollar summaries.
+export function preciseMoney(value) {
+  return `$${Number(value).toFixed(2)}`;
+}
+
 export function signedMoney(value) {
   return `${Math.round(value) < 0 ? MINUS : "+"}${dollars(value)}`;
 }

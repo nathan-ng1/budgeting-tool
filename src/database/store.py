@@ -79,17 +79,18 @@ class LocalStore:
 
     def read_transactions(self) -> list[Transaction]:
         rows = self._connection.execute(
-            "SELECT date, amount, type, category, notes FROM transactions"
+            "SELECT id, date, amount, type, category, notes FROM transactions"
         ).fetchall()
         return [
             Transaction(
+                id=row_id,
                 date=date.fromisoformat(row_date),
                 amount=amount,
                 type=transaction_type,
                 category=category,
                 notes=notes,
             )
-            for row_date, amount, transaction_type, category, notes in rows
+            for row_id, row_date, amount, transaction_type, category, notes in rows
         ]
 
     def append_recurring_rules(self, rules: list[RecurringRule]) -> None:

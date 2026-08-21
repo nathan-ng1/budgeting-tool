@@ -7,6 +7,7 @@ import {
   fetchRecurringRules,
   updateRecurringRule,
 } from "../lib/recurringApi.js";
+import { preciseMoney } from "../lib/format.js";
 import {
   FREQUENCIES,
   blankValues,
@@ -18,10 +19,6 @@ import {
 } from "../lib/ruleForm.js";
 
 const COLUMNS = ["Amount", "Type", "Category", "Notes", "Frequency", "Start Date", "End Date", ""];
-
-function amount(value) {
-  return `$${Number(value).toFixed(2)}`;
-}
 
 // "Every 2 weeks on Wednesday" reads better than an Interval column and a Day
 // column the reader has to combine themselves.
@@ -141,7 +138,7 @@ export default function RecurringRules() {
             <tbody>
               {rules.map((rule) => (
                 <tr key={rule.id}>
-                  <td className="table__num">{amount(rule.amount)}</td>
+                  <td className="table__num">{preciseMoney(rule.amount)}</td>
                   <td>{rule.type}</td>
                   <td>{rule.category}</td>
                   <td>{rule.notes}</td>

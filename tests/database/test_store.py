@@ -66,8 +66,18 @@ def test_append_rows_then_read_transactions_round_trips_type_and_category(tmp_pa
     store.append_rows([candidate])
 
     assert store.read_transactions() == [
-        Transaction(date=date(2026, 8, 5), amount=42.5, type="Expense", category="Groceries", notes="Woolworths")
+        Transaction(id=1, date=date(2026, 8, 5), amount=42.5, type="Expense", category="Groceries", notes="Woolworths")
     ]
+
+
+def test_read_transactions_gives_each_row_its_own_id(tmp_path: Path, make_candidate):
+    store = connect(tmp_path / "budget.db")
+
+    store.append_rows([make_candidate(notes="First"), make_candidate(notes="Second")])
+
+    first, second = store.read_transactions()
+    assert first.id != second.id
+    assert first.id is not None and second.id is not None
 
 
 def test_read_recurring_rules_on_a_fresh_database_returns_no_rules(tmp_path: Path):
