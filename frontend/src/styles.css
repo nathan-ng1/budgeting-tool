@@ -166,6 +166,20 @@ h3 {
   padding: 0 2px 11px;
   font-size: 14px;
   color: var(--color-neutral-500);
+  /* Overview and Settings are buttons, the unwired tabs are spans - strip the
+     button chrome so the two kinds sit on the same line looking alike. */
+  border: none;
+  background: none;
+  font-family: inherit;
+  line-height: inherit;
+}
+
+button.nav__tab {
+  cursor: pointer;
+}
+
+button.nav__tab:hover {
+  color: var(--color-text);
 }
 
 .nav__tab--active {
@@ -633,4 +647,162 @@ h3 {
 
 .state--error {
   color: var(--color-accent-700);
+}
+
+/* — Recurring Transactions Config (Settings tab) — */
+
+.card__note {
+  margin-top: 6px;
+  max-width: 52ch;
+  font-size: 13px;
+  color: var(--color-neutral-600);
+}
+
+.button {
+  padding: 9px 16px;
+  border: 1px solid var(--color-accent-600);
+  border-radius: 999px;
+  background: var(--color-accent-600);
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.button:hover {
+  background: var(--color-accent-700);
+  border-color: var(--color-accent-700);
+}
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.button--quiet {
+  padding: 6px 12px;
+  background: transparent;
+  border-color: var(--color-neutral-300);
+  color: var(--color-neutral-700);
+  font-weight: 500;
+}
+
+.button--quiet:hover {
+  background: var(--color-neutral-200);
+  border-color: var(--color-neutral-400);
+}
+
+.button--danger:hover {
+  background: var(--color-accent-700);
+  border-color: var(--color-accent-700);
+  color: #fff;
+}
+
+.rule-form {
+  margin-top: 22px;
+  padding: 22px;
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-md);
+  background: var(--color-neutral-100);
+}
+
+.rule-form__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px 18px;
+}
+
+.rule-form__actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field--wide {
+  grid-column: span 2;
+}
+
+.field__label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--color-neutral-600);
+}
+
+.field input,
+.field select {
+  padding: 9px 11px;
+  border: 1px solid var(--color-neutral-300);
+  border-radius: 10px;
+  background: var(--color-card);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+
+.field input:focus-visible,
+.field select:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* Day for a Weekly rule is derived from Start Date, not typed - it reads as a
+   value, so it should not look like an input the user can edit. */
+.field__derived {
+  padding: 9px 11px;
+  border: 1px dashed var(--color-neutral-300);
+  border-radius: 10px;
+  font-size: 14px;
+  color: var(--color-neutral-700);
+}
+
+.table-scroll {
+  margin-top: 22px;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+
+.table th {
+  padding: 0 14px 10px 0;
+  text-align: left;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-neutral-600);
+  border-bottom: 1px solid var(--color-neutral-300);
+}
+
+.table td {
+  padding: 12px 14px 12px 0;
+  border-bottom: 1px solid var(--color-neutral-200);
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.table__num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.table__actions {
+  display: flex;
+  gap: 8px;
+  padding-right: 0;
 }

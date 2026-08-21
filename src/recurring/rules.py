@@ -47,6 +47,20 @@ class RecurringRule:
 
 
 @dataclass(frozen=True)
+class StoredRecurringRule:
+    """A RecurringRule plus the database id the store knows it by.
+
+    RecurringRule itself stays id-free so it keeps comparing by value - the
+    migration dedupes rules with `set(store.read_recurring_rules())`, which an
+    id would defeat. Only the Dashboard's CRUD screen needs to name a
+    particular row, so only it carries the id.
+    """
+
+    id: int
+    rule: RecurringRule
+
+
+@dataclass(frozen=True)
 class Occurrence:
     date: date
     amount: float

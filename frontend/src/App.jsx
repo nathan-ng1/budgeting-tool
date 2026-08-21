@@ -4,6 +4,7 @@ import BudgetedVsActual from "./components/BudgetedVsActual.jsx";
 import ExpensesOverTime from "./components/ExpensesOverTime.jsx";
 import IncomeAllocation from "./components/IncomeAllocation.jsx";
 import MonthSelector from "./components/MonthSelector.jsx";
+import RecurringRules from "./components/RecurringRules.jsx";
 import SpendingByCategory from "./components/SpendingByCategory.jsx";
 import StatTiles from "./components/StatTiles.jsx";
 import TopExpenses from "./components/TopExpenses.jsx";
@@ -11,9 +12,11 @@ import { fetchMonthOverview } from "./lib/api.js";
 import { financialYearFor, financialYearLabel } from "./lib/financialYear.js";
 import { dayMonthLong } from "./lib/format.js";
 
-// Transactions/Budget/Settings render as the mockup shows them but are not
-// wired to real screens yet - Overview is the only tab this round (Issue #28).
+// Transactions and Budget render as the mockup shows them but have no screens
+// behind them yet (Issue #28); Settings holds the Recurring Transactions Config
+// editor (Issue #29).
 const TABS = ["Overview", "Transactions", "Budget", "Settings"];
+const WIRED_TABS = ["Overview", "Settings"];
 
 function currentMonth() {
   const today = new Date();
@@ -27,11 +30,16 @@ function todayLabel() {
 }
 
 export default function App() {
+  const [tab, setTab] = useState("Overview");
   const [selected, setSelected] = useState(currentMonth);
   const [overview, setOverview] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (tab !== "Overview") {
+      return undefined;
+    }
+
     const controller = new AbortController();
 
     setError(null);
@@ -48,7 +56,7 @@ export default function App() {
       });
 
     return () => controller.abort();
-  }, [selected]);
+  }, [selected, tab]);
 
   return (
     <div className="page">
@@ -63,33 +71,47 @@ export default function App() {
         </header>
 
         <nav className="nav">
-          {TABS.map((tab) => (
-            <span
-              key={tab}
-              className={`nav__tab ${tab === "Overview" ? "nav__tab--active" : ""}`}
-              aria-current={tab === "Overview" ? "page" : undefined}
-            >
-              {tab}
-            </span>
-          ))}
+          {TABS.map((name) => {
+            const className = `nav__tab ${name === tab ? "nav__tab--active" : ""}`;
+            const current = name === tab ? "page" : undefined;
+
+            // An unwired tab stays a span rather than a disabled button: it is
+            // a label for a screen that doesn't exist yet, not a control that
+            // happens to be unavailable.
+            return WIRED_TABS.includes(name) ? (
+              <button key={name} type="button" className={className} aria-current={current} onClick={() => setTab(name)}>
+                {name}
+              </button>
+            ) : (
+              <span key={name} className={className}>
+                {name}
+              </span>
+            );
+          })}
           <span className="nav__asat">As at {todayLabel()}</span>
         </nav>
 
-        <MonthSelector
-          financialYear={financialYearFor(selected.year, selected.month)}
-          selected={selected}
-          onSelect={setSelected}
-        />
+        {tab === "Settings" && <RecurringRules />}
 
-        {error !== null && (
+        {tab === "Overview" && (
+          <MonthSelector
+            financialYear={financialYearFor(selected.year, selected.month)}
+            selected={selected}
+            onSelect={setSelected}
+          />
+        )}
+
+        {tab === "Overview" && error !== null && (
           <p className="state state--page state--error" role="alert">
             {error}
           </p>
         )}
 
-        {error === null && overview === null && <p className="state state--page">Loading this month&rsquo;s figures…</p>}
+        {tab === "Overview" && error === null && overview === null && (
+          <p className="state state--page">Loading this month&rsquo;s figures&hellip;</p>
+        )}
 
-        {error === null && overview !== null && (
+        {tab === "Overview" && error === null && overview !== null && (
           <>
             <StatTiles tiles={overview.stat_tiles} />
             <IncomeAllocation allocation={overview.income_allocation} income={overview.stat_tiles.income} />

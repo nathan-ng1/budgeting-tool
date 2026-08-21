@@ -70,6 +70,13 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+function routeTo(bodies) {
+  fetchMock.mockImplementation(async (url) => {
+    const match = Object.keys(bodies).find((path) => url.startsWith(path));
+    return { ok: true, status: 200, json: async () => bodies[match] };
+  });
+}
+
 function respondWith(body) {
   fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => body });
 }
@@ -161,6 +168,51 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/500/);
+  });
+
+  it("opens the Recurring Transactions Config screen from the Settings tab", async () => {
+    routeTo({ "/api/overview": withSpending(2026, 8), "/api/recurring-rules": [], "/api/categories": {} });
+    render(<App />);
+    expect(await screen.findByText("$5,240")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+
+    expect(await screen.findByRole("heading", { name: "Recurring Transactions" })).toBeInTheDocument();
+    expect(screen.getByText("Settings")).toHaveAttribute("aria-current", "page");
+  });
+
+  it("puts the Overview's month selector away while Settings is open", async () => {
+    routeTo({ "/api/overview": withSpending(2026, 8), "/api/recurring-rules": [], "/api/categories": {} });
+    render(<App />);
+    expect(await screen.findByText("$5,240")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+
+    // The month selector picks a month for the Overview - it means nothing here.
+    await waitFor(() => expect(screen.queryByRole("group", { name: "Select month" })).not.toBeInTheDocument());
+    expect(screen.queryByText("$5,240")).not.toBeInTheDocument();
+  });
+
+  it("comes back to the Overview with its month still selected", async () => {
+    routeTo({ "/api/overview": withSpending(2026, 8), "/api/recurring-rules": [], "/api/categories": {} });
+    render(<App />);
+    expect(await screen.findByText("$5,240")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+    await screen.findByRole("heading", { name: "Recurring Transactions" });
+    await userEvent.click(screen.getByRole("button", { name: "Overview" }));
+
+    expect(await screen.findByText("$5,240")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Aug" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("leaves Transactions and Budget unwired, since they have no screens yet", async () => {
+    respondWith(withSpending(2026, 8));
+    render(<App />);
+    await screen.findByText("$5,240");
+
+    expect(screen.queryByRole("button", { name: "Transactions" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Budget" })).not.toBeInTheDocument();
   });
 
   it("shows the nav tabs, with only Overview marked current", async () => {

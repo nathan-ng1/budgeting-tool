@@ -8,7 +8,9 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
-from dashboard import queries
+from dashboard import queries, recurring
+from database.store import RecurringRuleNotFound
+from transaction_log.categories import CATEGORIES_BY_TYPE, types_with_categories
 
 # Where `npm run build` puts the frontend (see frontend/vite.config.js). The
 # directory is a build artefact, so it is absent in a fresh clone until the
@@ -24,6 +26,8 @@ CONTENT_TYPES = {
     ".woff2": "font/woff2",
     ".svg": "image/svg+xml",
 }
+
+RECURRING_RULES_PATH = "/api/recurring-rules"
 
 BUILD_INSTRUCTIONS = (
     "The Dashboard has not been built yet. Run `npm install` and `npm run build` "
@@ -45,10 +49,90 @@ def _make_handler(store, static_root: Path):
 
             if parsed.path == "/api/overview":
                 self._serve_overview(parse_qs(parsed.query))
+            elif parsed.path == RECURRING_RULES_PATH:
+                self._send_json(200, [recurring.as_payload(r) for r in store.read_stored_recurring_rules()])
+            elif parsed.path == "/api/categories":
+                # What the Settings screen's Type/Category selects offer, so the
+                # valid pairs live in one place (Issue #22) rather than being
+                # restated in the frontend and drifting.
+                self._send_json(
+                    200, {t: sorted(CATEGORIES_BY_TYPE[t]) for t in types_with_categories()}
+                )
             elif parsed.path.startswith("/api/"):
                 self._send_json(404, {"error": "Not found"})
             else:
                 self._serve_static(parsed.path)
+
+        def do_POST(self):
+            if urlparse(self.path).path != RECURRING_RULES_PATH:
+                self._send_json(404, {"error": "Not found"})
+                return
+
+            self._write_rule(lambda rule: (201, store.create_recurring_rule(rule)))
+
+        def do_PUT(self):
+            rule_id = self._rule_id()
+            if rule_id is None:
+                self._send_json(404, {"error": "Not found"})
+                return
+
+            self._write_rule(lambda rule: (200, store.update_recurring_rule(rule_id, rule)))
+
+        def do_DELETE(self):
+            rule_id = self._rule_id()
+            if rule_id is None:
+                self._send_json(404, {"error": "Not found"})
+                return
+
+            try:
+                store.delete_recurring_rule(rule_id)
+            except RecurringRuleNotFound as cause:
+                self._send_json(404, {"error": str(cause)})
+                return
+
+            self._send_bytes(204, b"", "application/json")
+
+        def _rule_id(self) -> int | None:
+            """The id in /api/recurring-rules/{id}, or None if this isn't that
+            path - including when {id} isn't a number, since no rule can have
+            that id either way."""
+            path = urlparse(self.path).path
+            prefix = f"{RECURRING_RULES_PATH}/"
+            if not path.startswith(prefix):
+                return None
+            try:
+                return int(path[len(prefix):])
+            except ValueError:
+                return None
+
+        def _write_rule(self, write) -> None:
+            """Parse a rule from the request body, hand it to `write`, and
+            answer with the stored rule - or with why it couldn't be stored."""
+            try:
+                rule = recurring.from_payload(self._read_json())
+            except ValueError as cause:
+                self._send_json(400, {"error": str(cause)})
+                return
+
+            try:
+                status, stored = write(rule)
+            except RecurringRuleNotFound as cause:
+                self._send_json(404, {"error": str(cause)})
+                return
+            except ValueError as cause:
+                # An invalid (Type, Category) pair - the store is the one that
+                # knows which pairs are allowed, so it decides, not this layer.
+                self._send_json(400, {"error": str(cause)})
+                return
+
+            self._send_json(status, recurring.as_payload(stored))
+
+        def _read_json(self):
+            length = int(self.headers.get("Content-Length") or 0)
+            try:
+                return json.loads(self.rfile.read(length) or b"")
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                raise ValueError("Request body must be JSON") from None
 
         def _serve_overview(self, params) -> None:
             try:
@@ -98,7 +182,7 @@ def _make_handler(store, static_root: Path):
         def log_message(self, format, *args):
             pass
 
-        def _send_json(self, status: int, payload: dict) -> None:
+        def _send_json(self, status: int, payload) -> None:
             self._send_bytes(status, json.dumps(payload).encode("utf-8"), "application/json")
 
         def _send_plain(self, status: int, message: str) -> None:
