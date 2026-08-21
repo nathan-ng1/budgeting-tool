@@ -1,11 +1,13 @@
-SUB_CATEGORIES_BY_CATEGORY = {
-    "Bills & Subscriptions": {
-        "Donations & Giving",
-        "Subscriptions",
-        "Insurance & Bills",
-        "Rental Expense",
+# Every Category has exactly one fixed Type — see CONTEXT.md and ADR-0006. Transfer
+# starts empty on purpose: its Categories are added lazily, only for real cases.
+CATEGORIES_BY_TYPE = {
+    "Income": {
+        "Salary",
+        "Beem Adjustment",
+        "Rental",
+        "Refund",
     },
-    "Expenses": {
+    "Expense": {
         "Groceries",
         "Dining & Takeaway",
         "Transport",
@@ -13,11 +15,25 @@ SUB_CATEGORIES_BY_CATEGORY = {
         "Holidays & Travel",
         "Entertainment & Leisure",
         "Health & Medical",
+        "Donations & Giving",
+        "Subscriptions",
+        "Insurance & Bills",
+        "Rental Expense",
+        "Mortgage Repayment",
     },
-    "Income": {"Salary", "Rental", "Beem Adjustment"},
-    "Debt": {"Mortgage Repayment"},
+    "Transfer": set(),
 }
 
 
-def is_valid_category_pair(category: str, sub_category: str) -> bool:
-    return sub_category in SUB_CATEGORIES_BY_CATEGORY.get(category, set())
+def is_valid_type_category_pair(transaction_type: str, category: str) -> bool:
+    return category in CATEGORIES_BY_TYPE.get(transaction_type, set())
+
+
+def types_with_categories(categories_by_type: dict[str, set[str]] = CATEGORIES_BY_TYPE) -> list[str]:
+    """The Types that can actually be assigned, sorted.
+
+    A Type with no Categories yet (Transfer) is left out: nothing downstream
+    can produce a valid (Type, Category) pair for it, so neither the
+    categorisation prompt nor the Needs Review prompt should offer it.
+    """
+    return sorted(t for t, categories in categories_by_type.items() if categories)

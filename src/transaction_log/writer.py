@@ -35,8 +35,8 @@ def _as_candidates(occurrences: list[Occurrence]) -> list[Candidate]:
         Candidate(
             date=occurrence.date,
             amount=occurrence.amount,
+            type=occurrence.type,
             category=occurrence.category,
-            sub_category=occurrence.sub_category,
             notes=occurrence.notes,
         )
         for occurrence in occurrences

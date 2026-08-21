@@ -48,8 +48,8 @@ def test_categorise_turns_positive_rows_into_income_beem_adjustment_candidates(m
         make_candidate(
             date=date(2026, 7, 13),
             amount=42.0,
-            category="Income",
-            sub_category="Beem Adjustment",
+            type="Income",
+            category="Beem Adjustment",
             notes="trip repayment",
         )
     ]

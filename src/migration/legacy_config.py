@@ -3,6 +3,7 @@ from pathlib import Path
 
 import openpyxl
 
+from migration.legacy_categories import remap_type_category
 from recurring.rules import RecurringRule
 
 COLUMNS = [
@@ -18,7 +19,9 @@ COLUMNS = [
 ]
 
 
-def parse_config(path: Path) -> list[RecurringRule]:
+def parse_legacy_config(path: Path) -> list[RecurringRule]:
+    """Parse the retired `config\\recurring-transactions.xlsx` format, remapped
+    to the Type/Category model — see ADR-0005 and ADR-0006."""
     workbook = openpyxl.load_workbook(path, data_only=True)
     worksheet = workbook.active
 
@@ -28,11 +31,12 @@ def parse_config(path: Path) -> list[RecurringRule]:
             continue
 
         amount, category, sub_category, notes, frequency, interval, day, start_date, end_date = row
+        transaction_type, new_category = remap_type_category(category, sub_category)
         rules.append(
             RecurringRule(
                 amount=float(amount),
-                category=category,
-                sub_category=sub_category,
+                type=transaction_type,
+                category=new_category,
                 notes=notes or "",
                 frequency=frequency,
                 interval=int(interval),

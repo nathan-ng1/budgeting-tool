@@ -3,24 +3,25 @@ import pytest
 from transaction_log.entries import Candidate
 
 
-def test_candidate_with_valid_category_and_sub_category_pair_is_accepted(make_candidate):
-    make_candidate(category="Bills & Subscriptions", sub_category="Subscriptions")
+def test_candidate_with_valid_type_and_category_pair_is_accepted(make_candidate):
+    make_candidate(type="Expense", category="Subscriptions")
 
 
 @pytest.mark.parametrize(
-    "category,sub_category",
+    "transaction_type,category",
     [
-        ("Expenses", "Subscriptions"),  # Subscriptions belongs to Bills & Subscriptions, not Expenses
-        ("Bills & Subscriptions", "Groceries"),  # Groceries belongs to Expenses
-        ("Income", "Mortgage Repayment"),  # Mortgage Repayment belongs to Debt
-        ("Made Up Category", "Made Up Sub-Category"),
+        ("Income", "Subscriptions"),  # Subscriptions is an Expense Category
+        ("Expense", "Salary"),  # Salary is an Income Category
+        ("Income", "Mortgage Repayment"),  # Mortgage Repayment is an Expense Category
+        ("Transfer", "Groceries"),  # Transfer has no Categories yet
+        ("Made Up Type", "Made Up Category"),
     ],
 )
-def test_candidate_with_sub_category_not_matching_its_fixed_category_is_rejected(
-    make_candidate, category, sub_category
+def test_candidate_with_category_not_matching_its_fixed_type_is_rejected(
+    make_candidate, transaction_type, category
 ):
     with pytest.raises(ValueError):
-        make_candidate(category=category, sub_category=sub_category)
+        make_candidate(type=transaction_type, category=category)
 
 
 def test_candidate_with_zero_amount_is_rejected(make_candidate):
