@@ -18,12 +18,26 @@ export function allocationBar(incomeAllocation) {
   const outflowPct = incomeAllocation.expenses_pct + incomeAllocation.transferred_pct;
   const axisMax = Math.max(100, Math.ceil(outflowPct / 10) * 10);
 
+  // over_income_pct is the tail of the outflow that runs past 100% of income -
+  // it's already counted inside expenses_pct/transferred_pct, not stacked on top
+  // of them. Trim it back out of whichever segment(s) carry it - Transferred's
+  // slice first, since it's drawn immediately before Over income, then Expenses -
+  // so the segment widths sum to the real outflow instead of double-counting the
+  // overage in the bar.
+  let trim = incomeAllocation.over_income_pct;
+  const displayPct = {};
+  for (const key of ["transferred", "expenses"]) {
+    const raw = incomeAllocation[SEGMENT_ORDER.find((s) => s.key === key).pctField];
+    displayPct[key] = Math.max(raw - trim, 0);
+    trim = Math.max(trim - raw, 0);
+  }
+
   const segments = SEGMENT_ORDER.filter((segment) => incomeAllocation[segment.pctField] > 0).map((segment) => ({
     key: segment.key,
     label: segment.label,
     amount: incomeAllocation[segment.amountField],
     pct: incomeAllocation[segment.pctField],
-    width: `${(incomeAllocation[segment.pctField] / axisMax) * 100}%`,
+    width: `${((displayPct[segment.key] ?? incomeAllocation[segment.pctField]) / axisMax) * 100}%`,
   }));
 
   return {

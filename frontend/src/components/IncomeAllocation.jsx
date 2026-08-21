@@ -5,7 +5,7 @@ const SEGMENT_COLOURS = {
   expenses: "var(--color-accent-600)",
   transferred: "var(--color-accent-300)",
   remaining: "var(--color-accent-2-500)",
-  over_income: "var(--color-accent-800)",
+  over_income: "var(--color-danger)",
 };
 
 export default function IncomeAllocation({ allocation, income }) {
@@ -42,8 +42,7 @@ export default function IncomeAllocation({ allocation, income }) {
               <span className="dot dot--lg" style={{ background: SEGMENT_COLOURS[segment.key] }} />
               {segment.label}{" "}
               <span className="muted">
-                {segment.key === "over_income" ? `${money(segment.amount)} · ` : ""}
-                {segment.pct.toFixed(1)}%
+                {segment.key === "over_income" ? money(segment.amount) : `${segment.pct.toFixed(1)}%`}
               </span>
             </span>
           ))}

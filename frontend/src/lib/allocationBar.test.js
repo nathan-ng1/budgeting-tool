@@ -43,6 +43,16 @@ describe("allocationBar", () => {
     expect(bar.ticks[bar.ticks.length - 1].label).toBe("130%");
   });
 
+  it("trims Over income back out of Expenses so the bar doesn't double-count the overage", () => {
+    // expenses_pct (103.1%) already includes the amount that ran past income;
+    // over_income_pct (3.1%) is that same tail, not additional outflow.
+    const bar = allocationBar(allocation({ expenses_pct: 103.1, over_income_pct: 3.1 }));
+    const widths = Object.fromEntries(bar.segments.map((segment) => [segment.key, segment.width]));
+
+    expect(widths.expenses).toBe(`${(100 / 110) * 100}%`);
+    expect(widths.over_income).toBe(`${(3.1 / 110) * 100}%`);
+  });
+
   it("drops the Remaining segment when there is nothing left over", () => {
     const bar = allocationBar(allocation({ expenses_pct: 106.9, over_income_pct: 6.9 }));
     const keys = bar.segments.map((segment) => segment.key);
