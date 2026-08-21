@@ -764,6 +764,18 @@ button.nav__tab:hover {
   color: var(--color-neutral-700);
 }
 
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px 18px;
+  margin-top: 22px;
+}
+
+.filters .field {
+  min-width: 160px;
+}
+
 .table-scroll {
   margin-top: 22px;
   overflow-x: auto;
@@ -805,4 +817,22 @@ button.nav__tab:hover {
   display: flex;
   gap: 8px;
   padding-right: 0;
+}
+
+.table__sort {
+  all: unset;
+  cursor: pointer;
+}
+
+.table__sort:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.table th[aria-sort="ascending"] .table__sort::after {
+  content: " \25B2";
+}
+
+.table th[aria-sort="descending"] .table__sort::after {
+  content: " \25BC";
 }
