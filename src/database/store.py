@@ -4,7 +4,7 @@ from datetime import date
 from pathlib import Path
 
 from recurring.rules import RecurringRule, StoredRecurringRule
-from transaction_log.categories import is_valid_type_category_pair
+from transaction_log.categories import require_valid_type_category_pair
 from transaction_log.entries import Candidate, ExistingRow, Transaction
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -124,7 +124,7 @@ class LocalStore:
         return [StoredRecurringRule(id=row[0], rule=_as_rule(row[1:])) for row in rows]
 
     def create_recurring_rule(self, rule: RecurringRule) -> StoredRecurringRule:
-        _validate(rule)
+        _validate_pair(rule)
 
         cursor = self._connection.execute(
             "INSERT INTO recurring_rules "
@@ -136,7 +136,7 @@ class LocalStore:
         return StoredRecurringRule(id=cursor.lastrowid, rule=rule)
 
     def update_recurring_rule(self, rule_id: int, rule: RecurringRule) -> StoredRecurringRule:
-        _validate(rule)
+        _validate_pair(rule)
 
         cursor = self._connection.execute(
             "UPDATE recurring_rules SET "
@@ -167,8 +167,7 @@ class LocalStore:
         return {category: monthly_amount for category, monthly_amount in rows}
 
     def upsert_category_budget(self, category: str, monthly_amount: float) -> None:
-        if not is_valid_type_category_pair("Expense", category):
-            raise ValueError(f"Category {category!r} is not a valid Expense Category")
+        require_valid_type_category_pair("Expense", category)
 
         self._connection.execute(
             "INSERT INTO category_budgets (category, monthly_amount) VALUES (?, ?) "
@@ -182,14 +181,13 @@ class LocalStore:
         self._connection.commit()
 
 
-def _validate(rule: RecurringRule) -> None:
+def _validate_pair(rule: RecurringRule) -> None:
     """Reject a rule whose (Type, Category) pair isn't one this project allows.
 
     RecurringRule's own __post_init__ already vets the schedule (Frequency,
     Interval, Day against Start Date); the pair is the part it can't see.
     """
-    if not is_valid_type_category_pair(rule.type, rule.category):
-        raise ValueError(f"Category {rule.category!r} is not a valid {rule.type} Category")
+    require_valid_type_category_pair(rule.type, rule.category)
 
 
 def _as_columns(rule: RecurringRule) -> tuple:

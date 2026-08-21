@@ -3,7 +3,6 @@ import urllib.request
 from collections.abc import Mapping
 from typing import Callable
 
-from categorisation import config
 from categorisation.interface import BatchResult, MalformedResponseError
 from categorisation.prompt import RESULTS_JSON_SCHEMA, build_prompt, parse_batch_response
 from statement_export.parser import RawTransaction
@@ -68,15 +67,12 @@ class OpenAICompatibleCategoriser:
         return parse_batch_response(content, expected_count=len(transactions))
 
 
-def connect(env: Mapping[str, str] | None = None) -> OpenAICompatibleCategoriser:
+def connect(env: Mapping[str, str]) -> OpenAICompatibleCategoriser:
     """Build an OpenAICompatibleCategoriser from OPENAI_COMPATIBLE_* settings.
 
     Takes the configuration to read rather than reaching for the environment
     itself, so the caller decides where the settings come from (Issue #30).
     """
-    if env is None:
-        env = config.load()
-
     return OpenAICompatibleCategoriser(
         base_url=env["OPENAI_COMPATIBLE_BASE_URL"],
         api_key=env.get("OPENAI_COMPATIBLE_API_KEY", ""),

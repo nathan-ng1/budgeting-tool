@@ -104,7 +104,7 @@ them every session.
 
 If you have predictable recurring items (salary, rent, mortgage, subscriptions), add one rule per
 item on the Dashboard's **Settings** tab (amount, type, category, notes, frequency/interval/day,
-start/end date) — see "Editing recurring transactions" below. That needs the frontend built
+start/end date) — see "Editing the Recurring Transactions Config" below. That needs the frontend built
 (step 4); if you'd rather not build it, you can insert rows into your database's `recurring_rules`
 table directly via `sqlite3 <DATABASE_PATH>`.
 
@@ -185,7 +185,7 @@ and the page loads no fonts, scripts, or styles from the network. Set `DASHBOARD
 to serve on a different port. If the page tells you the frontend hasn't been built, run step 4 of
 the one-time setup above.
 
-### Editing recurring transactions
+### Editing the Recurring Transactions Config
 
 The Dashboard's **Settings** tab lists every rule in your Recurring Transactions Config and lets
 you add, edit, and delete them — no `sqlite3` needed. Each rule's Day follows its Start Date (a

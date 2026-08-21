@@ -6,7 +6,7 @@ from categorisation.interface import BatchResult, CategoryResult
 from database.store import RecurringRuleNotFound
 from recurring.rules import RecurringRule, StoredRecurringRule
 from statement_export.parser import RawTransaction
-from transaction_log.categories import is_valid_type_category_pair
+from transaction_log.categories import require_valid_type_category_pair
 from transaction_log.entries import Candidate, ExistingRow, Transaction
 
 
@@ -99,15 +99,13 @@ class FakeStore:
 
     @staticmethod
     def _validate_pair(rule: RecurringRule) -> None:
-        if not is_valid_type_category_pair(rule.type, rule.category):
-            raise ValueError(f"Category {rule.category!r} is not a valid {rule.type} Category")
+        require_valid_type_category_pair(rule.type, rule.category)
 
     def read_category_budgets(self) -> dict[str, float]:
         return dict(self._category_budgets)
 
     def upsert_category_budget(self, category: str, monthly_amount: float) -> None:
-        if not is_valid_type_category_pair("Expense", category):
-            raise ValueError(f"Category {category!r} is not a valid Expense Category")
+        require_valid_type_category_pair("Expense", category)
         self._category_budgets[category] = monthly_amount
 
     def delete_category_budget(self, category: str) -> None:

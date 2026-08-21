@@ -182,6 +182,16 @@ def test_a_payload_missing_a_field_is_rejected_with_a_clear_error(running_server
     assert "frequency" in json.loads(exc_info.value.read())["error"]
 
 
+def test_a_fractional_interval_is_rejected_rather_than_truncated(running_server):
+    _store, server = running_server
+
+    with pytest.raises(HTTPError) as exc_info:
+        call(server, "POST", "/api/recurring-rules", {**WEEKLY_PAYLOAD, "interval": 2.9})
+
+    assert exc_info.value.code == 400
+    assert "interval" in json.loads(exc_info.value.read())["error"]
+
+
 def test_a_body_that_is_not_json_is_rejected(running_server):
     _store, server = running_server
     request = Request(

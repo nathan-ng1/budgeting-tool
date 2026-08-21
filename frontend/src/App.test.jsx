@@ -177,7 +177,7 @@ describe("App", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Settings" }));
 
-    expect(await screen.findByRole("heading", { name: "Recurring Transactions" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Recurring Transactions Config" })).toBeInTheDocument();
     expect(screen.getByText("Settings")).toHaveAttribute("aria-current", "page");
   });
 
@@ -199,7 +199,7 @@ describe("App", () => {
     expect(await screen.findByText("$5,240")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Settings" }));
-    await screen.findByRole("heading", { name: "Recurring Transactions" });
+    await screen.findByRole("heading", { name: "Recurring Transactions Config" });
     await userEvent.click(screen.getByRole("button", { name: "Overview" }));
 
     expect(await screen.findByText("$5,240")).toBeInTheDocument();

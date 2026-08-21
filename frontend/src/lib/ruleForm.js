@@ -56,10 +56,12 @@ export function valuesFrom(rule) {
 }
 
 export function withStartDate(values, startDate) {
-  return { ...values, start_date: startDate, day: dayFor(values.frequency, startDate) };
+  return { ...values, start_date: startDate, day: dayFor(values.frequency, startDate, values.day) };
 }
 
 export function withFrequency(values, frequency) {
+  // Switching Frequency reinterprets Day entirely (a weekday name is not a
+  // day-of-month), so the old value can't be carried across.
   return { ...values, frequency, day: dayFor(frequency, values.start_date) };
 }
 
@@ -90,11 +92,31 @@ export function toPayload(values) {
   };
 }
 
-function dayFor(frequency, startDate) {
+function dayFor(frequency, startDate, currentDay) {
   if (!startDate) {
     return "";
   }
-  return frequency === "Weekly" ? weekdayOf(startDate) : dayOfMonthOf(startDate);
+  if (frequency === "Weekly") {
+    return weekdayOf(startDate);
+  }
+  // A Monthly Day the user set on purpose can be past the start month's end -
+  // Day 31 starting 28 Feb clamps to the last day. Keep such a Day whenever the
+  // new Start Date still clamps to it, so moving 28 Feb to 30 Apr doesn't
+  // quietly demote a "the 31st" rule to a "the 30th" one.
+  if (clampsTo(currentDay, startDate)) {
+    return currentDay;
+  }
+  return dayOfMonthOf(startDate);
+}
+
+function clampsTo(day, isoDate) {
+  if (!Number.isInteger(day)) {
+    return false;
+  }
+  const { year, month, day: startDay } = parts(isoDate);
+  // Day 0 of the next month is the last day of this one.
+  const lastDayOfMonth = new Date(year, month, 0).getDate();
+  return Math.min(day, lastDayOfMonth) === startDay;
 }
 
 function parts(isoDate) {

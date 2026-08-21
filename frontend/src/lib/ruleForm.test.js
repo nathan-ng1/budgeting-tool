@@ -26,6 +26,21 @@ describe("withStartDate", () => {
 
     expect(values.day).toBe(15);
   });
+
+  it("keeps a deliberate Day 31 when the new Start Date still clamps to it", () => {
+    // Day 31 starting 28 Feb is legitimate - it clamps to the month's last day.
+    // Moving the start to 30 April still clamps to Day 31, so the rule must
+    // keep meaning "the 31st", not quietly become a Day 30 rule.
+    const shortMonth = { ...blankValues(), frequency: "Monthly", day: 31, start_date: "2026-02-28" };
+
+    expect(withStartDate(shortMonth, "2026-04-30").day).toBe(31);
+  });
+
+  it("re-derives Day when the new Start Date can no longer mean the old one", () => {
+    const shortMonth = { ...blankValues(), frequency: "Monthly", day: 31, start_date: "2026-02-28" };
+
+    expect(withStartDate(shortMonth, "2026-03-15").day).toBe(15);
+  });
 });
 
 describe("withFrequency", () => {

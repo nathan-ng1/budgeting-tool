@@ -85,7 +85,7 @@ describe("RecurringRules", () => {
   it("says so plainly when there are no rules yet", async () => {
     render(<RecurringRules />);
 
-    expect(await screen.findByText(/No recurring rules/i)).toBeInTheDocument();
+    expect(await screen.findByText(/No rules in the Recurring Transactions Config/i)).toBeInTheDocument();
   });
 
   it("creates a rule and shows it in the list without a reload", async () => {

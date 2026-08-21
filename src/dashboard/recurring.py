@@ -84,10 +84,16 @@ def _number(value, field: str) -> float:
 
 
 def _whole_number(value, field: str) -> int:
+    # int() would truncate a fractional JSON number rather than refuse it, so
+    # an Interval of 2.9 would silently become 2.
     try:
-        return int(value)
+        number = float(value)
     except (TypeError, ValueError):
         raise ValueError(f"Field {field!r} must be a whole number, got {value!r}") from None
+
+    if not number.is_integer():
+        raise ValueError(f"Field {field!r} must be a whole number, got {value!r}")
+    return int(number)
 
 
 def _date(value, field: str) -> date:

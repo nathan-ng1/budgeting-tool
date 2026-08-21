@@ -94,40 +94,39 @@ export default function App() {
         {tab === "Settings" && <RecurringRules />}
 
         {tab === "Overview" && (
-          <MonthSelector
-            financialYear={financialYearFor(selected.year, selected.month)}
-            selected={selected}
-            onSelect={setSelected}
-          />
-        )}
-
-        {tab === "Overview" && error !== null && (
-          <p className="state state--page state--error" role="alert">
-            {error}
-          </p>
-        )}
-
-        {tab === "Overview" && error === null && overview === null && (
-          <p className="state state--page">Loading this month&rsquo;s figures&hellip;</p>
-        )}
-
-        {tab === "Overview" && error === null && overview !== null && (
           <>
-            <StatTiles tiles={overview.stat_tiles} />
-            <IncomeAllocation allocation={overview.income_allocation} income={overview.stat_tiles.income} />
+            <MonthSelector
+              financialYear={financialYearFor(selected.year, selected.month)}
+              selected={selected}
+              onSelect={setSelected}
+            />
 
-            <div className="row--donut">
-              <SpendingByCategory
-                spending={overview.spending_by_category}
-                total={overview.stat_tiles.expenses}
-              />
-              <BudgetedVsActual rows={overview.budgeted_vs_actual} />
-            </div>
+            {error !== null && (
+              <p className="state state--page state--error" role="alert">
+                {error}
+              </p>
+            )}
 
-            <div className="row--split">
-              <TopExpenses expenses={overview.top_expenses} />
-              <ExpensesOverTime overTime={overview.expenses_over_time} />
-            </div>
+            {error === null && overview === null && (
+              <p className="state state--page">Loading this month&rsquo;s figures&hellip;</p>
+            )}
+
+            {error === null && overview !== null && (
+              <>
+                <StatTiles tiles={overview.stat_tiles} />
+                <IncomeAllocation allocation={overview.income_allocation} income={overview.stat_tiles.income} />
+
+                <div className="row--donut">
+                  <SpendingByCategory spending={overview.spending_by_category} total={overview.stat_tiles.expenses} />
+                  <BudgetedVsActual rows={overview.budgeted_vs_actual} />
+                </div>
+
+                <div className="row--split">
+                  <TopExpenses expenses={overview.top_expenses} />
+                  <ExpensesOverTime overTime={overview.expenses_over_time} />
+                </div>
+              </>
+            )}
           </>
         )}
       </div>

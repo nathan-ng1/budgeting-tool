@@ -82,7 +82,7 @@ export default function RecurringRules() {
   if (error !== null && rules === null) {
     return (
       <section className="card">
-        <h3>Recurring Transactions</h3>
+        <h3>Recurring Transactions Config</h3>
         <p className="state state--error" role="alert">
           {error}
         </p>
@@ -94,7 +94,7 @@ export default function RecurringRules() {
     <section className="card">
       <div className="card__head">
         <div>
-          <h3>Recurring Transactions</h3>
+          <h3>Recurring Transactions Config</h3>
           <p className="card__note">
             Predictable items expanded into the Transaction Log on the next Statement Export run.
           </p>
@@ -122,9 +122,9 @@ export default function RecurringRules() {
         />
       )}
 
-      {rules === null && <p className="state">Loading rules&hellip;</p>}
+      {rules === null && <p className="state">Loading the Recurring Transactions Config&hellip;</p>}
 
-      {rules !== null && rules.length === 0 && <p className="state">No recurring rules configured yet.</p>}
+      {rules !== null && rules.length === 0 && <p className="state">No rules in the Recurring Transactions Config yet.</p>}
 
       {rules !== null && rules.length > 0 && (
         <div className="table-scroll">

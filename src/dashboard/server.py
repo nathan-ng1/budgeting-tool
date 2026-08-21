@@ -52,9 +52,9 @@ def _make_handler(store, static_root: Path):
             elif parsed.path == RECURRING_RULES_PATH:
                 self._send_json(200, [recurring.as_payload(r) for r in store.read_stored_recurring_rules()])
             elif parsed.path == "/api/categories":
-                # What the Settings screen's Type/Category selects offer, so the
-                # valid pairs live in one place (Issue #22) rather than being
-                # restated in the frontend and drifting.
+                # What the Settings screen's Type/Category selects offer, so
+                # transaction_log.categories stays the one place the valid pairs
+                # are stated rather than the frontend restating and drifting.
                 self._send_json(
                     200, {t: sorted(CATEGORIES_BY_TYPE[t]) for t in types_with_categories()}
                 )
@@ -91,6 +91,7 @@ def _make_handler(store, static_root: Path):
                 return
 
             self._send_bytes(204, b"", "application/json")
+
 
         def _rule_id(self) -> int | None:
             """The id in /api/recurring-rules/{id}, or None if this isn't that

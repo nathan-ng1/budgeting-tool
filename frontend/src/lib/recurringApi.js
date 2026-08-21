@@ -27,7 +27,7 @@ async function failureMessage(response) {
   return `The Dashboard backend returned ${response.status}.`;
 }
 
-function writing(method, rule) {
+function jsonRequest(method, rule) {
   return {
     method,
     headers: { "Content-Type": "application/json" },
@@ -44,11 +44,11 @@ export function fetchCategories({ signal } = {}) {
 }
 
 export function createRecurringRule(rule) {
-  return request(BASE, writing("POST", rule));
+  return request(BASE, jsonRequest("POST", rule));
 }
 
 export function updateRecurringRule(id, rule) {
-  return request(`${BASE}/${id}`, writing("PUT", rule));
+  return request(`${BASE}/${id}`, jsonRequest("PUT", rule));
 }
 
 export function deleteRecurringRule(id) {
