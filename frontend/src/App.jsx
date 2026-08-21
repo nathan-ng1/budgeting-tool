@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import BudgetedVsActual from "./components/BudgetedVsActual.jsx";
 import ExpensesOverTime from "./components/ExpensesOverTime.jsx";
 import IncomeAllocation from "./components/IncomeAllocation.jsx";
+import IncomeVsExpensesByMonth from "./components/IncomeVsExpensesByMonth.jsx";
+import MonthByMonth from "./components/MonthByMonth.jsx";
 import MonthSelector from "./components/MonthSelector.jsx";
 import RecurringRules from "./components/RecurringRules.jsx";
 import SpendingByCategory from "./components/SpendingByCategory.jsx";
@@ -151,20 +153,34 @@ export default function App() {
                 <StatTiles tiles={overview.stat_tiles} average={selected === null ? overview.monthly_average : undefined} />
                 <IncomeAllocation allocation={overview.income_allocation} income={overview.stat_tiles.income} />
 
-                <div className="row--donut">
-                  <SpendingByCategory spending={overview.spending_by_category} total={overview.stat_tiles.expenses} />
-                  <BudgetedVsActual rows={overview.budgeted_vs_actual} />
-                </div>
-
                 {selected !== null ? (
-                  <div className="row--split">
-                    <TopExpenses expenses={overview.top_expenses} count={5} />
-                    <ExpensesOverTime overTime={overview.expenses_over_time} />
-                  </div>
+                  <>
+                    <div className="row--donut">
+                      <SpendingByCategory spending={overview.spending_by_category} total={overview.stat_tiles.expenses} />
+                      <BudgetedVsActual rows={overview.budgeted_vs_actual} />
+                    </div>
+                    <div className="row--split">
+                      <TopExpenses expenses={overview.top_expenses} count={5} />
+                      <ExpensesOverTime overTime={overview.expenses_over_time} />
+                    </div>
+                  </>
                 ) : (
-                  // Full year's remaining sections (Issue #41) aren't on
-                  // /api/annual-overview yet (ADR-0011).
-                  <TopExpenses expenses={overview.top_expenses} count={10} />
+                  // Full year pairs the donut with Month by Month rather than
+                  // with Budgeted vs Actual: over a whole Financial Year the
+                  // month-by-month shape is what the donut begs the reader to
+                  // ask about, and Full year's Budgeted vs Actual has no
+                  // Expected column to compare against anyway (ADR-0011).
+                  <>
+                    <IncomeVsExpensesByMonth months={overview.income_vs_expenses_by_month} />
+                    <div className="row--donut">
+                      <SpendingByCategory spending={overview.spending_by_category} total={overview.stat_tiles.expenses} />
+                      <MonthByMonth months={overview.month_by_month} />
+                    </div>
+                    <div className="row--split">
+                      <BudgetedVsActual rows={overview.budgeted_vs_actual} />
+                      <TopExpenses expenses={overview.top_expenses} count={10} />
+                    </div>
+                  </>
                 )}
               </>
             )}

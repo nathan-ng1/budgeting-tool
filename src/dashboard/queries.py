@@ -82,6 +82,16 @@ class MonthOverview:
 
 
 @dataclass(frozen=True)
+class MonthlyTotals:
+    year: int
+    month: int
+    income: float
+    expenses: float
+    net_balance: float
+    transferred: float
+
+
+@dataclass(frozen=True)
 class AnnualOverview:
     year: int
     elapsed_months: int
@@ -91,6 +101,8 @@ class AnnualOverview:
     spending_by_category: list[CategorySpend]
     budgeted_vs_actual: list[BudgetVsActual]
     top_expenses: list[TopExpense]
+    month_by_month: list[MonthlyTotals]
+    income_vs_expenses_by_month: list[MonthlyTotals]
 
 
 def get_month_overview(store, year: int, month: int) -> MonthOverview:
@@ -120,6 +132,7 @@ def get_annual_overview(store, year: int, today: date | None = None) -> AnnualOv
     end = _add_months(start, elapsed_months)
     transactions = [t for t in store.read_transactions() if start <= t.date < end]
     stat_tiles = _stat_tiles(transactions)
+    monthly_totals = _monthly_totals(transactions, start)
 
     return AnnualOverview(
         year=year,
@@ -130,6 +143,15 @@ def get_annual_overview(store, year: int, today: date | None = None) -> AnnualOv
         spending_by_category=_spending_by_category(transactions, stat_tiles.expenses),
         budgeted_vs_actual=_annual_budgeted_vs_actual(transactions),
         top_expenses=_top_expenses(transactions, limit=10),
+        # Two named series over the same rows, not two computations: the Month
+        # by month table and the Income vs Expenses chart both need one row
+        # per month, but are separate fields (rather than one field two
+        # components share) because Issue #41 specifies them as the API's two
+        # separate contracts, matching how /api/annual-overview and
+        # /api/overview are kept separate contracts rather than a shared one
+        # with optional fields (ADR-0011).
+        month_by_month=monthly_totals,
+        income_vs_expenses_by_month=monthly_totals,
     )
 
 
@@ -272,6 +294,33 @@ def _annual_budgeted_vs_actual(transactions: list[Transaction]) -> list[BudgetVs
         if amount != 0
     ]
     return sorted(rows, key=lambda row: row.category)
+
+
+def _monthly_totals(transactions: list[Transaction], start: date) -> list[MonthlyTotals]:
+    """One row per month of the Financial Year starting `start`, in order -
+    always 12, even for months past `transactions`' range (get_annual_overview
+    only ever passes elapsed months in, so anything later naturally comes back
+    zeroed rather than omitted - see Issue #41).
+    """
+    by_month: dict[tuple[int, int], list[Transaction]] = {}
+    for t in transactions:
+        by_month.setdefault((t.date.year, t.date.month), []).append(t)
+
+    rows = []
+    for offset in range(12):
+        month_start = _add_months(start, offset)
+        tiles = _stat_tiles(by_month.get((month_start.year, month_start.month), []))
+        rows.append(
+            MonthlyTotals(
+                year=month_start.year,
+                month=month_start.month,
+                income=tiles.income,
+                expenses=tiles.expenses,
+                net_balance=tiles.net_balance,
+                transferred=tiles.transferred,
+            )
+        )
+    return rows
 
 
 def _top_expenses(transactions: list[Transaction], limit: int) -> list[TopExpense]:

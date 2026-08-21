@@ -1,11 +1,11 @@
-import { CHART_HEIGHT, CHART_WIDTH, cumulativeChart } from "../lib/charts.js";
+import { CHART_HEIGHT, CHART_WIDTH, cumulativeChart, plotGridlines } from "../lib/charts.js";
 import { dayMonth, money } from "../lib/format.js";
 
-const GRIDLINES = [0, 60, 120, 180];
 const X_LABEL_STRIDE = 7;
 
 export default function ExpensesOverTime({ overTime }) {
   const chart = cumulativeChart(overTime.daily);
+  const gridlines = plotGridlines(CHART_HEIGHT);
   const lastPoint = chart.points[chart.points.length - 1];
 
   return (
@@ -41,7 +41,7 @@ export default function ExpensesOverTime({ overTime }) {
               </linearGradient>
             </defs>
             <g stroke="var(--color-neutral-300)" strokeWidth="1" vectorEffect="non-scaling-stroke">
-              {GRIDLINES.map((y) => (
+              {gridlines.map((y) => (
                 <line key={y} x1="0" y1={y} x2={CHART_WIDTH} y2={y} />
               ))}
             </g>
