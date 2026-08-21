@@ -1,14 +1,12 @@
 import json
-import os
 import urllib.request
-from pathlib import Path
+from collections.abc import Mapping
 from typing import Callable
 
+from categorisation import config
 from categorisation.interface import BatchResult, MalformedResponseError
 from categorisation.prompt import RESULTS_JSON_SCHEMA, build_prompt, parse_batch_response
 from statement_export.parser import RawTransaction
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _http_post(url: str, headers: dict, body: dict) -> dict:
@@ -70,13 +68,17 @@ class OpenAICompatibleCategoriser:
         return parse_batch_response(content, expected_count=len(transactions))
 
 
-def connect() -> OpenAICompatibleCategoriser:
-    """Build an OpenAICompatibleCategoriser from OPENAI_COMPATIBLE_* env vars."""
-    from dotenv import load_dotenv
+def connect(env: Mapping[str, str] | None = None) -> OpenAICompatibleCategoriser:
+    """Build an OpenAICompatibleCategoriser from OPENAI_COMPATIBLE_* settings.
 
-    load_dotenv(REPO_ROOT / ".env")
+    Takes the configuration to read rather than reaching for the environment
+    itself, so the caller decides where the settings come from (Issue #30).
+    """
+    if env is None:
+        env = config.load()
+
     return OpenAICompatibleCategoriser(
-        base_url=os.environ["OPENAI_COMPATIBLE_BASE_URL"],
-        api_key=os.environ.get("OPENAI_COMPATIBLE_API_KEY", ""),
-        model=os.environ["OPENAI_COMPATIBLE_MODEL"],
+        base_url=env["OPENAI_COMPATIBLE_BASE_URL"],
+        api_key=env.get("OPENAI_COMPATIBLE_API_KEY", ""),
+        model=env["OPENAI_COMPATIBLE_MODEL"],
     )
