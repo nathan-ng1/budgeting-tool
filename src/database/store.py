@@ -47,6 +47,14 @@ class RecurringRuleNotFound(LookupError):
     """
 
 
+class TransactionNotFound(LookupError):
+    """No Transaction has the given id.
+
+    Distinct from a ValueError over the transaction's contents: the caller
+    named a row that isn't there, rather than describing one badly.
+    """
+
+
 class LocalStore:
     """Live Transaction Log + Recurring Transactions Config store, backed by
     a local SQLite database.
@@ -92,6 +100,50 @@ class LocalStore:
             )
             for row_id, row_date, amount, transaction_type, category, notes in rows
         ]
+
+    def create_transaction(self, candidate: Candidate) -> Transaction:
+        # Candidate.__post_init__ already validated the (Type, Category) pair
+        # and the non-zero Amount - there is no invalid Candidate to reject.
+        cursor = self._connection.execute(
+            "INSERT INTO transactions (date, amount, type, category, notes) VALUES (?, ?, ?, ?, ?)",
+            (candidate.date.isoformat(), candidate.amount, candidate.type, candidate.category, candidate.notes),
+        )
+        self._connection.commit()
+        return Transaction(
+            id=cursor.lastrowid,
+            date=candidate.date,
+            amount=candidate.amount,
+            type=candidate.type,
+            category=candidate.category,
+            notes=candidate.notes,
+        )
+
+    def update_transaction(self, transaction_id: int, candidate: Candidate) -> Transaction:
+        cursor = self._connection.execute(
+            "UPDATE transactions SET date = ?, amount = ?, type = ?, category = ?, notes = ? WHERE id = ?",
+            (candidate.date.isoformat(), candidate.amount, candidate.type, candidate.category, candidate.notes, transaction_id),
+        )
+        if cursor.rowcount == 0:
+            self._connection.rollback()
+            raise TransactionNotFound(f"No Transaction has id {transaction_id}")
+
+        self._connection.commit()
+        return Transaction(
+            id=transaction_id,
+            date=candidate.date,
+            amount=candidate.amount,
+            type=candidate.type,
+            category=candidate.category,
+            notes=candidate.notes,
+        )
+
+    def delete_transaction(self, transaction_id: int) -> None:
+        cursor = self._connection.execute("DELETE FROM transactions WHERE id = ?", (transaction_id,))
+        if cursor.rowcount == 0:
+            self._connection.rollback()
+            raise TransactionNotFound(f"No Transaction has id {transaction_id}")
+
+        self._connection.commit()
 
     def append_recurring_rules(self, rules: list[RecurringRule]) -> None:
         if not rules:

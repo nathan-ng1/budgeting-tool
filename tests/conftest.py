@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 
 from categorisation.interface import BatchResult, CategoryResult
-from database.store import RecurringRuleNotFound
+from database.store import RecurringRuleNotFound, TransactionNotFound
 from recurring.rules import RecurringRule, StoredRecurringRule
 from statement_export.parser import RawTransaction
 from transaction_log.categories import require_valid_type_category_pair
@@ -52,6 +52,7 @@ class FakeStore:
         self._transactions = list(transactions or [])
         self._stored_recurring_rules: list[StoredRecurringRule] = []
         self._next_rule_id = 0
+        self._next_transaction_id = max((t.id for t in self._transactions), default=0)
         self.appended: list[Candidate] = []
 
     def read_existing_rows(self) -> list[ExistingRow]:
@@ -62,6 +63,41 @@ class FakeStore:
 
     def append_rows(self, candidates: list[Candidate]) -> None:
         self.appended.extend(candidates)
+
+    def create_transaction(self, candidate: Candidate) -> Transaction:
+        self._next_transaction_id += 1
+        created = Transaction(
+            id=self._next_transaction_id,
+            date=candidate.date,
+            amount=candidate.amount,
+            type=candidate.type,
+            category=candidate.category,
+            notes=candidate.notes,
+        )
+        self._transactions.append(created)
+        return created
+
+    def update_transaction(self, transaction_id: int, candidate: Candidate) -> Transaction:
+        index = self._transaction_index(transaction_id)
+        updated = Transaction(
+            id=transaction_id,
+            date=candidate.date,
+            amount=candidate.amount,
+            type=candidate.type,
+            category=candidate.category,
+            notes=candidate.notes,
+        )
+        self._transactions[index] = updated
+        return updated
+
+    def delete_transaction(self, transaction_id: int) -> None:
+        del self._transactions[self._transaction_index(transaction_id)]
+
+    def _transaction_index(self, transaction_id: int) -> int:
+        for index, transaction in enumerate(self._transactions):
+            if transaction.id == transaction_id:
+                return index
+        raise TransactionNotFound(f"No Transaction has id {transaction_id}")
 
     def read_recurring_rules(self) -> list[RecurringRule]:
         # One table behind both read paths, as in LocalStore: a rule created

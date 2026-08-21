@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -38,6 +38,44 @@ function rowTexts() {
   return screen.getAllByRole("row").slice(1).map((row) => row.textContent);
 }
 
+const CATEGORIES = { Expense: ["Groceries", "Transport"], Income: ["Salary"] };
+
+/** Answer each endpoint from `transactions`, so the screen reloads real state. */
+function backend(transactions = []) {
+  let stored = [...transactions];
+  let nextId = 100;
+
+  return vi.fn(async (url, options = {}) => {
+    const method = options.method ?? "GET";
+
+    if (url === "/api/categories") {
+      return { ok: true, status: 200, json: async () => CATEGORIES };
+    }
+    if (method === "GET") {
+      return { ok: true, status: 200, json: async () => stored };
+    }
+    if (method === "POST") {
+      const created = { id: (nextId += 1), ...JSON.parse(options.body) };
+      stored = [...stored, created];
+      return { ok: true, status: 201, json: async () => created };
+    }
+    if (method === "PUT") {
+      const id = Number(url.split("/").pop());
+      const updated = { id, ...JSON.parse(options.body) };
+      stored = stored.map((t) => (t.id === id ? updated : t));
+      return { ok: true, status: 200, json: async () => updated };
+    }
+    const id = Number(url.split("/").pop());
+    stored = stored.filter((t) => t.id !== id);
+    return { ok: true, status: 204 };
+  });
+}
+
+function useBackend(transactions) {
+  fetchMock = backend(transactions);
+  vi.stubGlobal("fetch", fetchMock);
+}
+
 describe("Transactions", () => {
   it("renders the list in the order the backend returns it (newest-first)", async () => {
     // The backend sorts newest-first (see ADR-0010/queries.get_financial_year_transactions);
@@ -60,7 +98,7 @@ describe("Transactions", () => {
     render(<Transactions />);
 
     const headers = (await screen.findAllByRole("columnheader")).map((header) => header.textContent);
-    expect(headers).toEqual(["Date", "Amount", "Type", "Category", "Notes"]);
+    expect(headers).toEqual(["Date", "Amount", "Type", "Category", "Notes", ""]);
   });
 
   it("renders Amount plain, with no colour or sign", async () => {
@@ -195,6 +233,167 @@ describe("Transactions", () => {
       await userEvent.click(screen.getByRole("button", { name: /amount/i }));
 
       expect(rowTexts()[0]).toContain("Woolworths"); // $42.50, lowest first
+    });
+  });
+
+  describe("adding, editing, and deleting", () => {
+    it("adds a transaction and shows it in the list without a reload", async () => {
+      useBackend([]);
+      render(<Transactions />);
+      await userEvent.click(await screen.findByRole("button", { name: "Add transaction" }));
+
+      await userEvent.clear(screen.getByLabelText("Date"));
+      await userEvent.type(screen.getByLabelText("Date"), "2026-08-05");
+      await userEvent.type(screen.getByLabelText("Amount"), "42.50");
+      await userEvent.selectOptions(screen.getByLabelText("Category"), "Groceries");
+      await userEvent.type(screen.getByLabelText("Notes"), "Woolworths");
+      await userEvent.click(screen.getByRole("button", { name: "Save transaction" }));
+
+      expect(await screen.findByText("Woolworths")).toBeInTheDocument();
+
+      const posted = fetchMock.mock.calls.find(([, options]) => options?.method === "POST");
+      expect(JSON.parse(posted[1].body)).toMatchObject({
+        date: "2026-08-05",
+        amount: 42.5,
+        type: "Expense",
+        category: "Groceries",
+        notes: "Woolworths",
+      });
+    });
+
+    it("offers only the Categories that belong to the chosen Type when adding", async () => {
+      useBackend([]);
+      render(<Transactions />);
+      await userEvent.click(await screen.findByRole("button", { name: "Add transaction" }));
+
+      const category = screen.getByLabelText("Category");
+      expect(within(category).getByRole("option", { name: "Groceries" })).toBeInTheDocument();
+
+      await userEvent.selectOptions(screen.getByLabelText("Type"), "Income");
+
+      expect(within(category).queryByRole("option", { name: "Groceries" })).not.toBeInTheDocument();
+      expect(within(category).getByRole("option", { name: "Salary" })).toBeInTheDocument();
+    });
+
+    it("shows the store's own rejection and keeps the add form open to fix it", async () => {
+      useBackend([]);
+      render(<Transactions />);
+      await userEvent.click(await screen.findByRole("button", { name: "Add transaction" }));
+      fetchMock.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => ({ error: "Category 'Salary' is not a valid Expense Category" }),
+      });
+
+      await userEvent.clear(screen.getByLabelText("Date"));
+      await userEvent.type(screen.getByLabelText("Date"), "2026-08-05");
+      await userEvent.type(screen.getByLabelText("Amount"), "42.50");
+      await userEvent.selectOptions(screen.getByLabelText("Category"), "Groceries");
+      await userEvent.type(screen.getByLabelText("Notes"), "Woolworths");
+      await userEvent.click(screen.getByRole("button", { name: "Save transaction" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("not a valid Expense Category");
+      expect(screen.getByLabelText("Notes")).toHaveValue("Woolworths");
+    });
+
+    it("cancelling the add form discards it without saving", async () => {
+      useBackend([]);
+      render(<Transactions />);
+      await userEvent.click(await screen.findByRole("button", { name: "Add transaction" }));
+      await userEvent.type(screen.getByLabelText("Notes"), "Discard me");
+
+      await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+      expect(screen.queryByLabelText("Notes")).not.toBeInTheDocument();
+      expect(fetchMock.mock.calls.some(([, options]) => options?.method === "POST")).toBe(false);
+    });
+
+    it("edits an existing transaction in place", async () => {
+      useBackend([transaction()]);
+      render(<Transactions />);
+
+      await userEvent.click(await screen.findByRole("button", { name: "Edit Woolworths" }));
+
+      const amount = screen.getByLabelText("Amount");
+      expect(amount).toHaveValue(42.5);
+
+      await userEvent.clear(amount);
+      await userEvent.type(amount, "50");
+      await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+      const put = await waitFor(() => {
+        const call = fetchMock.mock.calls.find(([, options]) => options?.method === "PUT");
+        expect(call).toBeTruthy();
+        return call;
+      });
+      expect(put[0]).toBe("/api/transactions/1");
+      expect(JSON.parse(put[1].body).amount).toBe(50);
+      expect(await screen.findByText("$50.00")).toBeInTheDocument();
+    });
+
+    it("cancelling an edit discards it and keeps the original row", async () => {
+      useBackend([transaction()]);
+      render(<Transactions />);
+
+      await userEvent.click(await screen.findByRole("button", { name: "Edit Woolworths" }));
+      await userEvent.clear(screen.getByLabelText("Amount"));
+      await userEvent.type(screen.getByLabelText("Amount"), "999");
+      await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+      expect(screen.queryByLabelText("Amount")).not.toBeInTheDocument();
+      expect(await screen.findByText("$42.50")).toBeInTheDocument();
+      expect(fetchMock.mock.calls.some(([, options]) => options?.method === "PUT")).toBe(false);
+    });
+
+    it("shows the store's own rejection on an edit and leaves the row editable", async () => {
+      useBackend([transaction()]);
+      render(<Transactions />);
+      await userEvent.click(await screen.findByRole("button", { name: "Edit Woolworths" }));
+      fetchMock.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => ({ error: "Category 'Salary' is not a valid Expense Category" }),
+      });
+
+      await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("not a valid Expense Category");
+      expect(screen.getByLabelText("Amount")).toBeInTheDocument();
+    });
+
+    it("requires an inline confirm before deleting a transaction", async () => {
+      useBackend([transaction()]);
+      render(<Transactions />);
+
+      await userEvent.click(await screen.findByRole("button", { name: "Delete Woolworths" }));
+
+      expect(screen.getByText("Woolworths")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Confirm delete?" })).toBeInTheDocument();
+      expect(fetchMock.mock.calls.some(([, options]) => options?.method === "DELETE")).toBe(false);
+    });
+
+    it("cancelling a delete confirmation leaves the row in place", async () => {
+      useBackend([transaction()]);
+      render(<Transactions />);
+      await userEvent.click(await screen.findByRole("button", { name: "Delete Woolworths" }));
+
+      await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+      expect(screen.getByText("Woolworths")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Edit Woolworths" })).toBeInTheDocument();
+    });
+
+    it("deletes a transaction only after the confirm step, dropping it from the list", async () => {
+      useBackend([transaction()]);
+      render(<Transactions />);
+      await userEvent.click(await screen.findByRole("button", { name: "Delete Woolworths" }));
+
+      await userEvent.click(screen.getByRole("button", { name: "Confirm delete?" }));
+
+      await waitFor(() => expect(screen.queryByText("Woolworths")).not.toBeInTheDocument());
+      expect(
+        fetchMock.mock.calls.some(([url, options]) => url === "/api/transactions/1" && options?.method === "DELETE"),
+      ).toBe(true);
     });
   });
 });

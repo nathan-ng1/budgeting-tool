@@ -9,7 +9,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
 from dashboard import queries, recurring, transactions
-from database.store import RecurringRuleNotFound
+from database.store import RecurringRuleNotFound, TransactionNotFound
 from transaction_log.categories import CATEGORIES_BY_TYPE, types_with_categories
 
 # Where `npm run build` puts the frontend (see frontend/vite.config.js). The
@@ -72,45 +72,62 @@ def _make_handler(store, static_root: Path):
                 self._serve_static(parsed.path)
 
         def do_POST(self):
-            if urlparse(self.path).path != RECURRING_RULES_PATH:
+            path = urlparse(self.path).path
+            if path == RECURRING_RULES_PATH:
+                self._write_rule(lambda rule: (201, store.create_recurring_rule(rule)))
+            elif path == TRANSACTIONS_PATH:
+                self._write_transaction(lambda candidate: (201, store.create_transaction(candidate)))
+            else:
                 self._send_json(404, {"error": "Not found"})
-                return
-
-            self._write_rule(lambda rule: (201, store.create_recurring_rule(rule)))
 
         def do_PUT(self):
-            rule_id = self._rule_id()
-            if rule_id is None:
-                self._send_json(404, {"error": "Not found"})
+            rule_id = self._id_after(RECURRING_RULES_PATH)
+            if rule_id is not None:
+                self._write_rule(lambda rule: (200, store.update_recurring_rule(rule_id, rule)))
                 return
 
-            self._write_rule(lambda rule: (200, store.update_recurring_rule(rule_id, rule)))
+            transaction_id = self._id_after(TRANSACTIONS_PATH)
+            if transaction_id is not None:
+                self._write_transaction(
+                    lambda candidate: (200, store.update_transaction(transaction_id, candidate))
+                )
+                return
+
+            self._send_json(404, {"error": "Not found"})
 
         def do_DELETE(self):
-            rule_id = self._rule_id()
-            if rule_id is None:
-                self._send_json(404, {"error": "Not found"})
+            rule_id = self._id_after(RECURRING_RULES_PATH)
+            if rule_id is not None:
+                try:
+                    store.delete_recurring_rule(rule_id)
+                except RecurringRuleNotFound as cause:
+                    self._send_json(404, {"error": str(cause)})
+                    return
+                self._send_bytes(204, b"", "application/json")
                 return
 
-            try:
-                store.delete_recurring_rule(rule_id)
-            except RecurringRuleNotFound as cause:
-                self._send_json(404, {"error": str(cause)})
+            transaction_id = self._id_after(TRANSACTIONS_PATH)
+            if transaction_id is not None:
+                try:
+                    store.delete_transaction(transaction_id)
+                except TransactionNotFound as cause:
+                    self._send_json(404, {"error": str(cause)})
+                    return
+                self._send_bytes(204, b"", "application/json")
                 return
 
-            self._send_bytes(204, b"", "application/json")
+            self._send_json(404, {"error": "Not found"})
 
-
-        def _rule_id(self) -> int | None:
-            """The id in /api/recurring-rules/{id}, or None if this isn't that
-            path - including when {id} isn't a number, since no rule can have
-            that id either way."""
+        def _id_after(self, prefix: str) -> int | None:
+            """The id in `{prefix}/{id}`, or None if this request's path isn't
+            that shape - including when {id} isn't a number, since no row can
+            have that id either way."""
             path = urlparse(self.path).path
-            prefix = f"{RECURRING_RULES_PATH}/"
-            if not path.startswith(prefix):
+            full_prefix = f"{prefix}/"
+            if not path.startswith(full_prefix):
                 return None
             try:
-                return int(path[len(prefix):])
+                return int(path[len(full_prefix):])
             except ValueError:
                 return None
 
@@ -135,6 +152,27 @@ def _make_handler(store, static_root: Path):
                 return
 
             self._send_json(status, recurring.as_payload(stored))
+
+        def _write_transaction(self, write) -> None:
+            """Parse a Candidate from the request body, hand it to `write`, and
+            answer with the stored Transaction - or with why it couldn't be
+            stored."""
+            try:
+                candidate = transactions.from_payload(self._read_json())
+            except ValueError as cause:
+                self._send_json(400, {"error": str(cause)})
+                return
+
+            try:
+                status, stored = write(candidate)
+            except TransactionNotFound as cause:
+                self._send_json(404, {"error": str(cause)})
+                return
+            except ValueError as cause:
+                self._send_json(400, {"error": str(cause)})
+                return
+
+            self._send_json(status, transactions.as_payload(stored))
 
         def _read_json(self):
             length = int(self.headers.get("Content-Length") or 0)

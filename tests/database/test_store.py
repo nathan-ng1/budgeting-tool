@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from database.store import RecurringRuleNotFound, connect
+from database.store import RecurringRuleNotFound, TransactionNotFound, connect
 from recurring.rules import RecurringRule
 from transaction_log.entries import ExistingRow, Transaction
 
@@ -78,6 +78,88 @@ def test_read_transactions_gives_each_row_its_own_id(tmp_path: Path, make_candid
     first, second = store.read_transactions()
     assert first.id != second.id
     assert first.id is not None and second.id is not None
+
+
+def test_create_transaction_returns_it_with_the_id_it_was_given(tmp_path: Path, make_candidate):
+    store = connect(tmp_path / "budget.db")
+    candidate = make_candidate(date=date(2026, 8, 5), amount=42.5, type="Expense", category="Groceries", notes="Woolworths")
+
+    created = store.create_transaction(candidate)
+
+    assert created == Transaction(
+        id=created.id, date=date(2026, 8, 5), amount=42.5, type="Expense", category="Groceries", notes="Woolworths"
+    )
+    assert store.read_transactions() == [created]
+
+
+def test_create_transaction_gives_each_transaction_its_own_id(tmp_path: Path, make_candidate):
+    store = connect(tmp_path / "budget.db")
+
+    first = store.create_transaction(make_candidate(notes="First"))
+    second = store.create_transaction(make_candidate(notes="Second"))
+
+    assert first.id != second.id
+
+
+def test_a_transaction_created_through_the_dashboard_is_visible_to_the_dedupe_path(tmp_path: Path, make_candidate):
+    store = connect(tmp_path / "budget.db")
+    candidate = make_candidate(date=date(2026, 8, 5), amount=42.5, notes="Woolworths")
+
+    store.create_transaction(candidate)
+
+    # Statement Export dedupe reads read_existing_rows - both paths write the
+    # same transactions table, so a manually-added row is checked the same way.
+    assert store.read_existing_rows() == [ExistingRow(date=date(2026, 8, 5), amount=42.5, notes="Woolworths")]
+
+
+def test_create_transaction_rejects_an_invalid_type_category_pair(make_candidate):
+    with pytest.raises(ValueError):
+        make_candidate(type="Expense", category="Salary")
+
+
+def test_update_transaction_replaces_it_and_keeps_its_id(tmp_path: Path, make_candidate):
+    store = connect(tmp_path / "budget.db")
+    created = store.create_transaction(make_candidate(amount=42.5, notes="Woolworths"))
+
+    updated = store.update_transaction(created.id, make_candidate(amount=50.0, notes="Coles"))
+
+    assert updated.id == created.id
+    assert updated.amount == 50.0
+    assert updated.notes == "Coles"
+    assert store.read_transactions() == [updated]
+
+
+def test_update_transaction_on_an_unknown_id_raises(tmp_path: Path, make_candidate):
+    store = connect(tmp_path / "budget.db")
+
+    with pytest.raises(TransactionNotFound):
+        store.update_transaction(404, make_candidate())
+
+
+def test_delete_transaction_removes_it_from_the_listing(tmp_path: Path, make_candidate):
+    store = connect(tmp_path / "budget.db")
+    created = store.create_transaction(make_candidate())
+
+    store.delete_transaction(created.id)
+
+    assert store.read_transactions() == []
+
+
+def test_delete_transaction_leaves_the_other_transactions_alone(tmp_path: Path, make_candidate):
+    store = connect(tmp_path / "budget.db")
+    doomed = store.create_transaction(make_candidate(notes="Doomed"))
+    survivor = store.create_transaction(make_candidate(notes="Survivor"))
+
+    store.delete_transaction(doomed.id)
+
+    assert store.read_transactions() == [survivor]
+
+
+def test_delete_transaction_on_an_unknown_id_raises(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    with pytest.raises(TransactionNotFound):
+        store.delete_transaction(404)
 
 
 def test_read_recurring_rules_on_a_fresh_database_returns_no_rules(tmp_path: Path):
