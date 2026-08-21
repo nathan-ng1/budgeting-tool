@@ -8,15 +8,16 @@ import RecurringRules from "./components/RecurringRules.jsx";
 import SpendingByCategory from "./components/SpendingByCategory.jsx";
 import StatTiles from "./components/StatTiles.jsx";
 import TopExpenses from "./components/TopExpenses.jsx";
+import Transactions from "./components/Transactions.jsx";
 import { fetchLatestTransactionDate, fetchMonthOverview } from "./lib/api.js";
 import { financialYearFor, financialYearLabel } from "./lib/financialYear.js";
 import { dayMonthLong } from "./lib/format.js";
 
-// Transactions and Budget render as the mockup shows them but have no screens
-// behind them yet (Issue #28); Settings holds the Recurring Transactions Config
-// editor (Issue #29).
+// Budget renders as the mockup shows it but has no screen behind it yet
+// (Issue #28); Settings holds the Recurring Transactions Config editor
+// (Issue #29); Transactions holds the read-only Transaction list (Issue #33).
 const TABS = ["Overview", "Transactions", "Budget", "Settings"];
-const WIRED_TABS = ["Overview", "Settings"];
+const WIRED_TABS = ["Overview", "Transactions", "Settings"];
 
 function currentMonth() {
   const today = new Date();
@@ -103,6 +104,8 @@ export default function App() {
         </nav>
 
         {tab === "Settings" && <RecurringRules />}
+
+        {tab === "Transactions" && <Transactions />}
 
         {tab === "Overview" && (
           <>

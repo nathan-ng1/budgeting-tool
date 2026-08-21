@@ -2,7 +2,12 @@ import sqlite3
 from datetime import date
 from pathlib import Path
 
-from dashboard.queries import CategorySpend, get_latest_transaction_date, get_month_overview
+from dashboard.queries import (
+    CategorySpend,
+    get_financial_year_transactions,
+    get_latest_transaction_date,
+    get_month_overview,
+)
 from database.store import connect
 
 
@@ -273,6 +278,52 @@ def test_latest_transaction_date_is_the_most_recent_transaction(tmp_path: Path, 
     )
 
     assert get_latest_transaction_date(store) == date(2026, 8, 3)
+
+
+def test_financial_year_transactions_on_an_empty_database_returns_no_transactions(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    assert get_financial_year_transactions(store, year=2026, month=7) == []
+
+
+def test_financial_year_transactions_spans_both_calendar_years_it_covers(tmp_path: Path, make_candidate):
+    store = connect(tmp_path / "budget.db")
+    store.append_rows(
+        [
+            make_candidate(date=date(2026, 6, 30), notes="Last day of FY25-26"),
+            make_candidate(date=date(2026, 7, 1), notes="First day of FY26-27"),
+            make_candidate(date=date(2027, 6, 30), notes="Last day of FY26-27"),
+            make_candidate(date=date(2027, 7, 1), notes="First day of FY27-28"),
+        ]
+    )
+
+    notes = {t.notes for t in get_financial_year_transactions(store, year=2026, month=7)}
+
+    assert notes == {"First day of FY26-27", "Last day of FY26-27"}
+
+
+def test_financial_year_transactions_are_sorted_newest_first(tmp_path: Path, make_candidate):
+    store = connect(tmp_path / "budget.db")
+    store.append_rows(
+        [
+            make_candidate(date=date(2026, 8, 1), notes="Oldest"),
+            make_candidate(date=date(2027, 3, 1), notes="Newest"),
+            make_candidate(date=date(2026, 12, 1), notes="Middle"),
+        ]
+    )
+
+    ordered = get_financial_year_transactions(store, year=2026, month=7)
+
+    assert [t.notes for t in ordered] == ["Newest", "Middle", "Oldest"]
+
+
+def test_financial_year_transactions_include_their_id(tmp_path: Path, make_candidate):
+    store = connect(tmp_path / "budget.db")
+    store.append_rows([make_candidate(date=date(2026, 8, 1))])
+
+    [transaction] = get_financial_year_transactions(store, year=2026, month=7)
+
+    assert transaction.id is not None
 
 
 def test_latest_transaction_date_counts_every_type_not_just_expenses(tmp_path: Path, make_candidate):

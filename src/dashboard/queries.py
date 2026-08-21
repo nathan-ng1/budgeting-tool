@@ -100,6 +100,18 @@ def get_month_overview(store, year: int, month: int) -> MonthOverview:
     )
 
 
+def get_financial_year_transactions(store, year: int, month: int) -> list[Transaction]:
+    """Every Transaction in the Financial Year starting `year`-`month`, newest
+    first - see ADR-0010. Unlike get_month_overview, this hands back raw rows
+    rather than an aggregate: the Transactions tab filters/searches/sorts them
+    client-side, not this module.
+    """
+    start = date(year, month, 1)
+    end = date(year + 1, month, 1)
+    transactions = [t for t in store.read_transactions() if start <= t.date < end]
+    return sorted(transactions, key=lambda t: (t.date, t.id), reverse=True)
+
+
 def get_latest_transaction_date(store) -> date | None:
     """The most recent date in the Transaction Log, or None if it is empty.
 

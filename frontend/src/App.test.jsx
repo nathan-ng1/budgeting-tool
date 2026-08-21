@@ -210,13 +210,34 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Aug" })).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("leaves Transactions and Budget unwired, since they have no screens yet", async () => {
+  it("leaves Budget unwired, since it has no screen yet", async () => {
     respondWith(withSpending(2026, 8));
     render(<App />);
     await screen.findByText("$5,240");
 
-    expect(screen.queryByRole("button", { name: "Transactions" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Budget" })).not.toBeInTheDocument();
+  });
+
+  it("opens the Transactions tab and lists that Financial Year's Transactions newest-first", async () => {
+    routeTo({
+      "/api/overview": withSpending(2026, 8),
+      "/api/transactions": [
+        { id: 1, date: "2026-08-01", amount: 42.5, type: "Expense", category: "Groceries", notes: "Woolworths" },
+        { id: 2, date: "2027-02-01", amount: 4000, type: "Income", category: "Salary", notes: "Employer" },
+      ],
+    });
+    render(<App />);
+    expect(await screen.findByText("$5,240")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Transactions" }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/transactions?year=2026&month=7", expect.anything()),
+    );
+    expect(await screen.findByRole("heading", { name: "Transactions" })).toBeInTheDocument();
+    expect(screen.getByText("Employer")).toBeInTheDocument();
+    expect(screen.getByText("Woolworths")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Transactions" })).toHaveAttribute("aria-current", "page");
   });
 
   it("dates the page by the newest Transaction in the log, not by today", async () => {
