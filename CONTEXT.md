@@ -79,8 +79,12 @@ The local web app that's the primary interface for viewing budget data and editi
 _Avoid_: UI, frontend, web app, spreadsheet
 
 **Financial Year**:
-The July 1–June 30 window the Dashboard's Overview tab is organised around — its month selector shows the twelve months of one Financial Year at a time, matching the Australian financial year convention already implicit in this project's card issuers (ANZ, NAB).
+The July 1–June 30 window the Dashboard's Overview tab is organised around — its selector shows the twelve months of one Financial Year plus a Full year option, matching the Australian financial year convention already implicit in this project's card issuers (ANZ, NAB).
 _Avoid_: FY, Calendar year
+
+**Full year**:
+The Overview tab's other selector state, alongside a specific month: aggregates every Transaction in the Financial Year to date, rather than one month. The Dashboard's default view on open. For the current (in-progress) Financial Year, "to date" means elapsed months only, including the current month before it's finished — a month that hasn't happened yet contributes $0, it isn't skipped. See [ADR-0011](./docs/adr/0011-full-year-overview-is-a-selector-state-not-a-tab.md).
+_Avoid_: Annual Overview, Year view, Yearly
 
 **Net Balance**:
 A Dashboard stat tile: a month's Income total minus that same month's Expense total. Deliberately excludes Transfers — a Transfer neither adds to nor subtracts from Net Balance, since it's money moved, not spent or earned. See [ADR-0009](./docs/adr/0009-overview-tab-scope-follows-the-approved-mockup.md).

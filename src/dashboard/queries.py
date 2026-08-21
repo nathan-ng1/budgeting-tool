@@ -1,4 +1,5 @@
-"""Pure query module computing the Dashboard's per-month Overview view-model.
+"""Pure query module computing the Dashboard's Overview view-models - the
+per-month Overview and the Full year Overview (see ADR-0011).
 
 No HTTP or browser dependency here - callable directly against any store
 (LocalStore or FakeStore) so it's unit-testable on its own. See Issue #27.
@@ -80,23 +81,49 @@ class MonthOverview:
     expenses_over_time: ExpensesOverTime
 
 
+@dataclass(frozen=True)
+class AnnualOverview:
+    year: int
+    elapsed_months: int
+    stat_tiles: StatTiles
+    monthly_average: StatTiles
+    income_allocation: IncomeAllocation
+
+
 def get_month_overview(store, year: int, month: int) -> MonthOverview:
     transactions = [t for t in store.read_transactions() if t.date.year == year and t.date.month == month]
-
-    income = _round(sum(t.amount for t in transactions if t.type == "Income"))
-    expenses = _round(sum(t.amount for t in transactions if t.type == "Expense"))
-    transferred = _round(sum(t.amount for t in transactions if t.type == "Transfer"))
-    net_balance = _round(income - expenses)
+    stat_tiles = _stat_tiles(transactions)
 
     return MonthOverview(
         year=year,
         month=month,
-        stat_tiles=StatTiles(income=income, expenses=expenses, net_balance=net_balance, transferred=transferred),
-        income_allocation=_income_allocation(income, expenses, transferred),
-        spending_by_category=_spending_by_category(transactions, expenses),
+        stat_tiles=stat_tiles,
+        income_allocation=_income_allocation(stat_tiles.income, stat_tiles.expenses, stat_tiles.transferred),
+        spending_by_category=_spending_by_category(transactions, stat_tiles.expenses),
         budgeted_vs_actual=_budgeted_vs_actual(transactions, store.read_category_budgets()),
         top_expenses=_top_expenses(transactions),
         expenses_over_time=_expenses_over_time(transactions, year, month),
+    )
+
+
+def get_annual_overview(store, year: int, today: date | None = None) -> AnnualOverview:
+    """The Full year Overview view-model for the Financial Year starting
+    `year`-07 - aggregated over elapsed months only (including the current
+    in-progress month before it ends), never all twelve. See ADR-0011.
+    """
+    today = today if today is not None else date.today()
+    elapsed_months = _elapsed_months(year, today)
+    start = date(year, 7, 1)
+    end = _add_months(start, elapsed_months)
+    transactions = [t for t in store.read_transactions() if start <= t.date < end]
+    stat_tiles = _stat_tiles(transactions)
+
+    return AnnualOverview(
+        year=year,
+        elapsed_months=elapsed_months,
+        stat_tiles=stat_tiles,
+        monthly_average=_monthly_average(stat_tiles, elapsed_months),
+        income_allocation=_income_allocation(stat_tiles.income, stat_tiles.expenses, stat_tiles.transferred),
     )
 
 
@@ -121,6 +148,41 @@ def get_latest_transaction_date(store) -> date | None:
     """
     dates = [transaction.date for transaction in store.read_transactions()]
     return max(dates) if dates else None
+
+
+def _stat_tiles(transactions: list[Transaction]) -> StatTiles:
+    income = _round(sum(t.amount for t in transactions if t.type == "Income"))
+    expenses = _round(sum(t.amount for t in transactions if t.type == "Expense"))
+    transferred = _round(sum(t.amount for t in transactions if t.type == "Transfer"))
+    net_balance = _round(income - expenses)
+    return StatTiles(income=income, expenses=expenses, net_balance=net_balance, transferred=transferred)
+
+
+def _elapsed_months(year: int, today: date) -> int:
+    """How many months of the Financial Year starting `year`-07 have elapsed as
+    of `today`, counting the current in-progress month - see ADR-0011. 0 before
+    the Financial Year starts, 12 once it has fully finished.
+    """
+    start = date(year, 7, 1)
+    if today < start:
+        return 0
+    return min((today.year - start.year) * 12 + (today.month - start.month) + 1, 12)
+
+
+def _add_months(start: date, months: int) -> date:
+    month_index = start.month - 1 + months
+    return date(start.year + month_index // 12, month_index % 12 + 1, 1)
+
+
+def _monthly_average(totals: StatTiles, elapsed_months: int) -> StatTiles:
+    if elapsed_months == 0:
+        return StatTiles(income=0.0, expenses=0.0, net_balance=0.0, transferred=0.0)
+    return StatTiles(
+        income=_round(totals.income / elapsed_months),
+        expenses=_round(totals.expenses / elapsed_months),
+        net_balance=_round(totals.net_balance / elapsed_months),
+        transferred=_round(totals.transferred / elapsed_months),
+    )
 
 
 def _income_allocation(income: float, expenses: float, transferred: float) -> IncomeAllocation:

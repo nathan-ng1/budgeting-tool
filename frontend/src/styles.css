@@ -301,6 +301,12 @@ button.nav__tab:hover {
   letter-spacing: -0.015em;
 }
 
+.tile__average {
+  margin-top: 7px;
+  font-size: 12px;
+  color: var(--color-neutral-500);
+}
+
 /* — income allocation — */
 
 .allocation__legend {

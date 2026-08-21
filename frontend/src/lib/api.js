@@ -11,6 +11,18 @@ export async function fetchMonthOverview({ year, month }, { signal } = {}) {
   return response.json();
 }
 
+// The Full year Overview endpoint (Issue #38) - the Financial Year containing
+// today, aggregated over elapsed months only. See ADR-0011.
+export async function fetchAnnualOverview(year, { signal } = {}) {
+  const response = await fetch(`/api/annual-overview?year=${year}`, { signal });
+
+  if (!response.ok) {
+    throw new Error(`The Dashboard backend returned ${response.status} for Full year ${year}.`);
+  }
+
+  return response.json();
+}
+
 // Dates the Transaction Log itself for the header's "As at" line. Separate from
 // the Overview because it spans the whole log, not the selected month - and it
 // is shown on every tab, including ones that fetch no Overview at all.

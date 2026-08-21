@@ -4,21 +4,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App.jsx";
 
-function overview({ year = 2026, month = 8, ...overrides } = {}) {
+const ZERO_STAT_TILES = { income: 0, expenses: 0, net_balance: 0, transferred: 0 };
+const ZERO_ALLOCATION = {
+  expenses_amount: 0,
+  expenses_pct: 0,
+  transferred_amount: 0,
+  transferred_pct: 0,
+  remaining_amount: 0,
+  remaining_pct: 0,
+  over_income_amount: 0,
+  over_income_pct: 0,
+};
+
+function monthOverview({ year = 2026, month = 8, ...overrides } = {}) {
   return {
     year,
     month,
-    stat_tiles: { income: 0, expenses: 0, net_balance: 0, transferred: 0 },
-    income_allocation: {
-      expenses_amount: 0,
-      expenses_pct: 0,
-      transferred_amount: 0,
-      transferred_pct: 0,
-      remaining_amount: 0,
-      remaining_pct: 0,
-      over_income_amount: 0,
-      over_income_pct: 0,
-    },
+    stat_tiles: ZERO_STAT_TILES,
+    income_allocation: ZERO_ALLOCATION,
     spending_by_category: [],
     budgeted_vs_actual: [],
     top_expenses: [],
@@ -27,8 +30,8 @@ function overview({ year = 2026, month = 8, ...overrides } = {}) {
   };
 }
 
-function withSpending(year, month) {
-  return overview({
+function monthWithSpending(year, month) {
+  return monthOverview({
     year,
     month,
     stat_tiles: { income: 5240, expenses: 3667, net_balance: 1573, transferred: 900 },
@@ -56,6 +59,34 @@ function withSpending(year, month) {
   });
 }
 
+function annualOverview(overrides = {}) {
+  return {
+    year: 2026,
+    elapsed_months: 2,
+    stat_tiles: ZERO_STAT_TILES,
+    monthly_average: ZERO_STAT_TILES,
+    income_allocation: ZERO_ALLOCATION,
+    ...overrides,
+  };
+}
+
+function annualWithSpending() {
+  return annualOverview({
+    stat_tiles: { income: 8000, expenses: 6000, net_balance: 2000, transferred: 1000 },
+    monthly_average: { income: 4000, expenses: 3000, net_balance: 1000, transferred: 500 },
+    income_allocation: {
+      expenses_amount: 6000,
+      expenses_pct: 75,
+      transferred_amount: 1000,
+      transferred_pct: 12.5,
+      remaining_amount: 1000,
+      remaining_pct: 12.5,
+      over_income_amount: 0,
+      over_income_pct: 0,
+    },
+  });
+}
+
 let fetchMock;
 
 beforeEach(() => {
@@ -77,46 +108,84 @@ function routeTo(bodies) {
   });
 }
 
-function respondWith(body, latestTransactionDate = "2026-08-03") {
-  fetchMock.mockImplementation(async (url) => ({
-    ok: true,
-    status: 200,
-    json: async () => (url.startsWith("/api/latest-transaction-date") ? { date: latestTransactionDate } : body),
-  }));
+// Routes every endpoint an Overview-tab load touches, with sensible defaults -
+// most tests only care about overriding one of them.
+function respondWith({
+  annual = annualWithSpending(),
+  month = monthWithSpending(2026, 8),
+  latestTransactionDate = "2026-08-03",
+} = {}) {
+  routeTo({
+    "/api/annual-overview": annual,
+    "/api/overview": month,
+    "/api/latest-transaction-date": { date: latestTransactionDate },
+  });
 }
 
 describe("App", () => {
-  it("opens on the current calendar month within its Financial Year", async () => {
-    respondWith(withSpending(2026, 8));
+  it("opens on Full year by default, for the Financial Year containing today", async () => {
+    respondWith();
     render(<App />);
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/overview?year=2026&month=8", expect.anything()));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/annual-overview?year=2026", expect.anything()),
+    );
 
     expect(screen.getByText("2026-2027 Financial Year")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Aug" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Full year" })).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("renders every section from the endpoint's response", async () => {
-    respondWith(withSpending(2026, 8));
+  it("renders Full year's stat tiles and income allocation, with elapsed-month averages", async () => {
+    respondWith();
     render(<App />);
 
-    expect(await screen.findByText("$5,240")).toBeInTheDocument(); // Real Income tile
+    expect(await screen.findByText("$8,000")).toBeInTheDocument(); // Real Income tile
+    expect(screen.getByText("$4,000 / month average")).toBeInTheDocument();
+    expect(screen.getByText("$1,000 / month · excludes transfers")).toBeInTheDocument(); // Net Balance average
+    expect(screen.getByRole("heading", { name: "Where did my income go?" })).toBeInTheDocument();
+  });
+
+  it("does not render the per-month-only sections for Full year", async () => {
+    respondWith();
+    render(<App />);
+    await screen.findByText("$8,000");
+
+    expect(screen.queryByRole("heading", { name: "Spending by Category" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Budgeted vs Actual" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /Top \d+ expenses/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Expenses over time" })).not.toBeInTheDocument();
+  });
+
+  it("selecting a month pill still shows the existing per-month Overview, unchanged", async () => {
+    respondWith();
+    render(<App />);
+    await screen.findByText("$8,000");
+
+    await userEvent.click(screen.getByRole("button", { name: "Aug" }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/overview?year=2026&month=8", expect.anything()),
+    );
+    expect(await screen.findByText("$5,240")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Where did my income go?" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Spending by Category" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Budgeted vs Actual" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Top 5 expenses" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Expenses over time" })).toBeInTheDocument();
     expect(screen.getByText("Woolworths")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Aug" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("re-fetches and re-renders every section when the month changes", async () => {
     fetchMock.mockImplementation(async (url) => ({
       ok: true,
       status: 200,
-      json: async () => (url.includes("month=9") ? overview({ year: 2026, month: 9 }) : withSpending(2026, 8)),
+      json: async () =>
+        url.includes("month=9") ? monthOverview({ year: 2026, month: 9 }) : monthWithSpending(2026, 8),
     }));
     render(<App />);
 
+    await userEvent.click(screen.getByRole("button", { name: "Aug" }));
     expect(await screen.findByText("$5,240")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Sep" }));
@@ -137,12 +206,13 @@ describe("App", () => {
     fetchMock.mockImplementation(async (url) => {
       if (url.includes("month=9")) {
         await septemberPending;
-        return { ok: true, status: 200, json: async () => overview({ year: 2026, month: 9 }) };
+        return { ok: true, status: 200, json: async () => monthOverview({ year: 2026, month: 9 }) };
       }
-      return { ok: true, status: 200, json: async () => withSpending(2026, 8) };
+      return { ok: true, status: 200, json: async () => monthWithSpending(2026, 8) };
     });
     render(<App />);
 
+    await userEvent.click(screen.getByRole("button", { name: "Aug" }));
     expect(await screen.findByText("$5,240")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Sep" }));
 
@@ -152,8 +222,11 @@ describe("App", () => {
   });
 
   it("renders a month with no Transactions as a coherent empty state, not an error", async () => {
-    respondWith(overview({ year: 2026, month: 9 }));
+    respondWith({ month: monthOverview({ year: 2026, month: 9 }) });
     render(<App />);
+    await screen.findByText("$8,000");
+
+    await userEvent.click(screen.getByRole("button", { name: "Sep" }));
 
     // Every section is still on the page...
     expect(await screen.findByRole("heading", { name: "Spending by Category" })).toBeInTheDocument();
@@ -175,9 +248,9 @@ describe("App", () => {
   });
 
   it("opens the Recurring Transactions Config screen from the Settings tab", async () => {
-    routeTo({ "/api/overview": withSpending(2026, 8), "/api/recurring-rules": [], "/api/categories": {} });
+    routeTo({ "/api/annual-overview": annualWithSpending(), "/api/recurring-rules": [], "/api/categories": {} });
     render(<App />);
-    expect(await screen.findByText("$5,240")).toBeInTheDocument();
+    expect(await screen.findByText("$8,000")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Settings" }));
 
@@ -186,20 +259,28 @@ describe("App", () => {
   });
 
   it("puts the Overview's month selector away while Settings is open", async () => {
-    routeTo({ "/api/overview": withSpending(2026, 8), "/api/recurring-rules": [], "/api/categories": {} });
+    routeTo({ "/api/annual-overview": annualWithSpending(), "/api/recurring-rules": [], "/api/categories": {} });
     render(<App />);
-    expect(await screen.findByText("$5,240")).toBeInTheDocument();
+    expect(await screen.findByText("$8,000")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Settings" }));
 
     // The month selector picks a month for the Overview - it means nothing here.
     await waitFor(() => expect(screen.queryByRole("group", { name: "Select month" })).not.toBeInTheDocument());
-    expect(screen.queryByText("$5,240")).not.toBeInTheDocument();
+    expect(screen.queryByText("$8,000")).not.toBeInTheDocument();
   });
 
   it("comes back to the Overview with its month still selected", async () => {
-    routeTo({ "/api/overview": withSpending(2026, 8), "/api/recurring-rules": [], "/api/categories": {} });
+    routeTo({
+      "/api/annual-overview": annualWithSpending(),
+      "/api/overview": monthWithSpending(2026, 8),
+      "/api/recurring-rules": [],
+      "/api/categories": {},
+    });
     render(<App />);
+    expect(await screen.findByText("$8,000")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Aug" }));
     expect(await screen.findByText("$5,240")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Settings" }));
@@ -211,23 +292,23 @@ describe("App", () => {
   });
 
   it("leaves Budget unwired, since it has no screen yet", async () => {
-    respondWith(withSpending(2026, 8));
+    respondWith();
     render(<App />);
-    await screen.findByText("$5,240");
+    await screen.findByText("$8,000");
 
     expect(screen.queryByRole("button", { name: "Budget" })).not.toBeInTheDocument();
   });
 
   it("opens the Transactions tab and lists that Financial Year's Transactions newest-first", async () => {
     routeTo({
-      "/api/overview": withSpending(2026, 8),
+      "/api/annual-overview": annualWithSpending(),
       "/api/transactions": [
         { id: 1, date: "2026-08-01", amount: 42.5, type: "Expense", category: "Groceries", notes: "Woolworths" },
         { id: 2, date: "2027-02-01", amount: 4000, type: "Income", category: "Salary", notes: "Employer" },
       ],
     });
     render(<App />);
-    expect(await screen.findByText("$5,240")).toBeInTheDocument();
+    expect(await screen.findByText("$8,000")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Transactions" }));
 
@@ -242,7 +323,7 @@ describe("App", () => {
 
   it("dates the page by the newest Transaction in the log, not by today", async () => {
     // The clock says 21 August; the Transaction Log only runs to the 3rd.
-    respondWith(withSpending(2026, 8), "2026-08-03");
+    respondWith({ latestTransactionDate: "2026-08-03" });
     render(<App />);
 
     expect(await screen.findByText("As at 3 August")).toBeInTheDocument();
@@ -250,16 +331,7 @@ describe("App", () => {
   });
 
   it("keeps the As at date still when the reader switches months", async () => {
-    fetchMock.mockImplementation(async (url) => ({
-      ok: true,
-      status: 200,
-      json: async () =>
-        url.startsWith("/api/latest-transaction-date")
-          ? { date: "2026-08-03" }
-          : url.includes("month=9")
-            ? overview({ year: 2026, month: 9 })
-            : withSpending(2026, 8),
-    }));
+    respondWith();
     render(<App />);
     expect(await screen.findByText("As at 3 August")).toBeInTheDocument();
 
@@ -270,15 +342,15 @@ describe("App", () => {
   });
 
   it("says nothing about a date when the Transaction Log is empty", async () => {
-    respondWith(overview({ year: 2026, month: 8 }), null);
+    respondWith({ latestTransactionDate: null });
     render(<App />);
 
-    await screen.findByRole("heading", { name: "Spending by Category" });
+    await screen.findByRole("heading", { name: "Where did my income go?" });
     expect(screen.queryByText(/^As at/)).not.toBeInTheDocument();
   });
 
   it("shows the nav tabs, with only Overview marked current", async () => {
-    respondWith(withSpending(2026, 8));
+    respondWith();
     render(<App />);
 
     const nav = screen.getByRole("navigation");

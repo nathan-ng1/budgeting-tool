@@ -9,7 +9,7 @@ import SpendingByCategory from "./components/SpendingByCategory.jsx";
 import StatTiles from "./components/StatTiles.jsx";
 import TopExpenses from "./components/TopExpenses.jsx";
 import Transactions from "./components/Transactions.jsx";
-import { fetchLatestTransactionDate, fetchMonthOverview } from "./lib/api.js";
+import { fetchAnnualOverview, fetchLatestTransactionDate, fetchMonthOverview } from "./lib/api.js";
 import { financialYearFor, financialYearLabel } from "./lib/financialYear.js";
 import { dayMonthLong } from "./lib/format.js";
 
@@ -24,12 +24,23 @@ function currentMonth() {
   return { year: today.getFullYear(), month: today.getMonth() + 1 };
 }
 
+function currentFinancialYear() {
+  const { year, month } = currentMonth();
+  return financialYearFor(year, month);
+}
+
 export default function App() {
   const [tab, setTab] = useState("Overview");
   const [asAt, setAsAt] = useState(null);
-  const [selected, setSelected] = useState(currentMonth);
+  // null = Full year, the Overview tab's default on every load - no
+  // persistence of a prior selection (ADR-0011).
+  const [selected, setSelected] = useState(null);
   const [overview, setOverview] = useState(null);
   const [error, setError] = useState(null);
+
+  // There is no Financial Year switcher (ADR-0011): the selector, the header,
+  // and Full year all always show the FY containing today.
+  const financialYear = currentFinancialYear();
 
   // Fetched once: the newest Transaction in the log doesn't change as the
   // reader moves between months or tabs.
@@ -55,10 +66,15 @@ export default function App() {
     const controller = new AbortController();
 
     setError(null);
-    // Drop the previous month's figures before the new ones land, so the page
-    // never shows one month's numbers under another month's selected pill.
+    // Drop the previous selection's figures before the new ones land, so the
+    // page never shows one month's (or Full year's) numbers under another
+    // selected pill.
     setOverview(null);
-    fetchMonthOverview(selected, { signal: controller.signal })
+    const request =
+      selected === null
+        ? fetchAnnualOverview(financialYear, { signal: controller.signal })
+        : fetchMonthOverview(selected, { signal: controller.signal });
+    request
       .then(setOverview)
       .catch((cause) => {
         if (cause.name !== "AbortError") {
@@ -68,7 +84,16 @@ export default function App() {
       });
 
     return () => controller.abort();
-  }, [selected, tab]);
+  }, [selected, tab, financialYear]);
+
+  // Full year's and a month's Overview responses are different shapes
+  // (Issue #38) - clearing `overview` in the same update as `selected`
+  // (rather than only inside the effect above) keeps a render from ever
+  // pairing the new selection with the previous, differently-shaped data.
+  function selectPill(next) {
+    setOverview(null);
+    setSelected(next);
+  }
 
   return (
     <div className="page">
@@ -76,9 +101,7 @@ export default function App() {
         <header className="header">
           <div>
             <h1>Budgeting Dashboard</h1>
-            <div className="header__subtitle">
-              {financialYearLabel(financialYearFor(selected.year, selected.month))}
-            </div>
+            <div className="header__subtitle">{financialYearLabel(financialYear)}</div>
           </div>
         </header>
 
@@ -109,11 +132,7 @@ export default function App() {
 
         {tab === "Overview" && (
           <>
-            <MonthSelector
-              financialYear={financialYearFor(selected.year, selected.month)}
-              selected={selected}
-              onSelect={setSelected}
-            />
+            <MonthSelector financialYear={financialYear} selected={selected} onSelect={selectPill} />
 
             {error !== null && (
               <p className="state state--page state--error" role="alert">
@@ -122,23 +141,35 @@ export default function App() {
             )}
 
             {error === null && overview === null && (
-              <p className="state state--page">Loading this month&rsquo;s figures&hellip;</p>
+              <p className="state state--page">
+                Loading {selected === null ? "the Full year’s" : "this month’s"} figures&hellip;
+              </p>
             )}
 
             {error === null && overview !== null && (
               <>
-                <StatTiles tiles={overview.stat_tiles} />
+                <StatTiles tiles={overview.stat_tiles} average={selected === null ? overview.monthly_average : undefined} />
                 <IncomeAllocation allocation={overview.income_allocation} income={overview.stat_tiles.income} />
 
-                <div className="row--donut">
-                  <SpendingByCategory spending={overview.spending_by_category} total={overview.stat_tiles.expenses} />
-                  <BudgetedVsActual rows={overview.budgeted_vs_actual} />
-                </div>
+                {/* Full year's remaining sections (Issues #39-#41) aren't on
+                    /api/annual-overview yet - only stat_tiles and
+                    income_allocation are (Issue #38, ADR-0011). */}
+                {selected !== null && (
+                  <>
+                    <div className="row--donut">
+                      <SpendingByCategory
+                        spending={overview.spending_by_category}
+                        total={overview.stat_tiles.expenses}
+                      />
+                      <BudgetedVsActual rows={overview.budgeted_vs_actual} />
+                    </div>
 
-                <div className="row--split">
-                  <TopExpenses expenses={overview.top_expenses} />
-                  <ExpensesOverTime overTime={overview.expenses_over_time} />
-                </div>
+                    <div className="row--split">
+                      <TopExpenses expenses={overview.top_expenses} />
+                      <ExpensesOverTime overTime={overview.expenses_over_time} />
+                    </div>
+                  </>
+                )}
               </>
             )}
           </>

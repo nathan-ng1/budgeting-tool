@@ -4,6 +4,7 @@ from pathlib import Path
 
 from dashboard.queries import (
     CategorySpend,
+    get_annual_overview,
     get_financial_year_transactions,
     get_latest_transaction_date,
     get_month_overview,
@@ -248,6 +249,94 @@ def test_expenses_over_time_is_a_cumulative_daily_total_for_every_day_of_the_mon
     assert daily[-1].cumulative == 150.0
     assert overview.expenses_over_time.total == 150.0
     assert overview.expenses_over_time.daily_average == round(150.0 / 31, 2)
+
+
+def test_annual_overview_before_the_financial_year_starts_elapses_no_months(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 6, 15))
+
+    assert overview.year == 2026
+    assert overview.elapsed_months == 0
+    assert overview.stat_tiles.income == 0
+    assert overview.monthly_average.income == 0
+
+
+def test_annual_overview_counts_the_current_in_progress_month_as_elapsed(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, 10), amount=1000.0, type="Income", category="Salary", notes="Employer"),
+            make_transaction(date=date(2026, 8, 5), amount=500.0, type="Income", category="Salary", notes="Employer"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21))
+
+    assert overview.elapsed_months == 2
+    assert overview.stat_tiles.income == 1500.0
+
+
+def test_annual_overview_excludes_transactions_from_months_not_yet_elapsed(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 8, 5), amount=500.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 9, 1), amount=999.0, type="Expense", category="Groceries", notes="Not yet elapsed"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21))
+
+    assert overview.stat_tiles.expenses == 500.0
+
+
+def test_annual_overview_excludes_transactions_from_before_the_financial_year(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 6, 30), amount=500.0, type="Expense", category="Groceries", notes="Last FY"),
+            make_transaction(date=date(2026, 7, 1), amount=250.0, type="Expense", category="Groceries", notes="This FY"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21))
+
+    assert overview.stat_tiles.expenses == 250.0
+
+
+def test_annual_overview_monthly_average_divides_totals_by_elapsed_months_not_twelve(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, 5), amount=1000.0, type="Income", category="Salary", notes="Employer"),
+            make_transaction(date=date(2026, 8, 5), amount=1000.0, type="Income", category="Salary", notes="Employer"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21))
+
+    assert overview.elapsed_months == 2
+    assert overview.stat_tiles.income == 2000.0
+    assert overview.monthly_average.income == 1000.0
+
+
+def test_annual_overview_on_a_completed_financial_year_elapses_all_twelve_months(fake_store):
+    store = fake_store(transactions=[])
+
+    overview = get_annual_overview(store, year=2026, today=date(2027, 8, 1))
+
+    assert overview.elapsed_months == 12
+
+
+def test_annual_overview_income_allocation_is_computed_over_elapsed_months(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, 1), amount=1000.0, type="Income", category="Salary", notes="Employer"),
+            make_transaction(date=date(2026, 7, 2), amount=400.0, type="Expense", category="Groceries", notes="Woolworths"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 7, 15))
+
+    assert overview.income_allocation.expenses_amount == 400.0
+    assert overview.income_allocation.expenses_pct == 40.0
 
 
 def _insert_transaction(database_path: Path, **fields) -> None:

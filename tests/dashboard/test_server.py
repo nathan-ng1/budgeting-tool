@@ -6,7 +6,7 @@ from urllib.request import urlopen
 
 import pytest
 
-from dashboard.queries import get_month_overview
+from dashboard.queries import get_annual_overview, get_month_overview
 
 
 @pytest.fixture
@@ -43,6 +43,46 @@ def test_overview_endpoint_on_a_month_with_no_transactions_returns_a_zeroed_resu
     assert body["stat_tiles"]["income"] == 0
     assert body["stat_tiles"]["expenses"] == 0
     assert body["spending_by_category"] == []
+
+
+def test_annual_overview_endpoint_returns_the_same_view_model_shape_the_query_function_produces(
+    running_server, make_candidate
+):
+    store, server = running_server
+    today = date.today()
+    financial_year = today.year if today.month >= 7 else today.year - 1
+    store.append_rows(
+        [make_candidate(date=today, amount=42.5, type="Expense", category="Groceries", notes="Woolworths")]
+    )
+    expected = asdict(get_annual_overview(store, year=financial_year))
+
+    with urlopen(f"http://127.0.0.1:{server.server_port}/api/annual-overview?year={financial_year}") as response:
+        assert response.status == 200
+        assert response.headers["Content-Type"] == "application/json"
+        body = json.loads(response.read())
+
+    assert body == expected
+
+
+def test_annual_overview_endpoint_on_a_year_with_no_transactions_returns_a_zeroed_result(running_server):
+    _store, server = running_server
+    today = date.today()
+    financial_year = today.year if today.month >= 7 else today.year - 1
+
+    with urlopen(f"http://127.0.0.1:{server.server_port}/api/annual-overview?year={financial_year}") as response:
+        body = json.loads(response.read())
+
+    assert body["stat_tiles"]["income"] == 0
+    assert body["monthly_average"]["income"] == 0
+
+
+def test_annual_overview_endpoint_missing_year_returns_400(running_server):
+    _store, server = running_server
+
+    with pytest.raises(HTTPError) as exc_info:
+        urlopen(f"http://127.0.0.1:{server.server_port}/api/annual-overview")
+
+    assert exc_info.value.code == 400
 
 
 def test_unknown_path_returns_404(running_server):

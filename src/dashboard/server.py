@@ -50,6 +50,8 @@ def _make_handler(store, static_root: Path):
 
             if parsed.path == "/api/overview":
                 self._serve_overview(parse_qs(parsed.query))
+            elif parsed.path == "/api/annual-overview":
+                self._serve_annual_overview(parse_qs(parsed.query))
             elif parsed.path == "/api/latest-transaction-date":
                 # Dates the Transaction Log itself, for the header's "As at"
                 # line - which is why it isn't part of the per-month Overview.
@@ -189,6 +191,14 @@ def _make_handler(store, static_root: Path):
             overview = queries.get_month_overview(store, year=parsed[0], month=parsed[1])
             self._send_json(200, asdict(overview))
 
+        def _serve_annual_overview(self, params) -> None:
+            year = self._year(params)
+            if year is None:
+                return
+
+            overview = queries.get_annual_overview(store, year=year)
+            self._send_json(200, asdict(overview))
+
         def _serve_transactions(self, params) -> None:
             parsed = self._year_month(params)
             if parsed is None:
@@ -197,14 +207,31 @@ def _make_handler(store, static_root: Path):
             rows = queries.get_financial_year_transactions(store, year=parsed[0], month=parsed[1])
             self._send_json(200, [transactions.as_payload(t) for t in rows])
 
+        def _query_int(self, params, key: str) -> int | None:
+            """The int value of query param `key`, or None if it's missing or
+            not an integer - no response sent, callers decide the error."""
+            try:
+                return int(params[key][0])
+            except (KeyError, ValueError, IndexError):
+                return None
+
         def _year_month(self, params) -> tuple[int, int] | None:
             """The (year, month) query params, or None - with a 400 already
             sent - if either is missing or not an integer."""
-            try:
-                return int(params["year"][0]), int(params["month"][0])
-            except (KeyError, ValueError, IndexError):
+            year, month = self._query_int(params, "year"), self._query_int(params, "month")
+            if year is None or month is None:
                 self._send_json(400, {"error": "year and month query parameters are required integers"})
                 return None
+            return year, month
+
+        def _year(self, params) -> int | None:
+            """The `year` query param, or None - with a 400 already sent - if
+            it's missing or not an integer."""
+            year = self._query_int(params, "year")
+            if year is None:
+                self._send_json(400, {"error": "year query parameter is required and must be an integer"})
+                return None
+            return year
 
         def _serve_static(self, path: str) -> None:
             # The Dashboard is one page with no client-side router, so only "/"
