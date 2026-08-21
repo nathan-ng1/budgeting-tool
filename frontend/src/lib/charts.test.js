@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { CIRCUMFERENCE, cumulativeChart, donutSegments } from "./charts.js";
+import { CIRCUMFERENCE, cumulativeChart, donutSegments, monthlyComparisonChart, plotGridlines } from "./charts.js";
 
 describe("donutSegments", () => {
   it("lays each Category's arc end to end around the ring, largest first", () => {
@@ -70,5 +70,59 @@ describe("cumulativeChart", () => {
   it("has nothing to draw when the month has no days of data", () => {
     expect(cumulativeChart([]).points).toEqual([]);
     expect(cumulativeChart([]).linePath).toBe("");
+  });
+});
+
+describe("monthlyComparisonChart", () => {
+  const months = [
+    { income: 1000, expenses: 600, net_balance: 400 },
+    { income: 0, expenses: 0, net_balance: 0 },
+  ];
+
+  it("lays out each month's income and expense bars in its own slot, tallest against a round axis max", () => {
+    const chart = monthlyComparisonChart(months);
+
+    expect(chart.axisMax).toBe(1000);
+    expect(chart.incomeBars[0]).toEqual({ x: 11, y: 0, width: 17, height: 240 });
+    expect(chart.expenseBars[0]).toEqual({ x: 32, y: 96, width: 17, height: 144 });
+    // Second month's slot starts where the first one's 60-wide slot ends.
+    expect(chart.incomeBars[1].x).toBe(71);
+    expect(chart.expenseBars[1].x).toBe(92);
+  });
+
+  it("plots the Net line through the centre of each month's slot", () => {
+    const chart = monthlyComparisonChart(months);
+
+    expect(chart.netPoints[0]).toEqual({ x: 30, y: 144 });
+    expect(chart.netPoints[1]).toEqual({ x: 90, y: 240 });
+    expect(chart.netLinePath).toBe("M30,144 L90,240");
+  });
+
+  it("renders a month with no Income or Expenses as a zero-height bar, not an omitted one", () => {
+    const chart = monthlyComparisonChart(months);
+
+    expect(chart.incomeBars[1].height).toBe(0);
+    expect(chart.expenseBars[1].height).toBe(0);
+  });
+
+  it("has nothing to draw when there are no months", () => {
+    const chart = monthlyComparisonChart([]);
+
+    expect(chart.incomeBars).toEqual([]);
+    expect(chart.expenseBars).toEqual([]);
+    expect(chart.netPoints).toEqual([]);
+    expect(chart.netLinePath).toBe("");
+  });
+
+  it("clamps a deficit month's Net point to the $0 baseline instead of letting it run off the chart", () => {
+    const chart = monthlyComparisonChart([{ income: 400, expenses: 1000, net_balance: -600 }]);
+
+    expect(chart.netPoints[0].y).toBe(240);
+  });
+});
+
+describe("plotGridlines", () => {
+  it("gives the four gridlines below the baseline, evenly spaced up from zero", () => {
+    expect(plotGridlines(240)).toEqual([0, 60, 120, 180]);
   });
 });

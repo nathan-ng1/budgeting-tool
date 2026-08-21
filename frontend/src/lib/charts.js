@@ -14,6 +14,15 @@ export const CHART_WIDTH = 624;
 export const CHART_HEIGHT = 240;
 const Y_TICK_COUNT = 4;
 
+// The horizontal gridlines drawn inside a plot area of the given height - the
+// same four fractions (0%/25%/50%/75%) both charts use; the 100% line is each
+// chart's baseline, drawn separately since it carries a different stroke.
+export function plotGridlines(height) {
+  return yTicksUpTo(height)
+    .slice(1)
+    .reverse();
+}
+
 export function donutSegments(spendingByCategory) {
   let consumed = 0;
 
@@ -31,6 +40,47 @@ export function donutSegments(spendingByCategory) {
     consumed += length;
     return segment;
   });
+}
+
+// Income vs Expenses by month: the mockup's grouped-bar-plus-line plot area,
+// sized for 12 equal month slots (Issue #41).
+export const MONTH_CHART_WIDTH = 720;
+export const MONTH_CHART_HEIGHT = 240;
+const MONTH_SLOT_WIDTH = MONTH_CHART_WIDTH / 12;
+const MONTH_BAR_WIDTH = 17;
+const MONTH_INCOME_BAR_OFFSET = 11;
+const MONTH_EXPENSE_BAR_OFFSET = 32;
+const MONTH_LINE_OFFSET = 30;
+
+export function monthlyComparisonChart(monthlyTotals) {
+  if (monthlyTotals.length === 0) {
+    return { incomeBars: [], expenseBars: [], netPoints: [], netLinePath: "", axisMax: 0, yTicks: [] };
+  }
+
+  const peak = Math.max(...monthlyTotals.map((m) => Math.max(m.income, m.expenses)));
+  const axisMax = roundedAxisMax(peak);
+  const valueY = (value) => MONTH_CHART_HEIGHT - (value / axisMax) * MONTH_CHART_HEIGHT;
+
+  const bar = (value, offset, index) => ({
+    x: index * MONTH_SLOT_WIDTH + offset,
+    y: round(valueY(value)),
+    width: MONTH_BAR_WIDTH,
+    height: round(MONTH_CHART_HEIGHT - valueY(value)),
+  });
+
+  const incomeBars = monthlyTotals.map((m, index) => bar(m.income, MONTH_INCOME_BAR_OFFSET, index));
+  const expenseBars = monthlyTotals.map((m, index) => bar(m.expenses, MONTH_EXPENSE_BAR_OFFSET, index));
+
+  const netPoints = monthlyTotals.map((m, index) => ({
+    x: index * MONTH_SLOT_WIDTH + MONTH_LINE_OFFSET,
+    // A deficit month plots below the $0 baseline - clamped there rather
+    // than left to run off the bottom of the viewBox, where it would be
+    // silently clipped by the SVG's default overflow:hidden.
+    y: round(Math.min(valueY(m.net_balance), MONTH_CHART_HEIGHT)),
+  }));
+  const netLinePath = netPoints.map((point, index) => `${index === 0 ? "M" : "L"}${point.x},${point.y}`).join(" ");
+
+  return { incomeBars, expenseBars, netPoints, netLinePath, axisMax, yTicks: yTicksUpTo(axisMax) };
 }
 
 export function cumulativeChart(daily) {

@@ -59,6 +59,11 @@ function monthWithSpending(year, month) {
   });
 }
 
+const ZERO_MONTHS = Array.from({ length: 12 }, (_, index) => {
+  const month = ((7 - 1 + index) % 12) + 1;
+  return { year: month >= 7 ? 2026 : 2027, month, ...ZERO_STAT_TILES };
+});
+
 function annualOverview(overrides = {}) {
   return {
     year: 2026,
@@ -69,11 +74,17 @@ function annualOverview(overrides = {}) {
     spending_by_category: [],
     budgeted_vs_actual: [],
     top_expenses: [],
+    month_by_month: ZERO_MONTHS,
+    income_vs_expenses_by_month: ZERO_MONTHS,
     ...overrides,
   };
 }
 
 function annualWithSpending() {
+  const months = ZERO_MONTHS.map((m, index) =>
+    index === 0 ? { ...m, income: 5240, expenses: 3810, net_balance: 1430, transferred: 900 } : m,
+  );
+
   return annualOverview({
     stat_tiles: { income: 8000, expenses: 6000, net_balance: 2000, transferred: 1000 },
     monthly_average: { income: 4000, expenses: 3000, net_balance: 1000, transferred: 500 },
@@ -91,6 +102,8 @@ function annualWithSpending() {
     // expected is always null for Full year, regardless of any Category Budget (ADR-0011).
     budgeted_vs_actual: [{ category: "Groceries", expected: null, actual: 6000, diff: null, pct: null }],
     top_expenses: [{ notes: "Woolworths", category: "Groceries", date: "2026-07-05", amount: 6000 }],
+    month_by_month: months,
+    income_vs_expenses_by_month: months,
   });
 }
 
@@ -152,7 +165,7 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Where did my income go?" })).toBeInTheDocument();
   });
 
-  it("renders Full year's Spending by Category, Budgeted vs Actual, and Top 10 expenses, but not the still-deferred sections", async () => {
+  it("renders Full year's Spending by Category, Budgeted vs Actual, Month by month, Income vs Expenses by month, and Top 10 expenses", async () => {
     respondWith();
     render(<App />);
     await screen.findByText("$8,000");
@@ -162,9 +175,13 @@ describe("App", () => {
     // Every Budgeted vs Actual row reads "—" for Expected/Diff/% (ADR-0011).
     expect(screen.getAllByText("—").length).toBeGreaterThan(0);
 
+    expect(screen.getByRole("heading", { name: "Month by month" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Income vs Expenses by month" })).toBeInTheDocument();
+
     expect(screen.getByRole("heading", { name: "Top 10 expenses" })).toBeInTheDocument();
     expect(screen.getByText("Woolworths")).toBeInTheDocument();
 
+    // Per-month-only sections stay off Full year.
     expect(screen.queryByRole("heading", { name: "Expenses over time" })).not.toBeInTheDocument();
   });
 
@@ -192,8 +209,10 @@ describe("App", () => {
     fetchMock.mockImplementation(async (url) => ({
       ok: true,
       status: 200,
-      json: async () =>
-        url.includes("month=9") ? monthOverview({ year: 2026, month: 9 }) : monthWithSpending(2026, 8),
+      json: async () => {
+        if (url.startsWith("/api/annual-overview")) return annualWithSpending();
+        return url.includes("month=9") ? monthOverview({ year: 2026, month: 9 }) : monthWithSpending(2026, 8);
+      },
     }));
     render(<App />);
 
@@ -216,6 +235,9 @@ describe("App", () => {
       releaseSeptember = resolve;
     });
     fetchMock.mockImplementation(async (url) => {
+      if (url.startsWith("/api/annual-overview")) {
+        return { ok: true, status: 200, json: async () => annualWithSpending() };
+      }
       if (url.includes("month=9")) {
         await septemberPending;
         return { ok: true, status: 200, json: async () => monthOverview({ year: 2026, month: 9 }) };

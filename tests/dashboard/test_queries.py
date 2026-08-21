@@ -4,6 +4,7 @@ from pathlib import Path
 
 from dashboard.queries import (
     CategorySpend,
+    MonthlyTotals,
     get_annual_overview,
     get_financial_year_transactions,
     get_latest_transaction_date,
@@ -428,6 +429,74 @@ def test_annual_overview_top_expenses_tiebreaks_by_date_then_notes(fake_store, m
     overview = get_annual_overview(store, year=2026, today=date(2026, 7, 15))
 
     assert [row.notes for row in overview.top_expenses] == ["Apple", "Banana", "Zebra"]
+
+
+def test_annual_overview_month_by_month_always_has_twelve_entries_in_financial_year_order(fake_store):
+    store = fake_store(transactions=[])
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21))
+
+    assert len(overview.month_by_month) == 12
+    assert [(row.year, row.month) for row in overview.month_by_month] == [
+        (2026, 7), (2026, 8), (2026, 9), (2026, 10), (2026, 11), (2026, 12),
+        (2027, 1), (2027, 2), (2027, 3), (2027, 4), (2027, 5), (2027, 6),
+    ]
+
+
+def test_annual_overview_month_by_month_sums_each_month_independently(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, 1), amount=1000.0, type="Income", category="Salary", notes="Employer"),
+            make_transaction(date=date(2026, 7, 2), amount=400.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 7, 3), amount=100.0, type="Transfer", category="Savings", notes="To savings"),
+            make_transaction(date=date(2026, 8, 5), amount=500.0, type="Income", category="Salary", notes="Employer"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21))
+    by_month = {(row.year, row.month): row for row in overview.month_by_month}
+
+    july = by_month[(2026, 7)]
+    assert july.income == 1000.0
+    assert july.expenses == 400.0
+    assert july.net_balance == 600.0
+    assert july.transferred == 100.0
+
+    august = by_month[(2026, 8)]
+    assert august.income == 500.0
+    assert august.expenses == 0.0
+    assert august.net_balance == 500.0
+    assert august.transferred == 0.0
+
+
+def test_annual_overview_month_by_month_zero_fills_months_not_yet_elapsed(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 9, 1), amount=999.0, type="Expense", category="Groceries", notes="Not yet elapsed"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21))
+    by_month = {(row.year, row.month): row for row in overview.month_by_month}
+
+    # September hasn't elapsed as of 21 Aug, so it's a zeroed row, not omitted
+    # or carrying September's not-yet-counted spend.
+    assert by_month[(2026, 9)] == MonthlyTotals(
+        year=2026, month=9, income=0.0, expenses=0.0, net_balance=0.0, transferred=0.0
+    )
+    assert len(overview.month_by_month) == 12
+
+
+def test_annual_overview_income_vs_expenses_by_month_matches_month_by_month(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, 1), amount=1000.0, type="Income", category="Salary", notes="Employer"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21))
+
+    assert overview.income_vs_expenses_by_month == overview.month_by_month
 
 
 def _insert_transaction(database_path: Path, **fields) -> None:

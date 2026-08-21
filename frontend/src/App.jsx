@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import BudgetedVsActual from "./components/BudgetedVsActual.jsx";
 import ExpensesOverTime from "./components/ExpensesOverTime.jsx";
 import IncomeAllocation from "./components/IncomeAllocation.jsx";
+import IncomeVsExpensesByMonth from "./components/IncomeVsExpensesByMonth.jsx";
+import MonthByMonth from "./components/MonthByMonth.jsx";
 import MonthSelector from "./components/MonthSelector.jsx";
 import RecurringRules from "./components/RecurringRules.jsx";
 import SpendingByCategory from "./components/SpendingByCategory.jsx";
@@ -162,9 +164,13 @@ export default function App() {
                     <ExpensesOverTime overTime={overview.expenses_over_time} />
                   </div>
                 ) : (
-                  // Full year's remaining sections (Issue #41) aren't on
-                  // /api/annual-overview yet (ADR-0011).
-                  <TopExpenses expenses={overview.top_expenses} count={10} />
+                  <>
+                    <div className="row--split">
+                      <MonthByMonth months={overview.month_by_month} />
+                      <IncomeVsExpensesByMonth months={overview.income_vs_expenses_by_month} />
+                    </div>
+                    <TopExpenses expenses={overview.top_expenses} count={10} />
+                  </>
                 )}
               </>
             )}
