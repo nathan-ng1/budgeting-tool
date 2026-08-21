@@ -169,6 +169,15 @@ Full walkthrough: `docs/agents/statement-export-pipeline.md`.
 
 ### Viewing the Dashboard
 
+Double-click **`open_dashboard.bat`**. It starts the local server and opens the
+Dashboard in Chrome once the server is actually accepting connections (falling back
+to your default browser if Chrome isn't installed). Leave the window it opens
+running while you use the Dashboard - closing it stops the server. Running it again
+while the Dashboard is already up just opens the page rather than starting a second
+server.
+
+Or, equivalently, by hand:
+
 ```
 uv run python -m dashboard
 ```
@@ -182,8 +191,8 @@ edits your Recurring Transactions Config (below); Transactions and Budget have n
 It runs entirely on your machine and reads the local database directly; no transaction data
 leaves the machine ([ADR-0008](docs/adr/0008-dashboard-is-a-local-web-app-not-a-hosted-artifact.md)),
 and the page loads no fonts, scripts, or styles from the network. Set `DASHBOARD_PORT` in `.env`
-to serve on a different port. If the page tells you the frontend hasn't been built, run step 4 of
-the one-time setup above.
+to serve on a different port - `open_dashboard.bat` reads it too. If the page tells you the
+frontend hasn't been built, run step 4 of the one-time setup above.
 
 ### Editing the Recurring Transactions Config
 
