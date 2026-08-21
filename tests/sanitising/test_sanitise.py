@@ -21,6 +21,35 @@ def test_anz_sanitise_is_a_passthrough():
     assert sanitised_rows == raw_rows
 
 
+def test_anz_sanitise_drops_trailing_empty_columns_and_blank_rows():
+    # A real ANZ export pads each row with empty trailing columns and ends
+    # with a blank line - the sample fixture doesn't have either, so this
+    # exercises them directly rather than via a fixture file.
+    raw_rows = [
+        ["20/08/2026", "-14.70", "Some Merchant", "", "", "", "", ""],
+        [],
+    ]
+
+    sanitised_rows = sanitise(raw_rows, "ANZ")
+
+    assert sanitised_rows == [["20/08/2026", "-14.70", "Some Merchant"]]
+
+
+def test_beem_sanitise_normalises_iso_date_to_ddmmyyyy(monkeypatch):
+    # A real Beem Report has been seen with an ISO Date/Time column
+    # ("2026-08-20 ...") rather than the sample fixture's dd/mm/yyyy - both
+    # must normalise to the same dd/mm/yyyy output.
+    monkeypatch.setenv("BEEM_USERNAME", "nathan_ng")
+    raw_rows = [
+        ["Date/Time", "Type", "Reference", "Amount", "Payer", "Recipient", "Message"],
+        ["2026-08-20 10:00", "PAYMENT", "REF004", "$15.50", "nathan_ng", "jane_doe", "iso date test"],
+    ]
+
+    sanitised_rows = sanitise(raw_rows, "Beem")
+
+    assert ["20/08/2026", "-15.5", "iso date test"] in sanitised_rows
+
+
 def test_unknown_issuer_raises():
     raw_rows = _read_rows("anz_sample.csv")
 
@@ -103,6 +132,19 @@ def test_nab_sanitise_falls_back_to_transaction_details_when_merchant_name_blank
 
     assert ["13/07/2026", "494.21", "CASH/TRANSFER PAYMENT - THANK YOU"] in sanitised_rows
     assert ["08/07/2026", "-195.0", "ANNUAL FEE"] in sanitised_rows
+
+
+def test_nab_sanitise_parses_space_separated_date():
+    # NAB's dash-separated date ("27-Jul-26") is what the sample fixture uses,
+    # but a straight CSV download from their online banking uses spaces
+    # ("21 Aug 26") instead - both must parse to the same result.
+    header, *rows = _read_rows("nab_sample.csv")
+    row = rows[0]
+    row[header.index("Date")] = row[header.index("Date")].replace("-", " ")
+
+    sanitised_rows = sanitise([header, row], "NAB")
+
+    assert ["27/07/2026", "-29.27", "7-Eleven (Carlingford)"] in sanitised_rows
 
 
 def test_nab_sanitise_output_rows_have_no_account_number():
