@@ -49,6 +49,11 @@ def _make_handler(store, static_root: Path):
 
             if parsed.path == "/api/overview":
                 self._serve_overview(parse_qs(parsed.query))
+            elif parsed.path == "/api/latest-transaction-date":
+                # Dates the Transaction Log itself, for the header's "As at"
+                # line - which is why it isn't part of the per-month Overview.
+                latest = queries.get_latest_transaction_date(store)
+                self._send_json(200, {"date": latest.isoformat() if latest is not None else None})
             elif parsed.path == RECURRING_RULES_PATH:
                 self._send_json(200, [recurring.as_payload(r) for r in store.read_stored_recurring_rules()])
             elif parsed.path == "/api/categories":

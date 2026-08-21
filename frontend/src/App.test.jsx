@@ -77,8 +77,12 @@ function routeTo(bodies) {
   });
 }
 
-function respondWith(body) {
-  fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => body });
+function respondWith(body, latestTransactionDate = "2026-08-03") {
+  fetchMock.mockImplementation(async (url) => ({
+    ok: true,
+    status: 200,
+    json: async () => (url.startsWith("/api/latest-transaction-date") ? { date: latestTransactionDate } : body),
+  }));
 }
 
 describe("App", () => {
@@ -213,6 +217,43 @@ describe("App", () => {
 
     expect(screen.queryByRole("button", { name: "Transactions" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Budget" })).not.toBeInTheDocument();
+  });
+
+  it("dates the page by the newest Transaction in the log, not by today", async () => {
+    // The clock says 21 August; the Transaction Log only runs to the 3rd.
+    respondWith(withSpending(2026, 8), "2026-08-03");
+    render(<App />);
+
+    expect(await screen.findByText("As at 3 August")).toBeInTheDocument();
+    expect(screen.queryByText("As at 21 August")).not.toBeInTheDocument();
+  });
+
+  it("keeps the As at date still when the reader switches months", async () => {
+    fetchMock.mockImplementation(async (url) => ({
+      ok: true,
+      status: 200,
+      json: async () =>
+        url.startsWith("/api/latest-transaction-date")
+          ? { date: "2026-08-03" }
+          : url.includes("month=9")
+            ? overview({ year: 2026, month: 9 })
+            : withSpending(2026, 8),
+    }));
+    render(<App />);
+    expect(await screen.findByText("As at 3 August")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Sep" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Sep" })).toHaveAttribute("aria-pressed", "true"));
+    expect(screen.getByText("As at 3 August")).toBeInTheDocument();
+  });
+
+  it("says nothing about a date when the Transaction Log is empty", async () => {
+    respondWith(overview({ year: 2026, month: 8 }), null);
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Spending by Category" });
+    expect(screen.queryByText(/^As at/)).not.toBeInTheDocument();
   });
 
   it("shows the nav tabs, with only Overview marked current", async () => {

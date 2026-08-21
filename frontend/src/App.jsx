@@ -8,7 +8,7 @@ import RecurringRules from "./components/RecurringRules.jsx";
 import SpendingByCategory from "./components/SpendingByCategory.jsx";
 import StatTiles from "./components/StatTiles.jsx";
 import TopExpenses from "./components/TopExpenses.jsx";
-import { fetchMonthOverview } from "./lib/api.js";
+import { fetchLatestTransactionDate, fetchMonthOverview } from "./lib/api.js";
 import { financialYearFor, financialYearLabel } from "./lib/financialYear.js";
 import { dayMonthLong } from "./lib/format.js";
 
@@ -23,17 +23,28 @@ function currentMonth() {
   return { year: today.getFullYear(), month: today.getMonth() + 1 };
 }
 
-function todayLabel() {
-  const today = new Date();
-  const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-  return dayMonthLong(iso);
-}
-
 export default function App() {
   const [tab, setTab] = useState("Overview");
+  const [asAt, setAsAt] = useState(null);
   const [selected, setSelected] = useState(currentMonth);
   const [overview, setOverview] = useState(null);
   const [error, setError] = useState(null);
+
+  // Fetched once: the newest Transaction in the log doesn't change as the
+  // reader moves between months or tabs.
+  useEffect(() => {
+    const controller = new AbortController();
+
+    fetchLatestTransactionDate({ signal: controller.signal })
+      .then(setAsAt)
+      .catch(() => {
+        // An undated header is a smaller problem than an error banner over a
+        // page whose figures are all fine, so this failure stays quiet.
+        setAsAt(null);
+      });
+
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     if (tab !== "Overview") {
@@ -88,7 +99,7 @@ export default function App() {
               </span>
             );
           })}
-          <span className="nav__asat">As at {todayLabel()}</span>
+          {asAt !== null && <span className="nav__asat">As at {dayMonthLong(asAt)}</span>}
         </nav>
 
         {tab === "Settings" && <RecurringRules />}
