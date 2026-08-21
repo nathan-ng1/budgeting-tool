@@ -88,6 +88,8 @@ class AnnualOverview:
     stat_tiles: StatTiles
     monthly_average: StatTiles
     income_allocation: IncomeAllocation
+    spending_by_category: list[CategorySpend]
+    budgeted_vs_actual: list[BudgetVsActual]
 
 
 def get_month_overview(store, year: int, month: int) -> MonthOverview:
@@ -124,6 +126,8 @@ def get_annual_overview(store, year: int, today: date | None = None) -> AnnualOv
         stat_tiles=stat_tiles,
         monthly_average=_monthly_average(stat_tiles, elapsed_months),
         income_allocation=_income_allocation(stat_tiles.income, stat_tiles.expenses, stat_tiles.transferred),
+        spending_by_category=_spending_by_category(transactions, stat_tiles.expenses),
+        budgeted_vs_actual=_annual_budgeted_vs_actual(transactions),
     )
 
 
@@ -248,6 +252,23 @@ def _budgeted_vs_actual(transactions: list[Transaction], category_budgets: dict[
         pct = _pct(actual, expected) if expected is not None else None
         rows.append(BudgetVsActual(category=category, expected=expected, actual=actual, diff=diff, pct=pct))
 
+    return sorted(rows, key=lambda row: row.category)
+
+
+def _annual_budgeted_vs_actual(transactions: list[Transaction]) -> list[BudgetVsActual]:
+    """Full year's Budgeted vs Actual rows - `expected`/`diff`/`pct` are always
+    None, for every Category (ADR-0011: real annual budgeting - a
+    per-month-capable Category Budget - is deferred). Unlike the per-month
+    table, a Category Budget with no spend this Financial Year gets no row:
+    with Expected never shown, only actual spend determines the row set.
+    """
+    totals = _expense_totals_by_category(transactions)
+
+    rows = [
+        BudgetVsActual(category=category, expected=None, actual=_round(amount), diff=None, pct=None)
+        for category, amount in totals.items()
+        if amount != 0
+    ]
     return sorted(rows, key=lambda row: row.category)
 
 

@@ -339,6 +339,54 @@ def test_annual_overview_income_allocation_is_computed_over_elapsed_months(fake_
     assert overview.income_allocation.expenses_pct == 40.0
 
 
+def test_annual_overview_spending_by_category_sums_actual_expenses_over_elapsed_months(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, 1), amount=300.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 8, 1), amount=100.0, type="Expense", category="Groceries", notes="Coles"),
+            make_transaction(date=date(2026, 8, 2), amount=100.0, type="Expense", category="Transport", notes="Fuel"),
+            make_transaction(date=date(2026, 9, 1), amount=999.0, type="Expense", category="Groceries", notes="Not yet elapsed"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21))
+
+    assert overview.spending_by_category == [
+        CategorySpend(category="Groceries", amount=400.0, pct_of_expenses=80.0),
+        CategorySpend(category="Transport", amount=100.0, pct_of_expenses=20.0),
+    ]
+
+
+def test_annual_overview_budgeted_vs_actual_expected_is_always_null_regardless_of_category_budget(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, 1), amount=450.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 7, 2), amount=80.0, type="Expense", category="Transport", notes="Fuel"),
+        ],
+        category_budgets={"Groceries": 500.0, "Entertainment & Leisure": 100.0},
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 7, 15))
+    by_category = {row.category: row for row in overview.budgeted_vs_actual}
+
+    assert by_category["Groceries"].expected is None
+    assert by_category["Groceries"].actual == 450.0
+    assert by_category["Groceries"].diff is None
+    assert by_category["Groceries"].pct is None
+
+    assert by_category["Transport"].expected is None
+    assert by_category["Transport"].actual == 80.0
+
+    # A Category Budget with no spend this Financial Year doesn't get a row -
+    # real annual budgeting is deferred (ADR-0011), so only actual spend
+    # determines the row set, unlike the per-month table.
+    assert "Entertainment & Leisure" not in by_category
+
+
 def _insert_transaction(database_path: Path, **fields) -> None:
     connection = sqlite3.connect(database_path)
     connection.execute(

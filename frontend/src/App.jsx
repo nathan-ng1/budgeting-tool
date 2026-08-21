@@ -151,24 +151,18 @@ export default function App() {
                 <StatTiles tiles={overview.stat_tiles} average={selected === null ? overview.monthly_average : undefined} />
                 <IncomeAllocation allocation={overview.income_allocation} income={overview.stat_tiles.income} />
 
-                {/* Full year's remaining sections (Issues #39-#41) aren't on
-                    /api/annual-overview yet - only stat_tiles and
-                    income_allocation are (Issue #38, ADR-0011). */}
-                {selected !== null && (
-                  <>
-                    <div className="row--donut">
-                      <SpendingByCategory
-                        spending={overview.spending_by_category}
-                        total={overview.stat_tiles.expenses}
-                      />
-                      <BudgetedVsActual rows={overview.budgeted_vs_actual} />
-                    </div>
+                <div className="row--donut">
+                  <SpendingByCategory spending={overview.spending_by_category} total={overview.stat_tiles.expenses} />
+                  <BudgetedVsActual rows={overview.budgeted_vs_actual} />
+                </div>
 
-                    <div className="row--split">
-                      <TopExpenses expenses={overview.top_expenses} />
-                      <ExpensesOverTime overTime={overview.expenses_over_time} />
-                    </div>
-                  </>
+                {/* Full year's remaining sections (Issues #40-#41) aren't on
+                    /api/annual-overview yet (ADR-0011). */}
+                {selected !== null && (
+                  <div className="row--split">
+                    <TopExpenses expenses={overview.top_expenses} />
+                    <ExpensesOverTime overTime={overview.expenses_over_time} />
+                  </div>
                 )}
               </>
             )}

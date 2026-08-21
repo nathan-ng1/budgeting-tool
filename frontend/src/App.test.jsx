@@ -66,6 +66,8 @@ function annualOverview(overrides = {}) {
     stat_tiles: ZERO_STAT_TILES,
     monthly_average: ZERO_STAT_TILES,
     income_allocation: ZERO_ALLOCATION,
+    spending_by_category: [],
+    budgeted_vs_actual: [],
     ...overrides,
   };
 }
@@ -84,6 +86,9 @@ function annualWithSpending() {
       over_income_amount: 0,
       over_income_pct: 0,
     },
+    spending_by_category: [{ category: "Groceries", amount: 6000, pct_of_expenses: 100 }],
+    // expected is always null for Full year, regardless of any Category Budget (ADR-0011).
+    budgeted_vs_actual: [{ category: "Groceries", expected: null, actual: 6000, diff: null, pct: null }],
   });
 }
 
@@ -145,13 +150,16 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Where did my income go?" })).toBeInTheDocument();
   });
 
-  it("does not render the per-month-only sections for Full year", async () => {
+  it("renders Full year's Spending by Category and Budgeted vs Actual, but not the still-deferred sections", async () => {
     respondWith();
     render(<App />);
     await screen.findByText("$8,000");
 
-    expect(screen.queryByRole("heading", { name: "Spending by Category" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Budgeted vs Actual" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Spending by Category" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Budgeted vs Actual" })).toBeInTheDocument();
+    // Every Budgeted vs Actual row reads "—" for Expected/Diff/% (ADR-0011).
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+
     expect(screen.queryByRole("heading", { name: /Top \d+ expenses/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Expenses over time" })).not.toBeInTheDocument();
   });
