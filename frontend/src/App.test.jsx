@@ -70,8 +70,19 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function respondWith(body) {
-  fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => body });
+function routeTo(bodies) {
+  fetchMock.mockImplementation(async (url) => {
+    const match = Object.keys(bodies).find((path) => url.startsWith(path));
+    return { ok: true, status: 200, json: async () => bodies[match] };
+  });
+}
+
+function respondWith(body, latestTransactionDate = "2026-08-03") {
+  fetchMock.mockImplementation(async (url) => ({
+    ok: true,
+    status: 200,
+    json: async () => (url.startsWith("/api/latest-transaction-date") ? { date: latestTransactionDate } : body),
+  }));
 }
 
 describe("App", () => {
@@ -161,6 +172,88 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/500/);
+  });
+
+  it("opens the Recurring Transactions Config screen from the Settings tab", async () => {
+    routeTo({ "/api/overview": withSpending(2026, 8), "/api/recurring-rules": [], "/api/categories": {} });
+    render(<App />);
+    expect(await screen.findByText("$5,240")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+
+    expect(await screen.findByRole("heading", { name: "Recurring Transactions Config" })).toBeInTheDocument();
+    expect(screen.getByText("Settings")).toHaveAttribute("aria-current", "page");
+  });
+
+  it("puts the Overview's month selector away while Settings is open", async () => {
+    routeTo({ "/api/overview": withSpending(2026, 8), "/api/recurring-rules": [], "/api/categories": {} });
+    render(<App />);
+    expect(await screen.findByText("$5,240")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+
+    // The month selector picks a month for the Overview - it means nothing here.
+    await waitFor(() => expect(screen.queryByRole("group", { name: "Select month" })).not.toBeInTheDocument());
+    expect(screen.queryByText("$5,240")).not.toBeInTheDocument();
+  });
+
+  it("comes back to the Overview with its month still selected", async () => {
+    routeTo({ "/api/overview": withSpending(2026, 8), "/api/recurring-rules": [], "/api/categories": {} });
+    render(<App />);
+    expect(await screen.findByText("$5,240")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+    await screen.findByRole("heading", { name: "Recurring Transactions Config" });
+    await userEvent.click(screen.getByRole("button", { name: "Overview" }));
+
+    expect(await screen.findByText("$5,240")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Aug" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("leaves Transactions and Budget unwired, since they have no screens yet", async () => {
+    respondWith(withSpending(2026, 8));
+    render(<App />);
+    await screen.findByText("$5,240");
+
+    expect(screen.queryByRole("button", { name: "Transactions" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Budget" })).not.toBeInTheDocument();
+  });
+
+  it("dates the page by the newest Transaction in the log, not by today", async () => {
+    // The clock says 21 August; the Transaction Log only runs to the 3rd.
+    respondWith(withSpending(2026, 8), "2026-08-03");
+    render(<App />);
+
+    expect(await screen.findByText("As at 3 August")).toBeInTheDocument();
+    expect(screen.queryByText("As at 21 August")).not.toBeInTheDocument();
+  });
+
+  it("keeps the As at date still when the reader switches months", async () => {
+    fetchMock.mockImplementation(async (url) => ({
+      ok: true,
+      status: 200,
+      json: async () =>
+        url.startsWith("/api/latest-transaction-date")
+          ? { date: "2026-08-03" }
+          : url.includes("month=9")
+            ? overview({ year: 2026, month: 9 })
+            : withSpending(2026, 8),
+    }));
+    render(<App />);
+    expect(await screen.findByText("As at 3 August")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Sep" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Sep" })).toHaveAttribute("aria-pressed", "true"));
+    expect(screen.getByText("As at 3 August")).toBeInTheDocument();
+  });
+
+  it("says nothing about a date when the Transaction Log is empty", async () => {
+    respondWith(overview({ year: 2026, month: 8 }), null);
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Spending by Category" });
+    expect(screen.queryByText(/^As at/)).not.toBeInTheDocument();
   });
 
   it("shows the nav tabs, with only Overview marked current", async () => {

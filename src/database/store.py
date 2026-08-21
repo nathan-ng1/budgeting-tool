@@ -3,8 +3,8 @@ import sqlite3
 from datetime import date
 from pathlib import Path
 
-from recurring.rules import RecurringRule
-from transaction_log.categories import is_valid_type_category_pair
+from recurring.rules import RecurringRule, StoredRecurringRule
+from transaction_log.categories import require_valid_type_category_pair
 from transaction_log.entries import Candidate, ExistingRow, Transaction
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -37,6 +37,14 @@ CREATE TABLE IF NOT EXISTS category_budgets (
     monthly_amount NUMERIC NOT NULL
 );
 """
+
+
+class RecurringRuleNotFound(LookupError):
+    """No Recurring Transactions Config rule has the given id.
+
+    Distinct from a ValueError over the rule's contents: the caller named a row
+    that isn't there, rather than describing one badly.
+    """
 
 
 class LocalStore:
@@ -92,20 +100,7 @@ class LocalStore:
             "INSERT INTO recurring_rules "
             "(amount, type, category, notes, frequency, interval, day, start_date, end_date) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [
-                (
-                    r.amount,
-                    r.type,
-                    r.category,
-                    r.notes,
-                    r.frequency,
-                    r.interval,
-                    str(r.day),
-                    r.start_date.isoformat(),
-                    r.end_date.isoformat() if r.end_date is not None else None,
-                )
-                for r in rules
-            ],
+            [_as_columns(rule) for rule in rules],
         )
         self._connection.commit()
 
@@ -114,31 +109,65 @@ class LocalStore:
             "SELECT amount, type, category, notes, frequency, interval, day, start_date, end_date "
             "FROM recurring_rules"
         ).fetchall()
+        return [_as_rule(row) for row in rows]
 
-        rules = []
-        for amount, transaction_type, category, notes, frequency, interval, day, start_date, end_date in rows:
-            rules.append(
-                RecurringRule(
-                    amount=amount,
-                    type=transaction_type,
-                    category=category,
-                    notes=notes,
-                    frequency=frequency,
-                    interval=interval,
-                    day=int(day) if frequency == "Monthly" else day,
-                    start_date=date.fromisoformat(start_date),
-                    end_date=date.fromisoformat(end_date) if end_date is not None else None,
-                )
-            )
-        return rules
+    def read_stored_recurring_rules(self) -> list[StoredRecurringRule]:
+        """Every rule with the id the Dashboard needs to edit or delete it.
+
+        Ordered by id, so the CRUD screen lists rules in the order they were
+        created rather than whatever order SQLite happens to return.
+        """
+        rows = self._connection.execute(
+            "SELECT id, amount, type, category, notes, frequency, interval, day, start_date, end_date "
+            "FROM recurring_rules ORDER BY id"
+        ).fetchall()
+        return [StoredRecurringRule(id=row[0], rule=_as_rule(row[1:])) for row in rows]
+
+    def create_recurring_rule(self, rule: RecurringRule) -> StoredRecurringRule:
+        _validate_pair(rule)
+
+        cursor = self._connection.execute(
+            "INSERT INTO recurring_rules "
+            "(amount, type, category, notes, frequency, interval, day, start_date, end_date) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            _as_columns(rule),
+        )
+        self._connection.commit()
+        return StoredRecurringRule(id=cursor.lastrowid, rule=rule)
+
+    def update_recurring_rule(self, rule_id: int, rule: RecurringRule) -> StoredRecurringRule:
+        _validate_pair(rule)
+
+        cursor = self._connection.execute(
+            "UPDATE recurring_rules SET "
+            "amount = ?, type = ?, category = ?, notes = ?, frequency = ?, "
+            "interval = ?, day = ?, start_date = ?, end_date = ? "
+            "WHERE id = ?",
+            (*_as_columns(rule), rule_id),
+        )
+        if cursor.rowcount == 0:
+            # Nothing was written, so nothing needs undoing - but leave the
+            # transaction clean for the next caller either way.
+            self._connection.rollback()
+            raise RecurringRuleNotFound(f"No Recurring Transactions Config rule has id {rule_id}")
+
+        self._connection.commit()
+        return StoredRecurringRule(id=rule_id, rule=rule)
+
+    def delete_recurring_rule(self, rule_id: int) -> None:
+        cursor = self._connection.execute("DELETE FROM recurring_rules WHERE id = ?", (rule_id,))
+        if cursor.rowcount == 0:
+            self._connection.rollback()
+            raise RecurringRuleNotFound(f"No Recurring Transactions Config rule has id {rule_id}")
+
+        self._connection.commit()
 
     def read_category_budgets(self) -> dict[str, float]:
         rows = self._connection.execute("SELECT category, monthly_amount FROM category_budgets").fetchall()
         return {category: monthly_amount for category, monthly_amount in rows}
 
     def upsert_category_budget(self, category: str, monthly_amount: float) -> None:
-        if not is_valid_type_category_pair("Expense", category):
-            raise ValueError(f"Category {category!r} is not a valid Expense Category")
+        require_valid_type_category_pair("Expense", category)
 
         self._connection.execute(
             "INSERT INTO category_budgets (category, monthly_amount) VALUES (?, ?) "
@@ -150,6 +179,46 @@ class LocalStore:
     def delete_category_budget(self, category: str) -> None:
         self._connection.execute("DELETE FROM category_budgets WHERE category = ?", (category,))
         self._connection.commit()
+
+
+def _validate_pair(rule: RecurringRule) -> None:
+    """Reject a rule whose (Type, Category) pair isn't one this project allows.
+
+    RecurringRule's own __post_init__ already vets the schedule (Frequency,
+    Interval, Day against Start Date); the pair is the part it can't see.
+    """
+    require_valid_type_category_pair(rule.type, rule.category)
+
+
+def _as_columns(rule: RecurringRule) -> tuple:
+    return (
+        rule.amount,
+        rule.type,
+        rule.category,
+        rule.notes,
+        rule.frequency,
+        rule.interval,
+        str(rule.day),
+        rule.start_date.isoformat(),
+        rule.end_date.isoformat() if rule.end_date is not None else None,
+    )
+
+
+def _as_rule(columns) -> RecurringRule:
+    amount, transaction_type, category, notes, frequency, interval, day, start_date, end_date = columns
+    return RecurringRule(
+        amount=amount,
+        type=transaction_type,
+        category=category,
+        notes=notes,
+        frequency=frequency,
+        # Day is stored as text either way - a weekday name for Weekly rules,
+        # a day-of-month for Monthly ones.
+        day=int(day) if frequency == "Monthly" else day,
+        interval=interval,
+        start_date=date.fromisoformat(start_date),
+        end_date=date.fromisoformat(end_date) if end_date is not None else None,
+    )
 
 
 def connect(database_path: Path | None = None) -> LocalStore:

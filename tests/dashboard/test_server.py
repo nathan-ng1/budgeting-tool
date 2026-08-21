@@ -67,3 +67,20 @@ def test_server_binds_to_localhost_only_by_default(running_server):
     _store, server = running_server
 
     assert server.server_address[0] == "127.0.0.1"
+
+
+def test_latest_transaction_date_endpoint_reports_the_most_recent_transaction(running_server, make_candidate):
+    store, server = running_server
+    store.append_rows(
+        [make_candidate(date=date(2026, 7, 1)), make_candidate(date=date(2026, 8, 3))]
+    )
+
+    with urlopen(f"http://127.0.0.1:{server.server_port}/api/latest-transaction-date") as response:
+        assert json.loads(response.read()) == {"date": "2026-08-03"}
+
+
+def test_latest_transaction_date_endpoint_on_an_empty_log_reports_no_date(running_server):
+    _store, server = running_server
+
+    with urlopen(f"http://127.0.0.1:{server.server_port}/api/latest-transaction-date") as response:
+        assert json.loads(response.read()) == {"date": None}

@@ -3,9 +3,10 @@ from datetime import date
 import pytest
 
 from categorisation.interface import BatchResult, CategoryResult
-from recurring.rules import RecurringRule
+from database.store import RecurringRuleNotFound
+from recurring.rules import RecurringRule, StoredRecurringRule
 from statement_export.parser import RawTransaction
-from transaction_log.categories import is_valid_type_category_pair
+from transaction_log.categories import require_valid_type_category_pair
 from transaction_log.entries import Candidate, ExistingRow, Transaction
 
 
@@ -49,6 +50,8 @@ class FakeStore:
         self._recurring_rules = list(recurring_rules or [])
         self._category_budgets: dict[str, float] = dict(category_budgets or {})
         self._transactions = list(transactions or [])
+        self._stored_recurring_rules: list[StoredRecurringRule] = []
+        self._next_rule_id = 0
         self.appended: list[Candidate] = []
 
     def read_existing_rows(self) -> list[ExistingRow]:
@@ -61,17 +64,48 @@ class FakeStore:
         self.appended.extend(candidates)
 
     def read_recurring_rules(self) -> list[RecurringRule]:
-        return list(self._recurring_rules)
+        # One table behind both read paths, as in LocalStore: a rule created
+        # through the Dashboard is expanded on the next Statement Export run.
+        return [*self._recurring_rules, *(stored.rule for stored in self._stored_recurring_rules)]
 
     def append_recurring_rules(self, rules: list[RecurringRule]) -> None:
         self._recurring_rules.extend(rules)
+
+    def read_stored_recurring_rules(self) -> list[StoredRecurringRule]:
+        return list(self._stored_recurring_rules)
+
+    def create_recurring_rule(self, rule: RecurringRule) -> StoredRecurringRule:
+        self._validate_pair(rule)
+        self._next_rule_id += 1
+        stored = StoredRecurringRule(id=self._next_rule_id, rule=rule)
+        self._stored_recurring_rules.append(stored)
+        return stored
+
+    def update_recurring_rule(self, rule_id: int, rule: RecurringRule) -> StoredRecurringRule:
+        self._validate_pair(rule)
+        index = self._index_of(rule_id)
+        updated = StoredRecurringRule(id=rule_id, rule=rule)
+        self._stored_recurring_rules[index] = updated
+        return updated
+
+    def delete_recurring_rule(self, rule_id: int) -> None:
+        del self._stored_recurring_rules[self._index_of(rule_id)]
+
+    def _index_of(self, rule_id: int) -> int:
+        for index, stored in enumerate(self._stored_recurring_rules):
+            if stored.id == rule_id:
+                return index
+        raise RecurringRuleNotFound(f"No Recurring Transactions Config rule has id {rule_id}")
+
+    @staticmethod
+    def _validate_pair(rule: RecurringRule) -> None:
+        require_valid_type_category_pair(rule.type, rule.category)
 
     def read_category_budgets(self) -> dict[str, float]:
         return dict(self._category_budgets)
 
     def upsert_category_budget(self, category: str, monthly_amount: float) -> None:
-        if not is_valid_type_category_pair("Expense", category):
-            raise ValueError(f"Category {category!r} is not a valid Expense Category")
+        require_valid_type_category_pair("Expense", category)
         self._category_budgets[category] = monthly_amount
 
     def delete_category_budget(self, category: str) -> None:

@@ -2,7 +2,7 @@ import sqlite3
 from datetime import date
 from pathlib import Path
 
-from dashboard.queries import CategorySpend, get_month_overview
+from dashboard.queries import CategorySpend, get_latest_transaction_date, get_month_overview
 from database.store import connect
 
 
@@ -254,3 +254,36 @@ def _insert_transaction(database_path: Path, **fields) -> None:
     )
     connection.commit()
     connection.close()
+
+
+def test_latest_transaction_date_on_an_empty_log_is_none(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    assert get_latest_transaction_date(store) is None
+
+
+def test_latest_transaction_date_is_the_most_recent_transaction(tmp_path: Path, make_candidate):
+    store = connect(tmp_path / "budget.db")
+    store.append_rows(
+        [
+            make_candidate(date=date(2026, 6, 30)),
+            make_candidate(date=date(2026, 8, 3)),
+            make_candidate(date=date(2026, 7, 15)),
+        ]
+    )
+
+    assert get_latest_transaction_date(store) == date(2026, 8, 3)
+
+
+def test_latest_transaction_date_counts_every_type_not_just_expenses(tmp_path: Path, make_candidate):
+    # The "As at" line says how current the Transaction Log is, so a Transfer
+    # or an Income row dates it just as well as an Expense does.
+    store = connect(tmp_path / "budget.db")
+    store.append_rows(
+        [
+            make_candidate(date=date(2026, 7, 1), type="Expense", category="Groceries"),
+            make_candidate(date=date(2026, 8, 3), type="Income", category="Salary"),
+        ]
+    )
+
+    assert get_latest_transaction_date(store) == date(2026, 8, 3)

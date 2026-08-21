@@ -102,10 +102,11 @@ them every session.
 
 ### 3. Set up the recurring transactions config (optional)
 
-If you have predictable recurring items (salary, rent, mortgage, subscriptions), insert one row
-per rule into your database's `recurring_rules` table (amount, type, category, notes,
-frequency/interval/day, start/end date) — e.g. via `sqlite3 <DATABASE_PATH>`. There's no editing
-UI for this yet (see ADR-0008 for the planned Dashboard).
+If you have predictable recurring items (salary, rent, mortgage, subscriptions), add one rule per
+item on the Dashboard's **Settings** tab (amount, type, category, notes, frequency/interval/day,
+start/end date) — see "Editing the Recurring Transactions Config" below. That needs the frontend built
+(step 4); if you'd rather not build it, you can insert rows into your database's `recurring_rules`
+table directly via `sqlite3 <DATABASE_PATH>`.
 
 ### 4. Build the Dashboard frontend (optional)
 
@@ -168,6 +169,15 @@ Full walkthrough: `docs/agents/statement-export-pipeline.md`.
 
 ### Viewing the Dashboard
 
+Double-click **`open_dashboard.bat`**. It starts the local server and opens the
+Dashboard in Chrome once the server is actually accepting connections (falling back
+to your default browser if Chrome isn't installed). Leave the window it opens
+running while you use the Dashboard - closing it stops the server. Running it again
+while the Dashboard is already up just opens the page rather than starting a second
+server.
+
+Or, equivalently, by hand:
+
 ```
 uv run python -m dashboard
 ```
@@ -175,13 +185,27 @@ uv run python -m dashboard
 Then open <http://127.0.0.1:8765>. The Dashboard's Overview tab shows one month at a time: the
 Income/Expenses/Net Balance/Transferred tiles, where your income went, spending by Category,
 Budgeted vs Actual, your top 5 expenses, and expenses over the month. Pick a month with the
-Jul–Jun pills — it opens on the current month of the current Financial Year.
+Jul–Jun pills — it opens on the current month of the current Financial Year. The **Settings** tab
+edits your Recurring Transactions Config (below); Transactions and Budget have no screens yet.
 
 It runs entirely on your machine and reads the local database directly; no transaction data
 leaves the machine ([ADR-0008](docs/adr/0008-dashboard-is-a-local-web-app-not-a-hosted-artifact.md)),
 and the page loads no fonts, scripts, or styles from the network. Set `DASHBOARD_PORT` in `.env`
-to serve on a different port. If the page tells you the frontend hasn't been built, run step 4 of
-the one-time setup above.
+to serve on a different port - `open_dashboard.bat` reads it too. If the page tells you the
+frontend hasn't been built, run step 4 of the one-time setup above.
+
+### Editing the Recurring Transactions Config
+
+The Dashboard's **Settings** tab lists every rule in your Recurring Transactions Config and lets
+you add, edit, and delete them — no `sqlite3` needed. Each rule's Day follows its Start Date (a
+Weekly rule starting on a Wednesday recurs on Wednesdays), so the two can't contradict each other;
+a Monthly rule's Day stays editable so you can set Day 31 and have short months clamp to their
+last day. Leave End Date blank for a rule that recurs indefinitely.
+
+Edits take effect on the next `uv run python -m statement_export` run (or recurring-transactions
+check) with no separate sync step — the Dashboard and the pipeline read the same database.
+Categories offered in the form are the valid `(Type, Category)` pairs from
+`src/transaction_log/categories.py`, and the store rejects any other pair.
 
 To work on the frontend itself, `npm run dev` in `frontend/` starts Vite with hot reload on
 <http://127.0.0.1:5173>, proxying `/api` through to `uv run python -m dashboard` on 8765 — so run

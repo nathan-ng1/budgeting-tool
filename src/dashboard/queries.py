@@ -100,6 +100,17 @@ def get_month_overview(store, year: int, month: int) -> MonthOverview:
     )
 
 
+def get_latest_transaction_date(store) -> date | None:
+    """The most recent date in the Transaction Log, or None if it is empty.
+
+    Deliberately database-wide rather than per-month: this dates the data
+    itself - how current the Transaction Log is - so it must not move when the
+    reader switches months.
+    """
+    dates = [transaction.date for transaction in store.read_transactions()]
+    return max(dates) if dates else None
+
+
 def _income_allocation(income: float, expenses: float, transferred: float) -> IncomeAllocation:
     if income <= 0:
         return IncomeAllocation(

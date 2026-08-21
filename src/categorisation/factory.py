@@ -1,19 +1,22 @@
-import os
-from pathlib import Path
+from collections.abc import Mapping
 
+from categorisation import config
 from categorisation.interface import Categoriser
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
 
 BACKENDS = ("claude", "codex", "openai-compatible")
 
 
-def connect() -> Categoriser:
-    """Build the Categoriser configured via CATEGORISER_BACKEND in .env/the environment."""
-    from dotenv import load_dotenv
+def connect(env: Mapping[str, str] | None = None) -> Categoriser:
+    """Build the Categoriser named by CATEGORISER_BACKEND.
 
-    load_dotenv(REPO_ROOT / ".env")
-    backend = os.environ.get("CATEGORISER_BACKEND")
+    `env` is the configuration to read it from; when it isn't given, the
+    ambient one (a repo-root `.env` under the real environment) is loaded. Pass
+    it explicitly to choose a backend without touching the process environment.
+    """
+    if env is None:
+        env = config.load()
+
+    backend = env.get("CATEGORISER_BACKEND")
 
     if backend == "claude":
         from categorisation import claude_backend
@@ -26,7 +29,7 @@ def connect() -> Categoriser:
     if backend == "openai-compatible":
         from categorisation import openai_compatible_backend
 
-        return openai_compatible_backend.connect()
+        return openai_compatible_backend.connect(env)
 
     raise ValueError(
         f"CATEGORISER_BACKEND is {backend!r} - set it to one of {BACKENDS} in .env"

@@ -10,3 +10,19 @@ export async function fetchMonthOverview({ year, month }, { signal } = {}) {
 
   return response.json();
 }
+
+// Dates the Transaction Log itself for the header's "As at" line. Separate from
+// the Overview because it spans the whole log, not the selected month - and it
+// is shown on every tab, including ones that fetch no Overview at all.
+export async function fetchLatestTransactionDate({ signal } = {}) {
+  const response = await fetch("/api/latest-transaction-date", { signal });
+
+  if (!response.ok) {
+    throw new Error(`The Dashboard backend returned ${response.status} for the latest Transaction date.`);
+  }
+
+  // Normalise a missing or empty date to null: an empty Transaction Log has no
+  // date, and an undated header is the one thing the caller has to handle.
+  const { date } = await response.json();
+  return date || null;
+}
