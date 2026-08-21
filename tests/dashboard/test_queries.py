@@ -260,6 +260,7 @@ def test_annual_overview_before_the_financial_year_starts_elapses_no_months(tmp_
     assert overview.elapsed_months == 0
     assert overview.stat_tiles.income == 0
     assert overview.monthly_average.income == 0
+    assert overview.top_expenses == []
 
 
 def test_annual_overview_counts_the_current_in_progress_month_as_elapsed(fake_store, make_transaction):
@@ -337,6 +338,96 @@ def test_annual_overview_income_allocation_is_computed_over_elapsed_months(fake_
 
     assert overview.income_allocation.expenses_amount == 400.0
     assert overview.income_allocation.expenses_pct == 40.0
+
+
+def test_annual_overview_spending_by_category_sums_actual_expenses_over_elapsed_months(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, 1), amount=300.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 8, 1), amount=100.0, type="Expense", category="Groceries", notes="Coles"),
+            make_transaction(date=date(2026, 8, 2), amount=100.0, type="Expense", category="Transport", notes="Fuel"),
+            make_transaction(date=date(2026, 9, 1), amount=999.0, type="Expense", category="Groceries", notes="Not yet elapsed"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21))
+
+    assert overview.spending_by_category == [
+        CategorySpend(category="Groceries", amount=400.0, pct_of_expenses=80.0),
+        CategorySpend(category="Transport", amount=100.0, pct_of_expenses=20.0),
+    ]
+
+
+def test_annual_overview_budgeted_vs_actual_expected_is_always_null_regardless_of_category_budget(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, 1), amount=450.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 7, 2), amount=80.0, type="Expense", category="Transport", notes="Fuel"),
+        ],
+        category_budgets={"Groceries": 500.0, "Entertainment & Leisure": 100.0},
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 7, 15))
+    by_category = {row.category: row for row in overview.budgeted_vs_actual}
+
+    assert by_category["Groceries"].expected is None
+    assert by_category["Groceries"].actual == 450.0
+    assert by_category["Groceries"].diff is None
+    assert by_category["Groceries"].pct is None
+
+    assert by_category["Transport"].expected is None
+    assert by_category["Transport"].actual == 80.0
+
+    # A Category Budget with no spend this Financial Year doesn't get a row -
+    # real annual budgeting is deferred (ADR-0011), so only actual spend
+    # determines the row set, unlike the per-month table.
+    assert "Entertainment & Leisure" not in by_category
+
+
+def test_annual_overview_top_expenses_are_the_ten_largest_across_elapsed_months(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, d), amount=amount, type="Expense", category="Groceries", notes=str(amount))
+            for d, amount in enumerate([10.0, 90.0, 50.0, 70.0, 60.0, 40.0, 30.0, 20.0, 80.0, 100.0, 110.0], start=1)
+        ]
+        + [make_transaction(date=date(2026, 8, 1), amount=1000.0, type="Income", category="Salary", notes="Employer")]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21))
+
+    assert len(overview.top_expenses) == 10
+    assert [row.amount for row in overview.top_expenses] == [110.0, 100.0, 90.0, 80.0, 70.0, 60.0, 50.0, 40.0, 30.0, 20.0]
+
+
+def test_annual_overview_top_expenses_excludes_transactions_from_months_not_yet_elapsed(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 8, 5), amount=500.0, type="Expense", category="Groceries", notes="Elapsed"),
+            make_transaction(date=date(2026, 9, 1), amount=999.0, type="Expense", category="Groceries", notes="Not yet elapsed"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21))
+
+    assert [row.notes for row in overview.top_expenses] == ["Elapsed"]
+
+
+def test_annual_overview_top_expenses_tiebreaks_by_date_then_notes(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, 5), amount=50.0, type="Expense", category="Groceries", notes="Zebra"),
+            make_transaction(date=date(2026, 7, 1), amount=50.0, type="Expense", category="Groceries", notes="Apple"),
+            make_transaction(date=date(2026, 7, 1), amount=50.0, type="Expense", category="Groceries", notes="Banana"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 7, 15))
+
+    assert [row.notes for row in overview.top_expenses] == ["Apple", "Banana", "Zebra"]
 
 
 def _insert_transaction(database_path: Path, **fields) -> None:

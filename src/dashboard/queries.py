@@ -88,6 +88,9 @@ class AnnualOverview:
     stat_tiles: StatTiles
     monthly_average: StatTiles
     income_allocation: IncomeAllocation
+    spending_by_category: list[CategorySpend]
+    budgeted_vs_actual: list[BudgetVsActual]
+    top_expenses: list[TopExpense]
 
 
 def get_month_overview(store, year: int, month: int) -> MonthOverview:
@@ -101,7 +104,7 @@ def get_month_overview(store, year: int, month: int) -> MonthOverview:
         income_allocation=_income_allocation(stat_tiles.income, stat_tiles.expenses, stat_tiles.transferred),
         spending_by_category=_spending_by_category(transactions, stat_tiles.expenses),
         budgeted_vs_actual=_budgeted_vs_actual(transactions, store.read_category_budgets()),
-        top_expenses=_top_expenses(transactions),
+        top_expenses=_top_expenses(transactions, limit=5),
         expenses_over_time=_expenses_over_time(transactions, year, month),
     )
 
@@ -124,6 +127,9 @@ def get_annual_overview(store, year: int, today: date | None = None) -> AnnualOv
         stat_tiles=stat_tiles,
         monthly_average=_monthly_average(stat_tiles, elapsed_months),
         income_allocation=_income_allocation(stat_tiles.income, stat_tiles.expenses, stat_tiles.transferred),
+        spending_by_category=_spending_by_category(transactions, stat_tiles.expenses),
+        budgeted_vs_actual=_annual_budgeted_vs_actual(transactions),
+        top_expenses=_top_expenses(transactions, limit=10),
     )
 
 
@@ -251,12 +257,29 @@ def _budgeted_vs_actual(transactions: list[Transaction], category_budgets: dict[
     return sorted(rows, key=lambda row: row.category)
 
 
-def _top_expenses(transactions: list[Transaction]) -> list[TopExpense]:
+def _annual_budgeted_vs_actual(transactions: list[Transaction]) -> list[BudgetVsActual]:
+    """Full year's Budgeted vs Actual rows - `expected`/`diff`/`pct` are always
+    None, for every Category (ADR-0011: real annual budgeting - a
+    per-month-capable Category Budget - is deferred). Unlike the per-month
+    table, a Category Budget with no spend this Financial Year gets no row:
+    with Expected never shown, only actual spend determines the row set.
+    """
+    totals = _expense_totals_by_category(transactions)
+
+    rows = [
+        BudgetVsActual(category=category, expected=None, actual=_round(amount), diff=None, pct=None)
+        for category, amount in totals.items()
+        if amount != 0
+    ]
+    return sorted(rows, key=lambda row: row.category)
+
+
+def _top_expenses(transactions: list[Transaction], limit: int) -> list[TopExpense]:
     expenses = [t for t in transactions if t.type == "Expense"]
     ranked = sorted(expenses, key=lambda t: (-t.amount, t.date, t.notes))
     return [
         TopExpense(notes=t.notes, category=t.category, date=t.date.isoformat(), amount=_round(t.amount))
-        for t in ranked[:5]
+        for t in ranked[:limit]
     ]
 
 
