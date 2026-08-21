@@ -1,3 +1,4 @@
+import logging
 import os
 from pathlib import Path
 
@@ -10,6 +11,7 @@ DATA_DIR = REPO_ROOT / ".data"
 
 
 def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="[%(name)s] %(message)s")
     load_dotenv(REPO_ROOT / ".env")
     transactions_inbox = Path(os.environ["TRANSACTIONS_INBOX"])
     written = sanitise_inbox(transactions_inbox, DATA_DIR)

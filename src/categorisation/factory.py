@@ -1,7 +1,10 @@
+import logging
 from collections.abc import Mapping
 
 from categorisation import config
 from categorisation.interface import Categoriser
+
+logger = logging.getLogger(__name__)
 
 BACKENDS = ("claude", "codex", "openai-compatible")
 
@@ -17,6 +20,7 @@ def connect(env: Mapping[str, str] | None = None) -> Categoriser:
         env = config.load()
 
     backend = env.get("CATEGORISER_BACKEND")
+    logger.info("Using categorisation backend: %s", backend)
 
     if backend == "claude":
         from categorisation import claude_backend

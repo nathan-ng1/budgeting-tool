@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from datetime import date
 from typing import Callable
@@ -8,6 +9,8 @@ from statement_export.parser import RawTransaction
 from statement_export.pipeline import Archive
 from transaction_log.categories import CATEGORIES_BY_TYPE
 from transaction_log.entries import Candidate, WriteResult
+
+logger = logging.getLogger(__name__)
 
 # Resolves a Needs Review transaction to a (Type, Category) pair, or None if the
 # user resolves it as a Bill Payment to drop instead.
@@ -53,6 +56,7 @@ def _categorise(
     if not to_categorise:
         return [], None
 
+    logger.info("Categorising %d transaction(s)...", len(to_categorise))
     try:
         batch = categoriser.categorise(to_categorise, CATEGORIES_BY_TYPE)
     except MalformedResponseError as exc:
@@ -60,6 +64,10 @@ def _categorise(
 
     if len(batch.results) != len(to_categorise):
         return [], f"Expected {len(to_categorise)} categorisation results, got {len(batch.results)}"
+
+    needs_review_count = sum(1 for result in batch.results if result.needs_review)
+    if needs_review_count:
+        logger.info("%d transaction(s) flagged Needs Review", needs_review_count)
 
     candidates = []
     for transaction, result in zip(to_categorise, batch.results):

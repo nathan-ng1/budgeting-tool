@@ -1,3 +1,4 @@
+import logging
 import sys
 from pathlib import Path
 
@@ -13,8 +14,13 @@ DATA_DIR = REPO_ROOT / ".data"
 
 
 def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="[%(name)s] %(message)s")
+    logger = logging.getLogger(__name__)
+
     load_dotenv(REPO_ROOT / ".env")
     dry_run = "--dry-run" in sys.argv[1:]
+    if dry_run:
+        logger.info("Dry run - nothing will be written or archived")
 
     results = process_data_dir(
         data_dir=DATA_DIR,
