@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import BudgetedVsActual from "./components/BudgetedVsActual.jsx";
+import DebtSummary from "./components/DebtSummary.jsx";
 import ExpensesOverTime from "./components/ExpensesOverTime.jsx";
 import IncomeAllocation from "./components/IncomeAllocation.jsx";
 import IncomeVsExpensesByMonth from "./components/IncomeVsExpensesByMonth.jsx";
@@ -159,6 +160,7 @@ export default function App() {
                       <SpendingByCategory spending={overview.spending_by_category} total={overview.stat_tiles.expenses} />
                       <BudgetedVsActual rows={overview.budgeted_vs_actual} />
                     </div>
+                    <DebtSummary debtSummary={overview.debt_summary} total={overview.stat_tiles.debt} />
                     <div className="row--split">
                       <TopExpenses expenses={overview.top_expenses} count={5} />
                       <ExpensesOverTime overTime={overview.expenses_over_time} />
@@ -176,6 +178,11 @@ export default function App() {
                       <SpendingByCategory spending={overview.spending_by_category} total={overview.stat_tiles.expenses} />
                       <MonthByMonth months={overview.month_by_month} />
                     </div>
+                    <DebtSummary
+                      debtSummary={overview.debt_summary}
+                      total={overview.stat_tiles.debt}
+                      average={overview.monthly_average.debt}
+                    />
                     <div className="row--split">
                       <BudgetedVsActual rows={overview.budgeted_vs_actual} />
                       <TopExpenses expenses={overview.top_expenses} count={10} />
