@@ -30,13 +30,14 @@ An issuer-specific step that strips personal information from a Statement Export
 _Avoid_: Cleaning, scrubbing
 
 **Type**:
-The top-level classification of a Transaction: Income, Expense, or Transfer. Every Category has exactly one fixed Type. Replaces what was previously called "Category" — see [ADR-0006](./docs/adr/0006-simplify-to-three-types-with-a-flat-category-list.md).
+The top-level classification of a Transaction: Income, Expense, Debt, or Transfer. Every Category has exactly one fixed Type. Replaces what was previously called "Category" — see [ADR-0006](./docs/adr/0006-simplify-to-three-types-with-a-flat-category-list.md).
 _Avoid_: Category (retired for this meaning), Group, Real Income (Dashboard tile copy for the Income Type — no distinct concept, just "Income")
 
 **Category**:
 The specific budget label for a Transaction — e.g. Groceries, Subscriptions, Salary. Flat: there's no grouping layer between Category and Type (the old Bills & Subscriptions / Expenses / Debt / Savings / Investments split is gone). Each Category has one fixed Type, never determined per-Transaction:
 - **Income**: Salary, Beem Adjustment, Rental, Refund
-- **Expense**: Groceries, Dining & Takeaway, Transport, Shopping & Retail, Holidays & Travel, Entertainment & Leisure, Health & Medical, Donations & Giving, Subscriptions, Insurance & Bills, Rental Expense, Mortgage Repayment
+- **Expense**: Groceries, Dining & Takeaway, Transport, Shopping & Retail, Holidays & Travel, Entertainment & Leisure, Health & Medical, Donations & Giving, Subscriptions, Insurance & Bills, Rental Expense
+- **Debt**: Mortgage Repayment — populated lazily like Transfer below; the first real non-mortgage Debt (e.g. a car or personal loan) adds its own Category rather than one being speculatively predefined.
 - **Transfer**: none yet — Categories here are only added for real cases as they occur (e.g. a transfer to a specific savings or investment account), the same lazy-population policy Rental and Rental Expense already followed.
 
 Every categorised Transaction gets exactly one Category, which determines its Type. Replaces what was previously called "Sub-category" — see [ADR-0006](./docs/adr/0006-simplify-to-three-types-with-a-flat-category-list.md).
@@ -46,8 +47,12 @@ _Avoid_: Sub-category (retired), Label, tag
 Means the Transaction *itself* is a recurring charge (same merchant, regular cadence — e.g. the Anthropic Claude charge), not "sold by a platform that also offers subscriptions." A one-off purchase from a subscription-style platform (e.g. a single Steam game purchase) goes by what was bought, landing in Entertainment & Leisure instead.
 _Avoid_: Label, tag, Bill (a Bill is a Transaction whose Category maps to a bill-like Expense, not a Category name itself)
 
+**Debt**:
+A Transaction that services a borrowing you owe to a lender — reducing the outstanding balance of a loan, including any interest bundled into the same repayment (the Statement Export carries no principal/interest split, so the whole repayment is Debt). One of the four Types, alongside Income, Expense, and Transfer. Distinct from an Expense (money consumed) and from a Transfer (money moved to an account you own): a Debt repayment converts cash into equity you hold in an asset, but unlike a Transfer it is non-discretionary and its counterparty is external. Previously folded into Expense — see [ADR-0006](./docs/adr/0006-simplify-to-three-types-with-a-flat-category-list.md) — split back out by [ADR-0012](./docs/adr/0012-split-debt-back-out-of-expense.md).
+_Avoid_: Liability, Loan repayment
+
 **Transfer**:
-A Transaction that moves money to an account you own and control (a savings or investment account) rather than to a third party. Looks identical to an Expense in a bank export — a debit leaving the account — but is economically distinct: not consumption. One of the three Types, alongside Income and Expense; replaces the old Savings and Investments Categories.
+A Transaction that moves money to an account you own and control (a savings or investment account) rather than to a third party. Looks identical to an Expense in a bank export — a debit leaving the account — but is economically distinct: not consumption. One of the four Types, alongside Income, Expense, and Debt; replaces the old Savings and Investments Categories.
 _Avoid_: Savings, Investment (retired as top-level Categories — Transfer is the umbrella now)
 
 **Transactions Inbox**:

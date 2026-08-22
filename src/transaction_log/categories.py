@@ -19,6 +19,8 @@ CATEGORIES_BY_TYPE = {
         "Subscriptions",
         "Insurance & Bills",
         "Rental Expense",
+    },
+    "Debt": {
         "Mortgage Repayment",
     },
     "Transfer": set(),

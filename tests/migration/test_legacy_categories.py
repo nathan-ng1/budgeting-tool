@@ -12,7 +12,7 @@ from migration.legacy_categories import remap_type_category
         ("Bills & Subscriptions", "Insurance & Bills", ("Expense", "Insurance & Bills")),
         ("Expenses", "Groceries", ("Expense", "Groceries")),
         ("Expenses", "Dining & Takeaway", ("Expense", "Dining & Takeaway")),
-        ("Debt", "Mortgage Repayment", ("Expense", "Mortgage Repayment")),
+        ("Debt", "Mortgage Repayment", ("Debt", "Mortgage Repayment")),
     ],
 )
 def test_remap_type_category_follows_the_verified_mechanical_table(
