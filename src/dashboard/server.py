@@ -12,7 +12,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from dashboard import queries, recurring, transactions
 from database.store import RecurringRuleNotFound, TransactionNotFound
-from transaction_log.categories import CATEGORIES_BY_TYPE, types_with_categories
+from transaction_log.categories import CATEGORIES_BY_TYPE, TYPE_ORDER, types_with_categories
 
 # Where `npm run build` puts the frontend (see frontend/vite.config.js). The
 # directory is a build artefact, so it is absent in a fresh clone until the
@@ -94,11 +94,15 @@ def _make_handler(store, static_root: Path):
             elif parsed.path == TRANSACTIONS_PATH:
                 self._serve_transactions(parse_qs(parsed.query))
             elif parsed.path == "/api/categories":
-                # What the Settings screen's Type/Category selects offer, so
-                # transaction_log.categories stays the one place the valid pairs
-                # are stated rather than the frontend restating and drifting.
+                # What the Transaction/Recurring Rule forms' Type/Category
+                # selects offer, so transaction_log.categories stays the one
+                # place the valid pairs are stated rather than the frontend
+                # restating and drifting. Keyed in TYPE_ORDER (not
+                # types_with_categories()'s alphabetical order) so the forms'
+                # Type select matches the Types filter's display order.
+                available = set(types_with_categories())
                 self._send_json(
-                    200, {t: sorted(CATEGORIES_BY_TYPE[t]) for t in types_with_categories()}
+                    200, {t: sorted(CATEGORIES_BY_TYPE[t]) for t in TYPE_ORDER if t in available}
                 )
             elif parsed.path.startswith("/api/"):
                 self._send_json(404, {"error": "Not found"})

@@ -2,6 +2,7 @@ import pytest
 
 from transaction_log.categories import (
     CATEGORIES_BY_TYPE,
+    TYPE_ORDER,
     is_valid_type_category_pair,
     types_with_categories,
 )
@@ -9,6 +10,13 @@ from transaction_log.categories import (
 
 def test_the_four_types_are_income_expense_debt_and_transfer():
     assert set(CATEGORIES_BY_TYPE) == {"Income", "Expense", "Debt", "Transfer"}
+
+
+def test_type_order_is_income_expense_debt_transfer():
+    # CONTEXT.md's own definition order - what the Types filter and the
+    # Transaction/Recurring Rule forms' Type selects display, as opposed to
+    # types_with_categories()'s alphabetical order below.
+    assert TYPE_ORDER == ("Income", "Expense", "Debt", "Transfer")
 
 
 def test_transfer_has_no_categories_yet():

@@ -10,9 +10,9 @@ export const ALL_CATEGORIES = "All categories";
 export const ALL_MONTHS = "All months";
 export const ALL_TYPES = "All types";
 
-// Fixed per ADR-0006, not derived from loaded data - Type is a closed set
-// regardless of which Types happen to appear in the current Financial Year.
-export const TYPES = ["Income", "Expense", "Transfer"];
+// Fixed per ADR-0006/ADR-0012, not derived from loaded data - Type is a closed
+// set regardless of which Types happen to appear in the current Financial Year.
+export const TYPES = ["Income", "Expense", "Debt", "Transfer"];
 
 export function categoryOptions(transactions) {
   return [...new Set(transactions.map((transaction) => transaction.category))].sort();

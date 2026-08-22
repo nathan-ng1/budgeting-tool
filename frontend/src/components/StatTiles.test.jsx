@@ -4,15 +4,17 @@ import { describe, expect, it } from "vitest";
 import StatTiles from "./StatTiles.jsx";
 
 function tiles(overrides = {}) {
-  return { income: 5240, expenses: 3667, net_balance: 1573, transferred: 900, ...overrides };
+  return { income: 5240, expenses: 3667, debt: 875, net_balance: 698, transferred: 900, ...overrides };
 }
 
 describe("StatTiles", () => {
-  it("renders the four totals with no average line by default", () => {
+  it("renders the five totals with no average line by default", () => {
     render(<StatTiles tiles={tiles()} />);
 
     expect(screen.getByText("$5,240")).toBeInTheDocument();
     expect(screen.getByText("$3,667")).toBeInTheDocument();
+    expect(screen.getByText("Debt")).toBeInTheDocument();
+    expect(screen.getByText("$875")).toBeInTheDocument();
     expect(screen.queryByText(/month average/)).not.toBeInTheDocument();
     expect(screen.queryByText(/excludes transfers/)).not.toBeInTheDocument();
   });

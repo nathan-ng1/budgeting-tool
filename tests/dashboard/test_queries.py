@@ -41,14 +41,16 @@ def test_stat_tiles_sum_by_type_for_the_selected_month(tmp_path: Path, make_cand
             make_candidate(date=date(2026, 8, 2), amount=100.0, type="Income", category="Refund", notes="Return"),
             make_candidate(date=date(2026, 8, 3), amount=200.0, type="Expense", category="Groceries", notes="Woolworths"),
             make_candidate(date=date(2026, 8, 4), amount=50.0, type="Expense", category="Transport", notes="Fuel"),
+            make_candidate(date=date(2026, 8, 5), amount=875.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
         ]
     )
-    _insert_transaction(database_path, date="2026-08-05", amount=500.0, type="Transfer", category="Savings", notes="To savings")
+    _insert_transaction(database_path, date="2026-08-06", amount=500.0, type="Transfer", category="Savings", notes="To savings")
 
     overview = get_month_overview(store, year=2026, month=8)
 
     assert overview.stat_tiles.income == 4100.0
     assert overview.stat_tiles.expenses == 250.0
+    assert overview.stat_tiles.debt == 875.0
     assert overview.stat_tiles.transferred == 500.0
 
 
@@ -66,6 +68,22 @@ def test_net_balance_excludes_transfers(tmp_path: Path, make_candidate):
     overview = get_month_overview(store, year=2026, month=8)
 
     assert overview.stat_tiles.net_balance == 700.0
+
+
+def test_net_balance_subtracts_debt(tmp_path: Path, make_candidate):
+    database_path = tmp_path / "budget.db"
+    store = connect(database_path)
+    store.append_rows(
+        [
+            make_candidate(date=date(2026, 8, 1), amount=1000.0, type="Income", category="Salary", notes="Employer"),
+            make_candidate(date=date(2026, 8, 2), amount=300.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_candidate(date=date(2026, 8, 3), amount=200.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+        ]
+    )
+
+    overview = get_month_overview(store, year=2026, month=8)
+
+    assert overview.stat_tiles.net_balance == 500.0
 
 
 def test_transactions_outside_the_selected_month_are_excluded(tmp_path: Path, make_candidate):
@@ -104,6 +122,25 @@ def test_income_allocation_splits_expenses_transferred_and_remaining_as_pct_of_i
     assert allocation.remaining_pct == 50.0
     assert allocation.over_income_amount == 0.0
     assert allocation.over_income_pct == 0.0
+
+
+def test_income_allocation_includes_a_debt_share_of_income(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 8, 1), amount=1000.0, type="Income", category="Salary", notes="Employer"),
+            make_transaction(date=date(2026, 8, 2), amount=400.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 8, 3), amount=200.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+            make_transaction(date=date(2026, 8, 4), amount=100.0, type="Transfer", category="Savings", notes="To savings"),
+        ]
+    )
+
+    overview = get_month_overview(store, year=2026, month=8)
+    allocation = overview.income_allocation
+
+    assert allocation.debt_amount == 200.0
+    assert allocation.debt_pct == 20.0
+    assert allocation.remaining_amount == 300.0
+    assert allocation.remaining_pct == 30.0
 
 
 def test_income_allocation_reports_over_income_excess_when_outflows_exceed_income(fake_store, make_transaction):
@@ -374,6 +411,20 @@ def test_annual_overview_monthly_average_divides_totals_by_elapsed_months_not_tw
     assert overview.monthly_average.income == 1000.0
 
 
+def test_annual_overview_stat_tiles_and_monthly_average_include_debt(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, 1), amount=800.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+            make_transaction(date=date(2026, 8, 1), amount=800.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21))
+
+    assert overview.stat_tiles.debt == 1600.0
+    assert overview.monthly_average.debt == 800.0
+
+
 def test_annual_overview_on_a_completed_financial_year_elapses_all_twelve_months(fake_store):
     store = fake_store(transactions=[])
 
@@ -555,6 +606,7 @@ def test_annual_overview_month_by_month_sums_each_month_independently(fake_store
     july = by_month[(2026, 7)]
     assert july.income == 1000.0
     assert july.expenses == 400.0
+    assert july.debt == 0.0
     assert july.net_balance == 600.0
     assert july.transferred == 100.0
 
@@ -578,7 +630,7 @@ def test_annual_overview_month_by_month_zero_fills_months_not_yet_elapsed(fake_s
     # September hasn't elapsed as of 21 Aug, so it's a zeroed row, not omitted
     # or carrying September's not-yet-counted spend.
     assert by_month[(2026, 9)] == MonthlyTotals(
-        year=2026, month=9, income=0.0, expenses=0.0, net_balance=0.0, transferred=0.0
+        year=2026, month=9, income=0.0, expenses=0.0, debt=0.0, net_balance=0.0, transferred=0.0
     )
     assert len(overview.month_by_month) == 12
 

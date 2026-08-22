@@ -14,6 +14,7 @@ export default function StatTiles({ tiles, average }) {
     <div className="tiles">
       <Tile label="Real Income" value={money(tiles.income)} average={average && money(average.income)} />
       <Tile label="Expenses" value={money(tiles.expenses)} average={average && money(average.expenses)} />
+      <Tile label="Debt" value={money(tiles.debt)} average={average && money(average.debt)} />
       <Tile
         label="Net Balance"
         // Signed, because which way it went is the point - but an exactly

@@ -241,9 +241,15 @@ def test_the_categories_endpoint_offers_the_valid_pairs_the_form_can_choose_from
     assert status == 200
     assert "Salary" in body["Income"]
     assert "Subscriptions" in body["Expense"]
+    assert "Mortgage Repayment" in body["Debt"]
     # Transfer has no Categories yet, so it can't form a valid pair - offering
     # it would let the form build a rule the store then rejects.
     assert "Transfer" not in body
+    # Income, Expense, Debt, Transfer - CONTEXT.md's Type order, not
+    # types_with_categories()'s alphabetical one - so the Type select in the
+    # Transaction/Recurring Rule forms (which reads Object.keys(body)) matches
+    # the Types filter dropdown's order.
+    assert list(body.keys()) == ["Income", "Expense", "Debt"]
 
 
 def expanded_notes_and_amounts(store, through: date):
