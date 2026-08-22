@@ -52,6 +52,13 @@ class BudgetVsActual:
 
 
 @dataclass(frozen=True)
+class DebtByNotes:
+    notes: str
+    amount: float
+    pct_of_debt: float
+
+
+@dataclass(frozen=True)
 class TopExpense:
     notes: str
     category: str
@@ -80,6 +87,7 @@ class MonthOverview:
     income_allocation: IncomeAllocation
     spending_by_category: list[CategorySpend]
     budgeted_vs_actual: list[BudgetVsActual]
+    debt_summary: list[DebtByNotes]
     top_expenses: list[TopExpense]
     expenses_over_time: ExpensesOverTime
 
@@ -104,6 +112,7 @@ class AnnualOverview:
     income_allocation: IncomeAllocation
     spending_by_category: list[CategorySpend]
     budgeted_vs_actual: list[BudgetVsActual]
+    debt_summary: list[DebtByNotes]
     top_expenses: list[TopExpense]
     month_by_month: list[MonthlyTotals]
     income_vs_expenses_by_month: list[MonthlyTotals]
@@ -122,6 +131,7 @@ def get_month_overview(store, year: int, month: int) -> MonthOverview:
         ),
         spending_by_category=_spending_by_category(transactions, stat_tiles.expenses),
         budgeted_vs_actual=_budgeted_vs_actual(transactions, store.read_category_budgets()),
+        debt_summary=_debt_summary(transactions, stat_tiles.debt),
         top_expenses=_top_expenses(transactions, limit=5),
         expenses_over_time=_expenses_over_time(transactions, year, month),
     )
@@ -150,6 +160,7 @@ def get_annual_overview(store, year: int, today: date | None = None) -> AnnualOv
         ),
         spending_by_category=_spending_by_category(transactions, stat_tiles.expenses),
         budgeted_vs_actual=_annual_budgeted_vs_actual(transactions),
+        debt_summary=_debt_summary(transactions, stat_tiles.debt),
         top_expenses=_top_expenses(transactions, limit=10),
         # Two named series over the same rows, not two computations: the Month
         # by month table and the Income vs Expenses chart both need one row
@@ -274,6 +285,31 @@ def _spending_by_category(transactions: list[Transaction], expenses: float) -> l
         if amount != 0
     ]
     return sorted(rows, key=lambda row: (-row.amount, row.category))
+
+
+def _debt_totals_by_notes(transactions: list[Transaction]) -> dict[str, float]:
+    totals: dict[str, float] = {}
+    for t in transactions:
+        if t.type != "Debt":
+            continue
+        totals[t.notes] = totals.get(t.notes, 0.0) + t.amount
+    return totals
+
+
+def _debt_summary(transactions: list[Transaction], debt: float) -> list[DebtByNotes]:
+    """One row per distinct Notes among Debt Transactions, summed by Amount -
+    shared by the per-month and Full year Overviews (Issues #51/#52), so their
+    totals always match `stat_tiles.debt` rather than being computed
+    independently.
+    """
+    totals = _debt_totals_by_notes(transactions)
+
+    rows = [
+        DebtByNotes(notes=notes, amount=_round(amount), pct_of_debt=_pct(amount, debt))
+        for notes, amount in totals.items()
+        if amount != 0
+    ]
+    return sorted(rows, key=lambda row: (-row.amount, row.notes))
 
 
 def _budgeted_vs_actual(transactions: list[Transaction], category_budgets: dict[str, float]) -> list[BudgetVsActual]:

@@ -26,13 +26,14 @@ function monthOverview({ year = 2026, month = 8, ...overrides } = {}) {
     income_allocation: ZERO_ALLOCATION,
     spending_by_category: [],
     budgeted_vs_actual: [],
+    debt_summary: [],
     top_expenses: [],
     expenses_over_time: { daily: [], total: 0, daily_average: 0 },
     ...overrides,
   };
 }
 
-function monthWithSpending(year, month) {
+function monthWithSpending(year, month, overrides = {}) {
   return monthOverview({
     year,
     month,
@@ -60,6 +61,7 @@ function monthWithSpending(year, month) {
       total: 3667,
       daily_average: 118,
     },
+    ...overrides,
   });
 }
 
@@ -77,6 +79,7 @@ function annualOverview(overrides = {}) {
     income_allocation: ZERO_ALLOCATION,
     spending_by_category: [],
     budgeted_vs_actual: [],
+    debt_summary: [],
     top_expenses: [],
     month_by_month: ZERO_MONTHS,
     income_vs_expenses_by_month: ZERO_MONTHS,
@@ -84,7 +87,7 @@ function annualOverview(overrides = {}) {
   };
 }
 
-function annualWithSpending() {
+function annualWithSpending(overrides = {}) {
   const months = ZERO_MONTHS.map((m, index) =>
     index === 0 ? { ...m, income: 5240, expenses: 3810, debt: 0, net_balance: 1430, transferred: 900 } : m,
   );
@@ -110,6 +113,7 @@ function annualWithSpending() {
     top_expenses: [{ notes: "Woolworths", category: "Groceries", date: "2026-07-05", amount: 6000 }],
     month_by_month: months,
     income_vs_expenses_by_month: months,
+    ...overrides,
   });
 }
 
@@ -277,7 +281,50 @@ describe("App", () => {
     expect(screen.getAllByText("$0").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/No expenses recorded/i)).toHaveLength(2);
     expect(screen.getByText(/No spending or Category Budgets/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Debt" })).toBeInTheDocument();
+    expect(screen.getByText(/No Debt repayments recorded/i)).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("renders the Debt card between Spending by Category/Budgeted vs Actual and Top 5/Expenses over time, for a month with Debt", async () => {
+    respondWith({
+      month: monthWithSpending(2026, 8, {
+        stat_tiles: { income: 5240, expenses: 3667, debt: 875, net_balance: 698, transferred: 900 },
+        debt_summary: [{ notes: "Werribee", amount: 875, pct_of_debt: 100 }],
+      }),
+    });
+    render(<App />);
+    await screen.findByText("$8,000");
+
+    await userEvent.click(screen.getByRole("button", { name: "Aug" }));
+    await screen.findByText("$5,240");
+
+    const headings = screen.getAllByRole("heading").map((h) => h.textContent);
+    expect(headings.indexOf("Budgeted vs Actual")).toBeLessThan(headings.indexOf("Debt"));
+    expect(headings.indexOf("Debt")).toBeLessThan(headings.indexOf("Top 5 expenses"));
+    expect(screen.getByText("Werribee")).toBeInTheDocument();
+    expect(screen.getAllByText("$875").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/month average/)).not.toBeInTheDocument();
+  });
+
+  it("renders the Debt card with a $/month average, for Full year", async () => {
+    respondWith({
+      annual: annualWithSpending({
+        stat_tiles: { income: 8000, expenses: 6000, debt: 1600, net_balance: 400, transferred: 1000 },
+        monthly_average: { income: 4000, expenses: 3000, debt: 800, net_balance: 200, transferred: 500 },
+        debt_summary: [{ notes: "Werribee", amount: 1600, pct_of_debt: 100 }],
+      }),
+    });
+    render(<App />);
+    await screen.findByText("$8,000");
+
+    const headings = screen.getAllByRole("heading").map((h) => h.textContent);
+    expect(headings.indexOf("Month by month")).toBeLessThan(headings.indexOf("Debt"));
+    expect(headings.indexOf("Debt")).toBeLessThan(headings.indexOf("Budgeted vs Actual"));
+    expect(screen.getByText("Werribee")).toBeInTheDocument();
+
+    const debtCard = screen.getByRole("heading", { name: "Debt" }).closest("section");
+    expect(within(debtCard).getByText("$800 / month average")).toBeInTheDocument();
   });
 
   it("surfaces a backend failure instead of rendering a half-empty page", async () => {

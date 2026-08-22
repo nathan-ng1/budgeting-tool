@@ -4,6 +4,7 @@ from pathlib import Path
 
 from dashboard.queries import (
     CategorySpend,
+    DebtByNotes,
     MonthlyTotals,
     get_annual_overview,
     get_financial_year_transactions,
@@ -26,6 +27,7 @@ def test_a_month_with_no_transactions_returns_a_zeroed_result(tmp_path: Path):
     assert overview.stat_tiles.transferred == 0
     assert overview.spending_by_category == []
     assert overview.budgeted_vs_actual == []
+    assert overview.debt_summary == []
     assert overview.top_expenses == []
     assert overview.expenses_over_time.total == 0
     assert overview.expenses_over_time.daily_average == 0
@@ -208,6 +210,70 @@ def test_spending_by_category_excludes_debt(fake_store, make_transaction):
     assert overview.spending_by_category == [
         CategorySpend(category="Groceries", amount=300.0, pct_of_expenses=100.0),
     ]
+
+
+def test_debt_summary_groups_by_notes_summed_and_sorted_descending(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 8, 1), amount=800.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+            make_transaction(date=date(2026, 8, 15), amount=800.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+            make_transaction(date=date(2026, 8, 5), amount=500.0, type="Debt", category="Mortgage Repayment", notes="Investment property"),
+        ]
+    )
+
+    overview = get_month_overview(store, year=2026, month=8)
+
+    assert overview.debt_summary == [
+        DebtByNotes(notes="Werribee", amount=1600.0, pct_of_debt=76.2),
+        DebtByNotes(notes="Investment property", amount=500.0, pct_of_debt=23.8),
+    ]
+
+
+def test_debt_summary_breaks_ties_alphabetically_by_notes(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 8, 1), amount=500.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+            make_transaction(date=date(2026, 8, 2), amount=500.0, type="Debt", category="Mortgage Repayment", notes="Ascot Vale"),
+        ]
+    )
+
+    overview = get_month_overview(store, year=2026, month=8)
+
+    assert [row.notes for row in overview.debt_summary] == ["Ascot Vale", "Werribee"]
+
+
+def test_debt_summary_total_matches_stat_tiles_debt(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 8, 1), amount=800.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+            make_transaction(date=date(2026, 8, 2), amount=500.0, type="Debt", category="Mortgage Repayment", notes="Investment property"),
+        ]
+    )
+
+    overview = get_month_overview(store, year=2026, month=8)
+
+    assert sum(row.amount for row in overview.debt_summary) == overview.stat_tiles.debt
+
+
+def test_debt_summary_excludes_non_debt_types(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 8, 1), amount=300.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 8, 2), amount=1000.0, type="Income", category="Salary", notes="Employer"),
+        ]
+    )
+
+    overview = get_month_overview(store, year=2026, month=8)
+
+    assert overview.debt_summary == []
+
+
+def test_debt_summary_is_empty_for_a_month_with_no_debt_transactions(fake_store):
+    store = fake_store(transactions=[])
+
+    overview = get_month_overview(store, year=2026, month=8)
+
+    assert overview.debt_summary == []
 
 
 def test_budgeted_vs_actual_includes_budgeted_and_actual_categories_with_diff_and_pct(fake_store, make_transaction):
@@ -480,6 +546,55 @@ def test_annual_overview_spending_by_category_excludes_debt(fake_store, make_tra
     assert overview.spending_by_category == [
         CategorySpend(category="Groceries", amount=300.0, pct_of_expenses=100.0),
     ]
+
+
+def test_annual_overview_debt_summary_sums_by_notes_over_elapsed_months(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, 1), amount=800.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+            make_transaction(date=date(2026, 8, 1), amount=800.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+            make_transaction(date=date(2026, 9, 1), amount=999.0, type="Debt", category="Mortgage Repayment", notes="Not yet elapsed"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21))
+
+    assert overview.debt_summary == [
+        DebtByNotes(notes="Werribee", amount=1600.0, pct_of_debt=100.0),
+    ]
+
+
+def test_annual_overview_debt_summary_total_matches_stat_tiles_debt(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, 1), amount=800.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+            make_transaction(date=date(2026, 8, 1), amount=500.0, type="Debt", category="Mortgage Repayment", notes="Investment property"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21))
+
+    assert sum(row.amount for row in overview.debt_summary) == overview.stat_tiles.debt
+
+
+def test_annual_overview_debt_summary_excludes_non_debt_types(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, 1), amount=300.0, type="Expense", category="Groceries", notes="Woolworths"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21))
+
+    assert overview.debt_summary == []
+
+
+def test_annual_overview_debt_summary_is_empty_with_no_debt_transactions(fake_store):
+    store = fake_store(transactions=[])
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21))
+
+    assert overview.debt_summary == []
 
 
 def test_annual_overview_budgeted_vs_actual_expected_is_always_null_regardless_of_category_budget(
