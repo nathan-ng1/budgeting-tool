@@ -7,8 +7,8 @@ from transaction_log.categories import (
 )
 
 
-def test_the_three_types_are_income_expense_and_transfer():
-    assert set(CATEGORIES_BY_TYPE) == {"Income", "Expense", "Transfer"}
+def test_the_four_types_are_income_expense_debt_and_transfer():
+    assert set(CATEGORIES_BY_TYPE) == {"Income", "Expense", "Debt", "Transfer"}
 
 
 def test_transfer_has_no_categories_yet():
@@ -26,7 +26,7 @@ def test_transfer_has_no_categories_yet():
         ("Expense", "Groceries"),
         ("Expense", "Subscriptions"),
         ("Expense", "Rental Expense"),
-        ("Expense", "Mortgage Repayment"),
+        ("Debt", "Mortgage Repayment"),
     ],
 )
 def test_a_category_validates_under_its_own_type(transaction_type, category):
@@ -39,7 +39,7 @@ def test_a_category_validates_under_its_own_type(transaction_type, category):
         ("Income", "Groceries"),  # Groceries is an Expense
         ("Expense", "Salary"),  # Salary is Income
         ("Transfer", "Groceries"),  # Transfer has no Categories at all
-        ("Debt", "Mortgage Repayment"),  # Debt is a retired Type
+        ("Expense", "Mortgage Repayment"),  # Mortgage Repayment moved to Debt
         ("Made Up Type", "Made Up Category"),
     ],
 )
@@ -48,7 +48,7 @@ def test_a_category_under_the_wrong_type_is_rejected(transaction_type, category)
 
 
 def test_types_with_categories_omits_a_type_that_has_none_yet():
-    assert types_with_categories() == ["Expense", "Income"]
+    assert types_with_categories() == ["Debt", "Expense", "Income"]
 
 
 def test_types_with_categories_accepts_an_explicit_mapping():

@@ -44,7 +44,7 @@ def test_remap_transaction_log_rows_maps_expenses_group_to_expense_type():
     ]
 
 
-def test_remap_transaction_log_rows_maps_debt_mortgage_repayment_to_expense():
+def test_remap_transaction_log_rows_maps_debt_mortgage_repayment_to_debt():
     rows = [
         LegacyTransactionLogRow(
             date=date(2026, 7, 30), amount=875.0, category="Debt", sub_category="Mortgage Repayment", notes="Werribee"
@@ -53,7 +53,7 @@ def test_remap_transaction_log_rows_maps_debt_mortgage_repayment_to_expense():
 
     [candidate] = remap_transaction_log_rows(rows)
 
-    assert candidate.type == "Expense"
+    assert candidate.type == "Debt"
     assert candidate.category == "Mortgage Repayment"
 
 

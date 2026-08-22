@@ -40,7 +40,7 @@ def test_parse_legacy_config_remaps_a_salary_rule(tmp_path: Path):
     ]
 
 
-def test_parse_legacy_config_remaps_debt_mortgage_repayment_to_expense(tmp_path: Path):
+def test_parse_legacy_config_remaps_debt_mortgage_repayment_to_debt(tmp_path: Path):
     path = tmp_path / "recurring-transactions.xlsx"
     _write_workbook(
         path,
@@ -49,7 +49,7 @@ def test_parse_legacy_config_remaps_debt_mortgage_repayment_to_expense(tmp_path:
 
     [rule] = parse_legacy_config(path)
 
-    assert rule.type == "Expense"
+    assert rule.type == "Debt"
     assert rule.category == "Mortgage Repayment"
     assert rule.notes == "Werribee"
 

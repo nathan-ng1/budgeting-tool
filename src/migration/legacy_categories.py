@@ -14,7 +14,7 @@ def remap_type_category(legacy_category: str, legacy_sub_category: str) -> tuple
     if legacy_category in _EXPENSE_GROUPS:
         return "Expense", legacy_sub_category
     if legacy_category == "Debt" and legacy_sub_category == "Mortgage Repayment":
-        return "Expense", "Mortgage Repayment"
+        return "Debt", "Mortgage Repayment"
     raise ValueError(
         f"No historical remap rule for legacy Category={legacy_category!r}, "
         f"Sub-category={legacy_sub_category!r}"

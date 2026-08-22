@@ -12,7 +12,7 @@ def test_candidate_with_valid_type_and_category_pair_is_accepted(make_candidate)
     [
         ("Income", "Subscriptions"),  # Subscriptions is an Expense Category
         ("Expense", "Salary"),  # Salary is an Income Category
-        ("Income", "Mortgage Repayment"),  # Mortgage Repayment is an Expense Category
+        ("Income", "Mortgage Repayment"),  # Mortgage Repayment is a Debt Category
         ("Transfer", "Groceries"),  # Transfer has no Categories yet
         ("Made Up Type", "Made Up Category"),
     ],
