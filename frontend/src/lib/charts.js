@@ -42,22 +42,26 @@ export function donutSegments(spendingByCategory) {
   });
 }
 
-// Income vs Expenses by Month: the mockup's grouped-bar-plus-line plot area,
-// sized for 12 equal month slots (Issue #41).
+// Income, Expenses & Debt by Month: the mockup's grouped-bar-plus-line plot
+// area, sized for 12 equal month slots (Issue #41; Debt bar added by #50).
 export const MONTH_CHART_WIDTH = 720;
 export const MONTH_CHART_HEIGHT = 240;
 const MONTH_SLOT_WIDTH = MONTH_CHART_WIDTH / 12;
-const MONTH_BAR_WIDTH = 17;
-const MONTH_INCOME_BAR_OFFSET = 11;
-const MONTH_EXPENSE_BAR_OFFSET = 32;
-const MONTH_LINE_OFFSET = 30;
+const MONTH_BAR_WIDTH = 12;
+const MONTH_BAR_GAP = 3;
+// Three bars-plus-gaps centred within the month slot.
+const MONTH_BARS_WIDTH = 3 * MONTH_BAR_WIDTH + 2 * MONTH_BAR_GAP;
+const MONTH_INCOME_BAR_OFFSET = (MONTH_SLOT_WIDTH - MONTH_BARS_WIDTH) / 2;
+const MONTH_EXPENSE_BAR_OFFSET = MONTH_INCOME_BAR_OFFSET + MONTH_BAR_WIDTH + MONTH_BAR_GAP;
+const MONTH_DEBT_BAR_OFFSET = MONTH_EXPENSE_BAR_OFFSET + MONTH_BAR_WIDTH + MONTH_BAR_GAP;
+const MONTH_LINE_OFFSET = MONTH_INCOME_BAR_OFFSET + MONTH_BARS_WIDTH / 2;
 
 export function monthlyComparisonChart(monthlyTotals) {
   if (monthlyTotals.length === 0) {
-    return { incomeBars: [], expenseBars: [], netPoints: [], netLinePath: "", axisMax: 0, yTicks: [] };
+    return { incomeBars: [], expenseBars: [], debtBars: [], netPoints: [], netLinePath: "", axisMax: 0, yTicks: [] };
   }
 
-  const peak = Math.max(...monthlyTotals.map((m) => Math.max(m.income, m.expenses)));
+  const peak = Math.max(...monthlyTotals.map((m) => Math.max(m.income, m.expenses, m.debt)));
   const axisMax = roundedAxisMax(peak);
   const valueY = (value) => MONTH_CHART_HEIGHT - (value / axisMax) * MONTH_CHART_HEIGHT;
 
@@ -70,6 +74,7 @@ export function monthlyComparisonChart(monthlyTotals) {
 
   const incomeBars = monthlyTotals.map((m, index) => bar(m.income, MONTH_INCOME_BAR_OFFSET, index));
   const expenseBars = monthlyTotals.map((m, index) => bar(m.expenses, MONTH_EXPENSE_BAR_OFFSET, index));
+  const debtBars = monthlyTotals.map((m, index) => bar(m.debt, MONTH_DEBT_BAR_OFFSET, index));
 
   const netPoints = monthlyTotals.map((m, index) => ({
     x: index * MONTH_SLOT_WIDTH + MONTH_LINE_OFFSET,
@@ -80,7 +85,7 @@ export function monthlyComparisonChart(monthlyTotals) {
   }));
   const netLinePath = netPoints.map((point, index) => `${index === 0 ? "M" : "L"}${point.x},${point.y}`).join(" ");
 
-  return { incomeBars, expenseBars, netPoints, netLinePath, axisMax, yTicks: yTicksUpTo(axisMax) };
+  return { incomeBars, expenseBars, debtBars, netPoints, netLinePath, axisMax, yTicks: yTicksUpTo(axisMax) };
 }
 
 export function cumulativeChart(daily) {

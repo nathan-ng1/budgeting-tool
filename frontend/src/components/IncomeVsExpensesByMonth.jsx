@@ -9,7 +9,7 @@ export default function IncomeVsExpensesByMonth({ months }) {
   return (
     <section className="card card--chart">
       <div className="card__head">
-        <h3>Income vs Expenses by Month</h3>
+        <h3>Income, Expenses & Debt by Month</h3>
         <div className="allocation__legend">
           <span className="allocation__legend-item">
             <span className="dot dot--lg" style={{ background: "var(--color-accent-2-500)" }} />
@@ -18,6 +18,10 @@ export default function IncomeVsExpensesByMonth({ months }) {
           <span className="allocation__legend-item">
             <span className="dot dot--lg" style={{ background: "var(--color-accent-600)" }} />
             Expenses
+          </span>
+          <span className="allocation__legend-item">
+            <span className="dot dot--lg" style={{ background: "var(--color-debt)" }} />
+            Debt
           </span>
           <span className="allocation__legend-item">
             <span className="mbe__line-swatch" />
@@ -44,7 +48,7 @@ export default function IncomeVsExpensesByMonth({ months }) {
             viewBox={`0 0 ${MONTH_CHART_WIDTH} ${MONTH_CHART_HEIGHT}`}
             preserveAspectRatio="none"
             role="img"
-            aria-label="Income and Expenses for every month of the Financial Year, with a Net line"
+            aria-label="Income, Expenses, and Debt for every month of the Financial Year, with a Net line"
           >
             <g stroke="var(--color-neutral-300)" strokeWidth="1" vectorEffect="non-scaling-stroke">
               {gridlines.map((y) => (
@@ -58,6 +62,11 @@ export default function IncomeVsExpensesByMonth({ months }) {
             </g>
             <g fill="var(--color-accent-600)">
               {chart.expenseBars.map((bar, index) => (
+                <rect key={index} x={bar.x} y={bar.y} width={bar.width} height={bar.height} rx="3" />
+              ))}
+            </g>
+            <g fill="var(--color-debt)">
+              {chart.debtBars.map((bar, index) => (
                 <rect key={index} x={bar.x} y={bar.y} width={bar.width} height={bar.height} rx="3" />
               ))}
             </g>
