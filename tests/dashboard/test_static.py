@@ -3,6 +3,7 @@ Month Overview endpoint - see Issue #28 and ADR-0008 (nothing is hosted
 off-machine).
 """
 
+import socket
 from http.client import HTTPConnection
 from pathlib import Path
 from urllib.error import HTTPError
@@ -26,8 +27,10 @@ def serving(serve, store, built_page: Path):
     return serve(store, static_root=built_page)
 
 
-def get(server, path):
-    return urlopen(f"http://127.0.0.1:{server.server_port}{path}")
+def get(server, path, timeout: float | None = None):
+    # A timeout turns "the server never answers" into a failure rather than a
+    # test run that hangs - see the idle-socket tests below.
+    return urlopen(f"http://127.0.0.1:{server.server_port}{path}", timeout=timeout)
 
 
 def test_the_root_path_serves_the_dashboard_page(serving):
@@ -92,3 +95,28 @@ def test_without_a_built_page_the_root_says_how_to_build_it(serve, store, tmp_pa
 
     assert exc_info.value.code == 501
     assert b"npm run build" in exc_info.value.read()
+
+
+def test_an_idle_socket_does_not_stop_the_page_being_served(serving):
+    # Browsers open speculative "preconnect" sockets and send nothing on them.
+    # A server that handles one connection at a time blocks reading a request
+    # line that never arrives, so index.html arrives but its JS and CSS never
+    # do and the page renders blank - Issue #45.
+    idle = socket.create_connection(("127.0.0.1", serving.server_port))
+    try:
+        with get(serving, "/assets/index-abc123.js", timeout=10) as response:
+            assert response.status == 200
+    finally:
+        idle.close()
+
+
+def test_several_idle_sockets_do_not_stop_the_api_answering(serving):
+    # A real preconnect burst is more than one socket, and the API has to stay
+    # reachable through it or the page renders with no data.
+    idles = [socket.create_connection(("127.0.0.1", serving.server_port)) for _ in range(6)]
+    try:
+        with get(serving, "/api/overview?year=2026&month=8", timeout=10) as response:
+            assert response.status == 200
+    finally:
+        for idle in idles:
+            idle.close()

@@ -290,9 +290,10 @@ def connect(database_path: Path | None = None) -> LocalStore:
         database_path = Path(os.environ["DATABASE_PATH"])
 
     database_path.parent.mkdir(parents=True, exist_ok=True)
-    # check_same_thread=False: the Dashboard's local HTTP server runs its
-    # request-handling loop on a different thread than the one that opens
-    # this connection, but serves one request at a time - never concurrent.
+    # check_same_thread=False: the Dashboard's local HTTP server handles each
+    # connection on its own thread, so this connection is used from threads
+    # other than the one that opened it. A lock in dashboard.server serialises
+    # the handlers, so access stays one request at a time - never concurrent.
     connection = sqlite3.connect(database_path, check_same_thread=False)
     connection.executescript(SCHEMA)
     connection.commit()
