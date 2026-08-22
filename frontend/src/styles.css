@@ -275,20 +275,21 @@ button.nav__tab:hover {
 
 .tiles {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
 }
 
 .tile {
   background: var(--color-card);
   border: 1px solid var(--color-neutral-300);
   border-radius: var(--radius-md);
-  padding: 20px 22px;
+  padding: 16px 16px;
+  min-width: 0;
 }
 
 .tile__label {
-  font-size: 11.5px;
-  letter-spacing: 0.09em;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--color-neutral-600);
   font-weight: 600;
@@ -296,15 +297,15 @@ button.nav__tab:hover {
 
 .tile__value {
   font-family: var(--font-heading);
-  font-size: 31px;
+  font-size: 25px;
   line-height: 1.15;
-  margin-top: 10px;
+  margin-top: 8px;
   letter-spacing: -0.015em;
 }
 
 .tile__average {
-  margin-top: 7px;
-  font-size: 12px;
+  margin-top: 6px;
+  font-size: 11px;
   color: var(--color-neutral-500);
 }
 
