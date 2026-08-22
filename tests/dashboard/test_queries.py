@@ -595,7 +595,7 @@ def test_annual_overview_month_by_month_sums_each_month_independently(fake_store
         transactions=[
             make_transaction(date=date(2026, 7, 1), amount=1000.0, type="Income", category="Salary", notes="Employer"),
             make_transaction(date=date(2026, 7, 2), amount=400.0, type="Expense", category="Groceries", notes="Woolworths"),
-            make_transaction(date=date(2026, 7, 2), amount=150.0, type="Debt", category="Credit Card", notes="Repayment"),
+            make_transaction(date=date(2026, 7, 2), amount=150.0, type="Debt", category="Mortgage Repayment", notes="Repayment"),
             make_transaction(date=date(2026, 7, 3), amount=100.0, type="Transfer", category="Savings", notes="To savings"),
             make_transaction(date=date(2026, 8, 5), amount=500.0, type="Income", category="Salary", notes="Employer"),
         ]
