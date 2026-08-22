@@ -19,6 +19,11 @@ export default function DebtSummary({ debtSummary, total, average }) {
         <p className="state">No Debt repayments recorded for this period.</p>
       ) : (
         <div className="debt-summary">
+          <div className="debt-summary__row debt-summary__head">
+            <span>Notes</span>
+            <span />
+            <span className="debt-summary__amount">Amount</span>
+          </div>
           {debtSummary.map((row) => (
             <div key={row.notes} className="debt-summary__row">
               <span className="debt-summary__name" title={row.notes}>

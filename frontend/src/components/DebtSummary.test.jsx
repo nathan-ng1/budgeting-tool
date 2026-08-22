@@ -51,4 +51,23 @@ describe("DebtSummary", () => {
 
     expect(screen.getByText(/No Debt repayments recorded/i)).toBeInTheDocument();
   });
+
+  it("shows Notes/Amount column headers above the list", () => {
+    render(
+      <DebtSummary
+        debtSummary={[{ notes: "Werribee", amount: 1600, pct_of_debt: 100 }]}
+        total={1600}
+      />,
+    );
+
+    expect(screen.getByText("Notes")).toBeInTheDocument();
+    expect(screen.getByText("Amount")).toBeInTheDocument();
+  });
+
+  it("shows no column headers alongside the empty state", () => {
+    render(<DebtSummary debtSummary={[]} total={0} />);
+
+    expect(screen.queryByText("Notes")).not.toBeInTheDocument();
+    expect(screen.queryByText("Amount")).not.toBeInTheDocument();
+  });
 });
