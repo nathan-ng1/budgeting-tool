@@ -3,8 +3,10 @@ ADR-0008 (local web app, no data leaves the machine). Binds to localhost only.
 """
 
 import json
+import threading
 from dataclasses import asdict
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from functools import wraps
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
@@ -36,15 +38,45 @@ BUILD_INSTRUCTIONS = (
 )
 
 
-def build_server(store, host: str = "127.0.0.1", port: int = 0, static_root: Path = STATIC_ROOT) -> HTTPServer:
-    # Single-threaded: the sqlite connection on `store` is not safe for
-    # concurrent access, and this is a single local user - one request at a
-    # time is fine.
-    return HTTPServer((host, port), _make_handler(store, static_root))
+def build_server(store, host: str = "127.0.0.1", port: int = 0, static_root: Path = STATIC_ROOT) -> ThreadingHTTPServer:
+    # Threaded, but one request at a time: `store_lock` serialises every
+    # handler, so the sqlite connection on `store` is still only ever touched
+    # by one request at once.
+    #
+    # A thread per connection is what stops a blank page. Browsers open
+    # speculative "preconnect" sockets and send nothing on them; a
+    # single-connection server accepts one, blocks reading a request line that
+    # never arrives, and queues every real request behind it - index.html
+    # arrives, its JS and CSS never do, and the page renders empty (Issue #45).
+    server = ThreadingHTTPServer((host, port), _make_handler(store, static_root))
+    # Idle preconnect sockets must not keep the process alive at shutdown.
+    server.daemon_threads = True
+    return server
 
 
 def _make_handler(store, static_root: Path):
+    # Serialises the handlers, so they keep the single-request-at-a-time access
+    # to `store` that its sqlite connection needs.
+    store_lock = threading.Lock()
+
+    def serialised(method):
+        """Run `method` under `store_lock`.
+
+        Deliberately wraps the dispatch only, not the socket read that precedes
+        it: a browser preconnect socket sits open having sent nothing, and
+        holding the lock across that read would block every other request
+        exactly as the single-connection server used to (Issue #45).
+        """
+
+        @wraps(method)
+        def wrapper(self):
+            with store_lock:
+                return method(self)
+
+        return wrapper
+
     class DashboardRequestHandler(BaseHTTPRequestHandler):
+        @serialised
         def do_GET(self):
             parsed = urlparse(self.path)
 
@@ -73,6 +105,7 @@ def _make_handler(store, static_root: Path):
             else:
                 self._serve_static(parsed.path)
 
+        @serialised
         def do_POST(self):
             path = urlparse(self.path).path
             if path == RECURRING_RULES_PATH:
@@ -82,6 +115,7 @@ def _make_handler(store, static_root: Path):
             else:
                 self._send_json(404, {"error": "Not found"})
 
+        @serialised
         def do_PUT(self):
             rule_id = self._id_after(RECURRING_RULES_PATH)
             if rule_id is not None:
@@ -97,6 +131,7 @@ def _make_handler(store, static_root: Path):
 
             self._send_json(404, {"error": "Not found"})
 
+        @serialised
         def do_DELETE(self):
             rule_id = self._id_after(RECURRING_RULES_PATH)
             if rule_id is not None:
