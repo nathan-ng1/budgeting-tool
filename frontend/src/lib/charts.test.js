@@ -75,19 +75,21 @@ describe("cumulativeChart", () => {
 
 describe("monthlyComparisonChart", () => {
   const months = [
-    { income: 1000, expenses: 600, net_balance: 400 },
-    { income: 0, expenses: 0, net_balance: 0 },
+    { income: 1000, expenses: 600, debt: 300, net_balance: 400 },
+    { income: 0, expenses: 0, debt: 0, net_balance: 0 },
   ];
 
-  it("lays out each month's income and expense bars in its own slot, tallest against a round axis max", () => {
+  it("lays out each month's income, expense, and debt bars in its own slot, tallest against a round axis max", () => {
     const chart = monthlyComparisonChart(months);
 
     expect(chart.axisMax).toBe(1000);
-    expect(chart.incomeBars[0]).toEqual({ x: 11, y: 0, width: 17, height: 240 });
-    expect(chart.expenseBars[0]).toEqual({ x: 32, y: 96, width: 17, height: 144 });
+    expect(chart.incomeBars[0]).toEqual({ x: 9, y: 0, width: 12, height: 240 });
+    expect(chart.expenseBars[0]).toEqual({ x: 24, y: 96, width: 12, height: 144 });
+    expect(chart.debtBars[0]).toEqual({ x: 39, y: 168, width: 12, height: 72 });
     // Second month's slot starts where the first one's 60-wide slot ends.
-    expect(chart.incomeBars[1].x).toBe(71);
-    expect(chart.expenseBars[1].x).toBe(92);
+    expect(chart.incomeBars[1].x).toBe(69);
+    expect(chart.expenseBars[1].x).toBe(84);
+    expect(chart.debtBars[1].x).toBe(99);
   });
 
   it("plots the Net line through the centre of each month's slot", () => {
@@ -98,11 +100,12 @@ describe("monthlyComparisonChart", () => {
     expect(chart.netLinePath).toBe("M30,144 L90,240");
   });
 
-  it("renders a month with no Income or Expenses as a zero-height bar, not an omitted one", () => {
+  it("renders a month with no Income, Expenses, or Debt as a zero-height bar, not an omitted one", () => {
     const chart = monthlyComparisonChart(months);
 
     expect(chart.incomeBars[1].height).toBe(0);
     expect(chart.expenseBars[1].height).toBe(0);
+    expect(chart.debtBars[1].height).toBe(0);
   });
 
   it("has nothing to draw when there are no months", () => {
@@ -110,12 +113,13 @@ describe("monthlyComparisonChart", () => {
 
     expect(chart.incomeBars).toEqual([]);
     expect(chart.expenseBars).toEqual([]);
+    expect(chart.debtBars).toEqual([]);
     expect(chart.netPoints).toEqual([]);
     expect(chart.netLinePath).toBe("");
   });
 
   it("clamps a deficit month's Net point to the $0 baseline instead of letting it run off the chart", () => {
-    const chart = monthlyComparisonChart([{ income: 400, expenses: 1000, net_balance: -600 }]);
+    const chart = monthlyComparisonChart([{ income: 400, expenses: 1000, debt: 0, net_balance: -600 }]);
 
     expect(chart.netPoints[0].y).toBe(240);
   });

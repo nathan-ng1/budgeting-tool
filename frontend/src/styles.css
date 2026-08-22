@@ -524,7 +524,7 @@ button.nav__tab:hover {
 
 .mbm__row {
   display: grid;
-  grid-template-columns: 96px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: 96px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   padding: 9px 0;

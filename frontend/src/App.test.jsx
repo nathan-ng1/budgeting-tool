@@ -171,7 +171,7 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Where did my income go?" })).toBeInTheDocument();
   });
 
-  it("renders Full year's Spending by Category, Budgeted vs Actual, Month by month, Income vs Expenses by Month, and Top 10 expenses", async () => {
+  it("renders Full year's Spending by Category, Budgeted vs Actual, Month by month, Income, Expenses & Debt by Month, and Top 10 expenses", async () => {
     respondWith();
     render(<App />);
     await screen.findByText("$8,000");
@@ -182,7 +182,7 @@ describe("App", () => {
     expect(screen.getAllByText("—").length).toBeGreaterThan(0);
 
     expect(screen.getByRole("heading", { name: "Month by month" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Income vs Expenses by Month" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Income, Expenses & Debt by Month" })).toBeInTheDocument();
 
     expect(screen.getByRole("heading", { name: "Top 10 expenses" })).toBeInTheDocument();
     expect(screen.getByText("Woolworths")).toBeInTheDocument();

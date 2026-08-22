@@ -14,6 +14,7 @@ function NetCell({ value }) {
 export default function MonthByMonth({ months }) {
   const totalIncome = months.reduce((sum, m) => sum + m.income, 0);
   const totalExpenses = months.reduce((sum, m) => sum + m.expenses, 0);
+  const totalDebt = months.reduce((sum, m) => sum + m.debt, 0);
   const totalNet = months.reduce((sum, m) => sum + m.net_balance, 0);
   const totalTransferred = months.reduce((sum, m) => sum + m.transferred, 0);
 
@@ -38,6 +39,9 @@ export default function MonthByMonth({ months }) {
               Expenses
             </th>
             <th scope="col" className="mbm__num">
+              Debt
+            </th>
+            <th scope="col" className="mbm__num">
               Net
             </th>
             <th scope="col" className="mbm__num">
@@ -51,6 +55,7 @@ export default function MonthByMonth({ months }) {
               <td className="mbm__name">{MONTH_LABELS_LONG[m.month - 1]}</td>
               <td className="mbm__num numeric">{money(m.income)}</td>
               <td className="mbm__num numeric">{money(m.expenses)}</td>
+              <td className="mbm__num numeric">{money(m.debt)}</td>
               <NetCell value={m.net_balance} />
               <td className="mbm__num numeric muted">{money(m.transferred)}</td>
             </tr>
@@ -61,6 +66,7 @@ export default function MonthByMonth({ months }) {
             <td className="mbm__name">Total</td>
             <td className="mbm__num numeric">{money(totalIncome)}</td>
             <td className="mbm__num numeric">{money(totalExpenses)}</td>
+            <td className="mbm__num numeric">{money(totalDebt)}</td>
             <NetCell value={totalNet} />
             <td className="mbm__num numeric muted">{money(totalTransferred)}</td>
           </tr>
