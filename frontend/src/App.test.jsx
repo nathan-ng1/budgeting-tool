@@ -4,10 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App.jsx";
 
-const ZERO_STAT_TILES = { income: 0, expenses: 0, net_balance: 0, transferred: 0 };
+const ZERO_STAT_TILES = { income: 0, expenses: 0, debt: 0, net_balance: 0, transferred: 0 };
 const ZERO_ALLOCATION = {
   expenses_amount: 0,
   expenses_pct: 0,
+  debt_amount: 0,
+  debt_pct: 0,
   transferred_amount: 0,
   transferred_pct: 0,
   remaining_amount: 0,
@@ -34,10 +36,12 @@ function monthWithSpending(year, month) {
   return monthOverview({
     year,
     month,
-    stat_tiles: { income: 5240, expenses: 3667, net_balance: 1573, transferred: 900 },
+    stat_tiles: { income: 5240, expenses: 3667, debt: 0, net_balance: 1573, transferred: 900 },
     income_allocation: {
       expenses_amount: 3667,
       expenses_pct: 70,
+      debt_amount: 0,
+      debt_pct: 0,
       transferred_amount: 900,
       transferred_pct: 17.2,
       remaining_amount: 673,
@@ -82,15 +86,17 @@ function annualOverview(overrides = {}) {
 
 function annualWithSpending() {
   const months = ZERO_MONTHS.map((m, index) =>
-    index === 0 ? { ...m, income: 5240, expenses: 3810, net_balance: 1430, transferred: 900 } : m,
+    index === 0 ? { ...m, income: 5240, expenses: 3810, debt: 0, net_balance: 1430, transferred: 900 } : m,
   );
 
   return annualOverview({
-    stat_tiles: { income: 8000, expenses: 6000, net_balance: 2000, transferred: 1000 },
-    monthly_average: { income: 4000, expenses: 3000, net_balance: 1000, transferred: 500 },
+    stat_tiles: { income: 8000, expenses: 6000, debt: 0, net_balance: 2000, transferred: 1000 },
+    monthly_average: { income: 4000, expenses: 3000, debt: 0, net_balance: 1000, transferred: 500 },
     income_allocation: {
       expenses_amount: 6000,
       expenses_pct: 75,
+      debt_amount: 0,
+      debt_pct: 0,
       transferred_amount: 1000,
       transferred_pct: 12.5,
       remaining_amount: 1000,

@@ -7,6 +7,8 @@ function allocation(overrides = {}) {
   return {
     expenses_amount: 0,
     expenses_pct: 0,
+    debt_amount: 0,
+    debt_pct: 0,
     transferred_amount: 0,
     transferred_pct: 0,
     remaining_amount: 0,
@@ -38,6 +40,33 @@ describe("IncomeAllocation", () => {
     expect(screen.getByText("Remaining")).toBeInTheDocument();
   });
 
+  it("renders a Debt segment ordered between Expenses and Transferred", () => {
+    render(
+      <IncomeAllocation
+        income={5240}
+        allocation={allocation({
+          expenses_amount: 2000,
+          expenses_pct: 38.2,
+          debt_amount: 800,
+          debt_pct: 15.3,
+          transferred_amount: 900,
+          transferred_pct: 17.2,
+          remaining_amount: 1540,
+          remaining_pct: 29.4,
+        })}
+      />,
+    );
+
+    // Each legend item's own direct text node is just its label - the percentage
+    // lives in a nested span - so matching on direct text (not full textContent,
+    // which would also pick up the nested percentage) gives the label order.
+    const legendLabels = screen
+      .getAllByText(/^(Expenses|Debt|Transferred|Remaining)$/)
+      .map((el) => el.textContent.trim().split(" ")[0]);
+    expect(legendLabels).toEqual(["Expenses", "Debt", "Transferred", "Remaining"]);
+    expect(screen.getByText("15.3%")).toBeInTheDocument();
+  });
+
   it("says how far past income the month went when outflows exceeded it", () => {
     render(
       <IncomeAllocation
@@ -64,6 +93,12 @@ describe("IncomeAllocation", () => {
 
     expect(screen.queryByText("0.0%")).not.toBeInTheDocument();
     expect(screen.getByText(/No income recorded for this month/i)).toHaveTextContent("$2,000");
+  });
+
+  it("mentions debt repayments in the no-income message when there was Debt outflow", () => {
+    render(<IncomeAllocation income={0} allocation={allocation({ debt_amount: 800 })} />);
+
+    expect(screen.getByText(/No income recorded for this month/i)).toHaveTextContent("$800");
   });
 
   it("is plain about a month with neither income nor outflows", () => {

@@ -92,7 +92,7 @@ The Overview tab's other selector state, alongside a specific month: aggregates 
 _Avoid_: Annual Overview, Year view, Yearly
 
 **Net Balance**:
-A Dashboard stat tile: a month's Income total minus that same month's Expense total. Deliberately excludes Transfers — a Transfer neither adds to nor subtracts from Net Balance, since it's money moved, not spent or earned. See [ADR-0009](./docs/adr/0009-overview-tab-scope-follows-the-approved-mockup.md).
+A Dashboard stat tile: `Income − Expenses − Debt` for the period shown. Deliberately excludes Transfers — a Transfer neither adds to nor subtracts from Net Balance, since it's money moved, not spent or earned. See [ADR-0009](./docs/adr/0009-overview-tab-scope-follows-the-approved-mockup.md) and [ADR-0012](./docs/adr/0012-split-debt-back-out-of-expense.md) (which added the `− Debt` term when Debt split out of Expense).
 _Avoid_: Net income, Surplus, Cash flow
 
 **Category Budget**:

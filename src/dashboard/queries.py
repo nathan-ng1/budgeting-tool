@@ -16,6 +16,7 @@ from transaction_log.entries import Transaction
 class StatTiles:
     income: float
     expenses: float
+    debt: float
     net_balance: float
     transferred: float
 
@@ -24,6 +25,8 @@ class StatTiles:
 class IncomeAllocation:
     expenses_amount: float
     expenses_pct: float
+    debt_amount: float
+    debt_pct: float
     transferred_amount: float
     transferred_pct: float
     remaining_amount: float
@@ -87,6 +90,7 @@ class MonthlyTotals:
     month: int
     income: float
     expenses: float
+    debt: float
     net_balance: float
     transferred: float
 
@@ -113,7 +117,9 @@ def get_month_overview(store, year: int, month: int) -> MonthOverview:
         year=year,
         month=month,
         stat_tiles=stat_tiles,
-        income_allocation=_income_allocation(stat_tiles.income, stat_tiles.expenses, stat_tiles.transferred),
+        income_allocation=_income_allocation(
+            stat_tiles.income, stat_tiles.expenses, stat_tiles.debt, stat_tiles.transferred
+        ),
         spending_by_category=_spending_by_category(transactions, stat_tiles.expenses),
         budgeted_vs_actual=_budgeted_vs_actual(transactions, store.read_category_budgets()),
         top_expenses=_top_expenses(transactions, limit=5),
@@ -139,7 +145,9 @@ def get_annual_overview(store, year: int, today: date | None = None) -> AnnualOv
         elapsed_months=elapsed_months,
         stat_tiles=stat_tiles,
         monthly_average=_monthly_average(stat_tiles, elapsed_months),
-        income_allocation=_income_allocation(stat_tiles.income, stat_tiles.expenses, stat_tiles.transferred),
+        income_allocation=_income_allocation(
+            stat_tiles.income, stat_tiles.expenses, stat_tiles.debt, stat_tiles.transferred
+        ),
         spending_by_category=_spending_by_category(transactions, stat_tiles.expenses),
         budgeted_vs_actual=_annual_budgeted_vs_actual(transactions),
         top_expenses=_top_expenses(transactions, limit=10),
@@ -181,9 +189,10 @@ def get_latest_transaction_date(store) -> date | None:
 def _stat_tiles(transactions: list[Transaction]) -> StatTiles:
     income = _round(sum(t.amount for t in transactions if t.type == "Income"))
     expenses = _round(sum(t.amount for t in transactions if t.type == "Expense"))
+    debt = _round(sum(t.amount for t in transactions if t.type == "Debt"))
     transferred = _round(sum(t.amount for t in transactions if t.type == "Transfer"))
-    net_balance = _round(income - expenses)
-    return StatTiles(income=income, expenses=expenses, net_balance=net_balance, transferred=transferred)
+    net_balance = _round(income - expenses - debt)
+    return StatTiles(income=income, expenses=expenses, debt=debt, net_balance=net_balance, transferred=transferred)
 
 
 def _elapsed_months(year: int, today: date) -> int:
@@ -204,20 +213,23 @@ def _add_months(start: date, months: int) -> date:
 
 def _monthly_average(totals: StatTiles, elapsed_months: int) -> StatTiles:
     if elapsed_months == 0:
-        return StatTiles(income=0.0, expenses=0.0, net_balance=0.0, transferred=0.0)
+        return StatTiles(income=0.0, expenses=0.0, debt=0.0, net_balance=0.0, transferred=0.0)
     return StatTiles(
         income=_round(totals.income / elapsed_months),
         expenses=_round(totals.expenses / elapsed_months),
+        debt=_round(totals.debt / elapsed_months),
         net_balance=_round(totals.net_balance / elapsed_months),
         transferred=_round(totals.transferred / elapsed_months),
     )
 
 
-def _income_allocation(income: float, expenses: float, transferred: float) -> IncomeAllocation:
+def _income_allocation(income: float, expenses: float, debt: float, transferred: float) -> IncomeAllocation:
     if income <= 0:
         return IncomeAllocation(
             expenses_amount=expenses,
             expenses_pct=0.0,
+            debt_amount=debt,
+            debt_pct=0.0,
             transferred_amount=transferred,
             transferred_pct=0.0,
             remaining_amount=0.0,
@@ -226,13 +238,15 @@ def _income_allocation(income: float, expenses: float, transferred: float) -> In
             over_income_pct=0.0,
         )
 
-    remaining = income - expenses - transferred
+    remaining = income - expenses - debt - transferred
     remaining_amount = max(remaining, 0.0)
     over_income_amount = max(-remaining, 0.0)
 
     return IncomeAllocation(
         expenses_amount=expenses,
         expenses_pct=_pct(expenses, income),
+        debt_amount=debt,
+        debt_pct=_pct(debt, income),
         transferred_amount=transferred,
         transferred_pct=_pct(transferred, income),
         remaining_amount=_round(remaining_amount),
@@ -316,6 +330,7 @@ def _monthly_totals(transactions: list[Transaction], start: date) -> list[Monthl
                 month=month_start.month,
                 income=tiles.income,
                 expenses=tiles.expenses,
+                debt=tiles.debt,
                 net_balance=tiles.net_balance,
                 transferred=tiles.transferred,
             )

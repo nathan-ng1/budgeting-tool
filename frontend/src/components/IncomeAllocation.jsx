@@ -3,6 +3,7 @@ import { money } from "../lib/format.js";
 
 const SEGMENT_COLOURS = {
   expenses: "var(--color-accent-600)",
+  debt: "var(--color-debt)",
   transferred: "var(--color-accent-300)",
   remaining: "var(--color-accent-2-500)",
   over_income: "var(--color-danger)",
@@ -15,7 +16,7 @@ export default function IncomeAllocation({ allocation, income }) {
   // every percentage. Rendering that as "Expenses 0.0%" beside an empty bar
   // would read as "nothing was spent" even when plenty was - say so instead.
   if (income <= 0) {
-    const outflow = allocation.expenses_amount + allocation.transferred_amount;
+    const outflow = allocation.expenses_amount + allocation.debt_amount + allocation.transferred_amount;
     return (
       <section className="card">
         <div className="card__head">
@@ -23,9 +24,9 @@ export default function IncomeAllocation({ allocation, income }) {
         </div>
         <p className="state">
           {outflow > 0
-            ? `No income recorded for this month, against ${money(allocation.expenses_amount)} of expenses and ${money(
-                allocation.transferred_amount,
-              )} transferred.`
+            ? `No income recorded for this month, against ${money(allocation.expenses_amount)} of expenses, ${money(
+                allocation.debt_amount,
+              )} of debt repayments, and ${money(allocation.transferred_amount)} transferred.`
             : "No income recorded for this month."}
         </p>
       </section>

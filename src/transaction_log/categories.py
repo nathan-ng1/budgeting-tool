@@ -26,6 +26,12 @@ CATEGORIES_BY_TYPE = {
     "Transfer": set(),
 }
 
+# The Type order presented to a user - CONTEXT.md's own definition order, not
+# the alphabetical order types_with_categories() returns below (that order is
+# only for internal iteration - the categorisation prompt and terminal review -
+# where display order doesn't matter).
+TYPE_ORDER = ("Income", "Expense", "Debt", "Transfer")
+
 
 def is_valid_type_category_pair(transaction_type: str, category: str) -> bool:
     return category in CATEGORIES_BY_TYPE.get(transaction_type, set())
