@@ -203,6 +203,19 @@ def get_annual_overview(store, year: int, today: date | None = None) -> AnnualOv
     )
 
 
+def _budgetable_type_category_pairs():
+    """Every (Type, Category) pair a Category Budget can apply to, in
+    CONTEXT.md's Type order and alphabetical within it - shared by
+    get_budget_editor and get_full_year_budget_grid so both walk the same
+    rows in the same order.
+    """
+    for transaction_type in TYPE_ORDER:
+        if transaction_type not in BUDGETABLE_TYPES:
+            continue
+        for category in sorted(CATEGORIES_BY_TYPE[transaction_type]):
+            yield transaction_type, category
+
+
 def get_budget_editor(store, year: int, month: int, trailing_months: int = 3) -> list[BudgetEditorRow]:
     """The Budget tab's per-month editor rows - every Income/Expense/Debt
     Category with its current month's Category Budget (None if unset)
@@ -241,25 +254,22 @@ def get_budget_editor(store, year: int, month: int, trailing_months: int = 3) ->
     current_budgets = store.read_category_budgets(year, month)
 
     rows = []
-    for transaction_type in TYPE_ORDER:
-        if transaction_type not in BUDGETABLE_TYPES:
-            continue
-        for category in sorted(CATEGORIES_BY_TYPE[transaction_type]):
-            category_earliest = earliest_month_by_category.get(category)
-            has_sufficient_history = category_earliest is not None and category_earliest <= window_start
-            trailing_average_actual, average_variance_pct = _trailing_history(
-                store, category, window_months, actuals_by_month, has_sufficient_history
+    for transaction_type, category in _budgetable_type_category_pairs():
+        category_earliest = earliest_month_by_category.get(category)
+        has_sufficient_history = category_earliest is not None and category_earliest <= window_start
+        trailing_average_actual, average_variance_pct = _trailing_history(
+            store, category, window_months, actuals_by_month, has_sufficient_history
+        )
+        rows.append(
+            BudgetEditorRow(
+                type=transaction_type,
+                category=category,
+                budgeted=current_budgets.get(category),
+                last_month_actual=_round(actuals_by_month[window_months[0]].get(category, 0.0)),
+                trailing_average_actual=trailing_average_actual,
+                average_variance_pct=average_variance_pct,
             )
-            rows.append(
-                BudgetEditorRow(
-                    type=transaction_type,
-                    category=category,
-                    budgeted=current_budgets.get(category),
-                    last_month_actual=_round(actuals_by_month[window_months[0]].get(category, 0.0)),
-                    trailing_average_actual=trailing_average_actual,
-                    average_variance_pct=average_variance_pct,
-                )
-            )
+        )
     return rows
 
 
@@ -280,14 +290,9 @@ def get_full_year_budget_grid(store, year: int) -> list[BudgetGridRow]:
     }
 
     rows = []
-    for transaction_type in TYPE_ORDER:
-        if transaction_type not in BUDGETABLE_TYPES:
-            continue
-        for category in sorted(CATEGORIES_BY_TYPE[transaction_type]):
-            amounts = [
-                budgets_by_month[(month_start.year, month_start.month)].get(category) for month_start in months
-            ]
-            rows.append(BudgetGridRow(type=transaction_type, category=category, amounts=amounts))
+    for transaction_type, category in _budgetable_type_category_pairs():
+        amounts = [budgets_by_month[(month_start.year, month_start.month)].get(category) for month_start in months]
+        rows.append(BudgetGridRow(type=transaction_type, category=category, amounts=amounts))
     return rows
 
 

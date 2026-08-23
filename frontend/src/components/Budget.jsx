@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { valuesFrom, changesFrom } from "../lib/budgetEditorForm.js";
 import { deleteCategoryBudget, fetchBudgetEditor, fetchBudgetGrid, saveCategoryBudget } from "../lib/budgetsApi.js";
-import { financialYearFor, monthsOfFinancialYear } from "../lib/financialYear.js";
+import { financialYearFor } from "../lib/financialYear.js";
 import { UNSET, money, signedPct } from "../lib/format.js";
+import BudgetGrid from "./BudgetGrid.jsx";
 import MonthSelector from "./MonthSelector.jsx";
 
 // The trailing windows the Budget tab's dropdown offers - see
@@ -230,41 +231,7 @@ export default function Budget() {
         </div>
       )}
 
-      {selected === null && grid !== null && (
-        <div className="table-scroll">
-          <table className="table">
-            <thead>
-              <tr>
-                <th scope="col">Category</th>
-                {monthsOfFinancialYear(financialYear).map(({ year, month, label }) => (
-                  <th key={`${year}-${month}`} scope="col" className="table__num">
-                    {label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            {Object.entries(grid).map(([type, rows]) => (
-              <tbody key={type}>
-                <tr>
-                  <th scope="colgroup" colSpan={13} className="table__section">
-                    {type}
-                  </th>
-                </tr>
-                {rows.map(({ category, amounts }) => (
-                  <tr key={category}>
-                    <td>{category}</td>
-                    {amounts.map((amount, index) => (
-                      <td key={index} className="table__num muted">
-                        {amount === null ? "" : money(amount)}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            ))}
-          </table>
-        </div>
-      )}
+      {selected === null && grid !== null && <BudgetGrid financialYear={financialYear} grid={grid} />}
     </section>
   );
 }

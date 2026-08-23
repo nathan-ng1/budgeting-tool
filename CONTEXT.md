@@ -88,7 +88,7 @@ The July 1–June 30 window the Dashboard's Overview tab is organised around —
 _Avoid_: FY, Calendar year
 
 **Full year**:
-The Overview tab's other selector state, alongside a specific month: aggregates every Transaction in the Financial Year to date, rather than one month. The Dashboard's default view on open. For the current (in-progress) Financial Year, "to date" means elapsed months only, including the current month before it's finished — a month that hasn't happened yet contributes $0, it isn't skipped. See [ADR-0011](./docs/adr/0011-full-year-overview-is-a-selector-state-not-a-tab.md).
+The Overview tab's other selector state, alongside a specific month: aggregates every Transaction in the Financial Year to date, rather than one month. The Dashboard's default view on open. For the current (in-progress) Financial Year, "to date" means elapsed months only, including the current month before it's finished — a month that hasn't happened yet contributes $0, it isn't skipped. See [ADR-0011](./docs/adr/0011-full-year-overview-is-a-selector-state-not-a-tab.md). The Budget tab reuses the same pill and label for its own, differently-scoped Full year state — see Budget tab, below.
 _Avoid_: Annual Overview, Year view, Yearly
 
 **Net Balance**:
@@ -100,7 +100,7 @@ A user-set target Amount for one Category in one specific month — every month 
 _Avoid_: Budget (too vague — always means Category Budget in this project), Target, Limit, Expected (the Dashboard's original column label for this value, retired in favour of Budgeted once the label and the concept's name matched)
 
 **Budget tab**:
-The Dashboard tab (alongside Overview, Transactions, Settings) for setting Category Budgets one Financial Year month at a time and reviewing the current Budget Suggestion. Named as a later-phase placeholder as far back as [ADR-0008](./docs/adr/0008-dashboard-is-a-local-web-app-not-a-hosted-artifact.md) and left unwired through [ADR-0009](./docs/adr/0009-overview-tab-scope-follows-the-approved-mockup.md); built out by [ADR-0013](./docs/adr/0013-category-budget-is-per-month-across-income-expense-and-debt.md).
+The Dashboard tab (alongside Overview, Transactions, Settings) for setting Category Budgets one Financial Year month at a time and reviewing the current Budget Suggestion. Its month selector also offers a Full year pill showing a read-only 12-month × Category grid of everything budgeted across the Financial Year — unlike the Overview tab's Full year, this grid is never restricted to elapsed months (a Category Budget set ahead for a future month still shows), since it is summarising budgets set, not aggregating actual Transactions to date. Selecting it offers no editing surface at all; editing only happens through an individual month pill. Named as a later-phase placeholder as far back as [ADR-0008](./docs/adr/0008-dashboard-is-a-local-web-app-not-a-hosted-artifact.md) and left unwired through [ADR-0009](./docs/adr/0009-overview-tab-scope-follows-the-approved-mockup.md); built out by [ADR-0013](./docs/adr/0013-category-budget-is-per-month-across-income-expense-and-debt.md) (per-month editor) and Issue #64 (read-only Full year grid).
 _Avoid_: Budget screen, Budgeting tab
 
 **Budget Suggestion**:
