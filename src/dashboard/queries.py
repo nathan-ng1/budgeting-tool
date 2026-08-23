@@ -273,13 +273,17 @@ def _income_allocation(income: float, expenses: float, debt: float, transferred:
     )
 
 
-def _expense_totals_by_category(transactions: list[Transaction]) -> dict[str, float]:
+def _totals_by_category(transactions: list[Transaction], types: set[str]) -> dict[str, float]:
     totals: dict[str, float] = {}
     for t in transactions:
-        if t.type != "Expense":
+        if t.type not in types:
             continue
         totals[t.category] = totals.get(t.category, 0.0) + t.amount
     return totals
+
+
+def _expense_totals_by_category(transactions: list[Transaction]) -> dict[str, float]:
+    return _totals_by_category(transactions, {"Expense"})
 
 
 def _spending_by_category(transactions: list[Transaction], expenses: float) -> list[CategorySpend]:
@@ -318,15 +322,6 @@ def _debt_summary(transactions: list[Transaction], debt: float) -> list[DebtByNo
     return sorted(rows, key=lambda row: (-row.amount, row.notes))
 
 
-def _totals_by_category(transactions: list[Transaction], types: set[str]) -> dict[str, float]:
-    totals: dict[str, float] = {}
-    for t in transactions:
-        if t.type not in types:
-            continue
-        totals[t.category] = totals.get(t.category, 0.0) + t.amount
-    return totals
-
-
 def _budgeted_vs_actual_rows(budgets: dict[str, float], actuals: dict[str, float]) -> list[BudgetVsActual]:
     """Build one row per Category with a budget and/or non-zero actual, sorted
     by Type (CONTEXT.md order) then Category - shared by the per-month and
@@ -342,6 +337,9 @@ def _budgeted_vs_actual_rows(budgets: dict[str, float], actuals: dict[str, float
         # Positive diff = under budget (budget remaining); negative = overspent.
         diff = _round(budgeted - actual) if budgeted is not None else None
         pct = _pct(actual, budgeted) if budgeted is not None else None
+        # type_for_category never returns None here - every Category in
+        # `budgets`/`actuals` was already validated on write (store.py's
+        # require_valid_type_category_pair), so it always has one.
         rows.append(
             BudgetVsActual(
                 type=type_for_category(category), category=category, budgeted=budgeted, actual=actual, diff=diff, pct=pct
