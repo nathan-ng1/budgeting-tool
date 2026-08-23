@@ -18,3 +18,7 @@ column layout.
 
 How to run the process end-to-end when a new Statement Export arrives (sanitising, Needs
 Review categorisation, writing, archiving). See `docs/agents/statement-export-pipeline.md`.
+
+### Using the /implement skill 
+* When using the /implement skill, always implement on a feature branch, never on the master branch.
+* After completion, confirm with the user whether the changes have been implemented correctly, upon confirmation, create a PR and then merge into master and close the feature branch.
