@@ -288,18 +288,19 @@ def test_budgeted_vs_actual_includes_budgeted_and_actual_categories_with_diff_an
     overview = get_month_overview(store, year=2026, month=8)
     by_category = {row.category: row for row in overview.budgeted_vs_actual}
 
-    # Diff = Expected - Actual: positive means under budget (budget remaining).
-    assert by_category["Groceries"].expected == 500.0
+    # Diff = Budgeted - Actual: positive means under budget (budget remaining).
+    assert by_category["Groceries"].type == "Expense"
+    assert by_category["Groceries"].budgeted == 500.0
     assert by_category["Groceries"].actual == 450.0
     assert by_category["Groceries"].diff == 50.0
     assert by_category["Groceries"].pct == 90.0
 
-    assert by_category["Transport"].expected is None
+    assert by_category["Transport"].budgeted is None
     assert by_category["Transport"].actual == 80.0
     assert by_category["Transport"].diff is None
     assert by_category["Transport"].pct is None
 
-    assert by_category["Entertainment & Leisure"].expected == 100.0
+    assert by_category["Entertainment & Leisure"].budgeted == 100.0
     assert by_category["Entertainment & Leisure"].actual == 0.0
     assert by_category["Entertainment & Leisure"].diff == 100.0
     assert by_category["Entertainment & Leisure"].pct == 0.0
@@ -316,18 +317,27 @@ def test_budgeted_vs_actual_excludes_categories_with_no_budget_and_no_spend(fake
     assert "Transport" not in {row.category for row in overview.budgeted_vs_actual}
 
 
-def test_budgeted_vs_actual_excludes_debt(fake_store, make_transaction):
+def test_budgeted_vs_actual_includes_income_and_debt_categories(fake_store, make_transaction):
     store = fake_store(
         transactions=[
-            make_transaction(date=date(2026, 8, 1), amount=450.0, type="Expense", category="Groceries", notes="Woolworths"),
-            make_transaction(date=date(2026, 8, 2), amount=875.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+            make_transaction(date=date(2026, 8, 1), amount=4200.0, type="Income", category="Salary", notes="Employer"),
+            make_transaction(date=date(2026, 8, 2), amount=900.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
         ],
-        category_budgets={("Groceries", 2026, 8): 500.0},
+        category_budgets={("Salary", 2026, 8): 4000.0, ("Mortgage Repayment", 2026, 8): 850.0},
     )
 
     overview = get_month_overview(store, year=2026, month=8)
+    by_category = {row.category: row for row in overview.budgeted_vs_actual}
 
-    assert "Mortgage Repayment" not in {row.category for row in overview.budgeted_vs_actual}
+    assert by_category["Salary"].type == "Income"
+    assert by_category["Salary"].budgeted == 4000.0
+    assert by_category["Salary"].actual == 4200.0
+    assert by_category["Salary"].diff == -200.0
+
+    assert by_category["Mortgage Repayment"].type == "Debt"
+    assert by_category["Mortgage Repayment"].budgeted == 850.0
+    assert by_category["Mortgage Repayment"].actual == 900.0
+    assert by_category["Mortgage Repayment"].diff == -50.0
 
 
 def test_top_5_expenses_are_the_five_largest_that_month_descending(fake_store, make_transaction):
@@ -597,45 +607,98 @@ def test_annual_overview_debt_summary_is_empty_with_no_debt_transactions(fake_st
     assert overview.debt_summary == []
 
 
-def test_annual_overview_budgeted_vs_actual_expected_is_always_null_regardless_of_category_budget(
-    fake_store, make_transaction
-):
+def test_annual_overview_budgeted_vs_actual_sums_category_budgets_across_elapsed_months(fake_store, make_transaction):
+    # Financial Year 2026 starting July; today=2026-09-10 puts July/Aug/Sept
+    # elapsed (ADR-0011's "elapsed months" rule).
     store = fake_store(
         transactions=[
             make_transaction(date=date(2026, 7, 1), amount=450.0, type="Expense", category="Groceries", notes="Woolworths"),
-            make_transaction(date=date(2026, 7, 2), amount=80.0, type="Expense", category="Transport", notes="Fuel"),
+            make_transaction(date=date(2026, 8, 1), amount=500.0, type="Expense", category="Groceries", notes="Coles"),
+            make_transaction(date=date(2026, 9, 1), amount=520.0, type="Expense", category="Groceries", notes="Aldi"),
         ],
-        category_budgets={("Groceries", 2026, 7): 500.0, ("Entertainment & Leisure", 2026, 7): 100.0},
+        category_budgets={
+            ("Groceries", 2026, 7): 500.0,
+            ("Groceries", 2026, 8): 500.0,
+            ("Groceries", 2026, 9): 500.0,
+        },
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 9, 10))
+    by_category = {row.category: row for row in overview.budgeted_vs_actual}
+
+    assert by_category["Groceries"].budgeted == 1500.0
+    assert by_category["Groceries"].actual == 1470.0
+    assert by_category["Groceries"].diff == 30.0
+
+
+def test_annual_overview_budgeted_vs_actual_treats_a_month_with_no_budget_as_zero_not_unset(
+    fake_store, make_transaction
+):
+    # Groceries is only budgeted for July and Sept, not Aug - the elapsed
+    # months' Full year sum still comes back with a partial total (ADR-0013),
+    # not unset for the whole Category.
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, 1), amount=450.0, type="Expense", category="Groceries", notes="Woolworths"),
+        ],
+        category_budgets={("Groceries", 2026, 7): 500.0, ("Groceries", 2026, 9): 500.0},
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 9, 10))
+    by_category = {row.category: row for row in overview.budgeted_vs_actual}
+
+    assert by_category["Groceries"].budgeted == 1000.0
+
+
+def test_annual_overview_budgeted_vs_actual_excludes_a_budget_set_for_a_future_month(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, 1), amount=450.0, type="Expense", category="Groceries", notes="Woolworths"),
+        ],
+        category_budgets={("Groceries", 2026, 7): 500.0, ("Groceries", 2026, 12): 999.0},
     )
 
     overview = get_annual_overview(store, year=2026, today=date(2026, 7, 15))
     by_category = {row.category: row for row in overview.budgeted_vs_actual}
 
-    assert by_category["Groceries"].expected is None
-    assert by_category["Groceries"].actual == 450.0
-    assert by_category["Groceries"].diff is None
-    assert by_category["Groceries"].pct is None
-
-    assert by_category["Transport"].expected is None
-    assert by_category["Transport"].actual == 80.0
-
-    # A Category Budget with no spend this Financial Year doesn't get a row -
-    # real annual budgeting is deferred (ADR-0011), so only actual spend
-    # determines the row set, unlike the per-month table.
-    assert "Entertainment & Leisure" not in by_category
+    assert by_category["Groceries"].budgeted == 500.0
 
 
-def test_annual_overview_budgeted_vs_actual_excludes_debt(fake_store, make_transaction):
+def test_annual_overview_budgeted_vs_actual_is_unset_for_a_category_never_budgeted(fake_store, make_transaction):
     store = fake_store(
         transactions=[
-            make_transaction(date=date(2026, 7, 1), amount=450.0, type="Expense", category="Groceries", notes="Woolworths"),
-            make_transaction(date=date(2026, 7, 2), amount=875.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
-        ]
+            make_transaction(date=date(2026, 7, 1), amount=80.0, type="Expense", category="Transport", notes="Fuel"),
+        ],
+        category_budgets={("Groceries", 2026, 7): 500.0},
     )
 
     overview = get_annual_overview(store, year=2026, today=date(2026, 7, 15))
+    by_category = {row.category: row for row in overview.budgeted_vs_actual}
 
-    assert "Mortgage Repayment" not in {row.category for row in overview.budgeted_vs_actual}
+    assert by_category["Transport"].budgeted is None
+    assert by_category["Transport"].diff is None
+
+    # A Category Budget with no spend this Financial Year still doesn't get a
+    # row - only actual spend or a Budgeted total determines the row set.
+    assert "Entertainment & Leisure" not in by_category
+
+
+def test_annual_overview_budgeted_vs_actual_includes_income_and_debt_categories(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, 1), amount=4200.0, type="Income", category="Salary", notes="Employer"),
+            make_transaction(date=date(2026, 7, 2), amount=900.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+        ],
+        category_budgets={("Salary", 2026, 7): 4000.0, ("Mortgage Repayment", 2026, 7): 850.0},
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 7, 15))
+    by_category = {row.category: row for row in overview.budgeted_vs_actual}
+
+    assert by_category["Salary"].type == "Income"
+    assert by_category["Salary"].budgeted == 4000.0
+    assert by_category["Mortgage Repayment"].type == "Debt"
+    assert by_category["Mortgage Repayment"].budgeted == 850.0
 
 
 def test_annual_overview_top_expenses_are_the_ten_largest_across_elapsed_months(fake_store, make_transaction):

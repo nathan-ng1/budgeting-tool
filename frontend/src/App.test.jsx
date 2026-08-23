@@ -51,7 +51,7 @@ function monthWithSpending(year, month, overrides = {}) {
       over_income_pct: 0,
     },
     spending_by_category: [{ category: "Groceries", amount: 3667, pct_of_expenses: 100 }],
-    budgeted_vs_actual: [{ category: "Groceries", expected: 650, actual: 3667, diff: -3017, pct: 564.2 }],
+    budgeted_vs_actual: [{ type: "Expense", category: "Groceries", budgeted: 650, actual: 3667, diff: -3017, pct: 564.2 }],
     top_expenses: [{ notes: "Woolworths", category: "Groceries", date: `${year}-0${month}-05`, amount: 3667 }],
     expenses_over_time: {
       daily: [
@@ -108,8 +108,8 @@ function annualWithSpending(overrides = {}) {
       over_income_pct: 0,
     },
     spending_by_category: [{ category: "Groceries", amount: 6000, pct_of_expenses: 100 }],
-    // expected is always null for Full year, regardless of any Category Budget (ADR-0011).
-    budgeted_vs_actual: [{ category: "Groceries", expected: null, actual: 6000, diff: null, pct: null }],
+    // Full year's Budgeted is a real per-Category rollup across elapsed months (ADR-0013).
+    budgeted_vs_actual: [{ type: "Expense", category: "Groceries", budgeted: 3000, actual: 6000, diff: -3000, pct: 200.0 }],
     top_expenses: [{ notes: "Woolworths", category: "Groceries", date: "2026-07-05", amount: 6000 }],
     month_by_month: months,
     income_vs_expenses_by_month: months,
@@ -182,8 +182,9 @@ describe("App", () => {
 
     expect(screen.getByRole("heading", { name: "Spending by Category" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Budgeted vs Actual" })).toBeInTheDocument();
-    // Every Budgeted vs Actual row reads "—" for Expected/Diff/% (ADR-0011).
-    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+    // Full year's Budgeted vs Actual now reports a real per-Category rollup,
+    // not ADR-0011's placeholder "—" (ADR-0013).
+    expect(screen.getByRole("row", { name: /Groceries/ })).toHaveTextContent("$3,000");
 
     expect(screen.getByRole("heading", { name: "Month by month" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Income, Expenses & Debt by Month" })).toBeInTheDocument();

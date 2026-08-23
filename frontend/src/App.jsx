@@ -170,8 +170,7 @@ export default function App() {
                   // Full year pairs the donut with Month by Month rather than
                   // with Budgeted vs Actual: over a whole Financial Year the
                   // month-by-month shape is what the donut begs the reader to
-                  // ask about, and Full year's Budgeted vs Actual has no
-                  // Expected column to compare against anyway (ADR-0011).
+                  // ask about (ADR-0011).
                   <>
                     <IncomeVsExpensesByMonth months={overview.income_vs_expenses_by_month} />
                     <div className="row--donut">

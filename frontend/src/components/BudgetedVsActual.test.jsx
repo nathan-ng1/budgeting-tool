@@ -7,11 +7,15 @@ function row(name) {
   return screen.getByRole("row", { name: new RegExp(name) });
 }
 
+function sectionHeading(name) {
+  return screen.getByRole("columnheader", { name });
+}
+
 describe("BudgetedVsActual", () => {
   it("shows a Category with no Category Budget set as unset, not as a $0 target", () => {
     render(
       <BudgetedVsActual
-        rows={[{ category: "Groceries", expected: null, actual: 612, diff: null, pct: null }]}
+        rows={[{ type: "Expense", category: "Groceries", budgeted: null, actual: 612, diff: null, pct: null }]}
       />,
     );
 
@@ -26,15 +30,15 @@ describe("BudgetedVsActual", () => {
     expect(cells[5]).toHaveTextContent("—");
   });
 
-  it("reads Diff and % as actual against expected, the way the mockup shows them", () => {
-    // The endpoint computes diff as `expected - actual` (budget remaining) and
-    // pct as `actual / expected * 100`; the table reads the other way round -
-    // a positive Diff means overspent.
+  it("reads Diff and % as actual against budgeted, the way the mockup shows them", () => {
+    // The endpoint computes diff as `budgeted - actual` (budget remaining) and
+    // pct as `actual / budgeted * 100`; the table reads the other way round -
+    // a positive Diff means actual came in above budgeted.
     render(
       <BudgetedVsActual
         rows={[
-          { category: "Groceries", expected: 650, actual: 612, diff: 38, pct: 94.2 },
-          { category: "Transport", expected: 220, actual: 260, diff: -40, pct: 118.2 },
+          { type: "Expense", category: "Groceries", budgeted: 650, actual: 612, diff: 38, pct: 94.2 },
+          { type: "Expense", category: "Transport", budgeted: 220, actual: 260, diff: -40, pct: 118.2 },
         ]}
       />,
     );
@@ -48,45 +52,96 @@ describe("BudgetedVsActual", () => {
     expect(over[5]).toHaveTextContent("+18%");
   });
 
-  it("totals only the Categories that actually have a Category Budget, on both sides", () => {
+  it("partitions rows into Income, Expense, and Debt sections, each with its own subtotal", () => {
     render(
       <BudgetedVsActual
         rows={[
-          { category: "Groceries", expected: 650, actual: 612, diff: 38, pct: 94.2 },
-          { category: "Transport", expected: null, actual: 100, diff: null, pct: null },
+          { type: "Expense", category: "Groceries", budgeted: 650, actual: 612, diff: 38, pct: 94.2 },
+          { type: "Income", category: "Salary", budgeted: 4000, actual: 4200, diff: -200, pct: 105.0 },
+          { type: "Debt", category: "Mortgage Repayment", budgeted: 850, actual: 900, diff: -50, pct: 105.9 },
         ]}
       />,
     );
 
-    const totals = within(row("Total")).getAllByRole("cell");
+    expect(sectionHeading("Income")).toBeInTheDocument();
+    expect(sectionHeading("Expense")).toBeInTheDocument();
+    expect(sectionHeading("Debt")).toBeInTheDocument();
+
+    expect(within(row("Income total")).getAllByRole("cell")[2]).toHaveTextContent("$4,000");
+    expect(within(row("Expense total")).getAllByRole("cell")[2]).toHaveTextContent("$650");
+    expect(within(row("Debt total")).getAllByRole("cell")[2]).toHaveTextContent("$850");
+
+    // No grand total across Types.
+    expect(screen.queryByText(/^Total$/)).not.toBeInTheDocument();
+  });
+
+  it("omits a section entirely when it has no rows", () => {
+    render(
+      <BudgetedVsActual
+        rows={[{ type: "Expense", category: "Groceries", budgeted: 650, actual: 612, diff: 38, pct: 94.2 }]}
+      />,
+    );
+
+    expect(screen.queryByRole("columnheader", { name: "Income" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Debt" })).not.toBeInTheDocument();
+  });
+
+  it("reads an Income Category over its Budgeted as favourable, unlike Expense/Debt", () => {
+    render(
+      <BudgetedVsActual
+        rows={[
+          { type: "Income", category: "Salary", budgeted: 4000, actual: 4200, diff: -200, pct: 105.0 },
+          { type: "Expense", category: "Groceries", budgeted: 650, actual: 700, diff: -50, pct: 107.7 },
+        ]}
+      />,
+    );
+
+    const incomeDiffCell = within(row("Salary")).getAllByRole("cell")[4];
+    const expenseDiffCell = within(row("Groceries")).getAllByRole("cell")[4];
+
+    // Both actuals landed above Budgeted (a positive Diff), but that reads as
+    // favourable for Income and adverse for Expense.
+    expect(incomeDiffCell).toHaveTextContent("+$200");
+    expect(incomeDiffCell.className).toContain("favourable");
+    expect(expenseDiffCell).toHaveTextContent("+$50");
+    expect(expenseDiffCell.className).toContain("adverse");
+  });
+
+  it("totals only the Categories that actually have a Category Budget, on both sides", () => {
+    render(
+      <BudgetedVsActual
+        rows={[
+          { type: "Expense", category: "Groceries", budgeted: 650, actual: 612, diff: 38, pct: 94.2 },
+          { type: "Expense", category: "Transport", budgeted: null, actual: 100, diff: null, pct: null },
+        ]}
+      />,
+    );
+
+    const totals = within(row("Expense total")).getAllByRole("cell");
 
     // Unbudgeted Transport is excluded from BOTH columns: charging its spend
-    // against a budgeted-only Expected would read as an overspend that isn't
+    // against a budgeted-only total would read as an overspend that isn't
     // one.
     expect(totals[2]).toHaveTextContent("$650");
     expect(totals[3]).toHaveTextContent("$612");
     expect(totals[4]).toHaveTextContent("−$38");
   });
 
-  it("orders rows by spend, so the table lines up with the donut legend beside it", () => {
+  it("orders rows within a section by spend, so the table lines up with the donut legend beside it", () => {
     render(
       <BudgetedVsActual
         rows={[
-          { category: "Groceries", expected: 650, actual: 100, diff: 550, pct: 15.4 },
-          { category: "Transport", expected: 220, actual: 900, diff: -680, pct: 409.1 },
+          { type: "Expense", category: "Groceries", budgeted: 650, actual: 100, diff: 550, pct: 15.4 },
+          { type: "Expense", category: "Transport", budgeted: 220, actual: 900, diff: -680, pct: 409.1 },
         ]}
       />,
     );
 
-    const names = screen.getAllByRole("row").slice(1, 3).map((r) => within(r).getAllByRole("cell")[1].textContent);
+    // Row 0 is the table header, row 1 is the "Expense" section heading -
+    // the two Category rows follow.
+    const names = screen.getAllByRole("row").slice(2, 4).map((r) => within(r).getAllByRole("cell")[1].textContent);
 
     expect(names).toEqual(["Transport", "Groceries"]);
-  });
-
-  it("has no Difference headline when nothing is budgeted at all", () => {
-    render(<BudgetedVsActual rows={[{ category: "Groceries", expected: null, actual: 612, diff: null, pct: null }]} />);
-
-    expect(screen.queryByText("Difference")).not.toBeInTheDocument();
   });
 
   it("says so plainly when there is nothing to compare yet", () => {

@@ -48,6 +48,18 @@ def require_valid_type_category_pair(transaction_type: str, category: str) -> No
         raise ValueError(f"Category {category!r} is not a valid {transaction_type} Category")
 
 
+def type_for_category(category: str) -> str | None:
+    """The Type that owns `category`, or None if it isn't a valid Category.
+
+    The reverse of CATEGORIES_BY_TYPE - every Category has exactly one Type
+    (CONTEXT.md), so this is a lookup, not a computation.
+    """
+    for transaction_type, categories in CATEGORIES_BY_TYPE.items():
+        if category in categories:
+            return transaction_type
+    return None
+
+
 def types_with_categories(categories_by_type: dict[str, set[str]] = CATEGORIES_BY_TYPE) -> list[str]:
     """The Types that can actually be assigned, sorted.
 
