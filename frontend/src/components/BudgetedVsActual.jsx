@@ -110,10 +110,24 @@ function Section({ type, rows }) {
 }
 
 export default function BudgetedVsActual({ rows }) {
+  // The header's total Diff badge is the same subtotal() shape the per-Type
+  // rows already use, just applied across every row rather than one
+  // Section's - so it inherits the same "budgeted Categories only" exclusion
+  // (Issue #74) without a second computation to keep in sync.
+  const { hasBudgeted, totalDiff } = subtotal(rows);
+
   return (
     <section className="card card--chart">
       <div className="card__head">
         <h3>Budgeted vs Actual</h3>
+        {rows.length > 0 && (
+          <div className="card__aside">
+            <div className={`card__aside-figure numeric ${hasBudgeted ? toneFor(totalDiff) : ""}`}>
+              {hasBudgeted ? signedMoney(totalDiff) : UNSET}
+            </div>
+            <div className="card__aside-label">Total Diff</div>
+          </div>
+        )}
       </div>
 
       {rows.length === 0 ? (
