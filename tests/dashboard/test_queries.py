@@ -957,6 +957,34 @@ def test_budget_editor_last_month_actual_is_last_calendar_months_total_for_the_c
     assert by_category["Groceries"].last_month_actual == 270.0
 
 
+def test_budget_editor_last_month_budgeted_is_last_calendar_months_category_budget_or_none_if_unset(fake_store):
+    store = fake_store(category_budgets={("Groceries", 2026, 7): 300.0})
+
+    rows = get_budget_editor(store, year=2026, month=8, trailing_months=3)
+    by_category = {row.category: row for row in rows}
+
+    assert by_category["Groceries"].last_month_budgeted == 300.0
+    assert by_category["Transport"].last_month_budgeted is None
+
+
+def test_budget_editor_last_month_budgeted_ignores_this_months_own_budget(fake_store):
+    store = fake_store(category_budgets={("Groceries", 2026, 8): 650.0})
+
+    rows = get_budget_editor(store, year=2026, month=8, trailing_months=3)
+    by_category = {row.category: row for row in rows}
+
+    assert by_category["Groceries"].last_month_budgeted is None
+
+
+def test_budget_editor_last_month_budgeted_crosses_the_financial_year_boundary(fake_store):
+    store = fake_store(category_budgets={("Groceries", 2026, 6): 280.0})
+
+    rows = get_budget_editor(store, year=2026, month=7, trailing_months=3)
+    by_category = {row.category: row for row in rows}
+
+    assert by_category["Groceries"].last_month_budgeted == 280.0
+
+
 def test_budget_editor_trailing_average_and_variance_over_a_window_with_sufficient_history(fake_store, make_transaction):
     store = fake_store(
         transactions=[

@@ -66,6 +66,16 @@ def test_saving_a_category_budget_then_appears_in_the_editor_read(running_server
     assert _row(body["Expense"], "Groceries")["amount"] == 650.0
 
 
+def test_last_months_own_category_budget_appears_as_last_month_budgeted(running_server):
+    _store, server = running_server
+
+    call(server, "PUT", "/api/budget-editor/Groceries?year=2026&month=7", {"amount": 280.0})
+
+    _status, body = call(server, "GET", "/api/budget-editor?year=2026&month=8")
+    assert _row(body["Expense"], "Groceries")["last_month_budgeted"] == 280.0
+    assert _row(body["Expense"], "Transport")["last_month_budgeted"] is None
+
+
 def test_saving_a_category_budget_for_one_month_does_not_affect_another(running_server):
     store, server = running_server
 

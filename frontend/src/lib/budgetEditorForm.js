@@ -15,6 +15,24 @@ export function valuesFrom(editor) {
   return values;
 }
 
+// The category -> string map an Auto-populate menu choice produces (Issue
+// #77) - every Category's Budgeted Amount field replaced wholesale from one
+// of last month's own figures. Mirrors the source exactly, the same way
+// valuesFrom mirrors the current month's: a $0 last month actual becomes an
+// explicit "0", and a last month Category Budget that was unset clears the
+// field to "" (unset != $0) rather than being skipped.
+export function autoPopulatedValuesFrom(editor, source) {
+  const key = source === "actual" ? "last_month_actual" : "last_month_budgeted";
+  const values = {};
+  for (const rows of Object.values(editor)) {
+    for (const row of rows) {
+      const amount = row[key];
+      values[row.category] = amount === null ? "" : String(amount);
+    }
+  }
+  return values;
+}
+
 // Every Category whose current value differs from what the editor loaded
 // with, as a { category, amount } pair - `amount` is null for a field
 // cleared back to blank (a delete), or the typed number otherwise.
