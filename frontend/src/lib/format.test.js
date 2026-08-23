@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { dayMonth, dayMonthLong, money, signedMoney, signedPct } from "./format.js";
+import { dayMonth, dayMonthLong, money, pct, signedMoney, signedPct } from "./format.js";
 
 describe("money", () => {
   it("renders whole dollars with a thousands separator", () => {
@@ -29,6 +29,13 @@ describe("signedPct", () => {
   it("always carries an explicit sign and a rounded whole percent", () => {
     expect(signedPct(2.2)).toBe("+2%");
     expect(signedPct(-6.1)).toBe("−6%");
+  });
+});
+
+describe("pct", () => {
+  it("renders a rounded whole percent, with no sign", () => {
+    expect(pct(76.2)).toBe("76%");
+    expect(pct(0)).toBe("0%");
   });
 });
 

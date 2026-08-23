@@ -1,4 +1,4 @@
-import { money } from "../lib/format.js";
+import { money, pct } from "../lib/format.js";
 
 // `average` is the Full year view's per-month figure (already divided by
 // elapsed months by the backend - see ADR-0011). It is omitted for the
@@ -21,18 +21,16 @@ export default function DebtSummary({ debtSummary, total, average }) {
         <div className="debt-summary">
           <div className="debt-summary__row debt-summary__head">
             <span>Notes</span>
-            <span />
             <span className="debt-summary__amount">Amount</span>
+            <span className="debt-summary__pct">%</span>
           </div>
           {debtSummary.map((row) => (
             <div key={row.notes} className="debt-summary__row">
               <span className="debt-summary__name" title={row.notes}>
                 {row.notes}
               </span>
-              <div className="debt-summary__bar-track">
-                <div className="debt-summary__bar-fill" style={{ width: `${row.pct_of_debt}%` }} />
-              </div>
               <span className="debt-summary__amount numeric">{money(row.amount)}</span>
+              <span className="debt-summary__pct numeric">{pct(row.pct_of_debt)}</span>
             </div>
           ))}
         </div>

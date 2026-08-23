@@ -365,13 +365,6 @@ button.nav__tab:hover {
 
 /* — two-column rows — */
 
-.row--donut {
-  display: grid;
-  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
-  gap: 16px;
-  align-items: stretch;
-}
-
 .row--split {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -379,14 +372,58 @@ button.nav__tab:hover {
   align-items: stretch;
 }
 
+/* A narrow column stacking two cards beside one wide card that spans both
+   row-heights - the top/bottom cards vary by view (Overview restructure,
+   Issue #61), the wide card is always Budgeted vs Actual. */
+.row--wide-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  grid-template-rows: auto auto;
+  grid-template-areas:
+    "top wide"
+    "bottom wide";
+  gap: 16px;
+}
+
+.row--wide-pair__top,
+.row--wide-pair__bottom,
+.row--wide-pair__wide {
+  display: flex;
+}
+
+.row--wide-pair__top > .card,
+.row--wide-pair__bottom > .card,
+.row--wide-pair__wide > .card {
+  flex: 1;
+}
+
+.row--wide-pair__top {
+  grid-area: top;
+}
+
+.row--wide-pair__bottom {
+  grid-area: bottom;
+}
+
+.row--wide-pair__wide {
+  grid-area: wide;
+}
+
 @media (max-width: 900px) {
   .tiles {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .row--donut,
   .row--split {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .row--wide-pair {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "top"
+      "wide"
+      "bottom";
   }
 
   .page {
@@ -589,7 +626,7 @@ tbody:first-of-type .bva__section {
 
 .debt-summary__row {
   display: grid;
-  grid-template-columns: minmax(120px, 0.6fr) minmax(0, 1fr) 74px;
+  grid-template-columns: minmax(0, 1fr) 74px 48px;
   align-items: center;
   gap: 14px;
   padding: 9px 0;
@@ -617,22 +654,14 @@ tbody:first-of-type .bva__section {
   white-space: nowrap;
 }
 
-.debt-summary__bar-track {
-  height: 10px;
-  border-radius: 999px;
-  background: var(--color-neutral-200);
-  overflow: hidden;
-}
-
-.debt-summary__bar-fill {
-  height: 100%;
-  border-radius: 999px;
-  background: var(--color-debt);
-}
-
 .debt-summary__amount {
   font-weight: 600;
   text-align: right;
+}
+
+.debt-summary__pct {
+  text-align: right;
+  color: var(--color-neutral-500);
 }
 
 /* — top 5 — */
