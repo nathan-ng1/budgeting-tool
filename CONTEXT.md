@@ -96,5 +96,13 @@ A Dashboard stat tile: `Income − Expenses − Debt` for the period shown. Deli
 _Avoid_: Net income, Surplus, Cash flow
 
 **Category Budget**:
-A user-set monthly target Amount for one Expense Category, edited directly with no history kept — there's no per-month or per-Financial-Year variation, just a single standing target compared against that Category's actual spend on the Dashboard's Budgeted vs Actual table. A Category with no Category Budget set is unbudgeted, not budgeted at $0. See [ADR-0009](./docs/adr/0009-overview-tab-scope-follows-the-approved-mockup.md).
-_Avoid_: Budget (too vague — always means Category Budget in this project), Target, Limit, Expected (the Dashboard column label for this value, not the concept's name)
+A user-set target Amount for one Category in one specific month — every month stands alone, edited and kept independently of every other month, with no averaging or carry-forward between them. Applies to any Income, Expense, or Debt Category (Transfer has none to budget). A Category with no Category Budget set for a given month is unbudgeted for that month, not budgeted at $0. Compared against that Category's actual for the same month on the Dashboard's Budgeted vs Actual table, which partitions its rows by Type. See [ADR-0009](./docs/adr/0009-overview-tab-scope-follows-the-approved-mockup.md) (introduced the concept, originally Expense-only and month-invariant) and [ADR-0013](./docs/adr/0013-category-budget-is-per-month-across-income-expense-and-debt.md) (made it per-month and extended it to Income/Debt).
+_Avoid_: Budget (too vague — always means Category Budget in this project), Target, Limit, Expected (the Dashboard's original column label for this value, retired in favour of Budgeted once the label and the concept's name matched)
+
+**Budget tab**:
+The Dashboard tab (alongside Overview, Transactions, Settings) for setting Category Budgets one Financial Year month at a time and reviewing the current Budget Suggestion. Named as a later-phase placeholder as far back as [ADR-0008](./docs/adr/0008-dashboard-is-a-local-web-app-not-a-hosted-artifact.md) and left unwired through [ADR-0009](./docs/adr/0009-overview-tab-scope-follows-the-approved-mockup.md); built out by [ADR-0013](./docs/adr/0013-category-budget-is-per-month-across-income-expense-and-debt.md).
+_Avoid_: Budget screen, Budgeting tab
+
+**Budget Suggestion**:
+A written analysis of how actual spend has tracked against Category Budgets recently, covering Expense and Debt Categories only (Income is excluded — under/over-earning isn't the kind of thing this advises on). One standing write-up at a time, not tied to any particular month: regenerating it replaces the previous write-up outright, no history kept. Produced by a scripted, deliberately non-interactive flow — the same shape as Categorising a Transaction (see [ADR-0004](./docs/adr/0004-categorisation-backend-is-pluggable-and-scripted.md)), not something triggered live from the Dashboard. See [ADR-0014](./docs/adr/0014-budget-suggestion-is-a-scripted-flow-not-a-live-dashboard-call.md).
+_Avoid_: Budget advice, AI insights, Recommendation

@@ -29,6 +29,8 @@ chart) that a shared endpoint would mean every caller branching on which fields 
   containing today. Viewing a past Financial Year's Full year stays out of scope until a switcher
   exists.
 - When a real per-month-capable Category Budget is built, the annual Expected/Diff/% columns need
-  revisiting — this ADR's "always —" rule is a placeholder, not a permanent design.
+  revisiting — this ADR's "always —" rule is a placeholder, not a permanent design. **Resolved by
+  [ADR-0013](./0013-category-budget-is-per-month-across-income-expense-and-debt.md)**: Category Budget
+  is now per-month, so the annual figure is a real sum over elapsed months, not a placeholder "—".
 - `/api/annual-overview` and `/api/overview` will diverge over time as separate contracts; a future
   reader comparing them should not expect them to converge.
