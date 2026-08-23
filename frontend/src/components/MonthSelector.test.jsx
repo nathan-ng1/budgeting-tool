@@ -51,21 +51,4 @@ describe("MonthSelector", () => {
 
     expect(onSelect).toHaveBeenCalledWith(null);
   });
-
-  it("omits the Full year pill when includeFullYear is false, leaving only the twelve months", () => {
-    render(
-      <MonthSelector
-        financialYear={2026}
-        selected={{ year: 2026, month: 8 }}
-        onSelect={() => {}}
-        includeFullYear={false}
-      />,
-    );
-
-    const pills = screen.getAllByRole("button");
-
-    expect(pills).toHaveLength(12);
-    expect(screen.queryByRole("button", { name: "Full year" })).not.toBeInTheDocument();
-    expect(pills[0]).toHaveTextContent("Jul");
-  });
 });

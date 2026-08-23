@@ -32,6 +32,7 @@ CONTENT_TYPES = {
 RECURRING_RULES_PATH = "/api/recurring-rules"
 TRANSACTIONS_PATH = "/api/transactions"
 BUDGET_EDITOR_PATH = "/api/budget-editor"
+BUDGET_GRID_PATH = "/api/budget-grid"
 
 BUILD_INSTRUCTIONS = (
     "The Dashboard has not been built yet. Run `npm install` and `npm run build` "
@@ -96,6 +97,8 @@ def _make_handler(store, static_root: Path):
                 self._serve_transactions(parse_qs(parsed.query))
             elif parsed.path == BUDGET_EDITOR_PATH:
                 self._serve_budget_editor(parse_qs(parsed.query))
+            elif parsed.path == BUDGET_GRID_PATH:
+                self._serve_budget_grid(parse_qs(parsed.query))
             elif parsed.path == "/api/categories":
                 # What the Transaction/Recurring Rule forms' Type/Category
                 # selects offer, so transaction_log.categories stays the one
@@ -317,6 +320,14 @@ def _make_handler(store, static_root: Path):
                 return
 
             self._send_json(200, budgets.as_editor_payload(rows))
+
+        def _serve_budget_grid(self, params) -> None:
+            year = self._year(params)
+            if year is None:
+                return
+
+            rows = queries.get_full_year_budget_grid(store, year=year)
+            self._send_json(200, budgets.as_grid_payload(rows))
 
         def _query_int(self, params, key: str) -> int | None:
             """The int value of query param `key`, or None if it's missing or

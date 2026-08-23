@@ -50,8 +50,41 @@ function updateCategory(state, category, amount) {
   }
 }
 
-/** Answers /api/budget-editor keyed by (year, month), so a save round-trips
- * through a real GET/PUT/DELETE cycle the way the real backend would. */
+// Full year's July-to-June column order (see financialYear.js) - the fake
+// backend derives /api/budget-grid from the same byMonth state PUT/DELETE
+// write to, so a value saved via a month pill is provably the same data the
+// grid reads back, not two independently-maintained fakes.
+const FY_MONTHS = [7, 8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6];
+
+function blankGrid() {
+  return {
+    Income: [{ category: "Salary", amounts: Array(12).fill(null) }],
+    Expense: [
+      { category: "Groceries", amounts: Array(12).fill(null) },
+      { category: "Dining & Takeaway", amounts: Array(12).fill(null) },
+    ],
+    Debt: [{ category: "Mortgage Repayment", amounts: Array(12).fill(null) }],
+  };
+}
+
+function gridFromByMonth(byMonth) {
+  const grid = blankGrid();
+  for (const [type, rows] of Object.entries(grid)) {
+    for (const row of rows) {
+      row.amounts = FY_MONTHS.map((month) => {
+        const year = month >= 7 ? 2026 : 2027;
+        const monthEditor = byMonth.get(`${year}-${month}`);
+        const monthRow = monthEditor?.[type]?.find((r) => r.category === row.category);
+        return monthRow?.amount ?? null;
+      });
+    }
+  }
+  return grid;
+}
+
+/** Answers /api/budget-editor keyed by (year, month) and /api/budget-grid,
+ * both sourced from the same byMonth state - so a save round-trips through a
+ * real GET/PUT/DELETE cycle, and the Full year grid provably reflects it. */
 function backend(initial = editor()) {
   const byMonth = new Map([["2026-8", structuredClone(initial)]]);
 
@@ -61,6 +94,10 @@ function backend(initial = editor()) {
     const year = parsed.searchParams.get("year");
     const month = parsed.searchParams.get("month");
     const key = `${year}-${month}`;
+
+    if (parsed.pathname === "/api/budget-grid") {
+      return { ok: true, status: 200, json: async () => gridFromByMonth(byMonth) };
+    }
 
     if (parsed.pathname === "/api/budget-editor") {
       if (!byMonth.has(key)) {
@@ -190,11 +227,11 @@ describe("Budget", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("has no Full year pill - only the twelve months", async () => {
+  it("offers a Full year pill alongside the twelve months", async () => {
     render(<Budget />);
     await screen.findByText("Salary");
 
-    expect(screen.queryByRole("button", { name: "Full year" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Full year" })).toBeInTheDocument();
   });
 
   it("does not persist an edit until Save is clicked", async () => {
@@ -301,5 +338,82 @@ describe("Budget", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("not a valid Category");
     expect(screen.getByLabelText("Salary Budgeted Amount")).toHaveValue(5000);
+  });
+});
+
+describe("Budget Full year", () => {
+  it("shows a read-only grid of every Category by Type against the Financial Year's 12 months", async () => {
+    render(<Budget />);
+    await screen.findByText("Salary");
+
+    await userEvent.click(screen.getByRole("button", { name: "Full year" }));
+
+    expect(await screen.findByRole("columnheader", { name: "Jul" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Jun" })).toBeInTheDocument();
+    const groceriesRow = screen.getByText("Groceries").closest("tr");
+    // Aug (index 1 of Jul-Jun) carries the seeded $650 Groceries budget.
+    expect(within(groceriesRow).getAllByRole("cell")[2]).toHaveTextContent("$650");
+  });
+
+  it("shows a blank cell, not a placeholder, for an unset month", async () => {
+    render(<Budget />);
+    await screen.findByText("Salary");
+
+    await userEvent.click(screen.getByRole("button", { name: "Full year" }));
+    await screen.findByText("Groceries");
+
+    const salaryRow = screen.getByText("Salary").closest("tr");
+    const cells = within(salaryRow).getAllByRole("cell");
+    for (const cell of cells.slice(1)) {
+      expect(cell).toHaveTextContent("");
+    }
+  });
+
+  it("offers no editing surface in the Full year grid - no inputs, no Save button, no trailing window", async () => {
+    render(<Budget />);
+    await screen.findByText("Salary");
+
+    await userEvent.click(screen.getByRole("button", { name: "Full year" }));
+    await screen.findByText("Groceries");
+
+    expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save budgets" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Trailing window")).not.toBeInTheDocument();
+  });
+
+  it("reflects a Category Budget saved via a month pill without a page reload", async () => {
+    render(<Budget />);
+    const salary = await screen.findByLabelText("Salary Budgeted Amount");
+
+    await userEvent.type(salary, "5000");
+    await userEvent.click(screen.getByRole("button", { name: "Save budgets" }));
+    await waitFor(() => expect(fetchMock.mock.calls.some(([, o]) => o?.method === "PUT")).toBe(true));
+
+    await userEvent.click(screen.getByRole("button", { name: "Full year" }));
+    await screen.findByText("Groceries");
+
+    const salaryRow = screen.getByText("Salary").closest("tr");
+    // Aug is index 1 of the Jul-Jun columns.
+    expect(within(salaryRow).getAllByRole("cell")[2]).toHaveTextContent("$5,000");
+  });
+
+  it("marks the Full year pill pressed, and only that one, while it is selected", async () => {
+    render(<Budget />);
+    await screen.findByText("Salary");
+
+    await userEvent.click(screen.getByRole("button", { name: "Full year" }));
+
+    expect(await screen.findByRole("button", { name: "Full year" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Aug" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("surfaces a Full year load failure instead of an empty grid", async () => {
+    render(<Budget />);
+    await screen.findByText("Salary");
+    fetchMock.mockResolvedValue({ ok: false, status: 500, json: async () => ({}) });
+
+    await userEvent.click(screen.getByRole("button", { name: "Full year" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/500/);
   });
 });

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { deleteCategoryBudget, fetchBudgetEditor, saveCategoryBudget } from "./budgetsApi.js";
+import { deleteCategoryBudget, fetchBudgetEditor, fetchBudgetGrid, saveCategoryBudget } from "./budgetsApi.js";
 
 let fetchMock;
 
@@ -79,5 +79,12 @@ describe("budgetsApi", () => {
     fetchMock.mockResolvedValue({ ok: false, status: 500, json: async () => ({}) });
 
     await expect(fetchBudgetEditor({ year: 2026, month: 8 })).rejects.toThrow("500");
+  });
+
+  it("fetches the Full year grid for one Financial Year", async () => {
+    ok({ Income: [], Expense: [], Debt: [] });
+
+    expect(await fetchBudgetGrid(2026)).toEqual({ Income: [], Expense: [], Debt: [] });
+    expect(fetchMock).toHaveBeenCalledWith("/api/budget-grid?year=2026", expect.anything());
   });
 });

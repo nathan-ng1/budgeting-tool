@@ -11,6 +11,7 @@ from dashboard.queries import (
     get_annual_overview,
     get_budget_editor,
     get_financial_year_transactions,
+    get_full_year_budget_grid,
     get_latest_transaction_date,
     get_month_overview,
 )
@@ -1050,3 +1051,52 @@ def test_budget_editor_rejects_a_trailing_window_outside_3_6_12(fake_store):
 
     with pytest.raises(ValueError):
         get_budget_editor(store, year=2026, month=8, trailing_months=4)
+
+
+# — get_full_year_budget_grid (Budget tab Full year read-only grid, Issue #64) —
+
+
+def test_full_year_grid_includes_every_budgetable_category_grouped_by_type_not_transfer(fake_store):
+    store = fake_store()
+
+    rows = get_full_year_budget_grid(store, year=2026)
+
+    assert {row.type for row in rows} == {"Income", "Expense", "Debt"}
+    assert "Salary" in {row.category for row in rows}
+    assert "Mortgage Repayment" in {row.category for row in rows}
+
+
+def test_full_year_grid_has_twelve_amounts_per_row_in_july_to_june_order(fake_store):
+    store = fake_store(
+        category_budgets={
+            ("Groceries", 2026, 7): 300.0,
+            ("Groceries", 2027, 6): 350.0,
+        }
+    )
+
+    rows = get_full_year_budget_grid(store, year=2026)
+    groceries = next(row for row in rows if row.category == "Groceries")
+
+    assert len(groceries.amounts) == 12
+    assert groceries.amounts[0] == 300.0  # July
+    assert groceries.amounts[11] == 350.0  # June
+    assert groceries.amounts[1:11] == [None] * 10
+
+
+def test_full_year_grid_a_category_budget_outside_the_financial_year_is_not_included(fake_store):
+    # June 2026 is the tail of the *previous* Financial Year (2025), not the
+    # one starting 2026-07 - it must not leak into this grid's July slot.
+    store = fake_store(category_budgets={("Groceries", 2026, 6): 999.0})
+
+    rows = get_full_year_budget_grid(store, year=2026)
+    groceries = next(row for row in rows if row.category == "Groceries")
+
+    assert all(amount is None for amount in groceries.amounts)
+
+
+def test_full_year_grid_a_month_with_no_budget_set_is_none_not_zero(fake_store):
+    store = fake_store()
+
+    rows = get_full_year_budget_grid(store, year=2026)
+
+    assert all(amount is None for row in rows for amount in row.amounts)

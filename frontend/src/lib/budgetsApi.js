@@ -1,8 +1,10 @@
-// The Budget tab's per-month editor endpoint (Issue #62). Every write is
-// validated by the store, not here - this module only carries the Amount
-// across and surfaces whatever the backend says when it refuses one.
+// The Budget tab's per-month editor endpoint (Issue #62) and Full year
+// read-only grid endpoint (Issue #64). Every write is validated by the
+// store, not here - this module only carries the Amount across and surfaces
+// whatever the backend says when it refuses one.
 
 const BASE = "/api/budget-editor";
+const GRID_BASE = "/api/budget-grid";
 
 async function request(url, options = {}) {
   const response = await fetch(url, options);
@@ -45,4 +47,10 @@ export function saveCategoryBudget({ year, month }, category, amount) {
 
 export function deleteCategoryBudget({ year, month }, category) {
   return request(`${BASE}/${encodeURIComponent(category)}?year=${year}&month=${month}`, { method: "DELETE" });
+}
+
+// The Full year read-only grid (Issue #64) - every Category Budget across
+// the Financial Year starting `year`-07, grouped by Type.
+export function fetchBudgetGrid(year, { signal } = {}) {
+  return request(`${GRID_BASE}?year=${year}`, { signal });
 }
