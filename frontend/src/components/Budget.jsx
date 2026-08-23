@@ -1,9 +1,16 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { valuesFrom, changesFrom } from "../lib/budgetEditorForm.js";
 import { deleteCategoryBudget, fetchBudgetEditor, saveCategoryBudget } from "../lib/budgetsApi.js";
 import { financialYearFor } from "../lib/financialYear.js";
+import { money, signedPct } from "../lib/format.js";
 import MonthSelector from "./MonthSelector.jsx";
+
+const UNSET = "—";
+
+// The trailing windows the Budget tab's dropdown offers - see
+// dashboard.queries.TRAILING_WINDOWS.
+const TRAILING_WINDOWS = [3, 6, 12];
 
 function currentMonth() {
   const today = new Date();
@@ -15,6 +22,7 @@ export default function Budget() {
   // #64), so there is always exactly one month selected, defaulting to the
   // current one - unlike Overview's Full year default (ADR-0011).
   const [selected, setSelected] = useState(currentMonth);
+  const [trailingWindow, setTrailingWindow] = useState(3);
   const [editor, setEditor] = useState(null);
   const [values, setValues] = useState({});
   const [initial, setInitial] = useState({});
@@ -24,28 +32,43 @@ export default function Budget() {
 
   const financialYear = financialYearFor(selected.year, selected.month);
 
-  const load = useCallback(async (month, signal) => {
-    const loaded = await fetchBudgetEditor(month, { signal });
-    const asValues = valuesFrom(loaded);
+  // The Amount a Category is Budgeted this month doesn't depend on the
+  // trailing window - only the grey historical columns do. `load` always
+  // refreshes what's on screen, but only resets the Amount editing state
+  // (`values`/`initial`) when the month itself changed, so switching the
+  // window dropdown never discards an unsaved edit.
+  const load = useCallback(async (month, window, signal, resetValues) => {
+    const loaded = await fetchBudgetEditor(month, { window, signal });
     setEditor(loaded);
-    setValues(asValues);
-    setInitial(asValues);
+    if (resetValues) {
+      const asValues = valuesFrom(loaded);
+      setValues(asValues);
+      setInitial(asValues);
+    }
   }, []);
+
+  const previousMonthKey = useRef(null);
 
   useEffect(() => {
     const controller = new AbortController();
+    const monthKey = `${selected.year}-${selected.month}`;
+    const isMonthChange = previousMonthKey.current !== monthKey;
+    previousMonthKey.current = monthKey;
 
     setError(null);
     setSaveError(null);
-    setEditor(null);
-    load(selected, controller.signal).catch((cause) => {
+    if (isMonthChange) {
+      setEditor(null);
+    }
+
+    load(selected, trailingWindow, controller.signal, isMonthChange).catch((cause) => {
       if (cause.name !== "AbortError") {
         setError(cause.message);
       }
     });
 
     return () => controller.abort();
-  }, [selected, load]);
+  }, [selected, trailingWindow, load]);
 
   function set(category, value) {
     setValues((current) => ({ ...current, [category]: value }));
@@ -66,7 +89,7 @@ export default function Budget() {
       );
       // Re-reads rather than assuming every write landed as sent, so what's
       // on screen after Save is what the store actually holds.
-      await load(selected);
+      await load(selected, trailingWindow, undefined, true);
     } catch (cause) {
       setSaveError(cause.message);
     } finally {
@@ -87,6 +110,22 @@ export default function Budget() {
       </div>
 
       <MonthSelector financialYear={financialYear} selected={selected} onSelect={setSelected} includeFullYear={false} />
+
+      <div className="filters">
+        <label className="field">
+          <span className="field__label">Trailing window</span>
+          <select
+            value={trailingWindow}
+            onChange={(event) => setTrailingWindow(Number(event.target.value))}
+          >
+            {TRAILING_WINDOWS.map((months) => (
+              <option key={months} value={months}>
+                {months} months
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
 
       {error !== null && (
         <p className="state state--error" role="alert">
@@ -109,6 +148,15 @@ export default function Budget() {
               <tr>
                 <th scope="col">Category</th>
                 <th scope="col" className="table__num">
+                  Last Month Actual
+                </th>
+                <th scope="col" className="table__num">
+                  {trailingWindow}-Month Avg Actual
+                </th>
+                <th scope="col" className="table__num">
+                  Avg Variance %
+                </th>
+                <th scope="col" className="table__num">
                   Budgeted Amount
                 </th>
               </tr>
@@ -116,13 +164,16 @@ export default function Budget() {
             {Object.entries(editor).map(([type, rows]) => (
               <tbody key={type}>
                 <tr>
-                  <th scope="colgroup" colSpan={2} className="table__section">
+                  <th scope="colgroup" colSpan={5} className="table__section">
                     {type}
                   </th>
                 </tr>
-                {rows.map(({ category }) => (
+                {rows.map(({ category, last_month_actual, trailing_average_actual, average_variance_pct }) => (
                   <tr key={category}>
                     <td>{category}</td>
+                    <td className="table__num muted">{money(last_month_actual)}</td>
+                    <td className="table__num muted">{trailing_average_actual === null ? UNSET : money(trailing_average_actual)}</td>
+                    <td className="table__num muted">{average_variance_pct === null ? UNSET : signedPct(average_variance_pct)}</td>
                     <td className="table__num">
                       <input
                         type="number"

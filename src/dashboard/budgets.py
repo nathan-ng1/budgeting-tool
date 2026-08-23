@@ -1,30 +1,43 @@
 """Translation between the Budget tab's JSON shape and Category Budget reads/
-writes - see Issue #62.
+writes - see Issues #62/#63.
 
 Kept out of dashboard.server so the HTTP layer stays a router: what the
 editor's rows look like on the wire is a question about the domain, not about
 HTTP - mirrors dashboard.recurring.
 """
 
-from transaction_log.categories import CATEGORIES_BY_TYPE, TYPE_ORDER
+from dashboard.queries import BudgetEditorRow
+from transaction_log.categories import TYPE_ORDER
 
 # Transfer has no Category Budget to set (CONTEXT.md's Category Budget entry),
 # so it never appears as a section here.
 BUDGETABLE_TYPES = tuple(t for t in TYPE_ORDER if t != "Transfer")
 
+# The trailing window the Budget tab editor requests when its dropdown query
+# param is absent - see dashboard.queries.TRAILING_WINDOWS.
+DEFAULT_TRAILING_WINDOW = 3
 
-def as_editor_payload(budgets: dict[str, float]) -> dict[str, list[dict]]:
+
+def as_editor_payload(rows: list[BudgetEditorRow]) -> dict[str, list[dict]]:
     """Every Income/Expense/Debt Category grouped by Type, each carrying its
-    Category Budget for whatever month `budgets` was read for - or None if
-    that Category has no Category Budget set for the month (unset != $0).
+    current month's Category Budget (None if unset - unset != $0) alongside
+    the grey historical context columns the editor shows beside it: last
+    month's actual, a trailing average actual, and an average variance %
+    (None when there isn't enough history to compute either - see
+    dashboard.queries.get_budget_editor).
     """
-    return {
-        transaction_type: [
-            {"category": category, "amount": budgets.get(category)}
-            for category in sorted(CATEGORIES_BY_TYPE[transaction_type])
-        ]
-        for transaction_type in BUDGETABLE_TYPES
-    }
+    grouped: dict[str, list[dict]] = {transaction_type: [] for transaction_type in BUDGETABLE_TYPES}
+    for row in rows:
+        grouped[row.type].append(
+            {
+                "category": row.category,
+                "amount": row.budgeted,
+                "last_month_actual": row.last_month_actual,
+                "trailing_average_actual": row.trailing_average_actual,
+                "average_variance_pct": row.average_variance_pct,
+            }
+        )
+    return grouped
 
 
 def amount_from_payload(payload) -> float:

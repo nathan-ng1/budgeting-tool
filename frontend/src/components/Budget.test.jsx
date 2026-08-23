@@ -1,29 +1,43 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import Budget from "./Budget.jsx";
 
+function row(overrides = {}) {
+  return {
+    category: "Groceries",
+    amount: null,
+    last_month_actual: 0,
+    trailing_average_actual: null,
+    average_variance_pct: null,
+    ...overrides,
+  };
+}
+
 function editor(overrides = {}) {
   return {
-    Income: [{ category: "Salary", amount: null }],
+    Income: [row({ category: "Salary" })],
     Expense: [
-      { category: "Groceries", amount: 650 },
-      { category: "Dining & Takeaway", amount: null },
+      row({
+        category: "Groceries",
+        amount: 650,
+        last_month_actual: 620,
+        trailing_average_actual: 590.25,
+        average_variance_pct: 12.3,
+      }),
+      row({ category: "Dining & Takeaway" }),
     ],
-    Debt: [{ category: "Mortgage Repayment", amount: null }],
+    Debt: [row({ category: "Mortgage Repayment" })],
     ...overrides,
   };
 }
 
 function blankEditor() {
   return {
-    Income: [{ category: "Salary", amount: null }],
-    Expense: [
-      { category: "Groceries", amount: null },
-      { category: "Dining & Takeaway", amount: null },
-    ],
-    Debt: [{ category: "Mortgage Repayment", amount: null }],
+    Income: [row({ category: "Salary" })],
+    Expense: [row({ category: "Groceries" }), row({ category: "Dining & Takeaway" })],
+    Debt: [row({ category: "Mortgage Repayment" })],
   };
 }
 
@@ -110,8 +124,66 @@ describe("Budget", () => {
     expect(screen.getByLabelText("Salary Budgeted Amount")).toHaveValue(null);
   });
 
+  it("shows each Category's historical context columns, greyed out from the editable Budgeted column", async () => {
+    render(<Budget />);
+    await screen.findByText("Groceries");
+
+    const groceriesRow = screen.getByText("Groceries").closest("tr");
+    const cells = within(groceriesRow).getAllByRole("cell");
+
+    expect(cells[1]).toHaveTextContent("$620"); // last month actual
+    expect(cells[1]).toHaveClass("muted");
+    expect(cells[2]).toHaveTextContent("$590"); // trailing average actual
+    expect(cells[2]).toHaveClass("muted");
+    expect(cells[3]).toHaveTextContent("+12%"); // average variance %
+    expect(cells[3]).toHaveClass("muted");
+    expect(cells[4]).not.toHaveClass("muted"); // the editable Budgeted cell
+  });
+
+  it("shows an unset historical column as a dash, not $0", async () => {
+    render(<Budget />);
+    await screen.findByText("Salary");
+
+    const salaryRow = screen.getByText("Salary").closest("tr");
+    const cells = within(salaryRow).getAllByRole("cell");
+
+    expect(cells[2]).toHaveTextContent("—"); // trailing average actual, unset
+    expect(cells[3]).toHaveTextContent("—"); // average variance %, unset
+  });
+
+  it("defaults the trailing window dropdown to 3 months", async () => {
+    render(<Budget />);
+    await screen.findByText("Salary");
+
+    expect(screen.getByLabelText("Trailing window")).toHaveValue("3");
+  });
+
+  it("requests the newly selected trailing window from the backend", async () => {
+    render(<Budget />);
+    await screen.findByText("Salary");
+
+    await userEvent.selectOptions(screen.getByLabelText("Trailing window"), "12");
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/budget-editor?year=2026&month=8&window=12", expect.anything()),
+    );
+  });
+
+  it("changing the trailing window does not discard an unsaved Budgeted edit", async () => {
+    render(<Budget />);
+    const salary = await screen.findByLabelText("Salary Budgeted Amount");
+
+    await userEvent.type(salary, "5000");
+    await userEvent.selectOptions(screen.getByLabelText("Trailing window"), "6");
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/budget-editor?year=2026&month=8&window=6", expect.anything()),
+    );
+    expect(screen.getByLabelText("Salary Budgeted Amount")).toHaveValue(5000);
+  });
+
   it("renders a month with no Category Budgets set as an all-blank table, not an error", async () => {
-    useBackend(editor({ Expense: [{ category: "Groceries", amount: null }] }));
+    useBackend(editor({ Expense: [row({ category: "Groceries" })] }));
     render(<Budget />);
 
     expect(await screen.findByLabelText("Groceries Budgeted Amount")).toHaveValue(null);
@@ -203,7 +275,7 @@ describe("Budget", () => {
     await userEvent.click(screen.getByRole("button", { name: "Sep" }));
 
     await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith("/api/budget-editor?year=2026&month=9", expect.anything()),
+      expect(fetchMock).toHaveBeenCalledWith("/api/budget-editor?year=2026&month=9&window=3", expect.anything()),
     );
     expect(await screen.findByLabelText("Groceries Budgeted Amount")).toHaveValue(null);
   });
