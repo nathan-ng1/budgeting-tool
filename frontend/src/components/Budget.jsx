@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { valuesFrom, changesFrom } from "../lib/budgetEditorForm.js";
+import { autoPopulatedValuesFrom, valuesFrom, changesFrom } from "../lib/budgetEditorForm.js";
 import { deleteCategoryBudget, fetchBudgetEditor, fetchBudgetGrid, saveCategoryBudget } from "../lib/budgetsApi.js";
+import { totalsByType } from "../lib/budgetTotals.js";
 import { financialYearFor } from "../lib/financialYear.js";
 import { UNSET, money, signedPct } from "../lib/format.js";
 import BudgetGrid from "./BudgetGrid.jsx";
@@ -32,6 +33,7 @@ export default function Budget() {
   const [error, setError] = useState(null);
   const [saveError, setSaveError] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [autoPopulateOpen, setAutoPopulateOpen] = useState(false);
 
   // The Budget tab has no Financial Year switcher: every pill (Full year
   // included) always belongs to the FY containing today, the same way
@@ -98,7 +100,16 @@ export default function Budget() {
     setValues((current) => ({ ...current, [category]: value }));
   }
 
+  // Wholesale overwrite of every row from one of last month's own figures
+  // (Issue #77) - staged into `values` only, same as a manual edit, so
+  // nothing is written until Save budgets is clicked.
+  function applyAutoPopulate(source) {
+    setValues(autoPopulatedValuesFrom(editor, source));
+    setAutoPopulateOpen(false);
+  }
+
   const changes = changesFrom(initial, values);
+  const totals = editor === null ? null : totalsByType(editor, values);
 
   async function save() {
     setSaveError(null);
@@ -133,9 +144,43 @@ export default function Budget() {
           </p>
         </div>
         {selected !== null && (
-          <button type="button" className="button" disabled={saving || changes.length === 0} onClick={save}>
-            Save budgets
-          </button>
+          <div className="card__actions">
+            <div className="menu">
+              <button
+                type="button"
+                className="button button--quiet"
+                aria-haspopup="true"
+                aria-expanded={autoPopulateOpen}
+                disabled={saving || editor === null}
+                onClick={() => setAutoPopulateOpen((open) => !open)}
+              >
+                Auto-populate
+              </button>
+              {autoPopulateOpen && (
+                <div className="menu__list" role="menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="menu__item"
+                    onClick={() => applyAutoPopulate("actual")}
+                  >
+                    Last actuals
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="menu__item"
+                    onClick={() => applyAutoPopulate("budgeted")}
+                  >
+                    Last budgeted
+                  </button>
+                </div>
+              )}
+            </div>
+            <button type="button" className="button" disabled={saving || changes.length === 0} onClick={save}>
+              Save budgets
+            </button>
+          </div>
         )}
       </div>
 
@@ -225,6 +270,10 @@ export default function Budget() {
                     </td>
                   </tr>
                 ))}
+                <tr className="budget__total-row">
+                  <td colSpan={4}>Total</td>
+                  <td className="table__num">{money(totals[type])}</td>
+                </tr>
               </tbody>
             ))}
           </table>

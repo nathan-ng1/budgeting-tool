@@ -1,3 +1,4 @@
+import { gridTotalsByType } from "../lib/budgetTotals.js";
 import { monthsOfFinancialYear } from "../lib/financialYear.js";
 import { money } from "../lib/format.js";
 
@@ -7,6 +8,8 @@ import { money } from "../lib/format.js";
 // surface at all, unlike Budget.jsx's per-month editor table it sits
 // alongside.
 export default function BudgetGrid({ financialYear, grid }) {
+  const totals = gridTotalsByType(grid);
+
   return (
     <div className="table-scroll">
       <table className="table">
@@ -37,6 +40,14 @@ export default function BudgetGrid({ financialYear, grid }) {
                 ))}
               </tr>
             ))}
+            <tr className="budget__total-row">
+              <td>Total</td>
+              {totals[type].map((amount, index) => (
+                <td key={index} className="table__num">
+                  {money(amount)}
+                </td>
+              ))}
+            </tr>
           </tbody>
         ))}
       </table>

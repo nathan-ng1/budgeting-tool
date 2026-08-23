@@ -9,6 +9,7 @@ function row(overrides = {}) {
     category: "Groceries",
     amount: null,
     last_month_actual: 0,
+    last_month_budgeted: null,
     trailing_average_actual: null,
     average_variance_pct: null,
     ...overrides,
@@ -23,6 +24,7 @@ function editor(overrides = {}) {
         category: "Groceries",
         amount: 650,
         last_month_actual: 620,
+        last_month_budgeted: 600,
         trailing_average_actual: 590.25,
         average_variance_pct: 12.3,
       }),
@@ -339,6 +341,89 @@ describe("Budget", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("not a valid Category");
     expect(screen.getByLabelText("Salary Budgeted Amount")).toHaveValue(5000);
   });
+
+  it("shows a Total row per Type, summing that Type's Budgeted Amount column", async () => {
+    render(<Budget />);
+    await screen.findByText("Groceries");
+
+    const expenseTotalRow = screen.getAllByText("Total")[1].closest("tr");
+    // Groceries (650) + Dining & Takeaway (unset, $0).
+    expect(expenseTotalRow).toHaveTextContent("$650");
+  });
+
+  it("recalculates the Total row live as an input changes, before Save", async () => {
+    render(<Budget />);
+    const groceries = await screen.findByLabelText("Groceries Budgeted Amount");
+
+    await userEvent.clear(groceries);
+    await userEvent.type(groceries, "700");
+
+    const expenseTotalRow = screen.getAllByText("Total")[1].closest("tr");
+    expect(expenseTotalRow).toHaveTextContent("$700");
+  });
+
+  it("offers an Auto-populate control next to Save budgets, closed by default", async () => {
+    render(<Budget />);
+    await screen.findByText("Salary");
+
+    expect(screen.getByRole("button", { name: "Auto-populate" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem")).not.toBeInTheDocument();
+  });
+
+  it("opens a menu offering Last actuals and Last budgeted", async () => {
+    render(<Budget />);
+    await screen.findByText("Salary");
+
+    await userEvent.click(screen.getByRole("button", { name: "Auto-populate" }));
+
+    expect(screen.getByRole("menuitem", { name: "Last actuals" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Last budgeted" })).toBeInTheDocument();
+  });
+
+  it("Last actuals overwrites every Category's field with last month's actual, including an explicit $0", async () => {
+    render(<Budget />);
+    await screen.findByText("Salary");
+
+    await userEvent.click(screen.getByRole("button", { name: "Auto-populate" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Last actuals" }));
+
+    expect(screen.getByLabelText("Salary Budgeted Amount")).toHaveValue(0);
+    expect(screen.getByLabelText("Groceries Budgeted Amount")).toHaveValue(620);
+    expect(screen.getByLabelText("Dining & Takeaway Budgeted Amount")).toHaveValue(0);
+    // Overwrites even an already-set field.
+    expect(screen.queryByRole("menuitem")).not.toBeInTheDocument();
+  });
+
+  it("Last budgeted overwrites every Category's field with last month's Category Budget, clearing an unset one to blank", async () => {
+    render(<Budget />);
+    await screen.findByText("Salary");
+
+    await userEvent.click(screen.getByRole("button", { name: "Auto-populate" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Last budgeted" }));
+
+    expect(screen.getByLabelText("Salary Budgeted Amount")).toHaveValue(null);
+    expect(screen.getByLabelText("Groceries Budgeted Amount")).toHaveValue(600);
+  });
+
+  it("does not persist an Auto-populate choice until Save is clicked", async () => {
+    render(<Budget />);
+    await screen.findByText("Salary");
+
+    await userEvent.click(screen.getByRole("button", { name: "Auto-populate" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Last actuals" }));
+
+    expect(fetchMock.mock.calls.some(([, options]) => options?.method === "PUT")).toBe(false);
+  });
+
+  it("enables Save once an Auto-populate choice has changed a value", async () => {
+    render(<Budget />);
+    await screen.findByText("Salary");
+
+    await userEvent.click(screen.getByRole("button", { name: "Auto-populate" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Last actuals" }));
+
+    expect(screen.getByRole("button", { name: "Save budgets" })).toBeEnabled();
+  });
 });
 
 describe("Budget Full year", () => {
@@ -415,5 +500,25 @@ describe("Budget Full year", () => {
     await userEvent.click(screen.getByRole("button", { name: "Full year" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/500/);
+  });
+
+  it("shows a Total row per Type, summing each month's Category Budgets", async () => {
+    render(<Budget />);
+    const salary = await screen.findByLabelText("Salary Budgeted Amount");
+
+    // Give Salary (Income) a value too, so Aug's Expense and Income totals differ.
+    await userEvent.type(salary, "5000");
+    await userEvent.click(screen.getByRole("button", { name: "Save budgets" }));
+    await waitFor(() => expect(fetchMock.mock.calls.some(([, o]) => o?.method === "PUT")).toBe(true));
+
+    await userEvent.click(screen.getByRole("button", { name: "Full year" }));
+    await screen.findByText("Groceries");
+
+    const expenseTotalRow = screen.getAllByText("Total")[1].closest("tr");
+    // Aug is index 1 of the Jul-Jun columns; Groceries' seeded $650 is the
+    // only Expense Category Budget set anywhere in the Financial Year.
+    expect(within(expenseTotalRow).getAllByRole("cell")[2]).toHaveTextContent("$650");
+    const incomeTotalRow = screen.getAllByText("Total")[0].closest("tr");
+    expect(within(incomeTotalRow).getAllByRole("cell")[2]).toHaveTextContent("$5,000");
   });
 });
