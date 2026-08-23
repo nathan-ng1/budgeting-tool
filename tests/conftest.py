@@ -43,12 +43,13 @@ class FakeStore:
         self,
         existing_rows: list[ExistingRow] | None = None,
         recurring_rules: list[RecurringRule] | None = None,
-        category_budgets: dict[str, float] | None = None,
+        category_budgets: dict[tuple[str, int, int], float] | None = None,
         transactions: list[Transaction] | None = None,
     ):
         self._existing_rows = list(existing_rows or [])
         self._recurring_rules = list(recurring_rules or [])
-        self._category_budgets: dict[str, float] = dict(category_budgets or {})
+        # Keyed by (category, year, month), mirroring LocalStore's composite key.
+        self._category_budgets: dict[tuple[str, int, int], float] = dict(category_budgets or {})
         self._transactions = list(transactions or [])
         self._stored_recurring_rules: list[StoredRecurringRule] = []
         self._next_rule_id = 0
@@ -137,15 +138,32 @@ class FakeStore:
     def _validate_pair(rule: RecurringRule) -> None:
         require_valid_type_category_pair(rule.type, rule.category)
 
-    def read_category_budgets(self) -> dict[str, float]:
-        return dict(self._category_budgets)
+    def read_category_budgets(self, year: int, month: int) -> dict[str, float]:
+        return {
+            category: amount
+            for (category, budget_year, budget_month), amount in self._category_budgets.items()
+            if budget_year == year and budget_month == month
+        }
 
-    def upsert_category_budget(self, category: str, monthly_amount: float) -> None:
-        require_valid_type_category_pair("Expense", category)
-        self._category_budgets[category] = monthly_amount
+    def read_category_budgets_for_range(
+        self, category: str, start_year: int, start_month: int, end_year: int, end_month: int
+    ) -> dict[tuple[int, int], float]:
+        start_index = start_year * 12 + start_month
+        end_index = end_year * 12 + end_month
+        return {
+            (budget_year, budget_month): amount
+            for (budget_category, budget_year, budget_month), amount in self._category_budgets.items()
+            if budget_category == category and start_index <= budget_year * 12 + budget_month <= end_index
+        }
 
-    def delete_category_budget(self, category: str) -> None:
-        self._category_budgets.pop(category, None)
+    def upsert_category_budget(
+        self, transaction_type: str, category: str, year: int, month: int, amount: float
+    ) -> None:
+        require_valid_type_category_pair(transaction_type, category)
+        self._category_budgets[(category, year, month)] = amount
+
+    def delete_category_budget(self, category: str, year: int, month: int) -> None:
+        self._category_budgets.pop((category, year, month), None)
 
 
 @pytest.fixture

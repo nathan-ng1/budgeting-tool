@@ -282,7 +282,7 @@ def test_budgeted_vs_actual_includes_budgeted_and_actual_categories_with_diff_an
             make_transaction(date=date(2026, 8, 1), amount=450.0, type="Expense", category="Groceries", notes="Woolworths"),
             make_transaction(date=date(2026, 8, 2), amount=80.0, type="Expense", category="Transport", notes="Fuel"),
         ],
-        category_budgets={"Groceries": 500.0, "Entertainment & Leisure": 100.0},
+        category_budgets={("Groceries", 2026, 8): 500.0, ("Entertainment & Leisure", 2026, 8): 100.0},
     )
 
     overview = get_month_overview(store, year=2026, month=8)
@@ -308,7 +308,7 @@ def test_budgeted_vs_actual_includes_budgeted_and_actual_categories_with_diff_an
 def test_budgeted_vs_actual_excludes_categories_with_no_budget_and_no_spend(fake_store, make_transaction):
     store = fake_store(
         transactions=[make_transaction(date=date(2026, 8, 1), amount=450.0, type="Expense", category="Groceries", notes="Woolworths")],
-        category_budgets={"Groceries": 500.0},
+        category_budgets={("Groceries", 2026, 8): 500.0},
     )
 
     overview = get_month_overview(store, year=2026, month=8)
@@ -322,7 +322,7 @@ def test_budgeted_vs_actual_excludes_debt(fake_store, make_transaction):
             make_transaction(date=date(2026, 8, 1), amount=450.0, type="Expense", category="Groceries", notes="Woolworths"),
             make_transaction(date=date(2026, 8, 2), amount=875.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
         ],
-        category_budgets={"Groceries": 500.0},
+        category_budgets={("Groceries", 2026, 8): 500.0},
     )
 
     overview = get_month_overview(store, year=2026, month=8)
@@ -605,7 +605,7 @@ def test_annual_overview_budgeted_vs_actual_expected_is_always_null_regardless_o
             make_transaction(date=date(2026, 7, 1), amount=450.0, type="Expense", category="Groceries", notes="Woolworths"),
             make_transaction(date=date(2026, 7, 2), amount=80.0, type="Expense", category="Transport", notes="Fuel"),
         ],
-        category_budgets={"Groceries": 500.0, "Entertainment & Leisure": 100.0},
+        category_budgets={("Groceries", 2026, 7): 500.0, ("Entertainment & Leisure", 2026, 7): 100.0},
     )
 
     overview = get_annual_overview(store, year=2026, today=date(2026, 7, 15))

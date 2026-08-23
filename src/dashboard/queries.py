@@ -130,7 +130,7 @@ def get_month_overview(store, year: int, month: int) -> MonthOverview:
             stat_tiles.income, stat_tiles.expenses, stat_tiles.debt, stat_tiles.transferred
         ),
         spending_by_category=_spending_by_category(transactions, stat_tiles.expenses),
-        budgeted_vs_actual=_budgeted_vs_actual(transactions, store.read_category_budgets()),
+        budgeted_vs_actual=_budgeted_vs_actual(transactions, store.read_category_budgets(year, month)),
         debt_summary=_debt_summary(transactions, stat_tiles.debt),
         top_expenses=_top_expenses(transactions, limit=5),
         expenses_over_time=_expenses_over_time(transactions, year, month),
