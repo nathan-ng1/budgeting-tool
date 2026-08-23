@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import Budget from "./components/Budget.jsx";
 import BudgetedVsActual from "./components/BudgetedVsActual.jsx";
 import DebtSummary from "./components/DebtSummary.jsx";
 import ExpensesOverTime from "./components/ExpensesOverTime.jsx";
@@ -16,11 +17,11 @@ import { fetchAnnualOverview, fetchLatestTransactionDate, fetchMonthOverview } f
 import { financialYearFor, financialYearLabel } from "./lib/financialYear.js";
 import { dayMonthLong } from "./lib/format.js";
 
-// Budget renders as the mockup shows it but has no screen behind it yet
-// (Issue #28); Settings holds the Recurring Transactions Config editor
-// (Issue #29); Transactions holds the read-only Transaction list (Issue #33).
+// Settings holds the Recurring Transactions Config editor (Issue #29);
+// Transactions holds the read-only Transaction list (Issue #33); Budget holds
+// the per-month Category Budget editor (Issue #62).
 const TABS = ["Overview", "Transactions", "Budget", "Settings"];
-const WIRED_TABS = ["Overview", "Transactions", "Settings"];
+const WIRED_TABS = ["Overview", "Transactions", "Budget", "Settings"];
 
 function currentMonth() {
   const today = new Date();
@@ -132,6 +133,8 @@ export default function App() {
         {tab === "Settings" && <RecurringRules />}
 
         {tab === "Transactions" && <Transactions />}
+
+        {tab === "Budget" && <Budget />}
 
         {tab === "Overview" && (
           <>

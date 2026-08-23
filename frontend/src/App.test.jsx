@@ -419,12 +419,19 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Aug" })).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("leaves Budget unwired, since it has no screen yet", async () => {
-    respondWith();
+  it("opens the Budget tab's per-month editor from the Budget tab", async () => {
+    routeTo({
+      "/api/annual-overview": annualWithSpending(),
+      "/api/budget-editor": { Income: [{ category: "Salary", amount: null }], Expense: [], Debt: [] },
+    });
     render(<App />);
-    await screen.findByText("$8,000");
+    expect(await screen.findByText("$8,000")).toBeInTheDocument();
 
-    expect(screen.queryByRole("button", { name: "Budget" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Budget" }));
+
+    expect(await screen.findByRole("heading", { name: "Budget" })).toBeInTheDocument();
+    expect(screen.getByText("Salary")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Budget" })).toHaveAttribute("aria-current", "page");
   });
 
   it("opens the Transactions tab and lists that Financial Year's Transactions newest-first", async () => {
