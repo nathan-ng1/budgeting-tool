@@ -107,7 +107,7 @@ describe("BudgetedVsActual", () => {
     expect(expenseDiffCell.className).toContain("adverse");
   });
 
-  it("totals only the Categories that actually have a Category Budget, on both sides", () => {
+  it("totals Budgeted and Diff from budgeted Categories only, but Actual from every Category in the section", () => {
     render(
       <BudgetedVsActual
         rows={[
@@ -119,12 +119,30 @@ describe("BudgetedVsActual", () => {
 
     const totals = within(row("Expense total")).getAllByRole("cell");
 
-    // Unbudgeted Transport is excluded from BOTH columns: charging its spend
+    // Unbudgeted Transport is excluded from Budgeted/Diff: charging its spend
     // against a budgeted-only total would read as an overspend that isn't
-    // one.
+    // one. Actual isn't a comparison though - it's the section's real total
+    // spend, so it includes Transport.
     expect(totals[2]).toHaveTextContent("$650");
-    expect(totals[3]).toHaveTextContent("$612");
+    expect(totals[3]).toHaveTextContent("$712");
     expect(totals[4]).toHaveTextContent("−$38");
+  });
+
+  it("still totals real Actual spend even when no Category in the section has a Category Budget", () => {
+    render(
+      <BudgetedVsActual
+        rows={[
+          { type: "Income", category: "Salary", budgeted: null, actual: 16943, diff: null, pct: null },
+          { type: "Income", category: "Beem Adjustment", budgeted: null, actual: 492, diff: null, pct: null },
+        ]}
+      />,
+    );
+
+    const totals = within(row("Income total")).getAllByRole("cell");
+
+    expect(totals[2]).toHaveTextContent("—");
+    expect(totals[3]).toHaveTextContent("$17,435");
+    expect(totals[4]).toHaveTextContent("—");
   });
 
   it("orders rows within a section by spend, so the table lines up with the donut legend beside it", () => {

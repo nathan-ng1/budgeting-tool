@@ -53,17 +53,19 @@ function SignedCells({ type, diff, pct }) {
   );
 }
 
-// A section's subtotal compares like with like: only Categories that
-// actually have a Category Budget count, on BOTH sides. Charging an
-// unbudgeted Category's spend against a budgeted-only total would read as an
-// overspend that isn't one - an unset Category Budget is not a $0 one
-// (CONTEXT.md).
+// Budgeted and Diff/% compare like with like: only Categories that actually
+// have a Category Budget count. Charging an unbudgeted Category's spend
+// against a budgeted-only total would read as an overspend that isn't one -
+// an unset Category Budget is not a $0 one (CONTEXT.md). Actual isn't a
+// comparison though - it's the section's real total spend/income, so it
+// sums every row regardless of budget.
 function subtotal(rows) {
   const budgeted = rows.filter((row) => row.budgeted !== null);
   const totalBudgeted = budgeted.reduce((sum, row) => sum + row.budgeted, 0);
-  const totalActual = budgeted.reduce((sum, row) => sum + row.actual, 0);
-  const totalDiff = totalActual - totalBudgeted;
-  const totalPct = totalBudgeted > 0 ? (totalActual / totalBudgeted) * 100 - 100 : null;
+  const totalActual = rows.reduce((sum, row) => sum + row.actual, 0);
+  const budgetedActual = budgeted.reduce((sum, row) => sum + row.actual, 0);
+  const totalDiff = budgetedActual - totalBudgeted;
+  const totalPct = totalBudgeted > 0 ? (budgetedActual / totalBudgeted) * 100 - 100 : null;
   return { hasBudgeted: budgeted.length > 0, totalBudgeted, totalActual, totalDiff, totalPct };
 }
 
