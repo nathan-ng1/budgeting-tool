@@ -1012,7 +1012,7 @@ tbody:first-of-type .bva__section {
 
 /* — budget editor (Budget tab) — */
 
-.table__section {
+.table th.table__section {
   padding-top: 24px;
   padding-bottom: 8px;
   font-size: 11px;
@@ -1023,7 +1023,7 @@ tbody:first-of-type .bva__section {
   border-bottom: 1px solid var(--color-neutral-200);
 }
 
-tbody:first-of-type .table__section {
+tbody:first-of-type .table th.table__section {
   padding-top: 16px;
 }
 
