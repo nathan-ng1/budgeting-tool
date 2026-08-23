@@ -30,6 +30,10 @@ def call(server, method: str, path: str, payload: dict | None = None):
         return response.status, (json.loads(raw) if raw else None)
 
 
+def _row(rows, category):
+    return next(row for row in rows if row["category"] == category)
+
+
 def test_a_fresh_month_returns_every_category_grouped_by_type_all_unset(running_server):
     _store, server = running_server
 
@@ -37,11 +41,17 @@ def test_a_fresh_month_returns_every_category_grouped_by_type_all_unset(running_
 
     assert status == 200
     assert list(body.keys()) == ["Income", "Expense", "Debt"]
-    assert {"category": "Salary", "amount": None} in body["Income"]
-    assert {"category": "Groceries", "amount": None} in body["Expense"]
-    assert {"category": "Mortgage Repayment", "amount": None} in body["Debt"]
+    assert _row(body["Income"], "Salary")["amount"] is None
+    assert _row(body["Expense"], "Groceries")["amount"] is None
+    assert _row(body["Debt"], "Mortgage Repayment")["amount"] is None
     # Transfer has no Category Budget to set (CONTEXT.md).
     assert "Transfer" not in body
+    # A fresh store has no Transaction history at all, so the windowed
+    # historical columns are unset - not a misleadingly small average.
+    salary = _row(body["Income"], "Salary")
+    assert salary["last_month_actual"] == 0.0
+    assert salary["trailing_average_actual"] is None
+    assert salary["average_variance_pct"] is None
 
 
 def test_saving_a_category_budget_then_appears_in_the_editor_read(running_server):
@@ -53,7 +63,7 @@ def test_saving_a_category_budget_then_appears_in_the_editor_read(running_server
     assert saved == {"category": "Groceries", "amount": 650.0}
 
     _status, body = call(server, "GET", "/api/budget-editor?year=2026&month=8")
-    assert {"category": "Groceries", "amount": 650.0} in body["Expense"]
+    assert _row(body["Expense"], "Groceries")["amount"] == 650.0
 
 
 def test_saving_a_category_budget_for_one_month_does_not_affect_another(running_server):
@@ -62,8 +72,26 @@ def test_saving_a_category_budget_for_one_month_does_not_affect_another(running_
     call(server, "PUT", "/api/budget-editor/Groceries?year=2026&month=8", {"amount": 650.0})
 
     _status, september = call(server, "GET", "/api/budget-editor?year=2026&month=9")
-    assert {"category": "Groceries", "amount": None} in september["Expense"]
+    assert _row(september["Expense"], "Groceries")["amount"] is None
     assert store.read_category_budgets(2026, 9) == {}
+
+
+def test_the_editor_read_accepts_a_trailing_window_query_param(running_server):
+    _store, server = running_server
+
+    status, body = call(server, "GET", "/api/budget-editor?year=2026&month=8&window=12")
+
+    assert status == 200
+    assert _row(body["Income"], "Salary")["trailing_average_actual"] is None
+
+
+def test_the_editor_read_rejects_a_trailing_window_outside_3_6_12(running_server):
+    _store, server = running_server
+
+    with pytest.raises(HTTPError) as exc_info:
+        call(server, "GET", "/api/budget-editor?year=2026&month=8&window=4")
+
+    assert exc_info.value.code == 400
 
 
 def test_a_category_with_special_characters_round_trips_through_the_url(running_server):

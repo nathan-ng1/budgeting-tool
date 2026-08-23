@@ -1012,19 +1012,19 @@ tbody:first-of-type .bva__section {
 
 /* — budget editor (Budget tab) — */
 
-.table__section {
+.table th.table__section {
   padding-top: 24px;
   padding-bottom: 8px;
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--color-neutral-500);
-  font-weight: 600;
+  color: var(--color-text);
+  font-weight: 700;
   border-bottom: 1px solid var(--color-neutral-200);
 }
 
-tbody:first-of-type .table__section {
-  padding-top: 0;
+tbody:first-of-type .table th.table__section {
+  padding-top: 16px;
 }
 
 .budget__amount-input {

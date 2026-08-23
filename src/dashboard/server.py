@@ -306,7 +306,17 @@ def _make_handler(store, static_root: Path):
                 return
 
             year, month = parsed
-            self._send_json(200, budgets.as_editor_payload(store.read_category_budgets(year, month)))
+            window = self._query_int(params, "window")
+            if window is None:
+                window = budgets.DEFAULT_TRAILING_WINDOW
+
+            try:
+                rows = queries.get_budget_editor(store, year=year, month=month, trailing_months=window)
+            except ValueError as cause:
+                self._send_json(400, {"error": str(cause)})
+                return
+
+            self._send_json(200, budgets.as_editor_payload(rows))
 
         def _query_int(self, params, key: str) -> int | None:
             """The int value of query param `key`, or None if it's missing or

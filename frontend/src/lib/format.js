@@ -8,6 +8,11 @@ import { MONTH_LABELS_LONG, MONTH_LABELS_SHORT } from "./months.js";
 // with the "+" at the same optical weight, which a hyphen doesn't.
 const MINUS = "−";
 
+// How an unset figure (a Category Budget never set, a historical column with
+// insufficient data) renders - shared so it reads the same everywhere rather
+// than each component picking its own dash.
+export const UNSET = "—";
+
 function dollars(value) {
   return `$${Math.abs(Math.round(value)).toLocaleString("en-AU")}`;
 }

@@ -27,8 +27,12 @@ async function failureMessage(response) {
   return `The Dashboard backend returned ${response.status}.`;
 }
 
-export function fetchBudgetEditor({ year, month }, { signal } = {}) {
-  return request(`${BASE}?year=${year}&month=${month}`, { signal });
+// `window` is the trailing window (3/6/12 - Issue #63) the historical
+// columns are computed over; omitted, the backend falls back to its own
+// default rather than this module restating it.
+export function fetchBudgetEditor({ year, month }, { signal, window } = {}) {
+  const query = window === undefined ? `year=${year}&month=${month}` : `year=${year}&month=${month}&window=${window}`;
+  return request(`${BASE}?${query}`, { signal });
 }
 
 export function saveCategoryBudget({ year, month }, category, amount) {

@@ -25,6 +25,14 @@ describe("budgetsApi", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/budget-editor?year=2026&month=8", expect.anything());
   });
 
+  it("includes the trailing window in the query when provided", async () => {
+    ok({ Income: [], Expense: [], Debt: [] });
+
+    await fetchBudgetEditor({ year: 2026, month: 8 }, { window: 12 });
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/budget-editor?year=2026&month=8&window=12", expect.anything());
+  });
+
   it("saves a Category Budget with a PUT to that Category's own path", async () => {
     ok({ category: "Groceries", amount: 650 });
 

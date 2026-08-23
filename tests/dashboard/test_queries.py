@@ -2,11 +2,14 @@ import sqlite3
 from datetime import date
 from pathlib import Path
 
+import pytest
+
 from dashboard.queries import (
     CategorySpend,
     DebtByNotes,
     MonthlyTotals,
     get_annual_overview,
+    get_budget_editor,
     get_financial_year_transactions,
     get_latest_transaction_date,
     get_month_overview,
@@ -914,3 +917,136 @@ def test_latest_transaction_date_counts_every_type_not_just_expenses(tmp_path: P
     )
 
     assert get_latest_transaction_date(store) == date(2026, 8, 3)
+
+
+# — get_budget_editor (Budget tab historical columns, Issue #63) —
+
+
+def test_budget_editor_includes_every_budgetable_category_grouped_by_type_not_transfer(fake_store):
+    store = fake_store()
+
+    rows = get_budget_editor(store, year=2026, month=8)
+
+    assert {row.type for row in rows} == {"Income", "Expense", "Debt"}
+    assert "Salary" in {row.category for row in rows}
+    assert "Mortgage Repayment" in {row.category for row in rows}
+
+
+def test_budget_editor_reports_this_months_budgeted_amount_or_none_if_unset(fake_store):
+    store = fake_store(category_budgets={("Groceries", 2026, 8): 320.0})
+
+    rows = get_budget_editor(store, year=2026, month=8)
+    by_category = {row.category: row for row in rows}
+
+    assert by_category["Groceries"].budgeted == 320.0
+    assert by_category["Transport"].budgeted is None
+
+
+def test_budget_editor_last_month_actual_is_last_calendar_months_total_for_the_category(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, 15), amount=270.0, type="Expense", category="Groceries", notes="Coles"),
+            make_transaction(date=date(2026, 6, 15), amount=999.0, type="Expense", category="Groceries", notes="Older"),
+        ],
+    )
+
+    rows = get_budget_editor(store, year=2026, month=8, trailing_months=3)
+    by_category = {row.category: row for row in rows}
+
+    assert by_category["Groceries"].last_month_actual == 270.0
+
+
+def test_budget_editor_trailing_average_and_variance_over_a_window_with_sufficient_history(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 5, 1), amount=300.0, type="Expense", category="Groceries", notes="May"),
+            make_transaction(date=date(2026, 6, 1), amount=330.0, type="Expense", category="Groceries", notes="Jun"),
+            make_transaction(date=date(2026, 7, 1), amount=270.0, type="Expense", category="Groceries", notes="Jul"),
+        ],
+        category_budgets={
+            ("Groceries", 2026, 5): 300.0,
+            ("Groceries", 2026, 6): 300.0,
+            ("Groceries", 2026, 7): 300.0,
+            ("Groceries", 2026, 8): 320.0,
+        },
+    )
+
+    rows = get_budget_editor(store, year=2026, month=8, trailing_months=3)
+    groceries = next(row for row in rows if row.category == "Groceries")
+
+    assert groceries.last_month_actual == 270.0
+    assert groceries.trailing_average_actual == 300.0  # (300 + 330 + 270) / 3
+    assert groceries.average_variance_pct == 0.0  # variances of 0%, +10%, -10% average to 0%
+
+
+def test_budget_editor_windowed_columns_are_unset_with_insufficient_history(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, 15), amount=270.0, type="Expense", category="Groceries", notes="Coles"),
+        ],
+    )
+
+    rows = get_budget_editor(store, year=2026, month=8, trailing_months=3)
+    groceries = next(row for row in rows if row.category == "Groceries")
+
+    # Only one prior month of Transaction history exists, short of the
+    # 3-month window - so the windowed columns are unset, not a
+    # misleadingly small average built from one month.
+    assert groceries.last_month_actual == 270.0
+    assert groceries.trailing_average_actual is None
+    assert groceries.average_variance_pct is None
+
+
+def test_budget_editor_insufficient_history_is_checked_per_category_not_store_wide(fake_store, make_transaction):
+    # Groceries has 3 full months of history within the window; Salary has
+    # none at all. A store-wide check would treat Salary as sufficient too
+    # (since some Category does have 3 months of data) and report a
+    # misleadingly real-looking $0 average - the per-Category check must not.
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 5, 1), amount=300.0, type="Expense", category="Groceries", notes="May"),
+            make_transaction(date=date(2026, 6, 1), amount=330.0, type="Expense", category="Groceries", notes="Jun"),
+            make_transaction(date=date(2026, 7, 1), amount=270.0, type="Expense", category="Groceries", notes="Jul"),
+        ],
+    )
+
+    rows = get_budget_editor(store, year=2026, month=8, trailing_months=3)
+    by_category = {row.category: row for row in rows}
+
+    assert by_category["Groceries"].trailing_average_actual == 300.0
+    assert by_category["Salary"].trailing_average_actual is None
+    assert by_category["Salary"].average_variance_pct is None
+
+
+def test_budget_editor_average_variance_is_unset_when_no_window_month_was_budgeted(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 5, 1), amount=300.0, type="Expense", category="Groceries", notes="May"),
+            make_transaction(date=date(2026, 6, 1), amount=330.0, type="Expense", category="Groceries", notes="Jun"),
+            make_transaction(date=date(2026, 7, 1), amount=270.0, type="Expense", category="Groceries", notes="Jul"),
+        ],
+    )
+
+    rows = get_budget_editor(store, year=2026, month=8, trailing_months=3)
+    groceries = next(row for row in rows if row.category == "Groceries")
+
+    assert groceries.trailing_average_actual == 300.0
+    assert groceries.average_variance_pct is None
+
+
+def test_budget_editor_a_month_with_no_transactions_or_budgets_is_a_coherent_empty_state(fake_store):
+    store = fake_store()
+
+    rows = get_budget_editor(store, year=2026, month=8, trailing_months=3)
+
+    assert all(row.budgeted is None for row in rows)
+    assert all(row.last_month_actual == 0.0 for row in rows)
+    assert all(row.trailing_average_actual is None for row in rows)
+    assert all(row.average_variance_pct is None for row in rows)
+
+
+def test_budget_editor_rejects_a_trailing_window_outside_3_6_12(fake_store):
+    store = fake_store()
+
+    with pytest.raises(ValueError):
+        get_budget_editor(store, year=2026, month=8, trailing_months=4)
