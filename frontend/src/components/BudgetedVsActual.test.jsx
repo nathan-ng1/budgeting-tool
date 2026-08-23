@@ -168,4 +168,76 @@ describe("BudgetedVsActual", () => {
     expect(screen.getByText(/no spending or Category Budgets/i)).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
+
+  describe("total Diff", () => {
+    function figure() {
+      return screen.getByText("Total Diff").closest(".card__aside").querySelector(".card__aside-figure");
+    }
+
+    it("sums Diff across every Type, budgeted Categories only", () => {
+      render(
+        <BudgetedVsActual
+          rows={[
+            { type: "Income", category: "Salary", budgeted: 4000, actual: 4000, diff: 0, pct: 100 },
+            { type: "Expense", category: "Groceries", budgeted: 650, actual: 600, diff: 50, pct: 92.3 },
+            { type: "Expense", category: "Transport", budgeted: null, actual: 900, diff: null, pct: null },
+            { type: "Debt", category: "Mortgage Repayment", budgeted: 850, actual: 850, diff: 0, pct: 100 },
+          ]}
+        />,
+      );
+
+      // Only budgeted Categories count: (4000-4000) + (600-650) + (850-850) = -50.
+      expect(figure()).toHaveTextContent("−$50");
+    });
+
+    it("colours a negative total (actual under budgeted) favourable", () => {
+      render(
+        <BudgetedVsActual
+          rows={[{ type: "Expense", category: "Groceries", budgeted: 650, actual: 600, diff: 50, pct: 92.3 }]}
+        />,
+      );
+
+      expect(figure().className).toContain("favourable");
+      expect(figure()).not.toHaveTextContent("+");
+    });
+
+    it("colours a positive total (actual over budgeted) adverse", () => {
+      render(
+        <BudgetedVsActual
+          rows={[{ type: "Expense", category: "Groceries", budgeted: 650, actual: 700, diff: -50, pct: 107.7 }]}
+        />,
+      );
+
+      expect(figure().className).toContain("adverse");
+      expect(figure()).toHaveTextContent("+$50");
+    });
+
+    it("leaves an exactly-zero total unstyled", () => {
+      render(
+        <BudgetedVsActual
+          rows={[{ type: "Expense", category: "Groceries", budgeted: 650, actual: 650, diff: 0, pct: 100 }]}
+        />,
+      );
+
+      expect(figure().className).not.toContain("favourable");
+      expect(figure().className).not.toContain("adverse");
+    });
+
+    it("shows unset, not $0, when no Category anywhere has a Category Budget", () => {
+      render(
+        <BudgetedVsActual
+          rows={[{ type: "Expense", category: "Groceries", budgeted: null, actual: 700, diff: null, pct: null }]}
+        />,
+      );
+
+      expect(figure()).toHaveTextContent("—");
+      expect(figure()).not.toHaveTextContent("$0");
+    });
+
+    it("omits the total figure entirely when there is nothing to compare yet", () => {
+      render(<BudgetedVsActual rows={[]} />);
+
+      expect(screen.queryByText("Total Diff")).not.toBeInTheDocument();
+    });
+  });
 });
