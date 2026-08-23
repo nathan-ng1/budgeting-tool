@@ -5,7 +5,7 @@
 // The editor endpoint's response, grouped by Type - see dashboard.budgets.
 // Flattened into one category -> string map for the form's inputs: an unset
 // Category Budget renders as "" (blank), never "0" or "null".
-export function blankValues(editor) {
+export function valuesFrom(editor) {
   const values = {};
   for (const rows of Object.values(editor)) {
     for (const { category, amount } of rows) {

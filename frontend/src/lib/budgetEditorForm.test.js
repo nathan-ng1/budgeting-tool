@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { blankValues, changesFrom } from "./budgetEditorForm.js";
+import { changesFrom, valuesFrom } from "./budgetEditorForm.js";
 
 const EDITOR = {
   Income: [{ category: "Salary", amount: 5000 }],
@@ -11,9 +11,9 @@ const EDITOR = {
   Debt: [{ category: "Mortgage Repayment", amount: null }],
 };
 
-describe("blankValues", () => {
+describe("valuesFrom", () => {
   it("flattens every Category across every Type into a category -> string map", () => {
-    expect(blankValues(EDITOR)).toEqual({
+    expect(valuesFrom(EDITOR)).toEqual({
       Salary: "5000",
       Groceries: "650",
       Transport: "",
@@ -22,7 +22,7 @@ describe("blankValues", () => {
   });
 
   it("renders an unset Category Budget as an empty string, not '0' or 'null'", () => {
-    expect(blankValues({ Expense: [{ category: "Groceries", amount: null }] })).toEqual({ Groceries: "" });
+    expect(valuesFrom({ Expense: [{ category: "Groceries", amount: null }] })).toEqual({ Groceries: "" });
   });
 });
 

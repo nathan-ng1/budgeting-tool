@@ -1027,7 +1027,7 @@ tbody:first-of-type .table__section {
   padding-top: 0;
 }
 
-.budget-amount-input {
+.budget__amount-input {
   width: 110px;
   padding: 7px 10px;
   border: 1px solid var(--color-neutral-300);
@@ -1039,7 +1039,7 @@ tbody:first-of-type .table__section {
   text-align: right;
 }
 
-.budget-amount-input:focus-visible {
+.budget__amount-input:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 1px;
 }

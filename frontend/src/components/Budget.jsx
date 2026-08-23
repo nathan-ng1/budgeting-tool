@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { blankValues, changesFrom } from "../lib/budgetEditorForm.js";
+import { valuesFrom, changesFrom } from "../lib/budgetEditorForm.js";
 import { deleteCategoryBudget, fetchBudgetEditor, saveCategoryBudget } from "../lib/budgetsApi.js";
 import { financialYearFor } from "../lib/financialYear.js";
 import MonthSelector from "./MonthSelector.jsx";
@@ -26,7 +26,7 @@ export default function Budget() {
 
   const load = useCallback(async (month, signal) => {
     const loaded = await fetchBudgetEditor(month, { signal });
-    const asValues = blankValues(loaded);
+    const asValues = valuesFrom(loaded);
     setEditor(loaded);
     setValues(asValues);
     setInitial(asValues);
@@ -128,7 +128,7 @@ export default function Budget() {
                         type="number"
                         step="0.01"
                         min="0"
-                        className="budget-amount-input"
+                        className="budget__amount-input"
                         aria-label={`${category} Budgeted Amount`}
                         value={values[category] ?? ""}
                         onChange={(event) => set(category, event.target.value)}
