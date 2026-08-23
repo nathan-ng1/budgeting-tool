@@ -31,6 +31,10 @@ export function signedPct(value) {
   return `${Math.round(value) < 0 ? MINUS : "+"}${Math.abs(Math.round(value))}%`;
 }
 
+export function pct(value) {
+  return `${Math.round(value)}%`;
+}
+
 export function dayMonth(isoDate) {
   const { month, day } = parts(isoDate);
   return `${MONTH_LABELS_SHORT[month - 1]} ${day}`;

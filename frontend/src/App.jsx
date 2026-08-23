@@ -156,34 +156,47 @@ export default function App() {
 
                 {selected !== null ? (
                   <>
-                    <div className="row--donut">
-                      <SpendingByCategory spending={overview.spending_by_category} total={overview.stat_tiles.expenses} />
-                      <BudgetedVsActual rows={overview.budgeted_vs_actual} />
+                    <div className="row--wide-pair">
+                      <div className="row--wide-pair__top">
+                        <SpendingByCategory spending={overview.spending_by_category} total={overview.stat_tiles.expenses} />
+                      </div>
+                      <div className="row--wide-pair__wide">
+                        <BudgetedVsActual rows={overview.budgeted_vs_actual} />
+                      </div>
+                      <div className="row--wide-pair__bottom">
+                        <DebtSummary debtSummary={overview.debt_summary} total={overview.stat_tiles.debt} />
+                      </div>
                     </div>
-                    <DebtSummary debtSummary={overview.debt_summary} total={overview.stat_tiles.debt} />
                     <div className="row--split">
                       <TopExpenses expenses={overview.top_expenses} count={5} />
                       <ExpensesOverTime overTime={overview.expenses_over_time} />
                     </div>
                   </>
                 ) : (
-                  // Full year pairs the donut with Month by Month rather than
-                  // with Budgeted vs Actual: over a whole Financial Year the
-                  // month-by-month shape is what the donut begs the reader to
-                  // ask about (ADR-0011).
+                  // Full year pairs Month by Month with Budgeted vs Actual
+                  // rather than with the donut: over a whole Financial Year
+                  // the month-by-month shape is what the donut begs the
+                  // reader to ask about (ADR-0011), so Spending by Category
+                  // moves down to pair with Top expenses instead.
                   <>
                     <IncomeVsExpensesByMonth months={overview.income_vs_expenses_by_month} />
-                    <div className="row--donut">
-                      <SpendingByCategory spending={overview.spending_by_category} total={overview.stat_tiles.expenses} />
-                      <MonthByMonth months={overview.month_by_month} />
+                    <div className="row--wide-pair">
+                      <div className="row--wide-pair__top">
+                        <MonthByMonth months={overview.month_by_month} />
+                      </div>
+                      <div className="row--wide-pair__wide">
+                        <BudgetedVsActual rows={overview.budgeted_vs_actual} />
+                      </div>
+                      <div className="row--wide-pair__bottom">
+                        <DebtSummary
+                          debtSummary={overview.debt_summary}
+                          total={overview.stat_tiles.debt}
+                          average={overview.monthly_average.debt}
+                        />
+                      </div>
                     </div>
-                    <DebtSummary
-                      debtSummary={overview.debt_summary}
-                      total={overview.stat_tiles.debt}
-                      average={overview.monthly_average.debt}
-                    />
                     <div className="row--split">
-                      <BudgetedVsActual rows={overview.budgeted_vs_actual} />
+                      <SpendingByCategory spending={overview.spending_by_category} total={overview.stat_tiles.expenses} />
                       <TopExpenses expenses={overview.top_expenses} count={10} />
                     </div>
                   </>

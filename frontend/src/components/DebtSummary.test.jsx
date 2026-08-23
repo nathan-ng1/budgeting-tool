@@ -52,7 +52,7 @@ describe("DebtSummary", () => {
     expect(screen.getByText(/No Debt repayments recorded/i)).toBeInTheDocument();
   });
 
-  it("shows Notes/Amount column headers above the list", () => {
+  it("shows Notes/Amount/% column headers above the list", () => {
     render(
       <DebtSummary
         debtSummary={[{ notes: "Werribee", amount: 1600, pct_of_debt: 100 }]}
@@ -62,6 +62,7 @@ describe("DebtSummary", () => {
 
     expect(screen.getByText("Notes")).toBeInTheDocument();
     expect(screen.getByText("Amount")).toBeInTheDocument();
+    expect(screen.getByText("%")).toBeInTheDocument();
   });
 
   it("shows no column headers alongside the empty state", () => {
@@ -69,5 +70,22 @@ describe("DebtSummary", () => {
 
     expect(screen.queryByText("Notes")).not.toBeInTheDocument();
     expect(screen.queryByText("Amount")).not.toBeInTheDocument();
+  });
+
+  it("shows each row's percentage of total Debt as plain text, with no bar", () => {
+    const { container } = render(
+      <DebtSummary
+        debtSummary={[
+          { notes: "Werribee", amount: 1600, pct_of_debt: 76.2 },
+          { notes: "Investment property", amount: 500, pct_of_debt: 23.8 },
+        ]}
+        total={2100}
+      />,
+    );
+
+    expect(screen.getByText("76%")).toBeInTheDocument();
+    expect(screen.getByText("24%")).toBeInTheDocument();
+    expect(container.querySelector(".debt-summary__bar-track")).not.toBeInTheDocument();
+    expect(container.querySelector(".debt-summary__bar-fill")).not.toBeInTheDocument();
   });
 });

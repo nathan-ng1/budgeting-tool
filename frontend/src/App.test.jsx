@@ -308,6 +308,24 @@ describe("App", () => {
     expect(screen.queryByText(/month average/)).not.toBeInTheDocument();
   });
 
+  it("groups Spending by Category, Budgeted vs Actual, and Debt into the wide-pair layout, for a month", async () => {
+    respondWith({
+      month: monthWithSpending(2026, 8, {
+        stat_tiles: { income: 5240, expenses: 3667, debt: 875, net_balance: 698, transferred: 900 },
+        debt_summary: [{ notes: "Werribee", amount: 875, pct_of_debt: 100 }],
+      }),
+    });
+    render(<App />);
+    await screen.findByText("$8,000");
+    await userEvent.click(screen.getByRole("button", { name: "Aug" }));
+    await screen.findByText("$5,240");
+
+    const widePair = screen.getByRole("heading", { name: "Budgeted vs Actual" }).closest(".row--wide-pair");
+    expect(widePair).not.toBeNull();
+    expect(within(widePair).getByRole("heading", { name: "Spending by Category" })).toBeInTheDocument();
+    expect(within(widePair).getByRole("heading", { name: "Debt" })).toBeInTheDocument();
+  });
+
   it("renders the Debt card with a $/month average, for Full year", async () => {
     respondWith({
       annual: annualWithSpending({
@@ -320,12 +338,34 @@ describe("App", () => {
     await screen.findByText("$8,000");
 
     const headings = screen.getAllByRole("heading").map((h) => h.textContent);
-    expect(headings.indexOf("Month by month")).toBeLessThan(headings.indexOf("Debt"));
-    expect(headings.indexOf("Debt")).toBeLessThan(headings.indexOf("Budgeted vs Actual"));
+    expect(headings.indexOf("Month by month")).toBeLessThan(headings.indexOf("Budgeted vs Actual"));
+    expect(headings.indexOf("Budgeted vs Actual")).toBeLessThan(headings.indexOf("Debt"));
     expect(screen.getByText("Werribee")).toBeInTheDocument();
 
     const debtCard = screen.getByRole("heading", { name: "Debt" }).closest("section");
     expect(within(debtCard).getByText("$800 / month average")).toBeInTheDocument();
+  });
+
+  it("groups Month by month, Budgeted vs Actual, and Debt into the wide-pair layout, and pairs Spending by Category with Top expenses, for Full year", async () => {
+    respondWith({
+      annual: annualWithSpending({
+        stat_tiles: { income: 8000, expenses: 6000, debt: 1600, net_balance: 400, transferred: 1000 },
+        monthly_average: { income: 4000, expenses: 3000, debt: 800, net_balance: 200, transferred: 500 },
+        debt_summary: [{ notes: "Werribee", amount: 1600, pct_of_debt: 100 }],
+      }),
+    });
+    render(<App />);
+    await screen.findByText("$8,000");
+
+    const widePair = screen.getByRole("heading", { name: "Budgeted vs Actual" }).closest(".row--wide-pair");
+    expect(widePair).not.toBeNull();
+    expect(within(widePair).getByRole("heading", { name: "Month by month" })).toBeInTheDocument();
+    expect(within(widePair).getByRole("heading", { name: "Debt" })).toBeInTheDocument();
+    expect(within(widePair).queryByRole("heading", { name: "Spending by Category" })).not.toBeInTheDocument();
+
+    const split = screen.getByRole("heading", { name: "Spending by Category" }).closest(".row--split");
+    expect(split).not.toBeNull();
+    expect(within(split).getByRole("heading", { name: "Top 10 expenses" })).toBeInTheDocument();
   });
 
   it("surfaces a backend failure instead of rendering a half-empty page", async () => {
