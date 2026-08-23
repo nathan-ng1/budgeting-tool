@@ -242,65 +242,139 @@ def test_append_recurring_rules_with_no_rules_is_a_noop(tmp_path: Path):
 def test_read_category_budgets_on_a_fresh_database_returns_no_budgets(tmp_path: Path):
     store = connect(tmp_path / "budget.db")
 
-    assert store.read_category_budgets() == {}
+    assert store.read_category_budgets(2026, 8) == {}
 
 
 def test_upsert_category_budget_then_read_category_budgets_round_trips(tmp_path: Path):
     store = connect(tmp_path / "budget.db")
 
-    store.upsert_category_budget("Groceries", 500.0)
+    store.upsert_category_budget("Expense", "Groceries", 2026, 8, 500.0)
 
-    assert store.read_category_budgets() == {"Groceries": 500.0}
+    assert store.read_category_budgets(2026, 8) == {"Groceries": 500.0}
 
 
 def test_read_category_budgets_omits_categories_with_none_configured(tmp_path: Path):
     store = connect(tmp_path / "budget.db")
 
-    store.upsert_category_budget("Groceries", 500.0)
+    store.upsert_category_budget("Expense", "Groceries", 2026, 8, 500.0)
 
-    assert "Dining & Takeaway" not in store.read_category_budgets()
+    assert "Dining & Takeaway" not in store.read_category_budgets(2026, 8)
 
 
-def test_upsert_category_budget_overwrites_an_existing_budget(tmp_path: Path):
+def test_upsert_category_budget_for_one_month_does_not_affect_another_month(tmp_path: Path):
     store = connect(tmp_path / "budget.db")
-    store.upsert_category_budget("Groceries", 500.0)
+    store.upsert_category_budget("Expense", "Groceries", 2026, 9, 550.0)
 
-    store.upsert_category_budget("Groceries", 600.0)
+    store.upsert_category_budget("Expense", "Groceries", 2026, 8, 500.0)
 
-    assert store.read_category_budgets() == {"Groceries": 600.0}
+    assert store.read_category_budgets(2026, 8) == {"Groceries": 500.0}
+    assert store.read_category_budgets(2026, 9) == {"Groceries": 550.0}
 
 
-def test_upsert_category_budget_rejects_a_category_not_in_the_expense_set(tmp_path: Path):
+def test_upsert_category_budget_overwrites_an_existing_budget_for_the_same_month(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+    store.upsert_category_budget("Expense", "Groceries", 2026, 8, 500.0)
+
+    store.upsert_category_budget("Expense", "Groceries", 2026, 8, 600.0)
+
+    assert store.read_category_budgets(2026, 8) == {"Groceries": 600.0}
+
+
+def test_upsert_category_budget_succeeds_for_an_income_category(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    store.upsert_category_budget("Income", "Salary", 2026, 8, 5000.0)
+
+    assert store.read_category_budgets(2026, 8) == {"Salary": 5000.0}
+
+
+def test_upsert_category_budget_succeeds_for_a_debt_category(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    store.upsert_category_budget("Debt", "Mortgage Repayment", 2026, 8, 2000.0)
+
+    assert store.read_category_budgets(2026, 8) == {"Mortgage Repayment": 2000.0}
+
+
+def test_upsert_category_budget_rejects_a_category_not_valid_for_the_given_type(tmp_path: Path):
     store = connect(tmp_path / "budget.db")
 
     with pytest.raises(ValueError):
-        store.upsert_category_budget("Salary", 500.0)
+        store.upsert_category_budget("Income", "Groceries", 2026, 8, 500.0)
 
-    assert store.read_category_budgets() == {}
+    assert store.read_category_budgets(2026, 8) == {}
 
 
 def test_upsert_category_budget_rejects_an_unknown_category(tmp_path: Path):
     store = connect(tmp_path / "budget.db")
 
     with pytest.raises(ValueError):
-        store.upsert_category_budget("Not A Real Category", 500.0)
+        store.upsert_category_budget("Expense", "Not A Real Category", 2026, 8, 500.0)
 
 
 def test_delete_category_budget_removes_it_so_it_no_longer_appears(tmp_path: Path):
     store = connect(tmp_path / "budget.db")
-    store.upsert_category_budget("Groceries", 500.0)
+    store.upsert_category_budget("Expense", "Groceries", 2026, 8, 500.0)
 
-    store.delete_category_budget("Groceries")
+    store.delete_category_budget("Groceries", 2026, 8)
 
-    assert store.read_category_budgets() == {}
+    assert store.read_category_budgets(2026, 8) == {}
+
+
+def test_delete_category_budget_only_removes_the_given_month(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+    store.upsert_category_budget("Expense", "Groceries", 2026, 8, 500.0)
+    store.upsert_category_budget("Expense", "Groceries", 2026, 9, 550.0)
+
+    store.delete_category_budget("Groceries", 2026, 8)
+
+    assert store.read_category_budgets(2026, 8) == {}
+    assert store.read_category_budgets(2026, 9) == {"Groceries": 550.0}
 
 
 def test_delete_category_budget_for_a_category_with_no_budget_is_a_noop(tmp_path: Path):
     store = connect(tmp_path / "budget.db")
 
-    store.delete_category_budget("Groceries")
+    store.delete_category_budget("Groceries", 2026, 8)
 
-    assert store.read_category_budgets() == {}
+    assert store.read_category_budgets(2026, 8) == {}
+
+
+def test_read_category_budgets_for_range_returns_only_set_months_within_the_span(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+    store.upsert_category_budget("Expense", "Groceries", 2026, 6, 480.0)
+    store.upsert_category_budget("Expense", "Groceries", 2026, 8, 500.0)
+    store.upsert_category_budget("Expense", "Groceries", 2026, 9, 520.0)
+
+    result = store.read_category_budgets_for_range("Groceries", 2026, 7, 2026, 9)
+
+    assert result == {(2026, 8): 500.0, (2026, 9): 520.0}
+
+
+def test_read_category_budgets_for_range_is_scoped_to_the_given_category(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+    store.upsert_category_budget("Expense", "Groceries", 2026, 8, 500.0)
+    store.upsert_category_budget("Expense", "Dining & Takeaway", 2026, 8, 200.0)
+
+    result = store.read_category_budgets_for_range("Groceries", 2026, 1, 2026, 12)
+
+    assert result == {(2026, 8): 500.0}
+
+
+def test_read_category_budgets_for_range_spans_a_year_boundary(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+    store.upsert_category_budget("Expense", "Groceries", 2025, 12, 480.0)
+    store.upsert_category_budget("Expense", "Groceries", 2026, 1, 500.0)
+
+    result = store.read_category_budgets_for_range("Groceries", 2025, 11, 2026, 2)
+
+    assert result == {(2025, 12): 480.0, (2026, 1): 500.0}
+
+
+def test_read_category_budgets_for_range_with_nothing_set_returns_empty(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    assert store.read_category_budgets_for_range("Groceries", 2026, 1, 2026, 12) == {}
 
 
 def _insert_recurring_rule(database_path: Path, **fields) -> None:

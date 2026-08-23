@@ -33,8 +33,11 @@ CREATE TABLE IF NOT EXISTS recurring_rules (
 );
 
 CREATE TABLE IF NOT EXISTS category_budgets (
-    category TEXT PRIMARY KEY,
-    monthly_amount NUMERIC NOT NULL
+    category TEXT NOT NULL,
+    year INTEGER NOT NULL,
+    month INTEGER NOT NULL,
+    amount NUMERIC NOT NULL,
+    PRIMARY KEY (category, year, month)
 );
 """
 
@@ -201,22 +204,47 @@ class LocalStore:
 
         self._connection.commit()
 
-    def read_category_budgets(self) -> dict[str, float]:
-        rows = self._connection.execute("SELECT category, monthly_amount FROM category_budgets").fetchall()
-        return {category: monthly_amount for category, monthly_amount in rows}
+    def read_category_budgets(self, year: int, month: int) -> dict[str, float]:
+        """Every Category Budget set for one specific (year, month), keyed by
+        Category. A Category with no Category Budget for this month is
+        omitted - never reported as $0 (unset != $0).
+        """
+        rows = self._connection.execute(
+            "SELECT category, amount FROM category_budgets WHERE year = ? AND month = ?",
+            (year, month),
+        ).fetchall()
+        return {category: amount for category, amount in rows}
 
-    def upsert_category_budget(self, category: str, monthly_amount: float) -> None:
-        require_valid_type_category_pair("Expense", category)
+    def read_category_budgets_for_range(
+        self, category: str, start_year: int, start_month: int, end_year: int, end_month: int
+    ) -> dict[tuple[int, int], float]:
+        """One Category's Category Budgets across an inclusive span of months,
+        keyed by (year, month). A month with none set is omitted.
+        """
+        rows = self._connection.execute(
+            "SELECT year, month, amount FROM category_budgets "
+            "WHERE category = ? AND (year * 12 + month) BETWEEN (? * 12 + ?) AND (? * 12 + ?)",
+            (category, start_year, start_month, end_year, end_month),
+        ).fetchall()
+        return {(year, month): amount for year, month, amount in rows}
+
+    def upsert_category_budget(
+        self, transaction_type: str, category: str, year: int, month: int, amount: float
+    ) -> None:
+        require_valid_type_category_pair(transaction_type, category)
 
         self._connection.execute(
-            "INSERT INTO category_budgets (category, monthly_amount) VALUES (?, ?) "
-            "ON CONFLICT(category) DO UPDATE SET monthly_amount = excluded.monthly_amount",
-            (category, monthly_amount),
+            "INSERT INTO category_budgets (category, year, month, amount) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(category, year, month) DO UPDATE SET amount = excluded.amount",
+            (category, year, month, amount),
         )
         self._connection.commit()
 
-    def delete_category_budget(self, category: str) -> None:
-        self._connection.execute("DELETE FROM category_budgets WHERE category = ?", (category,))
+    def delete_category_budget(self, category: str, year: int, month: int) -> None:
+        self._connection.execute(
+            "DELETE FROM category_budgets WHERE category = ? AND year = ? AND month = ?",
+            (category, year, month),
+        )
         self._connection.commit()
 
 
