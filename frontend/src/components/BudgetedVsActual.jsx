@@ -1,8 +1,6 @@
 import { colourForCategory } from "../lib/categoryColours.js";
-import { money, signedMoney, signedPct } from "../lib/format.js";
+import { UNSET, money, signedMoney, signedPct } from "../lib/format.js";
 import { toneFor } from "../lib/tone.js";
-
-const UNSET = "—";
 
 // The budgetable Types, in CONTEXT.md's order - the table's section order,
 // top to bottom. Deliberately its own list rather than transactionsView.js's

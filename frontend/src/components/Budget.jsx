@@ -3,10 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { valuesFrom, changesFrom } from "../lib/budgetEditorForm.js";
 import { deleteCategoryBudget, fetchBudgetEditor, saveCategoryBudget } from "../lib/budgetsApi.js";
 import { financialYearFor } from "../lib/financialYear.js";
-import { money, signedPct } from "../lib/format.js";
+import { UNSET, money, signedPct } from "../lib/format.js";
 import MonthSelector from "./MonthSelector.jsx";
-
-const UNSET = "—";
 
 // The trailing windows the Budget tab's dropdown offers - see
 // dashboard.queries.TRAILING_WINDOWS.
@@ -22,6 +20,8 @@ export default function Budget() {
   // #64), so there is always exactly one month selected, defaulting to the
   // current one - unlike Overview's Full year default (ADR-0011).
   const [selected, setSelected] = useState(currentMonth);
+  // 3 matches dashboard.budgets.DEFAULT_TRAILING_WINDOW - kept in sync by
+  // hand since the two live either side of the HTTP boundary.
   const [trailingWindow, setTrailingWindow] = useState(3);
   const [editor, setEditor] = useState(null);
   const [values, setValues] = useState({});

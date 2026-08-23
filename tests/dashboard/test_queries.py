@@ -932,7 +932,7 @@ def test_budget_editor_includes_every_budgetable_category_grouped_by_type_not_tr
     assert "Mortgage Repayment" in {row.category for row in rows}
 
 
-def test_budget_editor_reports_this_months_budgeted_amount_or_none_if_unset(fake_store, make_transaction):
+def test_budget_editor_reports_this_months_budgeted_amount_or_none_if_unset(fake_store):
     store = fake_store(category_budgets={("Groceries", 2026, 8): 320.0})
 
     rows = get_budget_editor(store, year=2026, month=8)
@@ -995,6 +995,27 @@ def test_budget_editor_windowed_columns_are_unset_with_insufficient_history(fake
     assert groceries.last_month_actual == 270.0
     assert groceries.trailing_average_actual is None
     assert groceries.average_variance_pct is None
+
+
+def test_budget_editor_insufficient_history_is_checked_per_category_not_store_wide(fake_store, make_transaction):
+    # Groceries has 3 full months of history within the window; Salary has
+    # none at all. A store-wide check would treat Salary as sufficient too
+    # (since some Category does have 3 months of data) and report a
+    # misleadingly real-looking $0 average - the per-Category check must not.
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 5, 1), amount=300.0, type="Expense", category="Groceries", notes="May"),
+            make_transaction(date=date(2026, 6, 1), amount=330.0, type="Expense", category="Groceries", notes="Jun"),
+            make_transaction(date=date(2026, 7, 1), amount=270.0, type="Expense", category="Groceries", notes="Jul"),
+        ],
+    )
+
+    rows = get_budget_editor(store, year=2026, month=8, trailing_months=3)
+    by_category = {row.category: row for row in rows}
+
+    assert by_category["Groceries"].trailing_average_actual == 300.0
+    assert by_category["Salary"].trailing_average_actual is None
+    assert by_category["Salary"].average_variance_pct is None
 
 
 def test_budget_editor_average_variance_is_unset_when_no_window_month_was_budgeted(fake_store, make_transaction):

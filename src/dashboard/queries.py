@@ -201,11 +201,13 @@ def get_budget_editor(store, year: int, month: int, trailing_months: int = 3) ->
     run from Budgeted) over `trailing_months`. See Issue #63.
 
     The two windowed columns come back None - not a misleadingly small
-    average - for every Category when the store holds fewer than
-    `trailing_months` prior calendar months of Transaction history; a
-    Category with sufficient history but no Category Budget set in any of
-    those months gets a None average variance %, since there is nothing to
-    measure variance against.
+    average - for a Category with fewer than `trailing_months` prior
+    calendar months of its own Transaction history (checked per-Category,
+    not store-wide: a Category with no Transactions of its own yet is
+    insufficient even if other Categories go back further); a Category with
+    sufficient history but no Category Budget set in any of those months
+    gets a None average variance %, since there is nothing to measure
+    variance against.
     """
     if trailing_months not in TRAILING_WINDOWS:
         raise ValueError(f"trailing_months must be one of {TRAILING_WINDOWS}, got {trailing_months}")
@@ -214,11 +216,10 @@ def get_budget_editor(store, year: int, month: int, trailing_months: int = 3) ->
     # window_months[0] is last month (the anchor shown on its own, unwindowed);
     # window_months[-1] is the oldest month the window reaches back to.
     window_months = [_add_months(selected_start, -offset) for offset in range(1, trailing_months + 1)]
-    window_start, window_end = window_months[-1], window_months[0]
+    window_start = window_months[-1]
 
     transactions = store.read_transactions()
-    earliest_transaction_month = min((date(t.date.year, t.date.month, 1) for t in transactions), default=None)
-    has_sufficient_history = earliest_transaction_month is not None and earliest_transaction_month <= window_start
+    earliest_month_by_category = _earliest_month_by_category(transactions)
 
     actuals_by_month = {
         month_start: _totals_by_category(
@@ -234,15 +235,17 @@ def get_budget_editor(store, year: int, month: int, trailing_months: int = 3) ->
         if transaction_type not in BUDGETABLE_TYPES:
             continue
         for category in sorted(CATEGORIES_BY_TYPE[transaction_type]):
+            category_earliest = earliest_month_by_category.get(category)
+            has_sufficient_history = category_earliest is not None and category_earliest <= window_start
             trailing_average_actual, average_variance_pct = _trailing_history(
-                store, category, window_months, window_start, window_end, actuals_by_month, has_sufficient_history
+                store, category, window_months, actuals_by_month, has_sufficient_history
             )
             rows.append(
                 BudgetEditorRow(
                     type=transaction_type,
                     category=category,
                     budgeted=current_budgets.get(category),
-                    last_month_actual=_round(actuals_by_month[window_end].get(category, 0.0)),
+                    last_month_actual=_round(actuals_by_month[window_months[0]].get(category, 0.0)),
                     trailing_average_actual=trailing_average_actual,
                     average_variance_pct=average_variance_pct,
                 )
@@ -448,20 +451,33 @@ def _annual_budgeted_vs_actual(store, transactions: list[Transaction], start: da
     return _budgeted_vs_actual_rows(budgets, actuals)
 
 
+def _earliest_month_by_category(transactions: list[Transaction]) -> dict[str, date]:
+    """Each Category's own earliest Transaction month - used to decide, per
+    Category, whether a trailing window reaches back further than that
+    Category's history goes (get_budget_editor).
+    """
+    earliest: dict[str, date] = {}
+    for t in transactions:
+        if t.type not in BUDGETABLE_TYPES:
+            continue
+        month_start = date(t.date.year, t.date.month, 1)
+        if t.category not in earliest or month_start < earliest[t.category]:
+            earliest[t.category] = month_start
+    return earliest
+
+
 def _trailing_history(
     store,
     category: str,
     window_months: list[date],
-    window_start: date,
-    window_end: date,
     actuals_by_month: dict[date, dict[str, float]],
     has_sufficient_history: bool,
 ) -> tuple[float | None, float | None]:
     """One Category's trailing average actual and average variance % across
-    `window_months` - both None when the store lacks enough history for the
-    window (get_budget_editor decides that globally), and the variance is
-    also None on its own when none of those months had a Category Budget set
-    to measure variance against.
+    `window_months` - both None when that Category lacks enough history of
+    its own for the window (get_budget_editor decides that per-Category), and
+    the variance is also None on its own when none of those months had a
+    Category Budget set to measure variance against.
     """
     if not has_sufficient_history:
         return None, None
@@ -469,6 +485,7 @@ def _trailing_history(
     trailing_actuals = [actuals_by_month[month_start].get(category, 0.0) for month_start in window_months]
     trailing_average_actual = _round(sum(trailing_actuals) / len(window_months))
 
+    window_end, window_start = window_months[0], window_months[-1]
     budgeted_by_month = store.read_category_budgets_for_range(
         category, window_start.year, window_start.month, window_end.year, window_end.month
     )
