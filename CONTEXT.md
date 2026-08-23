@@ -14,16 +14,12 @@ A single row within a Statement Export: a date, a signed amount (negative = spen
 _Avoid_: Line, entry, record
 
 **Beem Report**:
-A CSV export from the Beem P2P payment app, dropped into `.data/` following the same `{Issuer}_{yyyymmdd}.csv` naming convention as a Statement Export (e.g. `Beem_20260730.csv`). Distinct from a Statement Export: it has a header row, each row's sign is bidirectional — derived from whether the user was Payer or Recipient, not a fixed sign-per-column convention — and it is Income-eligible: an incoming Beem Transaction is written to the Transaction Log as Income, not dropped the way a Bill Payment is.
+A CSV export from the Beem P2P payment app, dropped into `.data/` following the same `{Issuer}_{yyyymmdd}.csv` naming convention as a Statement Export (e.g. `Beem_20260730.csv`). Distinct from a Statement Export: it has a header row, and each row's sign is bidirectional — derived from whether the user was Payer or Recipient, not a fixed sign-per-column convention. An incoming Beem Transaction (money to the user) is a reimbursement for a shared or prior Expense, not standalone earning — it's written to the Transaction Log as Type Expense, Category Beem Adjustment, with a negative Amount that reduces Expense totals rather than as Income. See [ADR-0015](./docs/adr/0015-beem-adjustment-reduces-expense-instead-of-income.md).
 _Avoid_: Beem export, Beem statement
 
 **Bill Payment**:
-A positive-Amount row on a card Statement Export that pays down the card balance rather than crediting a purchase back. Dropped from processing entirely: never categorised, never written to the Transaction Log. Distinguishing a Bill Payment from a Refund is a judgement call made by the categorisation backend (the same mechanism used for Category assignment), not a deterministic rule — see [ADR-0007](./docs/adr/0007-classify-refunds-vs-bill-payments-via-the-categorisation-backend.md).
-_Avoid_: Payments & Refunds (old blanket term for every positive-Amount row, retired now that they're classified individually), Credit, Payment
-
-**Refund**:
-A positive-Amount row on a card Statement Export that's a merchant credit rather than a card balance payment (e.g. a returned purchase). Tracked as a real Transaction with Type Income and Category Refund — unlike a Bill Payment, which is dropped. See [ADR-0007](./docs/adr/0007-classify-refunds-vs-bill-payments-via-the-categorisation-backend.md).
-_Avoid_: Credit, Payments & Refunds
+A positive-Amount row on a card Statement Export that pays down the card balance rather than crediting a purchase back. Every positive-Amount card row is unconditionally a Bill Payment — dropped from processing entirely: never categorised, never written to the Transaction Log, never a per-transaction judgement call. See [ADR-0016](./docs/adr/0016-retire-refund-positive-amount-card-rows-are-always-bill-payment.md) (superseding [ADR-0007](./docs/adr/0007-classify-refunds-vs-bill-payments-via-the-categorisation-backend.md), which used to classify these against Refund).
+_Avoid_: Payments & Refunds (old blanket term for every positive-Amount row, retired now that they're classified individually), Refund (retired Category — see ADR-0016; a merchant credit is instead handled by removing or adjusting the original Expense Transaction), Credit, Payment
 
 **Sanitising**:
 An issuer-specific step that strips personal information from a Statement Export before it's processed further. Runs as a Python script, never as something Claude does directly — see [ADR-0001](./docs/adr/0001-sanitising-happens-outside-claudes-read-access.md). For ANZ, sanitising is a no-op: ANZ exports contain no personal identifiers (no name, account number, or card number). For NAB, sanitising drops the Account Number, Balance, and NAB's own Category columns, and collapses Merchant Name/Transaction Details into a single Notes field (falling back to Transaction Details when Merchant Name is blank) — the raw NAB export is not itself in the 3-column Statement Export shape.
@@ -35,8 +31,8 @@ _Avoid_: Category (retired for this meaning), Group, Real Income (Dashboard tile
 
 **Category**:
 The specific budget label for a Transaction — e.g. Groceries, Subscriptions, Salary. Flat: there's no grouping layer between Category and Type (the old Bills & Subscriptions / Expenses / Debt / Savings / Investments split is gone). Each Category has one fixed Type, never determined per-Transaction:
-- **Income**: Salary, Beem Adjustment, Rental, Refund
-- **Expense**: Groceries, Dining & Takeaway, Transport, Shopping & Retail, Holidays & Travel, Entertainment & Leisure, Health & Medical, Donations & Giving, Subscriptions, Insurance & Bills, Rental Expense
+- **Income**: Salary, Rental
+- **Expense**: Groceries, Dining & Takeaway, Transport, Shopping & Retail, Holidays & Travel, Entertainment & Leisure, Health & Medical, Donations & Giving, Subscriptions, Insurance & Bills, Rental Expense, Beem Adjustment
 - **Debt**: Mortgage Repayment — populated lazily like Transfer below; the first real non-mortgage Debt (e.g. a car or personal loan) adds its own Category rather than one being speculatively predefined.
 - **Transfer**: none yet — Categories here are only added for real cases as they occur (e.g. a transfer to a specific savings or investment account), the same lazy-population policy Rental and Rental Expense already followed.
 
@@ -60,7 +56,7 @@ The external folder (path set via `TRANSACTIONS_INBOX` in `.env`) where unsaniti
 _Avoid_: Raw folder, landing directory, local directory
 
 **Transaction Log**:
-The database table this process writes to. One row per categorised Transaction: Date, Amount (always positive, two decimal places, regardless of the Statement Export's sign), Type, Category, Notes (the merchant description carried over from the Statement Export). Before writing, each Transaction is checked against existing Transaction Log rows (matching Date + Amount + Notes) and skipped if already present, since Statement Export date ranges can overlap between runs. A row can also be added directly (not just via Statement Export or Recurring Transaction expansion) through the Dashboard's Transactions tab, which offers full add/edit/delete over the Transaction Log; such a row is checked against the same Date + Amount + Notes dedupe as any other on the next Statement Export run. Previously a Google Sheets tab — the Sheet is retired as the live store, see [ADR-0005](./docs/adr/0005-migrate-transaction-log-and-recurring-config-to-a-local-database.md).
+The database table this process writes to. One row per categorised Transaction: Date, Amount (always positive, two decimal places, regardless of the Statement Export's sign — except Category Beem Adjustment, a deliberate, narrow exception stored negative so it reduces Expense totals, see [ADR-0015](./docs/adr/0015-beem-adjustment-reduces-expense-instead-of-income.md)), Type, Category, Notes (the merchant description carried over from the Statement Export). Before writing, each Transaction is checked against existing Transaction Log rows (matching Date + Amount + Notes) and skipped if already present, since Statement Export date ranges can overlap between runs. A row can also be added directly (not just via Statement Export or Recurring Transaction expansion) through the Dashboard's Transactions tab, which offers full add/edit/delete over the Transaction Log; such a row is checked against the same Date + Amount + Notes dedupe as any other on the next Statement Export run. Previously a Google Sheets tab — the Sheet is retired as the live store, see [ADR-0005](./docs/adr/0005-migrate-transaction-log-and-recurring-config-to-a-local-database.md).
 _Avoid_: Budget sheet, spreadsheet, Google Sheet, Description (for the Notes field — Notes is the term everywhere it appears, including the Dashboard's Transactions tab)
 
 **Needs Review**:
