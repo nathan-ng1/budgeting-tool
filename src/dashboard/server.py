@@ -10,9 +10,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
-from dashboard import queries, recurring, transactions
+from dashboard import budgets, queries, recurring, transactions
 from database.store import RecurringRuleNotFound, TransactionNotFound
-from transaction_log.categories import CATEGORIES_BY_TYPE, TYPE_ORDER, types_with_categories
+from transaction_log.categories import CATEGORIES_BY_TYPE, TYPE_ORDER, type_for_category, types_with_categories
 
 # Where `npm run build` puts the frontend (see frontend/vite.config.js). The
 # directory is a build artefact, so it is absent in a fresh clone until the
@@ -31,6 +31,7 @@ CONTENT_TYPES = {
 
 RECURRING_RULES_PATH = "/api/recurring-rules"
 TRANSACTIONS_PATH = "/api/transactions"
+BUDGET_EDITOR_PATH = "/api/budget-editor"
 
 BUILD_INSTRUCTIONS = (
     "The Dashboard has not been built yet. Run `npm install` and `npm run build` "
@@ -93,6 +94,8 @@ def _make_handler(store, static_root: Path):
                 self._send_json(200, [recurring.as_payload(r) for r in store.read_stored_recurring_rules()])
             elif parsed.path == TRANSACTIONS_PATH:
                 self._serve_transactions(parse_qs(parsed.query))
+            elif parsed.path == BUDGET_EDITOR_PATH:
+                self._serve_budget_editor(parse_qs(parsed.query))
             elif parsed.path == "/api/categories":
                 # What the Transaction/Recurring Rule forms' Type/Category
                 # selects offer, so transaction_log.categories stays the one
@@ -133,6 +136,11 @@ def _make_handler(store, static_root: Path):
                 )
                 return
 
+            category = self._category_after(BUDGET_EDITOR_PATH)
+            if category is not None:
+                self._write_category_budget(category)
+                return
+
             self._send_json(404, {"error": "Not found"})
 
         @serialised
@@ -157,6 +165,15 @@ def _make_handler(store, static_root: Path):
                 self._send_bytes(204, b"", "application/json")
                 return
 
+            category = self._category_after(BUDGET_EDITOR_PATH)
+            if category is not None:
+                parsed = self._year_month(parse_qs(urlparse(self.path).query))
+                if parsed is None:
+                    return
+                store.delete_category_budget(category, parsed[0], parsed[1])
+                self._send_bytes(204, b"", "application/json")
+                return
+
             self._send_json(404, {"error": "Not found"})
 
         def _id_after(self, prefix: str) -> int | None:
@@ -171,6 +188,16 @@ def _make_handler(store, static_root: Path):
                 return int(path[len(full_prefix):])
             except ValueError:
                 return None
+
+        def _category_after(self, prefix: str) -> str | None:
+            """The Category in `{prefix}/{category}`, or None if this
+            request's path isn't that shape. Unquoted, since a Category can
+            contain spaces and `&` (e.g. "Dining & Takeaway")."""
+            path = urlparse(self.path).path
+            full_prefix = f"{prefix}/"
+            if not path.startswith(full_prefix):
+                return None
+            return unquote(path[len(full_prefix):])
 
         def _write_rule(self, write) -> None:
             """Parse a rule from the request body, hand it to `write`, and
@@ -215,6 +242,33 @@ def _make_handler(store, static_root: Path):
 
             self._send_json(status, transactions.as_payload(stored))
 
+        def _write_category_budget(self, category: str) -> None:
+            """Parse an Amount from the request body and upsert this
+            Category's Category Budget for the (year, month) query params."""
+            parsed = self._year_month(parse_qs(urlparse(self.path).query))
+            if parsed is None:
+                return
+            year, month = parsed
+
+            transaction_type = type_for_category(category)
+            if transaction_type is None:
+                self._send_json(400, {"error": f"Category {category!r} is not a valid Category"})
+                return
+
+            try:
+                amount = budgets.amount_from_payload(self._read_json())
+            except ValueError as cause:
+                self._send_json(400, {"error": str(cause)})
+                return
+
+            try:
+                store.upsert_category_budget(transaction_type, category, year, month, amount)
+            except ValueError as cause:
+                self._send_json(400, {"error": str(cause)})
+                return
+
+            self._send_json(200, {"category": category, "amount": amount})
+
         def _read_json(self):
             length = int(self.headers.get("Content-Length") or 0)
             try:
@@ -245,6 +299,14 @@ def _make_handler(store, static_root: Path):
 
             rows = queries.get_financial_year_transactions(store, year=parsed[0], month=parsed[1])
             self._send_json(200, [transactions.as_payload(t) for t in rows])
+
+        def _serve_budget_editor(self, params) -> None:
+            parsed = self._year_month(params)
+            if parsed is None:
+                return
+
+            year, month = parsed
+            self._send_json(200, budgets.as_editor_payload(store.read_category_budgets(year, month)))
 
         def _query_int(self, params, key: str) -> int | None:
             """The int value of query param `key`, or None if it's missing or
