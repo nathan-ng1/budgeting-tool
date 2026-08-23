@@ -9,7 +9,12 @@ from calendar import monthrange
 from dataclasses import dataclass
 from datetime import date
 
+from transaction_log.categories import TYPE_ORDER, type_for_category
 from transaction_log.entries import Transaction
+
+# The Types a Category Budget can apply to - Transfer has none to budget
+# (CONTEXT.md's Category Budget entry).
+BUDGETABLE_TYPES = {"Income", "Expense", "Debt"}
 
 
 @dataclass(frozen=True)
@@ -44,8 +49,9 @@ class CategorySpend:
 
 @dataclass(frozen=True)
 class BudgetVsActual:
+    type: str
     category: str
-    expected: float | None
+    budgeted: float | None
     actual: float
     diff: float | None
     pct: float | None
@@ -159,7 +165,7 @@ def get_annual_overview(store, year: int, today: date | None = None) -> AnnualOv
             stat_tiles.income, stat_tiles.expenses, stat_tiles.debt, stat_tiles.transferred
         ),
         spending_by_category=_spending_by_category(transactions, stat_tiles.expenses),
-        budgeted_vs_actual=_annual_budgeted_vs_actual(transactions),
+        budgeted_vs_actual=_annual_budgeted_vs_actual(store, transactions, start, elapsed_months),
         debt_summary=_debt_summary(transactions, stat_tiles.debt),
         top_expenses=_top_expenses(transactions, limit=10),
         # Two named series over the same rows, not two computations: the Month
@@ -267,13 +273,17 @@ def _income_allocation(income: float, expenses: float, debt: float, transferred:
     )
 
 
-def _expense_totals_by_category(transactions: list[Transaction]) -> dict[str, float]:
+def _totals_by_category(transactions: list[Transaction], types: set[str]) -> dict[str, float]:
     totals: dict[str, float] = {}
     for t in transactions:
-        if t.type != "Expense":
+        if t.type not in types:
             continue
         totals[t.category] = totals.get(t.category, 0.0) + t.amount
     return totals
+
+
+def _expense_totals_by_category(transactions: list[Transaction]) -> dict[str, float]:
+    return _totals_by_category(transactions, {"Expense"})
 
 
 def _spending_by_category(transactions: list[Transaction], expenses: float) -> list[CategorySpend]:
@@ -312,38 +322,60 @@ def _debt_summary(transactions: list[Transaction], debt: float) -> list[DebtByNo
     return sorted(rows, key=lambda row: (-row.amount, row.notes))
 
 
-def _budgeted_vs_actual(transactions: list[Transaction], category_budgets: dict[str, float]) -> list[BudgetVsActual]:
-    actuals = _expense_totals_by_category(transactions)
-
-    categories = set(category_budgets) | {c for c, amount in actuals.items() if amount != 0}
+def _budgeted_vs_actual_rows(budgets: dict[str, float], actuals: dict[str, float]) -> list[BudgetVsActual]:
+    """Build one row per Category with a budget and/or non-zero actual, sorted
+    by Type (CONTEXT.md order) then Category - shared by the per-month and
+    Full year Budgeted vs Actual tables, which differ only in how `budgets`
+    and `actuals` are computed.
+    """
+    categories = set(budgets) | {c for c, amount in actuals.items() if amount != 0}
 
     rows = []
     for category in categories:
-        expected = category_budgets.get(category)
+        budgeted = budgets.get(category)
         actual = _round(actuals.get(category, 0.0))
         # Positive diff = under budget (budget remaining); negative = overspent.
-        diff = _round(expected - actual) if expected is not None else None
-        pct = _pct(actual, expected) if expected is not None else None
-        rows.append(BudgetVsActual(category=category, expected=expected, actual=actual, diff=diff, pct=pct))
+        diff = _round(budgeted - actual) if budgeted is not None else None
+        pct = _pct(actual, budgeted) if budgeted is not None else None
+        # type_for_category never returns None here - every Category in
+        # `budgets`/`actuals` was already validated on write (store.py's
+        # require_valid_type_category_pair), so it always has one.
+        rows.append(
+            BudgetVsActual(
+                type=type_for_category(category), category=category, budgeted=budgeted, actual=actual, diff=diff, pct=pct
+            )
+        )
 
-    return sorted(rows, key=lambda row: row.category)
+    return sorted(rows, key=lambda row: (TYPE_ORDER.index(row.type), row.category))
 
 
-def _annual_budgeted_vs_actual(transactions: list[Transaction]) -> list[BudgetVsActual]:
-    """Full year's Budgeted vs Actual rows - `expected`/`diff`/`pct` are always
-    None, for every Category (ADR-0011: real annual budgeting - a
-    per-month-capable Category Budget - is deferred). Unlike the per-month
-    table, a Category Budget with no spend this Financial Year gets no row:
-    with Expected never shown, only actual spend determines the row set.
+def _budgeted_vs_actual(transactions: list[Transaction], category_budgets: dict[str, float]) -> list[BudgetVsActual]:
+    actuals = _totals_by_category(transactions, BUDGETABLE_TYPES)
+    return _budgeted_vs_actual_rows(category_budgets, actuals)
+
+
+def _summed_category_budgets(store, start: date, elapsed_months: int) -> dict[str, float]:
+    """Each Category's Budgeted total across the Financial Year's elapsed
+    months - a month with no Category Budget set contributes $0 to the sum
+    (ADR-0013), so a Category only appears here at all if at least one elapsed
+    month had one set.
     """
-    totals = _expense_totals_by_category(transactions)
+    sums: dict[str, float] = {}
+    for offset in range(elapsed_months):
+        month_start = _add_months(start, offset)
+        for category, amount in store.read_category_budgets(month_start.year, month_start.month).items():
+            sums[category] = sums.get(category, 0.0) + amount
+    return sums
 
-    rows = [
-        BudgetVsActual(category=category, expected=None, actual=_round(amount), diff=None, pct=None)
-        for category, amount in totals.items()
-        if amount != 0
-    ]
-    return sorted(rows, key=lambda row: row.category)
+
+def _annual_budgeted_vs_actual(store, transactions: list[Transaction], start: date, elapsed_months: int) -> list[BudgetVsActual]:
+    """Full year's Budgeted vs Actual rows - Budgeted is the real sum of each
+    Category's per-month budgets across the elapsed Financial Year (ADR-0013),
+    replacing ADR-0011's always-"—" placeholder.
+    """
+    budgets = _summed_category_budgets(store, start, elapsed_months)
+    actuals = _totals_by_category(transactions, BUDGETABLE_TYPES)
+    return _budgeted_vs_actual_rows(budgets, actuals)
 
 
 def _monthly_totals(transactions: list[Transaction], start: date) -> list[MonthlyTotals]:

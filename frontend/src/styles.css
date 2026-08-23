@@ -511,6 +511,22 @@ button.nav__tab:hover {
   border-bottom: 0;
 }
 
+.bva__section {
+  display: block;
+  padding: 14px 0 6px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-neutral-500);
+  font-weight: 600;
+  text-align: left;
+  border-bottom: 0;
+}
+
+tbody:first-of-type .bva__section {
+  padding-top: 4px;
+}
+
 .bva__num {
   text-align: right;
 }
