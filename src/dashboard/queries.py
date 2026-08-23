@@ -71,6 +71,16 @@ class BudgetEditorRow:
 
 
 @dataclass(frozen=True)
+class BudgetGridRow:
+    type: str
+    category: str
+    # 12 entries, July through June (matching the Budget tab's Full year
+    # column order) - None where that month has no Category Budget set
+    # (unset != $0, CONTEXT.md's Category Budget entry).
+    amounts: list[float | None]
+
+
+@dataclass(frozen=True)
 class DebtByNotes:
     notes: str
     amount: float
@@ -250,6 +260,34 @@ def get_budget_editor(store, year: int, month: int, trailing_months: int = 3) ->
                     average_variance_pct=average_variance_pct,
                 )
             )
+    return rows
+
+
+def get_full_year_budget_grid(store, year: int) -> list[BudgetGridRow]:
+    """The Budget tab's Full year read-only grid rows (Issue #64) - every
+    Income/Expense/Debt Category (grouped by Type, alphabetical within it -
+    same ordering as get_budget_editor) against its Category Budget for each
+    of the Financial Year starting `year`-07's 12 months, in July-to-June
+    order. Unlike get_annual_overview, this is never restricted to elapsed
+    months only: a Category Budget can be set ahead for a month that hasn't
+    happened yet, and this grid shows it.
+    """
+    start = date(year, 7, 1)
+    months = [_add_months(start, offset) for offset in range(12)]
+    budgets_by_month = {
+        (month_start.year, month_start.month): store.read_category_budgets(month_start.year, month_start.month)
+        for month_start in months
+    }
+
+    rows = []
+    for transaction_type in TYPE_ORDER:
+        if transaction_type not in BUDGETABLE_TYPES:
+            continue
+        for category in sorted(CATEGORIES_BY_TYPE[transaction_type]):
+            amounts = [
+                budgets_by_month[(month_start.year, month_start.month)].get(category) for month_start in months
+            ]
+            rows.append(BudgetGridRow(type=transaction_type, category=category, amounts=amounts))
     return rows
 
 
