@@ -262,6 +262,84 @@ describe("Transactions", () => {
     });
   });
 
+  describe("pagination", () => {
+    function transactionsList(count) {
+      return Array.from({ length: count }, (_, index) =>
+        transaction({
+          id: index + 1,
+          date: `2026-08-${String((index % 27) + 1).padStart(2, "0")}`,
+          notes: `Transaction ${index + 1}`,
+          category: "Transport",
+        }),
+      );
+    }
+
+    it("defaults to 20 rows per page and offers a Next control once there's more than one page", async () => {
+      respondWith(transactionsList(25));
+      render(<Transactions />);
+      await screen.findAllByRole("row");
+
+      expect(rowTexts()).toHaveLength(20);
+      expect(screen.getByLabelText(/rows per page/i)).toHaveValue("20");
+      expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
+    });
+
+    it("does not show pagination controls when everything fits on one page", async () => {
+      respondWith(transactionsList(5));
+      render(<Transactions />);
+      await screen.findAllByRole("row");
+
+      expect(screen.queryByText(/Page \d+ of \d+/)).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Next" })).not.toBeInTheDocument();
+    });
+
+    it("moves to the next and previous page", async () => {
+      respondWith(transactionsList(25));
+      render(<Transactions />);
+      await screen.findAllByRole("row");
+
+      await userEvent.click(screen.getByRole("button", { name: "Next" }));
+
+      expect(rowTexts()).toHaveLength(5);
+      expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+
+      await userEvent.click(screen.getByRole("button", { name: "Previous" }));
+
+      expect(rowTexts()).toHaveLength(20);
+      expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();
+    });
+
+    it("changes how many rows are shown via the Rows per page dropdown", async () => {
+      respondWith(transactionsList(25));
+      render(<Transactions />);
+      await screen.findAllByRole("row");
+
+      await userEvent.selectOptions(screen.getByLabelText(/rows per page/i), "10");
+
+      expect(rowTexts()).toHaveLength(10);
+      expect(screen.getByText("Page 1 of 3")).toBeInTheDocument();
+    });
+
+    it("returns to page 1 when a filter narrows the list below the current page", async () => {
+      const transactions = transactionsList(25);
+      transactions[0] = { ...transactions[0], category: "Groceries" };
+      respondWith(transactions);
+      render(<Transactions />);
+      await screen.findAllByRole("row");
+
+      await userEvent.click(screen.getByRole("button", { name: "Next" }));
+      expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
+
+      await userEvent.selectOptions(screen.getByLabelText(/category/i), "Groceries");
+
+      expect(rowTexts()).toHaveLength(1);
+      expect(screen.queryByText(/Page \d+ of \d+/)).not.toBeInTheDocument();
+    });
+  });
+
   describe("adding, editing, and deleting", () => {
     it("adds a transaction and shows it in the list without a reload", async () => {
       useBackend([]);

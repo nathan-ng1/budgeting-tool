@@ -8,10 +8,14 @@ import {
   ALL_CATEGORIES,
   ALL_MONTHS,
   ALL_TYPES,
+  DEFAULT_PAGE_SIZE,
+  PAGE_SIZE_OPTIONS,
   TYPES,
   categoryOptions,
   monthOptions,
   nextSort,
+  pageCount,
+  paginate,
   visibleTransactions,
 } from "../lib/transactionsView.js";
 import {
@@ -53,6 +57,8 @@ export default function Transactions() {
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [sort, setSort] = useState(DEFAULT_SORT);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [page, setPage] = useState(1);
   const [adding, setAdding] = useState(null);
   const [editing, setEditing] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
@@ -98,12 +104,27 @@ export default function Transactions() {
     [transactions, filters, sort],
   );
 
+  const totalPages = useMemo(() => pageCount(visible.length, pageSize), [visible.length, pageSize]);
+  // Clamped rather than reset via effect, so a page that's now out of range
+  // (e.g. after a filter narrows the list) just falls back to the last page.
+  const currentPage = Math.min(page, totalPages);
+  const pageItems = useMemo(
+    () => paginate(visible, currentPage, pageSize),
+    [visible, currentPage, pageSize],
+  );
+
   function setFilter(field, value) {
     setFilters((current) => ({ ...current, [field]: value }));
+    setPage(1);
   }
 
   function handleSort(key) {
     setSort((current) => nextSort(current, key));
+  }
+
+  function changePageSize(size) {
+    setPageSize(size);
+    setPage(1);
   }
 
   async function saveNew(values) {
@@ -221,6 +242,17 @@ export default function Transactions() {
                 placeholder="Search Notes"
               />
             </label>
+
+            <label className="field">
+              <span className="field__label">Rows per page</span>
+              <select value={pageSize} onChange={(event) => changePageSize(Number(event.target.value))}>
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
           {visible.length === 0 && <p className="state">No Transactions match.</p>}
@@ -249,7 +281,7 @@ export default function Transactions() {
                   </tr>
                 </thead>
                 <tbody>
-                  {visible.map((transaction) => {
+                  {pageItems.map((transaction) => {
                     if (editing !== null && editing.id === transaction.id) {
                       return (
                         <EditableRow
@@ -315,6 +347,30 @@ export default function Transactions() {
                   })}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {visible.length > 0 && totalPages > 1 && (
+            <div className="pagination">
+              <button
+                type="button"
+                className="button button--quiet"
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </button>
+              <span className="pagination__status">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                type="button"
+                className="button button--quiet"
+                onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </button>
             </div>
           )}
         </>
