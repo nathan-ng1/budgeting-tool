@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import Budget from "./components/Budget.jsx";
 import BudgetedVsActual from "./components/BudgetedVsActual.jsx";
+import CategoryManagement from "./components/CategoryManagement.jsx";
 import DebtSummary from "./components/DebtSummary.jsx";
 import ExpensesOverTime from "./components/ExpensesOverTime.jsx";
 import IncomeAllocation from "./components/IncomeAllocation.jsx";
@@ -130,7 +131,12 @@ export default function App() {
           {asAt !== null && <span className="nav__asat">As at {dayMonthLong(asAt)}</span>}
         </nav>
 
-        {tab === "Settings" && <RecurringRules />}
+        {tab === "Settings" && (
+          <div className="settings-group">
+            <CategoryManagement />
+            <RecurringRules />
+          </div>
+        )}
 
         {tab === "Transactions" && <Transactions />}
 

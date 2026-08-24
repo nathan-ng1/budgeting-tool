@@ -38,7 +38,11 @@ function rowTexts() {
   return screen.getAllByRole("row").slice(1).map((row) => row.textContent);
 }
 
-const CATEGORIES = { Expense: ["Groceries", "Transport"], Income: ["Salary"] };
+const CATEGORIES = [
+  { id: 1, type: "Expense", name: "Groceries", emoji: null, locked: false },
+  { id: 2, type: "Expense", name: "Transport", emoji: null, locked: false },
+  { id: 3, type: "Income", name: "Salary", emoji: null, locked: false },
+];
 
 /** Answer each endpoint from `transactions`, so the screen reloads real state. */
 function backend(transactions = []) {

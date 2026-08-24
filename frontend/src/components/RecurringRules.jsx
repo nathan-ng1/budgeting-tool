@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
+import { groupByType } from "../lib/categories.js";
 import {
   createRecurringRule,
   deleteRecurringRule,
@@ -40,7 +41,7 @@ export default function RecurringRules() {
       fetchCategories({ signal }),
     ]);
     setRules(loadedRules);
-    setCategories(loadedCategories);
+    setCategories(groupByType(loadedCategories));
   }, []);
 
   useEffect(() => {

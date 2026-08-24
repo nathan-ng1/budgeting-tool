@@ -376,7 +376,7 @@ describe("App", () => {
   });
 
   it("opens the Recurring Transactions Config screen from the Settings tab", async () => {
-    routeTo({ "/api/annual-overview": annualWithSpending(), "/api/recurring-rules": [], "/api/categories": {} });
+    routeTo({ "/api/annual-overview": annualWithSpending(), "/api/recurring-rules": [], "/api/categories": [] });
     render(<App />);
     expect(await screen.findByText("$8,000")).toBeInTheDocument();
 
@@ -387,7 +387,7 @@ describe("App", () => {
   });
 
   it("puts the Overview's month selector away while Settings is open", async () => {
-    routeTo({ "/api/annual-overview": annualWithSpending(), "/api/recurring-rules": [], "/api/categories": {} });
+    routeTo({ "/api/annual-overview": annualWithSpending(), "/api/recurring-rules": [], "/api/categories": [] });
     render(<App />);
     expect(await screen.findByText("$8,000")).toBeInTheDocument();
 
@@ -403,7 +403,7 @@ describe("App", () => {
       "/api/annual-overview": annualWithSpending(),
       "/api/overview": monthWithSpending(2026, 8),
       "/api/recurring-rules": [],
-      "/api/categories": {},
+      "/api/categories": [],
     });
     render(<App />);
     expect(await screen.findByText("$8,000")).toBeInTheDocument();
@@ -441,6 +441,7 @@ describe("App", () => {
         { id: 1, date: "2026-08-01", amount: 42.5, type: "Expense", category: "Groceries", notes: "Woolworths" },
         { id: 2, date: "2027-02-01", amount: 4000, type: "Income", category: "Salary", notes: "Employer" },
       ],
+      "/api/categories": [],
     });
     render(<App />);
     expect(await screen.findByText("$8,000")).toBeInTheDocument();

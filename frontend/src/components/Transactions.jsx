@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { groupByType } from "../lib/categories.js";
 import { FINANCIAL_YEAR_START_MONTH, financialYearFor } from "../lib/financialYear.js";
 import { preciseMoney } from "../lib/format.js";
 import { blankValues, toPayload, valuesFrom, withType } from "../lib/transactionForm.js";
@@ -64,7 +65,7 @@ export default function Transactions() {
       fetchCategories({ signal }),
     ]);
     setTransactions(loadedTransactions);
-    setCategories(loadedCategories);
+    setCategories(groupByType(loadedCategories));
   }, []);
 
   useEffect(() => {

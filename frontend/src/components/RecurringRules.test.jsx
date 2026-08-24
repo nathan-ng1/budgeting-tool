@@ -4,7 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import RecurringRules from "./RecurringRules.jsx";
 
-const CATEGORIES = { Expense: ["Groceries", "Subscriptions"], Income: ["Salary"] };
+const CATEGORIES = [
+  { id: 1, type: "Expense", name: "Groceries", emoji: null, locked: false },
+  { id: 2, type: "Expense", name: "Subscriptions", emoji: null, locked: false },
+  { id: 3, type: "Income", name: "Salary", emoji: null, locked: false },
+];
 
 function rule(overrides = {}) {
   return {
