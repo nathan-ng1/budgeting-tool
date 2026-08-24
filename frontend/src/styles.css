@@ -1050,6 +1050,29 @@ tbody:first-of-type .table th.table__section {
   font-weight: 700;
 }
 
+/* — Budget Suggestion write-up (Budget tab, Issue #66) — */
+
+.budget-suggestion {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-neutral-200);
+}
+
+.budget-suggestion__heading {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.budget-suggestion__write-up {
+  /* The write-up's own line breaks are meaningful (it isn't reformatted
+     client-side - Issue #66), so they must render, not collapse. */
+  white-space: pre-wrap;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--color-text);
+}
+
 /* — card actions / Auto-populate menu (Budget tab, Issue #77) — */
 
 .card__actions {

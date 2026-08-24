@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { deleteCategoryBudget, fetchBudgetEditor, fetchBudgetGrid, saveCategoryBudget } from "./budgetsApi.js";
+import {
+  deleteCategoryBudget,
+  fetchBudgetEditor,
+  fetchBudgetGrid,
+  fetchBudgetSuggestion,
+  saveCategoryBudget,
+} from "./budgetsApi.js";
 
 let fetchMock;
 
@@ -86,5 +92,15 @@ describe("budgetsApi", () => {
 
     expect(await fetchBudgetGrid(2026)).toEqual({ Income: [], Expense: [], Debt: [] });
     expect(fetchMock).toHaveBeenCalledWith("/api/budget-grid?year=2026", expect.anything());
+  });
+
+  it("fetches the standing Budget Suggestion, unscoped to any month", async () => {
+    ok({ write_up: "Groceries has run over budget.", generated_at: "2026-08-20T14:32:00" });
+
+    expect(await fetchBudgetSuggestion()).toEqual({
+      write_up: "Groceries has run over budget.",
+      generated_at: "2026-08-20T14:32:00",
+    });
+    expect(fetchMock).toHaveBeenCalledWith("/api/budget-suggestion", expect.anything());
   });
 });

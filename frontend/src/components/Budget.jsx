@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { autoPopulatedValuesFrom, valuesFrom, changesFrom } from "../lib/budgetEditorForm.js";
-import { deleteCategoryBudget, fetchBudgetEditor, fetchBudgetGrid, saveCategoryBudget } from "../lib/budgetsApi.js";
+import {
+  deleteCategoryBudget,
+  fetchBudgetEditor,
+  fetchBudgetGrid,
+  fetchBudgetSuggestion,
+  saveCategoryBudget,
+} from "../lib/budgetsApi.js";
 import { totalsByType } from "../lib/budgetTotals.js";
 import { financialYearFor } from "../lib/financialYear.js";
 import { UNSET, money, signedPct } from "../lib/format.js";
 import BudgetGrid from "./BudgetGrid.jsx";
+import BudgetSuggestion from "./BudgetSuggestion.jsx";
 import MonthSelector from "./MonthSelector.jsx";
 
 // The trailing windows the Budget tab's dropdown offers - see
@@ -34,6 +41,11 @@ export default function Budget() {
   const [saveError, setSaveError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [autoPopulateOpen, setAutoPopulateOpen] = useState(false);
+  // undefined until the fetch resolves, then either the BudgetSuggestion
+  // object or null (never generated) - kept separate from `editor`/`grid`
+  // since the write-up isn't scoped to `selected` at all (Issue #66).
+  const [suggestion, setSuggestion] = useState(undefined);
+  const [suggestionError, setSuggestionError] = useState(null);
 
   // The Budget tab has no Financial Year switcher: every pill (Full year
   // included) always belongs to the FY containing today, the same way
@@ -95,6 +107,21 @@ export default function Budget() {
 
     return () => controller.abort();
   }, [selected, trailingWindow, financialYear, load, loadGrid]);
+
+  // Fetched once, independent of `selected`/`trailingWindow`/`financialYear` -
+  // the write-up displays identically no matter which month pill (or Full
+  // year) is selected (Issue #66).
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchBudgetSuggestion({ signal: controller.signal })
+      .then((loaded) => setSuggestion(loaded.write_up === null ? null : loaded))
+      .catch((cause) => {
+        if (cause.name !== "AbortError") {
+          setSuggestionError(cause.message);
+        }
+      });
+    return () => controller.abort();
+  }, []);
 
   function set(category, value) {
     setValues((current) => ({ ...current, [category]: value }));
@@ -281,6 +308,18 @@ export default function Budget() {
       )}
 
       {selected === null && grid !== null && <BudgetGrid financialYear={financialYear} grid={grid} />}
+
+      {suggestionError !== null && (
+        <p className="state state--error" role="alert">
+          {suggestionError}
+        </p>
+      )}
+
+      {suggestionError === null && suggestion === undefined && (
+        <p className="state">Loading the Budget Suggestion&hellip;</p>
+      )}
+
+      {suggestionError === null && suggestion !== undefined && <BudgetSuggestion suggestion={suggestion} />}
     </section>
   );
 }

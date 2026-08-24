@@ -84,10 +84,11 @@ function gridFromByMonth(byMonth) {
   return grid;
 }
 
-/** Answers /api/budget-editor keyed by (year, month) and /api/budget-grid,
- * both sourced from the same byMonth state - so a save round-trips through a
- * real GET/PUT/DELETE cycle, and the Full year grid provably reflects it. */
-function backend(initial = editor()) {
+/** Answers /api/budget-editor keyed by (year, month), /api/budget-grid, and
+ * /api/budget-suggestion, all sourced from the same byMonth state - so a save
+ * round-trips through a real GET/PUT/DELETE cycle, and the Full year grid
+ * provably reflects it. */
+function backend(initial = editor(), suggestion = { write_up: null, generated_at: null }) {
   const byMonth = new Map([["2026-8", structuredClone(initial)]]);
 
   return vi.fn(async (url, options = {}) => {
@@ -96,6 +97,10 @@ function backend(initial = editor()) {
     const year = parsed.searchParams.get("year");
     const month = parsed.searchParams.get("month");
     const key = `${year}-${month}`;
+
+    if (parsed.pathname === "/api/budget-suggestion") {
+      return { ok: true, status: 200, json: async () => suggestion };
+    }
 
     if (parsed.pathname === "/api/budget-grid") {
       return { ok: true, status: 200, json: async () => gridFromByMonth(byMonth) };
@@ -138,8 +143,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function useBackend(initial) {
-  fetchMock = backend(initial);
+function useBackend(initial, suggestion) {
+  fetchMock = backend(initial, suggestion);
   vi.stubGlobal("fetch", fetchMock);
 }
 
@@ -323,7 +328,10 @@ describe("Budget", () => {
     fetchMock.mockResolvedValue({ ok: false, status: 500, json: async () => ({}) });
     render(<Budget />);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(/500/);
+    // The Budget Suggestion fetch fails the same way, so both it and the
+    // editor surface their own alert - assert on the editor's specifically.
+    const alerts = await screen.findAllByRole("alert");
+    expect(alerts.some((alert) => alert.textContent.includes("500"))).toBe(true);
   });
 
   it("surfaces the store's own rejection on Save and keeps the edit on screen", async () => {
@@ -520,5 +528,42 @@ describe("Budget Full year", () => {
     expect(within(expenseTotalRow).getAllByRole("cell")[2]).toHaveTextContent("$650");
     const incomeTotalRow = screen.getAllByText("Total")[0].closest("tr");
     expect(within(incomeTotalRow).getAllByRole("cell")[2]).toHaveTextContent("$5,000");
+  });
+});
+
+describe("Budget Suggestion", () => {
+  it("renders the stored write-up underneath the table", async () => {
+    useBackend(editor(), { write_up: "Groceries has run over budget.", generated_at: "2026-08-20T14:32:00" });
+    render(<Budget />);
+
+    expect(await screen.findByText("Groceries has run over budget.")).toBeInTheDocument();
+  });
+
+  it("shows a coherent empty state when no write-up has ever been generated", async () => {
+    render(<Budget />); // default backend() seeds { write_up: null }
+    await screen.findByText("Salary");
+
+    expect(await screen.findByText(/No Budget Suggestion yet/)).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("shows the same write-up whichever month pill is selected", async () => {
+    useBackend(editor(), { write_up: "Standing advice.", generated_at: "2026-08-20T14:32:00" });
+    render(<Budget />);
+    await screen.findByText("Standing advice.");
+
+    await userEvent.click(screen.getByRole("button", { name: "Sep" }));
+
+    expect(await screen.findByText("Standing advice.")).toBeInTheDocument();
+  });
+
+  it("shows the same write-up when Full year is selected", async () => {
+    useBackend(editor(), { write_up: "Standing advice.", generated_at: "2026-08-20T14:32:00" });
+    render(<Budget />);
+    await screen.findByText("Standing advice.");
+
+    await userEvent.click(screen.getByRole("button", { name: "Full year" }));
+
+    expect(await screen.findByText("Standing advice.")).toBeInTheDocument();
   });
 });

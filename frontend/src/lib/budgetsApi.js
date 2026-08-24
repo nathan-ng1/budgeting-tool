@@ -5,6 +5,7 @@
 
 const BASE = "/api/budget-editor";
 const GRID_BASE = "/api/budget-grid";
+const SUGGESTION_BASE = "/api/budget-suggestion";
 
 async function request(url, options = {}) {
   const response = await fetch(url, options);
@@ -53,4 +54,11 @@ export function deleteCategoryBudget({ year, month }, category) {
 // the Financial Year starting `year`-07, grouped by Type.
 export function fetchBudgetGrid(year, { signal } = {}) {
   return request(`${GRID_BASE}?year=${year}`, { signal });
+}
+
+// The standing Budget Suggestion write-up (Issue #66) - not scoped to any
+// (year, month), so unlike every other fetch here this takes no arguments
+// beyond an optional abort signal.
+export function fetchBudgetSuggestion({ signal } = {}) {
+  return request(SUGGESTION_BASE, { signal });
 }

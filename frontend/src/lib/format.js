@@ -51,6 +51,18 @@ export function dayMonthLong(isoDate) {
   return `${day} ${MONTH_LABELS_LONG[month - 1]}`;
 }
 
+// Unlike dayMonth/dayMonthLong above, this is a real instant (the Budget
+// Suggestion's generated_at), so `new Date()` is the correct way to read it,
+// not the plain-calendar-date pitfall those two avoid.
+export function generatedAt(isoDateTime) {
+  const date = new Date(isoDateTime);
+  const hours = date.getHours();
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const period = hours < 12 ? "am" : "pm";
+  const hour12 = ((hours + 11) % 12) + 1;
+  return `${date.getDate()} ${MONTH_LABELS_SHORT[date.getMonth()]} ${date.getFullYear()}, ${hour12}:${minutes}${period}`;
+}
+
 function parts(isoDate) {
   // Split rather than `new Date(isoDate)`: the latter reads a bare ISO date as
   // midnight UTC, which renders as the previous day anywhere behind UTC.
