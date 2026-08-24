@@ -3,7 +3,9 @@ import pytest
 from transaction_log.categories import (
     CATEGORIES_BY_TYPE,
     TYPE_ORDER,
+    assignable_categories_by_type,
     is_valid_type_category_pair,
+    type_for_category,
     types_with_categories,
 )
 
@@ -28,12 +30,11 @@ def test_transfer_has_no_categories_yet():
     "transaction_type,category",
     [
         ("Income", "Salary"),
-        ("Income", "Beem Adjustment"),
         ("Income", "Rental"),
-        ("Income", "Refund"),
         ("Expense", "Groceries"),
         ("Expense", "Subscriptions"),
         ("Expense", "Rental Expense"),
+        ("Expense", "Beem Adjustment"),
         ("Debt", "Mortgage Repayment"),
     ],
 )
@@ -48,11 +49,49 @@ def test_a_category_validates_under_its_own_type(transaction_type, category):
         ("Expense", "Salary"),  # Salary is Income
         ("Transfer", "Groceries"),  # Transfer has no Categories at all
         ("Expense", "Mortgage Repayment"),  # Mortgage Repayment moved to Debt
+        ("Income", "Beem Adjustment"),  # ADR-0015 - moved to Expense
+        ("Income", "Refund"),  # ADR-0016 - retired entirely
+        ("Expense", "Refund"),  # ADR-0016 - retired entirely
         ("Made Up Type", "Made Up Category"),
     ],
 )
 def test_a_category_under_the_wrong_type_is_rejected(transaction_type, category):
     assert not is_valid_type_category_pair(transaction_type, category)
+
+
+def test_beem_adjustment_type_is_expense():
+    # ADR-0015 - Beem Adjustment reduces Expense instead of counting as Income.
+    assert type_for_category("Beem Adjustment") == "Expense"
+
+
+def test_refund_has_no_type():
+    # ADR-0016 - Refund is retired, not a valid Category under any Type.
+    assert type_for_category("Refund") is None
+
+
+def test_assignable_categories_by_type_excludes_beem_adjustment():
+    # ADR-0015 - Beem Adjustment must only ever be produced by the deterministic
+    # Beem parser path, never offered to the categorisation prompt as somewhere
+    # to file an ordinary card transaction.
+    assignable = assignable_categories_by_type()
+    assert "Beem Adjustment" not in assignable["Expense"]
+    assert assignable["Expense"] == CATEGORIES_BY_TYPE["Expense"] - {"Beem Adjustment"}
+    assert assignable["Income"] == CATEGORIES_BY_TYPE["Income"]
+    assert assignable["Debt"] == CATEGORIES_BY_TYPE["Debt"]
+    assert assignable["Transfer"] == CATEGORIES_BY_TYPE["Transfer"]
+
+
+def test_assignable_categories_by_type_does_not_mutate_the_source():
+    assignable_categories_by_type()
+    assert "Beem Adjustment" in CATEGORIES_BY_TYPE["Expense"]
+
+
+def test_assignable_categories_by_type_accepts_an_explicit_mapping():
+    mapping = {"Expense": {"Beem Adjustment", "Groceries"}, "Income": {"Salary"}}
+    assert assignable_categories_by_type(mapping) == {
+        "Expense": {"Groceries"},
+        "Income": {"Salary"},
+    }
 
 
 def test_types_with_categories_omits_a_type_that_has_none_yet():
