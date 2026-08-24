@@ -2,7 +2,11 @@ import json
 
 from categorisation.interface import BatchResult, CategoryResult, MalformedResponseError
 from statement_export.parser import RawTransaction
-from transaction_log.categories import is_valid_type_category_pair, types_with_categories
+from transaction_log.categories import (
+    assignable_categories_by_type,
+    is_valid_type_category_pair,
+    types_with_categories,
+)
 
 # The structured-output contract every backend requests (schema-constrained where the backend
 # supports it - claude_backend's --json-schema, openai_compatible_backend's response_format) and
@@ -19,10 +23,9 @@ RESULTS_JSON_SCHEMA = {
                     "type": {"type": ["string", "null"]},
                     "category": {"type": ["string", "null"]},
                     "needs_review": {"type": "boolean"},
-                    "is_bill_payment": {"type": "boolean"},
                     "reason": {"type": ["string", "null"]},
                 },
-                "required": ["type", "category", "needs_review", "is_bill_payment", "reason"],
+                "required": ["type", "category", "needs_review", "reason"],
                 "additionalProperties": False,
             },
         }
@@ -31,32 +34,25 @@ RESULTS_JSON_SCHEMA = {
     "additionalProperties": False,
 }
 
-POSITIVE_AMOUNT_GUIDANCE = """A transaction with a positive Amount is either a genuine Refund (a merchant \
-credit for a returned purchase - categorise it as Type "Income", Category "Refund", same as any \
-other transaction) or a Bill Payment (a payment that pays down the card balance rather than \
-crediting a purchase back - set "is_bill_payment" to true and leave "type"/"category" null). If \
-you can't confidently tell which one it is, set "needs_review" to true instead of guessing."""
-
 RESPONSE_INSTRUCTIONS = """Respond with a single JSON object only - no prose, no markdown code \
 fences - of exactly this shape:
 
-{"results": [{"type": "...", "category": "...", "needs_review": true, "is_bill_payment": false, "reason": "..."}]}
+{"results": [{"type": "...", "category": "...", "needs_review": true, "reason": "..."}]}
 
 "results" must have exactly one object per transaction listed above, in the same order. Each \
 object has exactly these keys:
-- "type": one of the Type names listed above, or null if is_bill_payment is true
-- "category": one of that Type's Category names listed above, or null if is_bill_payment is true
+- "type": one of the Type names listed above
+- "category": one of that Type's Category names listed above
 - "needs_review": true or false - true if you aren't confident in this assignment and want the \
 user to confirm it
-- "is_bill_payment": true if this transaction is a Bill Payment that should be dropped (no Type/\
-Category), false otherwise
 - "reason": a short one-sentence explanation, or null if needs_review is false"""
 
 
 def build_prompt(transactions: list[RawTransaction], categories_by_type: dict[str, set[str]]) -> str:
+    assignable = assignable_categories_by_type(categories_by_type)
     type_lines = [
-        f"- {transaction_type}: {', '.join(sorted(categories_by_type[transaction_type]))}"
-        for transaction_type in types_with_categories(categories_by_type)
+        f"- {transaction_type}: {', '.join(sorted(assignable[transaction_type]))}"
+        for transaction_type in types_with_categories(assignable)
     ]
     transaction_lines = [
         f"{i}. date={transaction.date.isoformat()} amount={transaction.amount} notes={transaction.notes!r}"
@@ -67,8 +63,6 @@ def build_prompt(transactions: list[RawTransaction], categories_by_type: dict[st
         "You are categorising credit card / bank transactions for a personal budget.\n\n"
         "Assign each transaction a Type and Category from this fixed list:\n"
         + "\n".join(type_lines)
-        + "\n\n"
-        + POSITIVE_AMOUNT_GUIDANCE
         + "\n\nTransactions:\n"
         + "\n".join(transaction_lines)
         + "\n\n"
@@ -103,25 +97,15 @@ def _parse_result(index: int, item) -> CategoryResult:
         transaction_type = item["type"]
         category = item["category"]
         needs_review = item["needs_review"]
-        is_bill_payment = item["is_bill_payment"]
     except KeyError as exc:
         raise MalformedResponseError(f"Result {index} is missing key {exc}") from exc
 
     if not isinstance(needs_review, bool):
         raise MalformedResponseError(f"Result {index}'s needs_review must be a boolean")
-    if not isinstance(is_bill_payment, bool):
-        raise MalformedResponseError(f"Result {index}'s is_bill_payment must be a boolean")
 
     reason = item.get("reason")
     if reason is not None and not isinstance(reason, str):
         raise MalformedResponseError(f"Result {index}'s reason must be a string or null")
-
-    if is_bill_payment:
-        if transaction_type is not None or category is not None:
-            raise MalformedResponseError(
-                f"Result {index}: is_bill_payment results must have null type/category"
-            )
-        return CategoryResult(type=None, category=None, needs_review=needs_review, reason=reason, is_bill_payment=True)
 
     if not isinstance(transaction_type, str) or not isinstance(category, str):
         raise MalformedResponseError(f"Result {index}'s type/category must be strings")

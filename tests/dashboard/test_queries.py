@@ -44,7 +44,7 @@ def test_stat_tiles_sum_by_type_for_the_selected_month(tmp_path: Path, make_cand
     store.append_rows(
         [
             make_candidate(date=date(2026, 8, 1), amount=4000.0, type="Income", category="Salary", notes="Employer"),
-            make_candidate(date=date(2026, 8, 2), amount=100.0, type="Income", category="Refund", notes="Return"),
+            make_candidate(date=date(2026, 8, 2), amount=100.0, type="Income", category="Rental", notes="Tenant"),
             make_candidate(date=date(2026, 8, 3), amount=200.0, type="Expense", category="Groceries", notes="Woolworths"),
             make_candidate(date=date(2026, 8, 4), amount=50.0, type="Expense", category="Transport", notes="Fuel"),
             make_candidate(date=date(2026, 8, 5), amount=875.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),

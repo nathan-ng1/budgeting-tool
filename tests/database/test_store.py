@@ -36,6 +36,22 @@ def test_append_rows_writes_a_negative_source_amount_as_positive(tmp_path: Path,
     assert row.amount == 42.50
 
 
+def test_append_rows_writes_a_beem_adjustment_negative_amount_unchanged(
+    tmp_path: Path, make_candidate
+):
+    # ADR-0015 - Beem Adjustment is a deliberate, narrow exception to the
+    # otherwise-unconditional "Amount always written positive" normalisation.
+    store = connect(tmp_path / "budget.db")
+    candidate = make_candidate(
+        amount=-42.50, type="Expense", category="Beem Adjustment", notes="From Alex"
+    )
+
+    store.append_rows([candidate])
+
+    [row] = store.read_existing_rows()
+    assert row.amount == -42.50
+
+
 def test_append_rows_with_no_candidates_is_a_noop(tmp_path: Path):
     store = connect(tmp_path / "budget.db")
 

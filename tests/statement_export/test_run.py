@@ -61,7 +61,7 @@ def test_beem_report_splits_deterministic_income_from_categorised_outgoings(
     written = result.write_result.to_write
     assert len(written) == 2
     income = next(c for c in written if c.notes == "From Alex")
-    assert (income.type, income.category) == ("Income", "Beem Adjustment")
+    assert (income.type, income.category, income.amount) == ("Expense", "Beem Adjustment", -15.00)
     outgoing = next(c for c in written if c.notes == "Coffee split")
     assert (outgoing.type, outgoing.category) == ("Expense", "Dining & Takeaway")
     [categorised_call] = categoriser.calls

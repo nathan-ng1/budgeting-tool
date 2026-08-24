@@ -13,7 +13,7 @@ from transaction_log.entries import Candidate, WriteResult
 logger = logging.getLogger(__name__)
 
 # Resolves a Needs Review transaction to a (Type, Category) pair, or None if the
-# user resolves it as a Bill Payment to drop instead.
+# user decides it shouldn't be recorded at all.
 NeedsReviewResolver = Callable[[RawTransaction, str | None], tuple[str, str] | None]
 
 
@@ -74,10 +74,8 @@ def _categorise(
         if result.needs_review:
             resolution = resolve_needs_review(transaction, result.reason)
             if resolution is None:
-                continue  # resolved as a Bill Payment — drop, never written
+                continue  # resolved as not-to-be-recorded — drop, never written
             transaction_type, category = resolution
-        elif result.is_bill_payment:
-            continue  # Bill Payment — drop, never written, never blocks archiving
         else:
             transaction_type, category = result.type, result.category
         try:

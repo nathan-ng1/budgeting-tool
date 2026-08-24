@@ -47,7 +47,9 @@ def test_categorised_transactions_are_written_and_archived(
 def test_deterministic_candidates_bypass_categorisation(fake_categoriser, fake_store, make_candidate):
     categoriser = fake_categoriser(results=[])
     store = fake_store()
-    deterministic = [make_candidate(type="Income", category="Beem Adjustment", notes="Beem in")]
+    deterministic = [
+        make_candidate(amount=-42.0, type="Expense", category="Beem Adjustment", notes="Beem in")
+    ]
 
     result = run(
         deterministic_candidates=deterministic,
@@ -209,69 +211,24 @@ def test_already_logged_transaction_is_not_reappended(
     assert store.appended == []
 
 
-def test_bill_payment_flagged_result_is_dropped_and_does_not_block_archiving(
-    fake_categoriser, fake_store, make_category_result, tmp_path: Path
-):
-    categoriser = fake_categoriser(
-        results=[make_category_result(type=None, category=None, is_bill_payment=True)]
-    )
-    store = fake_store()
-    source = tmp_path / "ANZ_20260805.csv"
-    source.write_text("irrelevant")
-    processed_dir = tmp_path / "processed"
-
-    result = run(
-        deterministic_candidates=[],
-        to_categorise=[make_transaction(amount=2143.68, notes="PAYMENT - THANKYOU")],
-        categoriser=categoriser,
-        store=store,
-        through=date(2026, 8, 5),
-        archive=Archive(source_path=source, processed_dir=processed_dir),
-        resolve_needs_review=fail_if_called,
-    )
-
-    assert not result.aborted
-    assert result.write_result.to_write == []
-    assert store.appended == []
-    assert not source.exists()
-    assert (processed_dir / "ANZ_20260805.csv").exists()
-
-
-def test_refund_flagged_result_is_written_as_income_refund(
-    fake_categoriser, fake_store, make_category_result
-):
-    categoriser = fake_categoriser(results=[make_category_result(type="Income", category="Refund")])
-    store = fake_store()
-
-    result = run(
-        deterministic_candidates=[],
-        to_categorise=[make_transaction(amount=25.00, notes="Merchant Credit")],
-        categoriser=categoriser,
-        store=store,
-        through=date(2026, 8, 5),
-        resolve_needs_review=fail_if_called,
-    )
-
-    assert not result.aborted
-    assert len(result.write_result.to_write) == 1
-    assert result.write_result.to_write[0].type == "Income"
-    assert result.write_result.to_write[0].category == "Refund"
-
-
 def test_needs_review_resolver_returning_none_drops_the_transaction(
     fake_categoriser, fake_store, make_category_result
 ):
+    # ADR-0016 - the resolver-returns-None "don't record this" escape hatch is
+    # generic, not specific to a Bill Payment (positive-Amount card rows never
+    # reach categorisation/Needs Review at all any more - they're dropped at
+    # parse time).
     categoriser = fake_categoriser(
-        results=[make_category_result(needs_review=True, reason="ambiguous positive amount")]
+        results=[make_category_result(needs_review=True, reason="ambiguous transaction")]
     )
     store = fake_store()
 
     def resolve(txn, reason):
-        return None  # user resolved this as "drop — Bill Payment"
+        return None  # user decided this transaction shouldn't be recorded
 
     result = run(
         deterministic_candidates=[],
-        to_categorise=[make_transaction(amount=2143.68, notes="PAYMENT - THANKYOU")],
+        to_categorise=[make_transaction(notes="Square Payment")],
         categoriser=categoriser,
         store=store,
         through=date(2026, 8, 5),

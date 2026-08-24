@@ -3,7 +3,7 @@ from typing import Callable
 from statement_export.parser import RawTransaction
 from transaction_log.categories import CATEGORIES_BY_TYPE, types_with_categories
 
-DROP_BILL_PAYMENT = "Drop — Bill Payment"
+DROP_TRANSACTION = "Drop — Don't Record"
 
 
 class TerminalReviewer:
@@ -12,7 +12,7 @@ class TerminalReviewer:
     Callable as (transaction, reason) -> (type, category) | None, matching
     statement_export.orchestrator.NeedsReviewResolver - the default resolver
     process_statement_export's __main__ wires in for real runs. None means the
-    user resolved a positive-Amount transaction as a Bill Payment to drop.
+    user decided this transaction shouldn't be recorded at all.
     """
 
     def __init__(
@@ -32,14 +32,13 @@ class TerminalReviewer:
         if reason:
             self._print(f"  ({reason})")
 
-        type_options = types_with_categories(self._categories_by_type)
-        if transaction.amount > 0:
-            # Only a positive-Amount row can be a Bill Payment - offering this
-            # for an ordinary spend row would be nonsensical.
-            type_options = type_options + [DROP_BILL_PAYMENT]
+        # Offered for any Needs Review transaction, any sign - a generic
+        # "don't record this" escape hatch (see ADR-0016), not tied to
+        # positive-Amount Bill Payments any more.
+        type_options = types_with_categories(self._categories_by_type) + [DROP_TRANSACTION]
 
         transaction_type = self._choose("Type", type_options)
-        if transaction_type == DROP_BILL_PAYMENT:
+        if transaction_type == DROP_TRANSACTION:
             return None
 
         category = self._choose(

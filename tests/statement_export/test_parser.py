@@ -3,10 +3,10 @@ from pathlib import Path
 
 import pytest
 
-from statement_export.parser import RawTransaction, parse
+from statement_export.parser import RawTransaction, categorise, parse
 
 # Covers a double-digit day/month row, a single-digit day/month row, and a
-# positive-Amount (Bill Payment or Refund) row, in file order.
+# positive-Amount (Bill Payment) row, in file order.
 FIXTURE_BYTES = (
     b"30/07/2026,-4.95,KFC NORTHMEAD             NORTHMEAD\n"
     b"13/07/2026,2143.68,PAYMENT - THANKYOU\n"
@@ -36,6 +36,35 @@ def test_parse_reads_transactions_in_file_order_with_single_and_double_digit_dat
 
 
 def test_parse_keeps_positive_amount_rows(transactions: list[RawTransaction]):
-    # Positive-Amount rows (Bill Payment or Refund) now flow into categorisation
-    # instead of being dropped at parse time — see ADR-0007.
+    # parse() itself doesn't filter - categorise() is what deterministically
+    # drops positive-Amount rows below.
     assert any(t.amount > 0 for t in transactions)
+
+
+def test_categorise_drops_positive_amount_rows():
+    # ADR-0016 - every positive-Amount card row is unconditionally a Bill
+    # Payment, dropped deterministically rather than sent to categorisation.
+    positive = RawTransaction(date=date(2026, 7, 13), amount=2143.68, notes="PAYMENT - THANKYOU")
+
+    dropped, to_categorise = categorise([positive])
+
+    assert dropped == [positive]
+    assert to_categorise == []
+
+
+def test_categorise_routes_negative_amount_rows_to_categorisation():
+    negative = RawTransaction(
+        date=date(2026, 7, 30), amount=-4.95, notes="KFC NORTHMEAD             NORTHMEAD"
+    )
+
+    dropped, to_categorise = categorise([negative])
+
+    assert dropped == []
+    assert to_categorise == [negative]
+
+
+def test_categorise_splits_a_mix_of_positive_and_negative_rows(transactions: list[RawTransaction]):
+    dropped, to_categorise = categorise(transactions)
+
+    assert [t.notes for t in dropped] == ["PAYMENT - THANKYOU"]
+    assert [t.amount for t in to_categorise] == [-4.95, -40.0]
