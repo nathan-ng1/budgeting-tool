@@ -532,7 +532,7 @@ describe("Budget Full year", () => {
 });
 
 describe("Budget Suggestion", () => {
-  it("renders the stored write-up underneath the table", async () => {
+  it("renders the stored write-up in its own card above the table", async () => {
     useBackend(editor(), { write_up: "Groceries has run over budget.", generated_at: "2026-08-20T14:32:00" });
     render(<Budget />);
 

@@ -38,6 +38,13 @@ def test_prompt_asks_for_plain_text_with_no_json_or_markdown():
     assert "no JSON, no markdown" in prompt
 
 
+def test_prompt_asks_for_a_bulleted_list():
+    prompt = build_prompt([make_history()])
+
+    assert 'bulleted list' in prompt
+    assert '"- "' in prompt
+
+
 def test_parse_response_strips_surrounding_whitespace():
     result = parse_response("  Groceries is trending over budget.  \n")
 
