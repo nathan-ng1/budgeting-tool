@@ -2,11 +2,7 @@ import json
 
 from categorisation.interface import BatchResult, CategoryResult, MalformedResponseError
 from statement_export.parser import RawTransaction
-from transaction_log.categories import (
-    assignable_categories_by_type,
-    is_valid_type_category_pair,
-    types_with_categories,
-)
+from transaction_log.categories import Category, assignable_categories_by_type, types_with_categories
 
 # The structured-output contract every backend requests (schema-constrained where the backend
 # supports it - claude_backend's --json-schema, openai_compatible_backend's response_format) and
@@ -48,8 +44,8 @@ user to confirm it
 - "reason": a short one-sentence explanation, or null if needs_review is false"""
 
 
-def build_prompt(transactions: list[RawTransaction], categories_by_type: dict[str, set[str]]) -> str:
-    assignable = assignable_categories_by_type(categories_by_type)
+def build_prompt(transactions: list[RawTransaction], categories: list[Category]) -> str:
+    assignable = assignable_categories_by_type(categories)
     type_lines = [
         f"- {transaction_type}: {', '.join(sorted(assignable[transaction_type]))}"
         for transaction_type in types_with_categories(assignable)
@@ -70,7 +66,7 @@ def build_prompt(transactions: list[RawTransaction], categories_by_type: dict[st
     )
 
 
-def parse_batch_response(raw: str, expected_count: int) -> BatchResult:
+def parse_batch_response(raw: str, expected_count: int, categories: list[Category]) -> BatchResult:
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
@@ -85,11 +81,12 @@ def parse_batch_response(raw: str, expected_count: int) -> BatchResult:
             f"Expected {expected_count} results, got {len(results_data)}"
         )
 
-    results = [_parse_result(i, item) for i, item in enumerate(results_data)]
+    assignable = assignable_categories_by_type(categories)
+    results = [_parse_result(i, item, assignable) for i, item in enumerate(results_data)]
     return BatchResult(results=results)
 
 
-def _parse_result(index: int, item) -> CategoryResult:
+def _parse_result(index: int, item, assignable: dict[str, set[str]]) -> CategoryResult:
     if not isinstance(item, dict):
         raise MalformedResponseError(f"Result {index} is not a JSON object")
 
@@ -109,7 +106,7 @@ def _parse_result(index: int, item) -> CategoryResult:
 
     if not isinstance(transaction_type, str) or not isinstance(category, str):
         raise MalformedResponseError(f"Result {index}'s type/category must be strings")
-    if not is_valid_type_category_pair(transaction_type, category):
+    if category not in assignable.get(transaction_type, set()):
         raise MalformedResponseError(
             f"Result {index}: {category!r} is not a valid Category for {transaction_type!r}"
         )

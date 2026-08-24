@@ -33,10 +33,11 @@ describe("recurringApi", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/recurring-rules", expect.anything());
   });
 
-  it("fetches the valid Type/Category pairs the form offers", async () => {
-    ok({ Expense: ["Subscriptions"], Income: ["Salary"] });
+  it("fetches every Category the form offers", async () => {
+    const categories = [{ id: 1, type: "Expense", name: "Subscriptions", emoji: null, locked: false }];
+    ok(categories);
 
-    expect(await fetchCategories()).toEqual({ Expense: ["Subscriptions"], Income: ["Salary"] });
+    expect(await fetchCategories()).toEqual(categories);
     expect(fetchMock).toHaveBeenCalledWith("/api/categories", expect.anything());
   });
 

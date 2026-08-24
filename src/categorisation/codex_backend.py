@@ -4,6 +4,7 @@ from typing import Callable
 from categorisation.interface import BatchResult
 from categorisation.prompt import build_prompt, parse_batch_response
 from statement_export.parser import RawTransaction
+from transaction_log.categories import Category
 
 
 def _run_subprocess(args: list[str]) -> str:
@@ -27,10 +28,10 @@ class CodexCategoriser:
     def __init__(self, run_process: Callable[[list[str]], str] = _run_subprocess):
         self._run_process = run_process
 
-    def categorise(self, transactions: list[RawTransaction], categories_by_type: dict[str, set[str]]) -> BatchResult:
-        prompt = build_prompt(transactions, categories_by_type)
+    def categorise(self, transactions: list[RawTransaction], categories: list[Category]) -> BatchResult:
+        prompt = build_prompt(transactions, categories)
         stdout = self._run_process(["codex", "exec", prompt])
-        return parse_batch_response(stdout, expected_count=len(transactions))
+        return parse_batch_response(stdout, expected_count=len(transactions), categories=categories)
 
 
 def connect() -> CodexCategoriser:

@@ -27,8 +27,9 @@ def test_due_recurring_rule_seeded_in_a_real_sqlite_store_is_expanded_and_writte
     connection = sqlite3.connect(database_path)
     connection.execute(
         "INSERT INTO recurring_rules "
-        "(amount, type, category, notes, frequency, interval, day, start_date, end_date) "
-        "VALUES (5000.0, 'Income', 'Salary', 'Employer Pty Ltd', 'Monthly', 1, '5', '2026-08-05', NULL)"
+        "(amount, type, category_id, notes, frequency, interval, day, start_date, end_date) "
+        "VALUES (5000.0, 'Income', (SELECT id FROM categories WHERE name = 'Salary'), "
+        "'Employer Pty Ltd', 'Monthly', 1, '5', '2026-08-05', NULL)"
     )
     connection.commit()
     connection.close()

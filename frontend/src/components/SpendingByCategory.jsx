@@ -1,10 +1,12 @@
 import { CIRCUMFERENCE, DONUT_RADIUS, donutSegments } from "../lib/charts.js";
+import { categoryLabel, emojiLookup } from "../lib/categories.js";
 import { money } from "../lib/format.js";
 
 const DONUT_THICKNESS = 22;
 
-export default function SpendingByCategory({ spending, total }) {
+export default function SpendingByCategory({ spending, total, categories = [] }) {
   const segments = donutSegments(spending);
+  const emoji = emojiLookup(categories);
 
   return (
     <section className="card">
@@ -51,7 +53,7 @@ export default function SpendingByCategory({ spending, total }) {
           {segments.map((segment) => (
             <div key={segment.category} className="legend__row">
               <span className="dot" style={{ background: segment.colour }} />
-              <span className="legend__name">{segment.category}</span>
+              <span className="legend__name">{categoryLabel(segment.category, emoji)}</span>
               <span className="legend__amount numeric">{money(segment.amount)}</span>
             </div>
           ))}

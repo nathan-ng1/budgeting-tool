@@ -9,7 +9,7 @@ from calendar import monthrange
 from dataclasses import dataclass
 from datetime import date
 
-from transaction_log.categories import CATEGORIES_BY_TYPE, TYPE_ORDER, type_for_category
+from transaction_log.categories import TYPE_ORDER, Category, categories_by_type, type_lookup
 from transaction_log.entries import Transaction
 
 # The Types a Category Budget can apply to - Transfer has none to budget
@@ -160,7 +160,9 @@ def get_month_overview(store, year: int, month: int) -> MonthOverview:
             stat_tiles.income, stat_tiles.expenses, stat_tiles.debt, stat_tiles.transferred
         ),
         spending_by_category=_spending_by_category(transactions, stat_tiles.expenses),
-        budgeted_vs_actual=_budgeted_vs_actual(transactions, store.read_category_budgets(year, month)),
+        budgeted_vs_actual=_budgeted_vs_actual(
+            transactions, store.read_category_budgets(year, month), store.read_categories()
+        ),
         debt_summary=_debt_summary(transactions, stat_tiles.debt),
         top_expenses=_top_expenses(transactions, limit=5),
         expenses_over_time=_expenses_over_time(transactions, year, month),
@@ -204,16 +206,19 @@ def get_annual_overview(store, year: int, today: date | None = None) -> AnnualOv
     )
 
 
-def _budgetable_type_category_pairs():
+def _budgetable_type_category_pairs(categories: list[Category]):
     """Every (Type, Category) pair a Category Budget can apply to, in
     CONTEXT.md's Type order and alphabetical within it - shared by
     get_budget_editor and get_full_year_budget_grid so both walk the same
-    rows in the same order.
+    rows in the same order. Sourced from the live `categories` table (Issue
+    #90), not the hardcoded CATEGORIES_BY_TYPE dict, so a Category added
+    through Category Management (#91) shows up here too.
     """
+    by_type = categories_by_type(categories)
     for transaction_type in TYPE_ORDER:
         if transaction_type not in BUDGETABLE_TYPES:
             continue
-        for category in sorted(CATEGORIES_BY_TYPE[transaction_type]):
+        for category in sorted(by_type.get(transaction_type, set())):
             yield transaction_type, category
 
 
@@ -237,6 +242,7 @@ def get_budget_editor(store, year: int, month: int, trailing_months: int = 3) ->
     if trailing_months not in TRAILING_WINDOWS:
         raise ValueError(f"trailing_months must be one of {TRAILING_WINDOWS}, got {trailing_months}")
 
+    categories = store.read_categories()
     selected_start = date(year, month, 1)
     # window_months[0] is last month (the anchor shown on its own, unwindowed);
     # window_months[-1] is the oldest month the window reaches back to.
@@ -258,7 +264,7 @@ def get_budget_editor(store, year: int, month: int, trailing_months: int = 3) ->
     last_month_budgets = store.read_category_budgets(last_month.year, last_month.month)
 
     rows = []
-    for transaction_type, category in _budgetable_type_category_pairs():
+    for transaction_type, category in _budgetable_type_category_pairs(categories):
         category_earliest = earliest_month_by_category.get(category)
         has_sufficient_history = category_earliest is not None and category_earliest <= window_start
         trailing_average_actual, average_variance_pct = _trailing_history(
@@ -295,7 +301,7 @@ def get_full_year_budget_grid(store, year: int) -> list[BudgetGridRow]:
     }
 
     rows = []
-    for transaction_type, category in _budgetable_type_category_pairs():
+    for transaction_type, category in _budgetable_type_category_pairs(store.read_categories()):
         amounts = [budgets_by_month[(month_start.year, month_start.month)].get(category) for month_start in months]
         rows.append(BudgetGridRow(type=transaction_type, category=category, amounts=amounts))
     return rows
@@ -443,17 +449,22 @@ def _debt_summary(transactions: list[Transaction], debt: float) -> list[DebtByNo
     return sorted(rows, key=lambda row: (-row.amount, row.notes))
 
 
-def _budgeted_vs_actual_rows(budgets: dict[str, float], actuals: dict[str, float]) -> list[BudgetVsActual]:
+def _budgeted_vs_actual_rows(
+    budgets: dict[str, float], actuals: dict[str, float], categories: list[Category]
+) -> list[BudgetVsActual]:
     """Build one row per Category with a budget and/or non-zero actual, sorted
     by Type (CONTEXT.md order) then Category - shared by the per-month and
     Full year Budgeted vs Actual tables, which differ only in how `budgets`
-    and `actuals` are computed.
+    and `actuals` are computed. Types are resolved from the live `categories`
+    table (Issue #90), not the hardcoded CATEGORIES_BY_TYPE dict, so a
+    Category added through Category Management (#91) isn't silently dropped.
     """
-    categories = set(budgets) | {c for c, amount in actuals.items() if amount != 0}
+    type_by_category = type_lookup(categories)
+    category_names = set(budgets) | {c for c, amount in actuals.items() if amount != 0}
 
     rows = []
-    for category in categories:
-        transaction_type = type_for_category(category)
+    for category in category_names:
+        transaction_type = type_by_category.get(category)
         if transaction_type is None:
             # A Category Budget can outlive its Category - e.g. Refund's
             # retirement (ADR-0016) left stale $0 rows behind from before
@@ -474,9 +485,11 @@ def _budgeted_vs_actual_rows(budgets: dict[str, float], actuals: dict[str, float
     return sorted(rows, key=lambda row: (TYPE_ORDER.index(row.type), row.category))
 
 
-def _budgeted_vs_actual(transactions: list[Transaction], category_budgets: dict[str, float]) -> list[BudgetVsActual]:
+def _budgeted_vs_actual(
+    transactions: list[Transaction], category_budgets: dict[str, float], categories: list[Category]
+) -> list[BudgetVsActual]:
     actuals = _totals_by_category(transactions, BUDGETABLE_TYPES)
-    return _budgeted_vs_actual_rows(category_budgets, actuals)
+    return _budgeted_vs_actual_rows(category_budgets, actuals, categories)
 
 
 def _summed_category_budgets(store, start: date, elapsed_months: int) -> dict[str, float]:
@@ -500,7 +513,7 @@ def _annual_budgeted_vs_actual(store, transactions: list[Transaction], start: da
     """
     budgets = _summed_category_budgets(store, start, elapsed_months)
     actuals = _totals_by_category(transactions, BUDGETABLE_TYPES)
-    return _budgeted_vs_actual_rows(budgets, actuals)
+    return _budgeted_vs_actual_rows(budgets, actuals, store.read_categories())
 
 
 def _earliest_month_by_category(transactions: list[Transaction]) -> dict[str, date]:

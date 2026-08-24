@@ -3,6 +3,7 @@ import pytest
 from transaction_log.categories import (
     CATEGORIES_BY_TYPE,
     TYPE_ORDER,
+    Category,
     assignable_categories_by_type,
     is_valid_type_category_pair,
     type_for_category,
@@ -69,29 +70,39 @@ def test_refund_has_no_type():
     assert type_for_category("Refund") is None
 
 
-def test_assignable_categories_by_type_excludes_beem_adjustment():
-    # ADR-0015 - Beem Adjustment must only ever be produced by the deterministic
-    # Beem parser path, never offered to the categorisation prompt as somewhere
-    # to file an ordinary card transaction.
-    assignable = assignable_categories_by_type()
-    assert "Beem Adjustment" not in assignable["Expense"]
-    assert assignable["Expense"] == CATEGORIES_BY_TYPE["Expense"] - {"Beem Adjustment"}
-    assert assignable["Income"] == CATEGORIES_BY_TYPE["Income"]
-    assert assignable["Debt"] == CATEGORIES_BY_TYPE["Debt"]
-    assert assignable["Transfer"] == CATEGORIES_BY_TYPE["Transfer"]
+def test_assignable_categories_by_type_excludes_locked_categories():
+    # ADR-0015 - a locked Category (Beem Adjustment today) must only ever be
+    # produced by the deterministic Beem parser path, never offered to the
+    # categorisation prompt as somewhere to file an ordinary card transaction.
+    categories = [
+        Category(id=1, type="Expense", name="Beem Adjustment", emoji=None, locked=True),
+        Category(id=2, type="Expense", name="Groceries", emoji=None, locked=False),
+        Category(id=3, type="Income", name="Salary", emoji=None, locked=False),
+    ]
+
+    assignable = assignable_categories_by_type(categories)
+
+    assert assignable == {"Expense": {"Groceries"}, "Income": {"Salary"}}
 
 
-def test_assignable_categories_by_type_does_not_mutate_the_source():
-    assignable_categories_by_type()
-    assert "Beem Adjustment" in CATEGORIES_BY_TYPE["Expense"]
+def test_assignable_categories_by_type_keeps_a_type_with_only_locked_categories():
+    # A locked-only Type still appears (empty), just like Transfer does today
+    # for types_with_categories - it isn't dropped outright.
+    categories = [Category(id=1, type="Expense", name="Beem Adjustment", emoji=None, locked=True)]
+
+    assignable = assignable_categories_by_type(categories)
+
+    assert assignable == {"Expense": set()}
 
 
-def test_assignable_categories_by_type_accepts_an_explicit_mapping():
-    mapping = {"Expense": {"Beem Adjustment", "Groceries"}, "Income": {"Salary"}}
-    assert assignable_categories_by_type(mapping) == {
-        "Expense": {"Groceries"},
-        "Income": {"Salary"},
-    }
+def test_assignable_categories_by_type_excludes_any_locked_category_generically():
+    # Not name-specific - any Category flagged locked is excluded, not just
+    # "Beem Adjustment" by name (the Further Note in #89).
+    categories = [Category(id=1, type="Debt", name="Some Other Adjustment", emoji=None, locked=True)]
+
+    assignable = assignable_categories_by_type(categories)
+
+    assert assignable == {"Debt": set()}
 
 
 def test_types_with_categories_omits_a_type_that_has_none_yet():

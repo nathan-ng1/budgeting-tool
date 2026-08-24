@@ -949,6 +949,216 @@ tbody:first-of-type .bva__section {
   min-width: 160px;
 }
 
+/* Category Management sits directly above Recurring Transactions Config with
+   no gap between them (Issue #89's Further Notes), unlike .page__inner's
+   usual 26px between top-level sections - the shared border reads as one
+   continuous Settings block rather than two separately-spaced cards. */
+.settings-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-group > .card:first-child {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.settings-group > .card:last-child {
+  margin-top: -1px;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+/* — Category Management (Settings tab) — */
+
+.category-group {
+  margin-top: 18px;
+}
+
+.category-group:first-of-type {
+  margin-top: 14px;
+}
+
+.category-group__heading {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-neutral-500);
+}
+
+.category-chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.category-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--color-neutral-300);
+  background: var(--color-neutral-100);
+  font-size: 13.5px;
+}
+
+.category-chip__emoji {
+  font-size: 16px;
+}
+
+.category-chip__name {
+  font-weight: 600;
+}
+
+.category-chip__actions {
+  display: flex;
+  gap: 2px;
+  margin-left: 4px;
+}
+
+.category-chip__actions button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--color-neutral-500);
+  font-size: 13px;
+  padding: 2px;
+}
+
+.category-chip__actions button:hover {
+  color: var(--color-text);
+}
+
+.category-chip__lock {
+  margin-left: 4px;
+  font-size: 12px;
+}
+
+.category-chip--confirm {
+  border-color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 12%, var(--color-card));
+  color: var(--color-danger);
+  font-size: 13px;
+}
+
+.category-chip--confirm .category-chip__actions button {
+  color: var(--color-danger);
+  font-weight: 700;
+}
+
+.category-chip--add {
+  border-style: dashed;
+  background: transparent;
+  color: var(--color-neutral-600);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.category-chip--add:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent-700);
+}
+
+.category-chip--form {
+  flex-wrap: wrap;
+  background: var(--color-card);
+  border-color: var(--color-accent);
+  gap: 6px;
+}
+
+.category-chip--form input[type="text"] {
+  border: none;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  width: 140px;
+}
+
+.category-chip--form input[type="text"]:focus-visible {
+  outline: none;
+}
+
+.category-chip__save,
+.category-chip__cancel {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.category-chip__save {
+  color: var(--color-accent-2-700);
+}
+
+.category-chip__cancel {
+  color: var(--color-neutral-500);
+}
+
+.category-chip__error {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.emoji-picker {
+  position: relative;
+}
+
+.emoji-picker__trigger {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--color-neutral-300);
+  background: var(--color-card);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.emoji-picker__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid var(--color-neutral-300);
+  background: var(--color-card);
+  box-shadow: 0 10px 30px rgba(32, 30, 29, 0.18);
+}
+
+.emoji-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+  width: 220px;
+}
+
+.emoji-picker__option {
+  border: none;
+  background: none;
+  font-size: 18px;
+  padding: 4px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.emoji-picker__option:hover {
+  background: var(--color-neutral-200);
+}
+
+.emoji-picker__custom {
+  grid-column: 1 / -1;
+  margin-top: 4px;
+  padding: 6px 8px;
+  border: 1px solid var(--color-neutral-300);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
 .table-scroll {
   margin-top: 22px;
   overflow-x: auto;

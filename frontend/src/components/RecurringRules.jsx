@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { categoryLabel, emojiLookup, groupByType } from "../lib/categories.js";
 import {
   createRecurringRule,
   deleteRecurringRule,
@@ -31,6 +32,7 @@ function schedule(rule) {
 export default function RecurringRules() {
   const [rules, setRules] = useState(null);
   const [categories, setCategories] = useState({});
+  const [categoryList, setCategoryList] = useState([]);
   const [editing, setEditing] = useState(null);
   const [error, setError] = useState(null);
 
@@ -40,8 +42,15 @@ export default function RecurringRules() {
       fetchCategories({ signal }),
     ]);
     setRules(loadedRules);
-    setCategories(loadedCategories);
+    setCategories(groupByType(loadedCategories));
+    setCategoryList(loadedCategories);
   }, []);
+
+  // The same flat list `categories` above was grouped from, kept around
+  // separately so the table/select can show a Category's emoji (Issue #92)
+  // without every consumer of the grouped Type->names shape having to
+  // change too.
+  const emoji = useMemo(() => emojiLookup(categoryList), [categoryList]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -114,6 +123,7 @@ export default function RecurringRules() {
           key={editing.id ?? "new"}
           initial={editing.values}
           categories={categories}
+          emoji={emoji}
           onCancel={() => setEditing(null)}
           onSave={save}
         />
@@ -140,7 +150,7 @@ export default function RecurringRules() {
                 <tr key={rule.id}>
                   <td className="table__num">{preciseMoney(rule.amount)}</td>
                   <td>{rule.type}</td>
-                  <td>{rule.category}</td>
+                  <td>{categoryLabel(rule.category, emoji)}</td>
                   <td>{rule.notes}</td>
                   <td>{schedule(rule)}</td>
                   <td>{rule.start_date}</td>
@@ -173,7 +183,7 @@ export default function RecurringRules() {
   );
 }
 
-function RuleForm({ initial, categories, onCancel, onSave }) {
+function RuleForm({ initial, categories, emoji, onCancel, onSave }) {
   const [values, setValues] = useState(initial);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -235,7 +245,9 @@ function RuleForm({ initial, categories, onCancel, onSave }) {
           <select value={values.category} onChange={(event) => set("category", event.target.value)} required>
             <option value="">Choose a Category</option>
             {allowed.map((category) => (
-              <option key={category}>{category}</option>
+              <option key={category} value={category}>
+                {categoryLabel(category, emoji)}
+              </option>
             ))}
           </select>
         </label>

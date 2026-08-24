@@ -10,9 +10,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
-from dashboard import budgets, queries, recurring, transactions
-from database.store import RecurringRuleNotFound, TransactionNotFound
-from transaction_log.categories import CATEGORIES_BY_TYPE, TYPE_ORDER, type_for_category, types_with_categories
+from dashboard import budgets, categories, queries, recurring, transactions
+from database.store import CategoryNotFound, RecurringRuleNotFound, TransactionNotFound
+from transaction_log.categories import type_lookup
 
 # Where `npm run build` puts the frontend (see frontend/vite.config.js). The
 # directory is a build artefact, so it is absent in a fresh clone until the
@@ -34,6 +34,7 @@ TRANSACTIONS_PATH = "/api/transactions"
 BUDGET_EDITOR_PATH = "/api/budget-editor"
 BUDGET_GRID_PATH = "/api/budget-grid"
 BUDGET_SUGGESTION_PATH = "/api/budget-suggestion"
+CATEGORIES_PATH = "/api/categories"
 
 BUILD_INSTRUCTIONS = (
     "The Dashboard has not been built yet. Run `npm install` and `npm run build` "
@@ -105,17 +106,12 @@ def _make_handler(store, static_root: Path):
                 # renders identically no matter which month pill is selected
                 # (Issue #66).
                 self._send_json(200, budgets.as_suggestion_payload(store.read_budget_suggestion()))
-            elif parsed.path == "/api/categories":
-                # What the Transaction/Recurring Rule forms' Type/Category
-                # selects offer, so transaction_log.categories stays the one
-                # place the valid pairs are stated rather than the frontend
-                # restating and drifting. Keyed in TYPE_ORDER (not
-                # types_with_categories()'s alphabetical order) so the forms'
-                # Type select matches the Types filter's display order.
-                available = set(types_with_categories())
-                self._send_json(
-                    200, {t: sorted(CATEGORIES_BY_TYPE[t]) for t in TYPE_ORDER if t in available}
-                )
+            elif parsed.path == CATEGORIES_PATH:
+                # Every Category, id/type/name/emoji/locked (Issue #91) -
+                # consumers that need the old {Type: [name, ...]} grouping for
+                # a Type/Category select derive it from this flat list
+                # themselves.
+                self._send_json(200, [categories.as_payload(c) for c in store.read_categories()])
             elif parsed.path.startswith("/api/"):
                 self._send_json(404, {"error": "Not found"})
             else:
@@ -128,6 +124,8 @@ def _make_handler(store, static_root: Path):
                 self._write_rule(lambda rule: (201, store.create_recurring_rule(rule)))
             elif path == TRANSACTIONS_PATH:
                 self._write_transaction(lambda candidate: (201, store.create_transaction(candidate)))
+            elif path == CATEGORIES_PATH:
+                self._create_category()
             else:
                 self._send_json(404, {"error": "Not found"})
 
@@ -143,6 +141,11 @@ def _make_handler(store, static_root: Path):
                 self._write_transaction(
                     lambda candidate: (200, store.update_transaction(transaction_id, candidate))
                 )
+                return
+
+            category_id = self._id_after(CATEGORIES_PATH)
+            if category_id is not None:
+                self._update_category(category_id)
                 return
 
             category = self._category_after(BUDGET_EDITOR_PATH)
@@ -170,6 +173,21 @@ def _make_handler(store, static_root: Path):
                     store.delete_transaction(transaction_id)
                 except TransactionNotFound as cause:
                     self._send_json(404, {"error": str(cause)})
+                    return
+                self._send_bytes(204, b"", "application/json")
+                return
+
+            category_id = self._id_after(CATEGORIES_PATH)
+            if category_id is not None:
+                try:
+                    store.delete_category(category_id)
+                except CategoryNotFound as cause:
+                    self._send_json(404, {"error": str(cause)})
+                    return
+                except ValueError as cause:
+                    # CategoryLocked or CategoryInUse - the store is the
+                    # authority on why a delete is refused.
+                    self._send_json(400, {"error": str(cause)})
                     return
                 self._send_bytes(204, b"", "application/json")
                 return
@@ -251,6 +269,41 @@ def _make_handler(store, static_root: Path):
 
             self._send_json(status, transactions.as_payload(stored))
 
+        def _create_category(self) -> None:
+            try:
+                transaction_type, name, emoji = categories.create_from_payload(self._read_json())
+            except ValueError as cause:
+                self._send_json(400, {"error": str(cause)})
+                return
+
+            try:
+                created = store.create_category(transaction_type, name, emoji)
+            except ValueError as cause:
+                self._send_json(400, {"error": str(cause)})
+                return
+
+            self._send_json(201, categories.as_payload(created))
+
+        def _update_category(self, category_id: int) -> None:
+            try:
+                name, emoji = categories.update_from_payload(self._read_json())
+            except ValueError as cause:
+                self._send_json(400, {"error": str(cause)})
+                return
+
+            try:
+                updated = store.update_category(category_id, name, emoji)
+            except CategoryNotFound as cause:
+                self._send_json(404, {"error": str(cause)})
+                return
+            except ValueError as cause:
+                # CategoryLocked, or a name collision - the store is the
+                # authority on why the rename is refused.
+                self._send_json(400, {"error": str(cause)})
+                return
+
+            self._send_json(200, categories.as_payload(updated))
+
         def _write_category_budget(self, category: str) -> None:
             """Parse an Amount from the request body and upsert this
             Category's Category Budget for the (year, month) query params."""
@@ -259,7 +312,7 @@ def _make_handler(store, static_root: Path):
                 return
             year, month = parsed
 
-            transaction_type = type_for_category(category)
+            transaction_type = type_lookup(store.read_categories()).get(category)
             if transaction_type is None:
                 self._send_json(400, {"error": f"Category {category!r} is not a valid Category"})
                 return

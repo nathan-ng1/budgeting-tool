@@ -1,3 +1,4 @@
+import { categoryLabel, emojiLookup } from "../lib/categories.js";
 import { colourForCategory } from "../lib/categoryColours.js";
 import { UNSET, money, signedMoney, signedPct } from "../lib/format.js";
 import { toneFor } from "../lib/tone.js";
@@ -73,7 +74,7 @@ function subtotal(rows) {
   return { hasBudgeted: budgeted.length > 0, totalBudgeted, totalActual, totalDiff, totalPct };
 }
 
-function Section({ type, rows }) {
+function Section({ type, rows, emoji }) {
   if (rows.length === 0) {
     return null;
   }
@@ -97,7 +98,7 @@ function Section({ type, rows }) {
             <td>
               <span className="dot" style={{ background: colourForCategory(row.category) }} />
             </td>
-            <td>{row.category}</td>
+            <td>{categoryLabel(row.category, emoji)}</td>
             <td className="bva__num numeric muted">{row.budgeted === null ? UNSET : money(row.budgeted)}</td>
             <td className="bva__actual numeric">{money(row.actual)}</td>
             <SignedCells type={type} diff={diff} pct={pct} />
@@ -115,12 +116,13 @@ function Section({ type, rows }) {
   );
 }
 
-export default function BudgetedVsActual({ rows }) {
+export default function BudgetedVsActual({ rows, categories = [] }) {
   // The header's total Diff badge is the same subtotal() shape the per-Type
   // rows already use, just applied across every row rather than one
   // Section's - so it inherits the same "budgeted Categories only" exclusion
   // (Issue #74) without a second computation to keep in sync.
   const { hasBudgeted, totalDiff } = subtotal(rows);
+  const emoji = emojiLookup(categories);
 
   return (
     <section className="card card--chart">
@@ -161,7 +163,7 @@ export default function BudgetedVsActual({ rows }) {
             </tr>
           </thead>
           {SECTIONS.map((type) => (
-            <Section key={type} type={type} rows={rows.filter((row) => row.type === type)} />
+            <Section key={type} type={type} rows={rows.filter((row) => row.type === type)} emoji={emoji} />
           ))}
         </table>
       )}

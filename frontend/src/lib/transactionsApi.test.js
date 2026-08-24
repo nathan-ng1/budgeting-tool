@@ -33,10 +33,11 @@ describe("transactionsApi", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/transactions?year=2026&month=7", expect.anything());
   });
 
-  it("fetches the valid Type/Category pairs the form offers", async () => {
-    ok({ Expense: ["Groceries"], Income: ["Salary"] });
+  it("fetches every Category the form offers", async () => {
+    const categories = [{ id: 1, type: "Expense", name: "Groceries", emoji: null, locked: false }];
+    ok(categories);
 
-    expect(await fetchCategories()).toEqual({ Expense: ["Groceries"], Income: ["Salary"] });
+    expect(await fetchCategories()).toEqual(categories);
     expect(fetchMock).toHaveBeenCalledWith("/api/categories", expect.anything());
   });
 

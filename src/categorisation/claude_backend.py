@@ -5,6 +5,7 @@ from typing import Callable
 from categorisation.interface import BatchResult, MalformedResponseError
 from categorisation.prompt import RESULTS_JSON_SCHEMA, build_prompt, parse_batch_response
 from statement_export.parser import RawTransaction
+from transaction_log.categories import Category
 
 
 def _run_subprocess(args: list[str]) -> str:
@@ -26,8 +27,8 @@ class ClaudeCodeCategoriser:
     def __init__(self, run_process: Callable[[list[str]], str] = _run_subprocess):
         self._run_process = run_process
 
-    def categorise(self, transactions: list[RawTransaction], categories_by_type: dict[str, set[str]]) -> BatchResult:
-        prompt = build_prompt(transactions, categories_by_type)
+    def categorise(self, transactions: list[RawTransaction], categories: list[Category]) -> BatchResult:
+        prompt = build_prompt(transactions, categories)
         args = [
             "claude", "-p", prompt,
             "--output-format", "json",
@@ -53,7 +54,7 @@ class ClaudeCodeCategoriser:
                 "Claude CLI output is missing both 'structured_output' and a string 'result' field"
             )
 
-        return parse_batch_response(raw, expected_count=len(transactions))
+        return parse_batch_response(raw, expected_count=len(transactions), categories=categories)
 
 
 def connect() -> ClaudeCodeCategoriser:

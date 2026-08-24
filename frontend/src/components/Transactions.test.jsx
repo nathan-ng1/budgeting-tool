@@ -38,10 +38,14 @@ function rowTexts() {
   return screen.getAllByRole("row").slice(1).map((row) => row.textContent);
 }
 
-const CATEGORIES = { Expense: ["Groceries", "Transport"], Income: ["Salary"] };
+const CATEGORIES = [
+  { id: 1, type: "Expense", name: "Groceries", emoji: null, locked: false },
+  { id: 2, type: "Expense", name: "Transport", emoji: null, locked: false },
+  { id: 3, type: "Income", name: "Salary", emoji: null, locked: false },
+];
 
 /** Answer each endpoint from `transactions`, so the screen reloads real state. */
-function backend(transactions = []) {
+function backend(transactions = [], categories = CATEGORIES) {
   let stored = [...transactions];
   let nextId = 100;
 
@@ -49,7 +53,7 @@ function backend(transactions = []) {
     const method = options.method ?? "GET";
 
     if (url === "/api/categories") {
-      return { ok: true, status: 200, json: async () => CATEGORIES };
+      return { ok: true, status: 200, json: async () => categories };
     }
     if (method === "GET") {
       return { ok: true, status: 200, json: async () => stored };
@@ -106,6 +110,28 @@ describe("Transactions", () => {
     render(<Transactions />);
 
     expect(await screen.findByText("$42.50")).toBeInTheDocument();
+  });
+
+  it("shows a Category's emoji next to its name, in the table, the filter, and the Category select", async () => {
+    fetchMock = backend([transaction({ category: "Groceries" })], [
+      { id: 1, type: "Expense", name: "Groceries", emoji: "🛒", locked: false },
+      { id: 2, type: "Expense", name: "Transport", emoji: null, locked: false },
+      { id: 3, type: "Income", name: "Salary", emoji: null, locked: false },
+    ]);
+    vi.stubGlobal("fetch", fetchMock);
+    render(<Transactions />);
+    await screen.findAllByRole("row");
+
+    const [firstDataRow] = screen.getAllByRole("row").slice(1);
+    expect(within(firstDataRow).getByText("🛒 Groceries")).toBeInTheDocument();
+
+    const filter = screen.getByLabelText(/category/i);
+    expect(within(filter).getByRole("option", { name: "🛒 Groceries" })).toBeInTheDocument();
+    expect(within(filter).getByRole("option", { name: "🛒 Groceries" })).toHaveValue("Groceries");
+
+    await userEvent.click(screen.getByRole("button", { name: "Add transaction" }));
+    const [categorySelect] = screen.getAllByLabelText("Category");
+    expect(within(categorySelect).getByRole("option", { name: "🛒 Groceries" })).toBeInTheDocument();
   });
 
   it("says so plainly when the current Financial Year has no Transactions", async () => {

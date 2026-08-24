@@ -1,8 +1,6 @@
 from dataclasses import dataclass
 from datetime import date
 
-from transaction_log.categories import is_valid_type_category_pair
-
 
 @dataclass(frozen=True)
 class Candidate:
@@ -13,12 +11,13 @@ class Candidate:
     notes: str
 
     def __post_init__(self):
+        # The (Type, Category) pair is validated by whichever store call ends
+        # up persisting this Candidate, not here - Category is user-editable,
+        # per-instance data (Issue #91), so only the live `categories` table
+        # can say whether a pair is valid. Mirrors RecurringRule, which has
+        # never validated its own pair for the same reason.
         if self.amount == 0:
             raise ValueError("Amount can't be zero")
-        if not is_valid_type_category_pair(self.type, self.category):
-            raise ValueError(
-                f"Category {self.category!r} is not valid for Type {self.type!r}"
-            )
 
     @property
     def stored_amount(self) -> float:

@@ -4,7 +4,14 @@ from pathlib import Path
 
 import pytest
 
-from database.store import RecurringRuleNotFound, TransactionNotFound, connect
+from database.store import (
+    CategoryInUse,
+    CategoryLocked,
+    CategoryNotFound,
+    RecurringRuleNotFound,
+    TransactionNotFound,
+    connect,
+)
 from recurring.rules import RecurringRule
 from transaction_log.entries import ExistingRow, Transaction
 
@@ -128,9 +135,13 @@ def test_a_transaction_created_through_the_dashboard_is_visible_to_the_dedupe_pa
     assert store.read_existing_rows() == [ExistingRow(date=date(2026, 8, 5), amount=42.5, notes="Woolworths")]
 
 
-def test_create_transaction_rejects_an_invalid_type_category_pair(make_candidate):
-    with pytest.raises(ValueError):
-        make_candidate(type="Expense", category="Salary")
+def test_create_transaction_rejects_an_invalid_type_category_pair(tmp_path: Path, make_candidate):
+    store = connect(tmp_path / "budget.db")
+
+    with pytest.raises(ValueError, match="Salary"):
+        store.create_transaction(make_candidate(type="Expense", category="Salary"))
+
+    assert store.read_transactions() == []
 
 
 def test_update_transaction_replaces_it_and_keeps_its_id(tmp_path: Path, make_candidate):
@@ -393,6 +404,196 @@ def test_read_category_budgets_for_range_with_nothing_set_returns_empty(tmp_path
     assert store.read_category_budgets_for_range("Groceries", 2026, 1, 2026, 12) == {}
 
 
+def test_read_categories_on_a_fresh_database_is_seeded_from_categories_by_type(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    categories = store.read_categories()
+
+    names_by_type: dict[str, set[str]] = {}
+    for category in categories:
+        names_by_type.setdefault(category.type, set()).add(category.name)
+    assert names_by_type["Income"] == {"Salary", "Rental"}
+    assert "Groceries" in names_by_type["Expense"]
+    assert names_by_type["Debt"] == {"Mortgage Repayment"}
+
+
+def test_read_categories_seeds_beem_adjustment_as_locked(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    [beem] = [c for c in store.read_categories() if c.name == "Beem Adjustment"]
+
+    assert beem.locked is True
+    assert beem.type == "Expense"
+
+
+def test_read_categories_seeds_every_other_category_as_unlocked(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    others = [c for c in store.read_categories() if c.name != "Beem Adjustment"]
+
+    assert all(not c.locked for c in others)
+
+
+def test_reconnecting_does_not_duplicate_seeded_categories(tmp_path: Path):
+    database_path = tmp_path / "budget.db"
+    connect(database_path)
+
+    store = connect(database_path)
+
+    names = [c.name for c in store.read_categories()]
+    assert len(names) == len(set(names))
+
+
+def test_create_category_without_an_emoji_returns_it_with_the_id_it_was_given(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    created = store.create_category("Expense", "Pets", None)
+
+    assert created.id is not None
+    assert created.type == "Expense"
+    assert created.name == "Pets"
+    assert created.emoji is None
+    assert created.locked is False
+    assert created in store.read_categories()
+
+
+def test_create_category_with_an_emoji_round_trips_it(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    created = store.create_category("Expense", "Pets", "🐾")
+
+    assert created.emoji == "🐾"
+
+
+def test_create_category_rejects_a_name_that_collides_across_types(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+    store.create_category("Expense", "Pets", None)
+
+    with pytest.raises(ValueError, match="Pets"):
+        store.create_category("Income", "Pets", None)
+
+
+def test_create_category_rejects_a_type_outside_the_four_fixed_ones(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    with pytest.raises(ValueError, match="Savings"):
+        store.create_category("Savings", "Piggy Bank", None)
+
+
+def test_create_category_immediately_usable_by_a_new_transaction(tmp_path: Path, make_candidate):
+    store = connect(tmp_path / "budget.db")
+    store.create_category("Expense", "Pets", None)
+
+    created = store.create_transaction(make_candidate(type="Expense", category="Pets", notes="Vet"))
+
+    assert created.category == "Pets"
+
+
+def test_update_category_renames_it_in_place(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+    created = store.create_category("Expense", "Pets", "🐾")
+
+    updated = store.update_category(created.id, "Pet Care", "🐾")
+
+    assert updated.id == created.id
+    assert updated.type == "Expense"
+    assert updated.name == "Pet Care"
+    assert [c for c in store.read_categories() if c.id == created.id] == [updated]
+
+
+def test_update_category_can_change_only_the_emoji(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+    created = store.create_category("Expense", "Pets", None)
+
+    updated = store.update_category(created.id, "Pets", "🐶")
+
+    assert updated.name == "Pets"
+    assert updated.emoji == "🐶"
+
+
+def test_update_category_rejects_a_name_that_collides_with_another_category(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+    store.create_category("Expense", "Pets", None)
+    other = store.create_category("Expense", "Hobbies", None)
+
+    with pytest.raises(ValueError, match="Pets"):
+        store.update_category(other.id, "Pets", None)
+
+
+def test_update_category_on_an_unknown_id_raises(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    with pytest.raises(CategoryNotFound):
+        store.update_category(404, "Anything", None)
+
+
+def test_update_category_rejects_renaming_a_locked_category(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+    [beem] = [c for c in store.read_categories() if c.name == "Beem Adjustment"]
+
+    with pytest.raises(CategoryLocked):
+        store.update_category(beem.id, "Not Beem Adjustment", None)
+
+
+def test_delete_category_removes_an_unused_category(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+    created = store.create_category("Expense", "Pets", None)
+
+    store.delete_category(created.id)
+
+    assert created not in store.read_categories()
+
+
+def test_delete_category_on_an_unknown_id_raises(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    with pytest.raises(CategoryNotFound):
+        store.delete_category(404)
+
+
+def test_delete_category_rejects_deleting_a_locked_category(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+    [beem] = [c for c in store.read_categories() if c.name == "Beem Adjustment"]
+
+    with pytest.raises(CategoryLocked):
+        store.delete_category(beem.id)
+
+
+def test_delete_category_rejects_deleting_one_still_used_by_a_transaction(tmp_path: Path, make_candidate):
+    store = connect(tmp_path / "budget.db")
+    created = store.create_category("Expense", "Pets", None)
+    store.create_transaction(make_candidate(type="Expense", category="Pets", notes="Vet"))
+
+    with pytest.raises(CategoryInUse, match="Pets"):
+        store.delete_category(created.id)
+
+
+def test_delete_category_rejects_deleting_one_still_used_by_a_recurring_rule(tmp_path: Path, make_rule):
+    store = connect(tmp_path / "budget.db")
+    created = store.create_category("Expense", "Pets", None)
+    store.create_recurring_rule(make_rule(type="Expense", category="Pets"))
+
+    with pytest.raises(CategoryInUse, match="Pets"):
+        store.delete_category(created.id)
+
+
+def test_delete_category_rejects_deleting_one_still_used_by_a_category_budget(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+    created = store.create_category("Expense", "Pets", None)
+    store.upsert_category_budget("Expense", "Pets", 2026, 8, 100.0)
+
+    with pytest.raises(CategoryInUse, match="Pets"):
+        store.delete_category(created.id)
+
+
+def test_delete_category_budget_for_an_unknown_category_is_a_noop(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    store.delete_category_budget("Not A Real Category", 2026, 8)
+
+    assert store.read_category_budgets(2026, 8) == {}
+
+
 def test_read_budget_suggestion_on_a_fresh_database_returns_none(tmp_path: Path):
     store = connect(tmp_path / "budget.db")
 
@@ -434,8 +635,9 @@ def _insert_recurring_rule(database_path: Path, **fields) -> None:
     connection = sqlite3.connect(database_path)
     connection.execute(
         "INSERT INTO recurring_rules "
-        "(amount, type, category, notes, frequency, interval, day, start_date, end_date) "
-        "VALUES (:amount, :type, :category, :notes, :frequency, :interval, :day, :start_date, :end_date)",
+        "(amount, type, category_id, notes, frequency, interval, day, start_date, end_date) "
+        "VALUES (:amount, :type, (SELECT id FROM categories WHERE name = :category), "
+        ":notes, :frequency, :interval, :day, :start_date, :end_date)",
         fields,
     )
     connection.commit()

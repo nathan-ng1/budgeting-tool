@@ -178,6 +178,17 @@ describe("BudgetedVsActual", () => {
     expect(names).toEqual(["Transport", "Groceries"]);
   });
 
+  it("shows a Category's emoji next to its name when one is set", () => {
+    render(
+      <BudgetedVsActual
+        rows={[{ type: "Expense", category: "Groceries", budgeted: 650, actual: 612, diff: 38, pct: 94.2 }]}
+        categories={[{ id: 1, type: "Expense", name: "Groceries", emoji: "🛒", locked: false }]}
+      />,
+    );
+
+    expect(within(row("Groceries")).getAllByRole("cell")[1]).toHaveTextContent("🛒 Groceries");
+  });
+
   it("says so plainly when there is nothing to compare yet", () => {
     render(<BudgetedVsActual rows={[]} />);
 

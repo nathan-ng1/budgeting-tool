@@ -6,6 +6,7 @@ from typing import Callable
 from categorisation.interface import BatchResult, MalformedResponseError
 from categorisation.prompt import RESULTS_JSON_SCHEMA, build_prompt, parse_batch_response
 from statement_export.parser import RawTransaction
+from transaction_log.categories import Category
 
 
 def _http_post(url: str, headers: dict, body: dict) -> dict:
@@ -42,8 +43,8 @@ class OpenAICompatibleCategoriser:
         self._model = model
         self._post = post
 
-    def categorise(self, transactions: list[RawTransaction], categories_by_type: dict[str, set[str]]) -> BatchResult:
-        prompt = build_prompt(transactions, categories_by_type)
+    def categorise(self, transactions: list[RawTransaction], categories: list[Category]) -> BatchResult:
+        prompt = build_prompt(transactions, categories)
         body = {
             "model": self._model,
             "messages": [{"role": "user", "content": prompt}],
@@ -64,7 +65,7 @@ class OpenAICompatibleCategoriser:
         except (KeyError, IndexError, TypeError) as exc:
             raise MalformedResponseError(f"Unexpected OpenAI-compatible response shape: {exc}") from exc
 
-        return parse_batch_response(content, expected_count=len(transactions))
+        return parse_batch_response(content, expected_count=len(transactions), categories=categories)
 
 
 def connect(env: Mapping[str, str]) -> OpenAICompatibleCategoriser:

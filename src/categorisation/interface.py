@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from statement_export.parser import RawTransaction
+from transaction_log.categories import Category
 
 
 class MalformedResponseError(Exception):
@@ -25,5 +26,5 @@ class Categoriser(Protocol):
     def categorise(
         self,
         transactions: list[RawTransaction],
-        categories_by_type: dict[str, set[str]],
+        categories: list[Category],
     ) -> BatchResult: ...

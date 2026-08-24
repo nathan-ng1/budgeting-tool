@@ -145,6 +145,19 @@ def test_deleting_a_category_budget_that_was_never_set_is_a_no_op(running_server
     assert store.read_category_budgets(2026, 8) == {}
 
 
+def test_a_category_added_through_category_management_can_have_a_budget_set(running_server):
+    # Issue #90 - Type lookup must read the live `categories` table, not the
+    # hardcoded CATEGORIES_BY_TYPE dict, or a Category added after startup is
+    # wrongly rejected as "not a valid Category".
+    store, server = running_server
+    store.create_category("Expense", "Pet Care", None)
+
+    status, saved = call(server, "PUT", f"/api/budget-editor/{quote('Pet Care')}?year=2026&month=8", {"amount": 60.0})
+
+    assert status == 200
+    assert saved == {"category": "Pet Care", "amount": 60.0}
+
+
 def test_saving_an_invalid_category_is_rejected(running_server):
     store, server = running_server
 
