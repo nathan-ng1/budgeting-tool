@@ -2,7 +2,7 @@ from datetime import date, datetime
 
 import pytest
 
-from advisor.storage import BudgetSuggestion
+from budget_suggestions.suggestion import BudgetSuggestion
 from categorisation.interface import BatchResult, CategoryResult
 from database.store import RecurringRuleNotFound, TransactionNotFound
 from recurring.rules import RecurringRule, StoredRecurringRule

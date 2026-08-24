@@ -28,13 +28,14 @@ def test_prompt_covers_a_category_with_no_budgeted_or_variance_history():
     prompt = build_prompt([make_history(last_month_budgeted=None, trailing_average_actual=None, average_variance_pct=None)])
 
     # Doesn't crash formatting None - and says so rather than printing "None".
-    assert "unset" in prompt.lower() or "no budget" in prompt.lower()
+    assert "last month's budget=unset" in prompt
+    assert "trailing average actual=unset" in prompt
 
 
 def test_prompt_asks_for_plain_text_with_no_json_or_markdown():
     prompt = build_prompt([make_history()])
 
-    assert "no JSON" in prompt or "no markdown" in prompt.lower()
+    assert "no JSON, no markdown" in prompt
 
 
 def test_parse_response_strips_surrounding_whitespace():

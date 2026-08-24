@@ -3,7 +3,7 @@ import sqlite3
 from datetime import date, datetime
 from pathlib import Path
 
-from advisor.storage import BudgetSuggestion
+from budget_suggestions.suggestion import BudgetSuggestion
 from recurring.rules import RecurringRule, StoredRecurringRule
 from transaction_log.categories import require_valid_type_category_pair
 from transaction_log.entries import Candidate, ExistingRow, Transaction

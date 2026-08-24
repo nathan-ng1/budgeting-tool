@@ -35,7 +35,9 @@ def test_unknown_backend_value_raises_a_clear_error():
 
 
 def test_an_openai_compatible_backend_missing_its_url_says_which_setting_is_missing():
-    incomplete = {k: v for k, v in OPENAI_COMPATIBLE_ENV.items() if k != "ADVISOR_OPENAI_COMPATIBLE_BASE_URL"}
+    incomplete = {
+        key: value for key, value in OPENAI_COMPATIBLE_ENV.items() if key != "ADVISOR_OPENAI_COMPATIBLE_BASE_URL"
+    }
 
     with pytest.raises(KeyError, match="ADVISOR_OPENAI_COMPATIBLE_BASE_URL"):
         factory.connect(incomplete)
