@@ -24,10 +24,24 @@ export function plotGridlines(height) {
 }
 
 export function donutSegments(spendingByCategory) {
+  // A reimbursement Category (e.g. Beem Adjustment, ADR-0015) carries a
+  // negative amount that reduces the month's net spend rather than adding to
+  // it - it has no slice of its own to draw. The ring's proportions are
+  // shared out over the real spend only, so the arcs always fill exactly one
+  // full circle instead of coming up short (or, dividing by the smaller net
+  // total, overflowing past it) once a credit is in the mix.
+  const spendBasis = spendingByCategory
+    .filter(({ amount }) => amount > 0)
+    .reduce((sum, { amount }) => sum + amount, 0);
+
   let consumed = 0;
 
-  return spendingByCategory.map(({ category, amount, pct_of_expenses: pct }) => {
-    const length = (pct / 100) * CIRCUMFERENCE;
+  return spendingByCategory.map(({ category, amount }) => {
+    if (amount <= 0) {
+      return { category, amount, length: 0, offset: -consumed, colour: colourForCategory(category) };
+    }
+
+    const length = (amount / spendBasis) * CIRCUMFERENCE;
     const segment = {
       category,
       amount,

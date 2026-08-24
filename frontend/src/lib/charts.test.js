@@ -26,6 +26,21 @@ describe("donutSegments", () => {
   it("renders a month with no spending as no arcs at all", () => {
     expect(donutSegments([])).toEqual([]);
   });
+
+  it("gives a negative-amount Category (e.g. Beem Adjustment, ADR-0015) a zero-length arc instead of a broken negative one, while still returning it for the legend", () => {
+    const segments = donutSegments([
+      { category: "Groceries", amount: 800, pct_of_expenses: 125 },
+      { category: "Beem Adjustment", amount: -200, pct_of_expenses: -31.25 },
+    ]);
+
+    expect(segments).toHaveLength(2);
+    // Groceries is the only real spend here, so it fills the whole ring -
+    // the arc basis excludes the credit rather than dividing by the smaller
+    // net total, which would overflow past a full circle.
+    expect(segments[0].length).toBeCloseTo(CIRCUMFERENCE, 5);
+    expect(segments[1].length).toBe(0);
+    expect(segments[1].amount).toBe(-200);
+  });
 });
 
 describe("cumulativeChart", () => {

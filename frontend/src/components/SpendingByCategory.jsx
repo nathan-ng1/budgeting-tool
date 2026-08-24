@@ -22,19 +22,21 @@ export default function SpendingByCategory({ spending, total }) {
             stroke="var(--color-neutral-200)"
             strokeWidth={DONUT_THICKNESS}
           />
-          {segments.map((segment) => (
-            <circle
-              key={segment.category}
-              cx="100"
-              cy="100"
-              r={DONUT_RADIUS}
-              fill="none"
-              stroke={segment.colour}
-              strokeWidth={DONUT_THICKNESS}
-              strokeDasharray={`${segment.length} ${CIRCUMFERENCE}`}
-              strokeDashoffset={segment.offset}
-            />
-          ))}
+          {segments
+            .filter((segment) => segment.length > 0)
+            .map((segment) => (
+              <circle
+                key={segment.category}
+                cx="100"
+                cy="100"
+                r={DONUT_RADIUS}
+                fill="none"
+                stroke={segment.colour}
+                strokeWidth={DONUT_THICKNESS}
+                strokeDasharray={`${segment.length} ${CIRCUMFERENCE}`}
+                strokeDashoffset={segment.offset}
+              />
+            ))}
         </svg>
         <div className="donut__centre">
           <div className="donut__total numeric">{money(total)}</div>
