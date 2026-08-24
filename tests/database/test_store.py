@@ -393,6 +393,54 @@ def test_read_category_budgets_for_range_with_nothing_set_returns_empty(tmp_path
     assert store.read_category_budgets_for_range("Groceries", 2026, 1, 2026, 12) == {}
 
 
+def test_read_categories_on_a_fresh_database_is_seeded_from_categories_by_type(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    categories = store.read_categories()
+
+    names_by_type: dict[str, set[str]] = {}
+    for category in categories:
+        names_by_type.setdefault(category.type, set()).add(category.name)
+    assert names_by_type["Income"] == {"Salary", "Rental"}
+    assert "Groceries" in names_by_type["Expense"]
+    assert names_by_type["Debt"] == {"Mortgage Repayment"}
+
+
+def test_read_categories_seeds_beem_adjustment_as_locked(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    [beem] = [c for c in store.read_categories() if c.name == "Beem Adjustment"]
+
+    assert beem.locked is True
+    assert beem.type == "Expense"
+
+
+def test_read_categories_seeds_every_other_category_as_unlocked(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    others = [c for c in store.read_categories() if c.name != "Beem Adjustment"]
+
+    assert all(not c.locked for c in others)
+
+
+def test_reconnecting_does_not_duplicate_seeded_categories(tmp_path: Path):
+    database_path = tmp_path / "budget.db"
+    connect(database_path)
+
+    store = connect(database_path)
+
+    names = [c.name for c in store.read_categories()]
+    assert len(names) == len(set(names))
+
+
+def test_delete_category_budget_for_an_unknown_category_is_a_noop(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    store.delete_category_budget("Not A Real Category", 2026, 8)
+
+    assert store.read_category_budgets(2026, 8) == {}
+
+
 def test_read_budget_suggestion_on_a_fresh_database_returns_none(tmp_path: Path):
     store = connect(tmp_path / "budget.db")
 
@@ -434,8 +482,9 @@ def _insert_recurring_rule(database_path: Path, **fields) -> None:
     connection = sqlite3.connect(database_path)
     connection.execute(
         "INSERT INTO recurring_rules "
-        "(amount, type, category, notes, frequency, interval, day, start_date, end_date) "
-        "VALUES (:amount, :type, :category, :notes, :frequency, :interval, :day, :start_date, :end_date)",
+        "(amount, type, category_id, notes, frequency, interval, day, start_date, end_date) "
+        "VALUES (:amount, :type, (SELECT id FROM categories WHERE name = :category), "
+        ":notes, :frequency, :interval, :day, :start_date, :end_date)",
         fields,
     )
     connection.commit()

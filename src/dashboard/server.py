@@ -12,7 +12,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from dashboard import budgets, queries, recurring, transactions
 from database.store import RecurringRuleNotFound, TransactionNotFound
-from transaction_log.categories import CATEGORIES_BY_TYPE, TYPE_ORDER, type_for_category, types_with_categories
+from transaction_log.categories import TYPE_ORDER, type_for_category
 
 # Where `npm run build` puts the frontend (see frontend/vite.config.js). The
 # directory is a build artefact, so it is absent in a fresh clone until the
@@ -107,15 +107,15 @@ def _make_handler(store, static_root: Path):
                 self._send_json(200, budgets.as_suggestion_payload(store.read_budget_suggestion()))
             elif parsed.path == "/api/categories":
                 # What the Transaction/Recurring Rule forms' Type/Category
-                # selects offer, so transaction_log.categories stays the one
-                # place the valid pairs are stated rather than the frontend
-                # restating and drifting. Keyed in TYPE_ORDER (not
-                # types_with_categories()'s alphabetical order) so the forms'
-                # Type select matches the Types filter's display order.
-                available = set(types_with_categories())
-                self._send_json(
-                    200, {t: sorted(CATEGORIES_BY_TYPE[t]) for t in TYPE_ORDER if t in available}
-                )
+                # selects offer - sourced from the categories table (Issue
+                # #90) rather than the old hardcoded CATEGORIES_BY_TYPE dict.
+                # Keyed in TYPE_ORDER so the forms' Type select matches the
+                # Types filter's display order; a Type with no Categories yet
+                # (Transfer) is omitted, same as before.
+                by_type: dict[str, list[str]] = {}
+                for category in store.read_categories():
+                    by_type.setdefault(category.type, []).append(category.name)
+                self._send_json(200, {t: sorted(by_type[t]) for t in TYPE_ORDER if by_type.get(t)})
             elif parsed.path.startswith("/api/"):
                 self._send_json(404, {"error": "Not found"})
             else:

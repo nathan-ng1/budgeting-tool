@@ -6,11 +6,14 @@ import pytest
 from categorisation.interface import MalformedResponseError
 from categorisation.prompt import build_prompt, parse_batch_response
 from statement_export.parser import RawTransaction
+from transaction_log.categories import Category
 
-CATEGORIES_BY_TYPE = {
-    "Expense": {"Groceries", "Dining & Takeaway", "Beem Adjustment"},
-    "Income": {"Salary"},
-}
+CATEGORIES = [
+    Category(id=1, type="Expense", name="Groceries", emoji=None, locked=False),
+    Category(id=2, type="Expense", name="Dining & Takeaway", emoji=None, locked=False),
+    Category(id=3, type="Expense", name="Beem Adjustment", emoji=None, locked=True),
+    Category(id=4, type="Income", name="Salary", emoji=None, locked=False),
+]
 
 
 def make_transaction(**overrides):
@@ -20,7 +23,7 @@ def make_transaction(**overrides):
 
 
 def test_prompt_lists_every_type_and_its_categories():
-    prompt = build_prompt([make_transaction()], CATEGORIES_BY_TYPE)
+    prompt = build_prompt([make_transaction()], CATEGORIES)
 
     assert "Expense: Dining & Takeaway, Groceries" in prompt
     assert "Income: Salary" in prompt
@@ -30,13 +33,17 @@ def test_prompt_never_lists_beem_adjustment_as_an_assignable_category():
     # ADR-0015 - Beem Adjustment must only ever be produced by the
     # deterministic Beem parser path, never model-assigned, even though it's
     # present in the categories dict passed in.
-    prompt = build_prompt([make_transaction()], CATEGORIES_BY_TYPE)
+    prompt = build_prompt([make_transaction()], CATEGORIES)
 
     assert "Beem Adjustment" not in prompt
 
 
 def test_prompt_omits_a_type_that_has_no_categories_yet():
-    prompt = build_prompt([make_transaction()], {**CATEGORIES_BY_TYPE, "Transfer": set()})
+    # A locked-only Type (Transfer here) ends up with an empty assignable set,
+    # same as a Type with no Categories at all - both are omitted.
+    categories = [*CATEGORIES, Category(id=5, type="Transfer", name="Savings", emoji=None, locked=True)]
+
+    prompt = build_prompt([make_transaction()], categories)
 
     assert "Transfer" not in prompt
 
@@ -44,7 +51,7 @@ def test_prompt_omits_a_type_that_has_no_categories_yet():
 def test_prompt_lists_every_transaction_with_date_amount_and_notes():
     prompt = build_prompt(
         [make_transaction(notes="Woolworths"), make_transaction(notes="Coles")],
-        CATEGORIES_BY_TYPE,
+        CATEGORIES,
     )
 
     assert "2026-08-05" in prompt
@@ -54,7 +61,7 @@ def test_prompt_lists_every_transaction_with_date_amount_and_notes():
 
 
 def test_prompt_instructs_a_results_wrapped_json_object():
-    prompt = build_prompt([make_transaction()], CATEGORIES_BY_TYPE)
+    prompt = build_prompt([make_transaction()], CATEGORIES)
 
     assert '"results"' in prompt
     assert "needs_review" in prompt

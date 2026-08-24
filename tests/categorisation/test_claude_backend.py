@@ -6,8 +6,9 @@ import pytest
 from categorisation.claude_backend import ClaudeCodeCategoriser
 from categorisation.interface import MalformedResponseError
 from statement_export.parser import RawTransaction
+from transaction_log.categories import Category
 
-CATEGORIES_BY_TYPE = {"Expense": {"Groceries"}}
+CATEGORIES = [Category(id=1, type="Expense", name="Groceries", emoji=None, locked=False)]
 
 
 def make_transaction(**overrides):
@@ -51,7 +52,7 @@ def test_invokes_claude_in_print_mode_with_json_output_format_and_a_json_schema(
     runner = FakeProcessRunner(envelope_with_structured_output(batch_dict()))
     categoriser = ClaudeCodeCategoriser(run_process=runner)
 
-    categoriser.categorise([make_transaction()], CATEGORIES_BY_TYPE)
+    categoriser.categorise([make_transaction()], CATEGORIES)
 
     [args] = runner.calls
     assert args[0] == "claude"
@@ -64,7 +65,7 @@ def test_prompt_is_passed_as_an_argument():
     runner = FakeProcessRunner(envelope_with_structured_output(batch_dict()))
     categoriser = ClaudeCodeCategoriser(run_process=runner)
 
-    categoriser.categorise([make_transaction(notes="Woolworths")], CATEGORIES_BY_TYPE)
+    categoriser.categorise([make_transaction(notes="Woolworths")], CATEGORIES)
 
     [args] = runner.calls
     assert any("Woolworths" in arg for arg in args)
@@ -74,7 +75,7 @@ def test_structured_output_field_is_used_when_present():
     runner = FakeProcessRunner(envelope_with_structured_output(batch_dict(needs_review=True)))
     categoriser = ClaudeCodeCategoriser(run_process=runner)
 
-    batch = categoriser.categorise([make_transaction()], CATEGORIES_BY_TYPE)
+    batch = categoriser.categorise([make_transaction()], CATEGORIES)
 
     assert len(batch.results) == 1
     assert batch.results[0].type == "Expense"
@@ -85,7 +86,7 @@ def test_falls_back_to_the_result_field_when_structured_output_is_absent():
     runner = FakeProcessRunner(envelope_with_result_only(json.dumps(batch_dict())))
     categoriser = ClaudeCodeCategoriser(run_process=runner)
 
-    batch = categoriser.categorise([make_transaction()], CATEGORIES_BY_TYPE)
+    batch = categoriser.categorise([make_transaction()], CATEGORIES)
 
     assert batch.results[0].type == "Expense"
 
@@ -95,7 +96,7 @@ def test_non_json_stdout_raises_malformed_response_error():
     categoriser = ClaudeCodeCategoriser(run_process=runner)
 
     with pytest.raises(MalformedResponseError):
-        categoriser.categorise([make_transaction()], CATEGORIES_BY_TYPE)
+        categoriser.categorise([make_transaction()], CATEGORIES)
 
 
 def test_envelope_missing_both_structured_output_and_result_raises_malformed_response_error():
@@ -103,7 +104,7 @@ def test_envelope_missing_both_structured_output_and_result_raises_malformed_res
     categoriser = ClaudeCodeCategoriser(run_process=runner)
 
     with pytest.raises(MalformedResponseError):
-        categoriser.categorise([make_transaction()], CATEGORIES_BY_TYPE)
+        categoriser.categorise([make_transaction()], CATEGORIES)
 
 
 def test_result_text_that_is_not_the_expected_json_shape_raises_malformed_response_error():
@@ -111,4 +112,4 @@ def test_result_text_that_is_not_the_expected_json_shape_raises_malformed_respon
     categoriser = ClaudeCodeCategoriser(run_process=runner)
 
     with pytest.raises(MalformedResponseError):
-        categoriser.categorise([make_transaction()], CATEGORIES_BY_TYPE)
+        categoriser.categorise([make_transaction()], CATEGORIES)

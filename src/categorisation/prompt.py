@@ -3,6 +3,7 @@ import json
 from categorisation.interface import BatchResult, CategoryResult, MalformedResponseError
 from statement_export.parser import RawTransaction
 from transaction_log.categories import (
+    Category,
     assignable_categories_by_type,
     is_valid_type_category_pair,
     types_with_categories,
@@ -48,8 +49,8 @@ user to confirm it
 - "reason": a short one-sentence explanation, or null if needs_review is false"""
 
 
-def build_prompt(transactions: list[RawTransaction], categories_by_type: dict[str, set[str]]) -> str:
-    assignable = assignable_categories_by_type(categories_by_type)
+def build_prompt(transactions: list[RawTransaction], categories: list[Category]) -> str:
+    assignable = assignable_categories_by_type(categories)
     type_lines = [
         f"- {transaction_type}: {', '.join(sorted(assignable[transaction_type]))}"
         for transaction_type in types_with_categories(assignable)

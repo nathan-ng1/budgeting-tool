@@ -7,7 +7,6 @@ from categorisation.interface import Categoriser, MalformedResponseError
 from statement_export import pipeline
 from statement_export.parser import RawTransaction
 from statement_export.pipeline import Archive
-from transaction_log.categories import CATEGORIES_BY_TYPE
 from transaction_log.entries import Candidate, WriteResult
 
 logger = logging.getLogger(__name__)
@@ -34,7 +33,7 @@ def run(
     archive: Archive | None = None,
     dry_run: bool = False,
 ) -> OrchestrationResult:
-    categorised, abort_reason = _categorise(to_categorise, categoriser, resolve_needs_review)
+    categorised, abort_reason = _categorise(to_categorise, categoriser, store, resolve_needs_review)
     if abort_reason is not None:
         return OrchestrationResult(write_result=None, aborted=True, reason=abort_reason)
 
@@ -51,6 +50,7 @@ def run(
 def _categorise(
     to_categorise: list[RawTransaction],
     categoriser: Categoriser,
+    store,
     resolve_needs_review: NeedsReviewResolver,
 ) -> tuple[list[Candidate], str | None]:
     if not to_categorise:
@@ -58,7 +58,7 @@ def _categorise(
 
     logger.info("Categorising %d transaction(s)...", len(to_categorise))
     try:
-        batch = categoriser.categorise(to_categorise, CATEGORIES_BY_TYPE)
+        batch = categoriser.categorise(to_categorise, store.read_categories())
     except MalformedResponseError as exc:
         return [], str(exc)
 

@@ -849,10 +849,16 @@ def test_annual_overview_income_vs_expenses_by_month_matches_month_by_month(fake
 
 
 def _insert_transaction(database_path: Path, **fields) -> None:
+    # Transfer has no seeded Category (CONTEXT.md - added lazily, only for
+    # real cases), so this also seeds whichever ad hoc Category the test
+    # names (e.g. "Savings") the way a user would via Category Management.
     connection = sqlite3.connect(database_path)
     connection.execute(
-        "INSERT INTO transactions (date, amount, type, category, notes) "
-        "VALUES (:date, :amount, :type, :category, :notes)",
+        "INSERT OR IGNORE INTO categories (type, name) VALUES (:type, :category)", fields
+    )
+    connection.execute(
+        "INSERT INTO transactions (date, amount, type, category_id, notes) "
+        "VALUES (:date, :amount, :type, (SELECT id FROM categories WHERE name = :category), :notes)",
         fields,
     )
     connection.commit()

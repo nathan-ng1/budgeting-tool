@@ -7,8 +7,23 @@ from categorisation.interface import BatchResult, CategoryResult
 from database.store import RecurringRuleNotFound, TransactionNotFound
 from recurring.rules import RecurringRule, StoredRecurringRule
 from statement_export.parser import RawTransaction
-from transaction_log.categories import require_valid_type_category_pair
+from transaction_log.categories import CATEGORIES_BY_TYPE, Category, require_valid_type_category_pair
 from transaction_log.entries import Candidate, ExistingRow, Transaction
+
+# FakeStore.read_categories()'s default - mirrors database.store's own
+# _seed_default_categories bootstrap (Beem Adjustment locked), so a test using
+# FakeStore sees the same Category list a fresh LocalStore would.
+_DEFAULT_CATEGORIES = [
+    Category(id=i, type=transaction_type, name=name, emoji=None, locked=(name == "Beem Adjustment"))
+    for i, (transaction_type, name) in enumerate(
+        (
+            (transaction_type, name)
+            for transaction_type, names in CATEGORIES_BY_TYPE.items()
+            for name in sorted(names)
+        ),
+        start=1,
+    )
+]
 
 
 class FakeCategoriser:
@@ -25,7 +40,7 @@ class FakeCategoriser:
         self._error = error
         self.calls: list[list[RawTransaction]] = []
 
-    def categorise(self, transactions: list[RawTransaction], categories_by_type: dict[str, set[str]]) -> BatchResult:
+    def categorise(self, transactions: list[RawTransaction], categories: list[Category]) -> BatchResult:
         self.calls.append(transactions)
         if self._error is not None:
             raise self._error
@@ -173,6 +188,9 @@ class FakeStore:
 
     def read_budget_suggestion(self) -> BudgetSuggestion | None:
         return self._budget_suggestion
+
+    def read_categories(self) -> list[Category]:
+        return list(_DEFAULT_CATEGORIES)
 
 
 @pytest.fixture

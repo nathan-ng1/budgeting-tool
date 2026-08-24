@@ -6,8 +6,9 @@ import pytest
 from categorisation.interface import MalformedResponseError
 from categorisation.openai_compatible_backend import OpenAICompatibleCategoriser
 from statement_export.parser import RawTransaction
+from transaction_log.categories import Category
 
-CATEGORIES_BY_TYPE = {"Expense": {"Groceries"}}
+CATEGORIES = [Category(id=1, type="Expense", name="Groceries", emoji=None, locked=False)]
 
 
 def make_transaction(**overrides):
@@ -51,7 +52,7 @@ def test_posts_to_chat_completions_under_the_configured_base_url():
         base_url="http://localhost:11434/v1", api_key="key", model="llama3", post=transport
     )
 
-    categoriser.categorise([make_transaction()], CATEGORIES_BY_TYPE)
+    categoriser.categorise([make_transaction()], CATEGORIES)
 
     [(url, headers, body)] = transport.calls
     assert url == "http://localhost:11434/v1/chat/completions"
@@ -63,7 +64,7 @@ def test_requests_schema_constrained_output():
     transport = FakeTransport(chat_completion_response(batch_json()))
     categoriser = OpenAICompatibleCategoriser(base_url="http://x", api_key="key", model="m", post=transport)
 
-    categoriser.categorise([make_transaction()], CATEGORIES_BY_TYPE)
+    categoriser.categorise([make_transaction()], CATEGORIES)
 
     [(_, _, body)] = transport.calls
     assert body["response_format"]["type"] == "json_schema"
@@ -76,7 +77,7 @@ def test_trailing_slash_on_base_url_does_not_double_up():
         base_url="http://localhost:11434/v1/", api_key="key", model="llama3", post=transport
     )
 
-    categoriser.categorise([make_transaction()], CATEGORIES_BY_TYPE)
+    categoriser.categorise([make_transaction()], CATEGORIES)
 
     [(url, _, _)] = transport.calls
     assert url == "http://localhost:11434/v1/chat/completions"
@@ -86,7 +87,7 @@ def test_prompt_is_sent_as_a_user_message():
     transport = FakeTransport(chat_completion_response(batch_json()))
     categoriser = OpenAICompatibleCategoriser(base_url="http://x", api_key="key", model="m", post=transport)
 
-    categoriser.categorise([make_transaction(notes="Woolworths")], CATEGORIES_BY_TYPE)
+    categoriser.categorise([make_transaction(notes="Woolworths")], CATEGORIES)
 
     [(_, _, body)] = transport.calls
     assert body["messages"] == [{"role": "user", "content": body["messages"][0]["content"]}]
@@ -97,7 +98,7 @@ def test_extracts_and_parses_message_content_into_a_batch_result():
     transport = FakeTransport(chat_completion_response(batch_json(needs_review=True)))
     categoriser = OpenAICompatibleCategoriser(base_url="http://x", api_key="key", model="m", post=transport)
 
-    batch = categoriser.categorise([make_transaction()], CATEGORIES_BY_TYPE)
+    batch = categoriser.categorise([make_transaction()], CATEGORIES)
 
     assert len(batch.results) == 1
     assert batch.results[0].needs_review is True
@@ -108,7 +109,7 @@ def test_unexpected_response_shape_raises_malformed_response_error():
     categoriser = OpenAICompatibleCategoriser(base_url="http://x", api_key="key", model="m", post=transport)
 
     with pytest.raises(MalformedResponseError):
-        categoriser.categorise([make_transaction()], CATEGORIES_BY_TYPE)
+        categoriser.categorise([make_transaction()], CATEGORIES)
 
 
 def test_transport_failure_raises_malformed_response_error():
@@ -118,7 +119,7 @@ def test_transport_failure_raises_malformed_response_error():
     categoriser = OpenAICompatibleCategoriser(base_url="http://x", api_key="key", model="m", post=failing_transport)
 
     with pytest.raises(MalformedResponseError):
-        categoriser.categorise([make_transaction()], CATEGORIES_BY_TYPE)
+        categoriser.categorise([make_transaction()], CATEGORIES)
 
 
 def test_non_json_message_content_raises_malformed_response_error():
@@ -126,4 +127,4 @@ def test_non_json_message_content_raises_malformed_response_error():
     categoriser = OpenAICompatibleCategoriser(base_url="http://x", api_key="key", model="m", post=transport)
 
     with pytest.raises(MalformedResponseError):
-        categoriser.categorise([make_transaction()], CATEGORIES_BY_TYPE)
+        categoriser.categorise([make_transaction()], CATEGORIES)
