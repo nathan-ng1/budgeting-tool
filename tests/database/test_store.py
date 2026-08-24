@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 import pytest
@@ -391,6 +391,43 @@ def test_read_category_budgets_for_range_with_nothing_set_returns_empty(tmp_path
     store = connect(tmp_path / "budget.db")
 
     assert store.read_category_budgets_for_range("Groceries", 2026, 1, 2026, 12) == {}
+
+
+def test_read_budget_suggestion_on_a_fresh_database_returns_none(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    assert store.read_budget_suggestion() is None
+
+
+def test_write_budget_suggestion_then_read_round_trips(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+    generated_at = datetime(2026, 8, 24, 9, 30)
+
+    store.write_budget_suggestion("Groceries is trending over budget.", generated_at)
+
+    suggestion = store.read_budget_suggestion()
+    assert suggestion.write_up == "Groceries is trending over budget."
+    assert suggestion.generated_at == generated_at
+
+
+def test_write_budget_suggestion_again_replaces_the_previous_one_outright(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+    store.write_budget_suggestion("First write-up.", datetime(2026, 8, 1))
+
+    store.write_budget_suggestion("Second write-up.", datetime(2026, 9, 1))
+
+    suggestion = store.read_budget_suggestion()
+    assert suggestion.write_up == "Second write-up."
+    assert suggestion.generated_at == datetime(2026, 9, 1)
+
+
+def test_write_budget_suggestion_persists_across_reconnects(tmp_path: Path):
+    database_path = tmp_path / "budget.db"
+    connect(database_path).write_budget_suggestion("Groceries is trending over budget.", datetime(2026, 8, 24))
+
+    suggestion = connect(database_path).read_budget_suggestion()
+
+    assert suggestion.write_up == "Groceries is trending over budget."
 
 
 def _insert_recurring_rule(database_path: Path, **fields) -> None:

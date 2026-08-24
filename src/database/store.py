@@ -1,8 +1,9 @@
 import os
 import sqlite3
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
+from budget_suggestions.suggestion import BudgetSuggestion
 from recurring.rules import RecurringRule, StoredRecurringRule
 from transaction_log.categories import require_valid_type_category_pair
 from transaction_log.entries import Candidate, ExistingRow, Transaction
@@ -38,6 +39,12 @@ CREATE TABLE IF NOT EXISTS category_budgets (
     month INTEGER NOT NULL,
     amount NUMERIC NOT NULL,
     PRIMARY KEY (category, year, month)
+);
+
+CREATE TABLE IF NOT EXISTS budget_suggestion (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    write_up TEXT NOT NULL,
+    generated_at TEXT NOT NULL
 );
 """
 
@@ -247,6 +254,30 @@ class LocalStore:
         )
         self._connection.commit()
 
+    def write_budget_suggestion(self, write_up: str, generated_at: datetime) -> None:
+        """Replace the one standing Budget Suggestion outright (ADR-0014) -
+        `budget_suggestion` is a single-row table (CHECK (id = 1)), not a
+        history table, so this is always an overwrite, never an append.
+        """
+        self._connection.execute(
+            "INSERT INTO budget_suggestion (id, write_up, generated_at) VALUES (1, ?, ?) "
+            "ON CONFLICT(id) DO UPDATE SET write_up = excluded.write_up, generated_at = excluded.generated_at",
+            (write_up, generated_at.isoformat()),
+        )
+        self._connection.commit()
+
+    def read_budget_suggestion(self) -> BudgetSuggestion | None:
+        """The current standing Budget Suggestion, or None if the script has
+        never been run."""
+        row = self._connection.execute(
+            "SELECT write_up, generated_at FROM budget_suggestion WHERE id = 1"
+        ).fetchone()
+        if row is None:
+            return None
+
+        write_up, generated_at = row
+        return BudgetSuggestion(write_up=write_up, generated_at=datetime.fromisoformat(generated_at))
+
 
 def _transaction_columns(candidate: Candidate) -> tuple:
     return (candidate.date.isoformat(), candidate.amount, candidate.type, candidate.category, candidate.notes)
@@ -308,8 +339,8 @@ def connect(database_path: Path | None = None) -> LocalStore:
 
     Reads DATABASE_PATH from the environment (loaded from a repo-root `.env`
     if present) when database_path isn't given explicitly. Creates the
-    transactions/recurring_rules/category_budgets tables if they don't exist
-    yet.
+    transactions/recurring_rules/category_budgets/budget_suggestion tables if
+    they don't exist yet.
     """
     if database_path is None:
         from dotenv import load_dotenv

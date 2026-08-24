@@ -1,7 +1,8 @@
-from datetime import date
+from datetime import date, datetime
 
 import pytest
 
+from budget_suggestions.suggestion import BudgetSuggestion
 from categorisation.interface import BatchResult, CategoryResult
 from database.store import RecurringRuleNotFound, TransactionNotFound
 from recurring.rules import RecurringRule, StoredRecurringRule
@@ -45,12 +46,14 @@ class FakeStore:
         recurring_rules: list[RecurringRule] | None = None,
         category_budgets: dict[tuple[str, int, int], float] | None = None,
         transactions: list[Transaction] | None = None,
+        budget_suggestion: BudgetSuggestion | None = None,
     ):
         self._existing_rows = list(existing_rows or [])
         self._recurring_rules = list(recurring_rules or [])
         # Keyed by (category, year, month), mirroring LocalStore's composite key.
         self._category_budgets: dict[tuple[str, int, int], float] = dict(category_budgets or {})
         self._transactions = list(transactions or [])
+        self._budget_suggestion = budget_suggestion
         self._stored_recurring_rules: list[StoredRecurringRule] = []
         self._next_rule_id = 0
         self._next_transaction_id = max((t.id for t in self._transactions), default=0)
@@ -164,6 +167,12 @@ class FakeStore:
 
     def delete_category_budget(self, category: str, year: int, month: int) -> None:
         self._category_budgets.pop((category, year, month), None)
+
+    def write_budget_suggestion(self, write_up: str, generated_at: datetime) -> None:
+        self._budget_suggestion = BudgetSuggestion(write_up=write_up, generated_at=generated_at)
+
+    def read_budget_suggestion(self) -> BudgetSuggestion | None:
+        return self._budget_suggestion
 
 
 @pytest.fixture
