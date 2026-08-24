@@ -2,26 +2,16 @@ import pytest
 
 from transaction_log.entries import Candidate
 
+# Candidate no longer validates its own (Type, Category) pair (Issue #91):
+# Category is user-editable, per-instance data, so only whichever store call
+# ends up persisting a Candidate can say whether a pair is valid - see
+# database.store's _require_valid_pair and statement_export.orchestrator's
+# valid_pairs check. This mirrors RecurringRule, which has never validated
+# its own pair for the same reason.
+
 
 def test_candidate_with_valid_type_and_category_pair_is_accepted(make_candidate):
     make_candidate(type="Expense", category="Subscriptions")
-
-
-@pytest.mark.parametrize(
-    "transaction_type,category",
-    [
-        ("Income", "Subscriptions"),  # Subscriptions is an Expense Category
-        ("Expense", "Salary"),  # Salary is an Income Category
-        ("Income", "Mortgage Repayment"),  # Mortgage Repayment is a Debt Category
-        ("Transfer", "Groceries"),  # Transfer has no Categories yet
-        ("Made Up Type", "Made Up Category"),
-    ],
-)
-def test_candidate_with_category_not_matching_its_fixed_type_is_rejected(
-    make_candidate, transaction_type, category
-):
-    with pytest.raises(ValueError):
-        make_candidate(type=transaction_type, category=category)
 
 
 def test_candidate_with_zero_amount_is_rejected(make_candidate):

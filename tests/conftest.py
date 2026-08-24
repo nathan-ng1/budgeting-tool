@@ -4,10 +4,10 @@ import pytest
 
 from budget_suggestions.suggestion import BudgetSuggestion
 from categorisation.interface import BatchResult, CategoryResult
-from database.store import RecurringRuleNotFound, TransactionNotFound
+from database.store import CategoryInUse, CategoryLocked, CategoryNotFound, RecurringRuleNotFound, TransactionNotFound
 from recurring.rules import RecurringRule, StoredRecurringRule
 from statement_export.parser import RawTransaction
-from transaction_log.categories import CATEGORIES_BY_TYPE, Category, require_valid_type_category_pair
+from transaction_log.categories import CATEGORIES_BY_TYPE, TYPE_ORDER, Category
 from transaction_log.entries import Candidate, ExistingRow, Transaction
 
 # FakeStore.read_categories()'s default - mirrors database.store's own
@@ -73,6 +73,8 @@ class FakeStore:
         self._next_rule_id = 0
         self._next_transaction_id = max((t.id for t in self._transactions), default=0)
         self.appended: list[Candidate] = []
+        self._categories: list[Category] = list(_DEFAULT_CATEGORIES)
+        self._next_category_id = max((c.id for c in self._categories), default=0)
 
     def read_existing_rows(self) -> list[ExistingRow]:
         return list(self._existing_rows)
@@ -84,6 +86,7 @@ class FakeStore:
         self.appended.extend(candidates)
 
     def create_transaction(self, candidate: Candidate) -> Transaction:
+        self._require_valid_pair(candidate.type, candidate.category)
         self._next_transaction_id += 1
         created = Transaction(
             id=self._next_transaction_id,
@@ -97,6 +100,7 @@ class FakeStore:
         return created
 
     def update_transaction(self, transaction_id: int, candidate: Candidate) -> Transaction:
+        self._require_valid_pair(candidate.type, candidate.category)
         index = self._transaction_index(transaction_id)
         updated = Transaction(
             id=transaction_id,
@@ -130,14 +134,14 @@ class FakeStore:
         return list(self._stored_recurring_rules)
 
     def create_recurring_rule(self, rule: RecurringRule) -> StoredRecurringRule:
-        self._validate_pair(rule)
+        self._require_valid_pair(rule.type, rule.category)
         self._next_rule_id += 1
         stored = StoredRecurringRule(id=self._next_rule_id, rule=rule)
         self._stored_recurring_rules.append(stored)
         return stored
 
     def update_recurring_rule(self, rule_id: int, rule: RecurringRule) -> StoredRecurringRule:
-        self._validate_pair(rule)
+        self._require_valid_pair(rule.type, rule.category)
         index = self._index_of(rule_id)
         updated = StoredRecurringRule(id=rule_id, rule=rule)
         self._stored_recurring_rules[index] = updated
@@ -152,9 +156,10 @@ class FakeStore:
                 return index
         raise RecurringRuleNotFound(f"No Recurring Transactions Config rule has id {rule_id}")
 
-    @staticmethod
-    def _validate_pair(rule: RecurringRule) -> None:
-        require_valid_type_category_pair(rule.type, rule.category)
+    def _require_valid_pair(self, transaction_type: str, category: str) -> None:
+        match = next((c for c in self._categories if c.name == category), None)
+        if match is None or match.type != transaction_type:
+            raise ValueError(f"Category {category!r} is not a valid {transaction_type} Category")
 
     def read_category_budgets(self, year: int, month: int) -> dict[str, float]:
         return {
@@ -177,7 +182,7 @@ class FakeStore:
     def upsert_category_budget(
         self, transaction_type: str, category: str, year: int, month: int, amount: float
     ) -> None:
-        require_valid_type_category_pair(transaction_type, category)
+        self._require_valid_pair(transaction_type, category)
         self._category_budgets[(category, year, month)] = amount
 
     def delete_category_budget(self, category: str, year: int, month: int) -> None:
@@ -190,7 +195,58 @@ class FakeStore:
         return self._budget_suggestion
 
     def read_categories(self) -> list[Category]:
-        return list(_DEFAULT_CATEGORIES)
+        return list(self._categories)
+
+    def create_category(self, transaction_type: str, name: str, emoji: str | None) -> Category:
+        if transaction_type not in TYPE_ORDER:
+            raise ValueError(f"{transaction_type!r} is not a valid Type")
+
+        name = name.strip()
+        if not name:
+            raise ValueError("Category name must not be blank")
+        if any(category.name == name for category in self._categories):
+            raise ValueError(f"Category {name!r} already exists")
+
+        self._next_category_id += 1
+        created = Category(id=self._next_category_id, type=transaction_type, name=name, emoji=emoji, locked=False)
+        self._categories.append(created)
+        return created
+
+    def update_category(self, category_id: int, name: str, emoji: str | None) -> Category:
+        existing = self._category_by_id(category_id)
+        if existing.locked:
+            raise CategoryLocked(f"Category {existing.name!r} is locked and cannot be renamed")
+
+        name = name.strip()
+        if not name:
+            raise ValueError("Category name must not be blank")
+        if any(category.name == name and category.id != category_id for category in self._categories):
+            raise ValueError(f"Category {name!r} already exists")
+
+        updated = Category(id=category_id, type=existing.type, name=name, emoji=emoji, locked=False)
+        self._categories = [updated if category.id == category_id else category for category in self._categories]
+        return updated
+
+    def delete_category(self, category_id: int) -> None:
+        existing = self._category_by_id(category_id)
+        if existing.locked:
+            raise CategoryLocked(f"Category {existing.name!r} is locked and cannot be deleted")
+
+        in_use = (
+            any(transaction.category == existing.name for transaction in self._transactions)
+            or any(rule.category == existing.name for rule in self.read_recurring_rules())
+            or any(category == existing.name for category, _year, _month in self._category_budgets)
+        )
+        if in_use:
+            raise CategoryInUse(f"Category {existing.name!r} is still used and cannot be deleted")
+
+        self._categories = [category for category in self._categories if category.id != category_id]
+
+    def _category_by_id(self, category_id: int) -> Category:
+        for category in self._categories:
+            if category.id == category_id:
+                return category
+        raise CategoryNotFound(f"No Category has id {category_id}")
 
 
 @pytest.fixture

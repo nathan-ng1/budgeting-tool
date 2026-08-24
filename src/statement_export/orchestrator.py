@@ -57,10 +57,18 @@ def _categorise(
         return [], None
 
     logger.info("Categorising %d transaction(s)...", len(to_categorise))
+    categories = store.read_categories()
     try:
-        batch = categoriser.categorise(to_categorise, store.read_categories())
+        batch = categoriser.categorise(to_categorise, categories)
     except MalformedResponseError as exc:
         return [], str(exc)
+
+    # Sourced from the live categories table (Issue #91), not the hardcoded
+    # CATEGORIES_BY_TYPE dict - Candidate itself no longer validates its own
+    # (Type, Category) pair, since only the store knows what's currently
+    # valid, so this is the one place that check has to happen for a pair a
+    # Needs Review resolution hands back.
+    valid_pairs = {(c.type, c.name) for c in categories}
 
     if len(batch.results) != len(to_categorise):
         return [], f"Expected {len(to_categorise)} categorisation results, got {len(batch.results)}"
@@ -78,6 +86,10 @@ def _categorise(
             transaction_type, category = resolution
         else:
             transaction_type, category = result.type, result.category
+
+        if (transaction_type, category) not in valid_pairs:
+            return [], f"Category {category!r} is not a valid {transaction_type} Category"
+
         try:
             candidates.append(
                 Candidate(

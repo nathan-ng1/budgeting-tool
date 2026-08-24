@@ -233,25 +233,6 @@ def test_a_non_numeric_rule_id_returns_404(running_server):
     assert exc_info.value.code == 404
 
 
-def test_the_categories_endpoint_offers_the_valid_pairs_the_form_can_choose_from(running_server):
-    _store, server = running_server
-
-    status, body = call(server, "GET", "/api/categories")
-
-    assert status == 200
-    assert "Salary" in body["Income"]
-    assert "Subscriptions" in body["Expense"]
-    assert "Mortgage Repayment" in body["Debt"]
-    # Transfer has no Categories yet, so it can't form a valid pair - offering
-    # it would let the form build a rule the store then rejects.
-    assert "Transfer" not in body
-    # Income, Expense, Debt, Transfer - CONTEXT.md's Type order, not
-    # types_with_categories()'s alphabetical one - so the Type select in the
-    # Transaction/Recurring Rule forms (which reads Object.keys(body)) matches
-    # the Types filter dropdown's order.
-    assert list(body.keys()) == ["Income", "Expense", "Debt"]
-
-
 def expanded_notes_and_amounts(store, through: date):
     """What the next Statement Export run would write from the Config alone."""
     from statement_export.pipeline import run

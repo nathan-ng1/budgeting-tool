@@ -5,7 +5,7 @@ from pathlib import Path
 
 from budget_suggestions.suggestion import BudgetSuggestion
 from recurring.rules import RecurringRule, StoredRecurringRule
-from transaction_log.categories import CATEGORIES_BY_TYPE, Category, require_valid_type_category_pair
+from transaction_log.categories import CATEGORIES_BY_TYPE, TYPE_ORDER, Category
 from transaction_log.entries import Candidate, ExistingRow, Transaction
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -81,6 +81,24 @@ class TransactionNotFound(LookupError):
     """
 
 
+class CategoryNotFound(LookupError):
+    """No Category has the given id."""
+
+
+class CategoryLocked(ValueError):
+    """A locked Category (Beem Adjustment today - see ADR-0015) can't be
+    renamed or deleted, no matter what the caller sends - the UI hiding the
+    edit/delete controls is a courtesy, not the enforcement point (Issue #89).
+    """
+
+
+class CategoryInUse(ValueError):
+    """A Category still referenced by a Transaction, Recurring Rule, or
+    Category Budget can't be deleted - delete is blocked, not cascading
+    (Issue #89).
+    """
+
+
 class LocalStore:
     """Live Transaction Log + Recurring Transactions Config store, backed by
     a local SQLite database.
@@ -129,8 +147,12 @@ class LocalStore:
         ]
 
     def create_transaction(self, candidate: Candidate) -> Transaction:
-        # Candidate.__post_init__ already validated the (Type, Category) pair
-        # and the non-zero Amount - there is no invalid Candidate to reject.
+        # Candidate.__post_init__ only validated the non-zero Amount - the
+        # (Type, Category) pair is checked here, against the live categories
+        # table, so a Category added through Category Management is usable
+        # immediately (Issue #91).
+        self._require_valid_pair(candidate.type, candidate.category)
+
         cursor = self._connection.execute(
             "INSERT INTO transactions (date, amount, type, category_id, notes) VALUES (?, ?, ?, ?, ?)",
             self._transaction_columns(candidate),
@@ -139,6 +161,8 @@ class LocalStore:
         return _as_transaction(cursor.lastrowid, candidate)
 
     def update_transaction(self, transaction_id: int, candidate: Candidate) -> Transaction:
+        self._require_valid_pair(candidate.type, candidate.category)
+
         cursor = self._connection.execute(
             "UPDATE transactions SET date = ?, amount = ?, type = ?, category_id = ?, notes = ? WHERE id = ?",
             (*self._transaction_columns(candidate), transaction_id),
@@ -190,7 +214,7 @@ class LocalStore:
         return [StoredRecurringRule(id=row[0], rule=_as_rule(row[1:])) for row in rows]
 
     def create_recurring_rule(self, rule: RecurringRule) -> StoredRecurringRule:
-        _validate_pair(rule)
+        self._require_valid_pair(rule.type, rule.category)
 
         cursor = self._connection.execute(
             "INSERT INTO recurring_rules "
@@ -202,7 +226,7 @@ class LocalStore:
         return StoredRecurringRule(id=cursor.lastrowid, rule=rule)
 
     def update_recurring_rule(self, rule_id: int, rule: RecurringRule) -> StoredRecurringRule:
-        _validate_pair(rule)
+        self._require_valid_pair(rule.type, rule.category)
 
         cursor = self._connection.execute(
             "UPDATE recurring_rules SET "
@@ -256,7 +280,7 @@ class LocalStore:
     def upsert_category_budget(
         self, transaction_type: str, category: str, year: int, month: int, amount: float
     ) -> None:
-        require_valid_type_category_pair(transaction_type, category)
+        self._require_valid_pair(transaction_type, category)
 
         self._connection.execute(
             "INSERT INTO category_budgets (category_id, year, month, amount) VALUES (?, ?, ?, ?) "
@@ -287,6 +311,87 @@ class LocalStore:
             Category(id=row_id, type=row_type, name=name, emoji=emoji, locked=bool(locked))
             for row_id, row_type, name, emoji, locked in rows
         ]
+
+    def create_category(self, transaction_type: str, name: str, emoji: str | None) -> Category:
+        if transaction_type not in TYPE_ORDER:
+            raise ValueError(f"{transaction_type!r} is not a valid Type")
+
+        name = name.strip()
+        if not name:
+            raise ValueError("Category name must not be blank")
+        if self._category_id_or_none(name) is not None:
+            raise ValueError(f"Category {name!r} already exists")
+
+        cursor = self._connection.execute(
+            "INSERT INTO categories (type, name, emoji) VALUES (?, ?, ?)",
+            (transaction_type, name, emoji),
+        )
+        self._connection.commit()
+        return Category(id=cursor.lastrowid, type=transaction_type, name=name, emoji=emoji, locked=False)
+
+    def update_category(self, category_id: int, name: str, emoji: str | None) -> Category:
+        """Rename and/or change a Category's emoji - its Type is fixed at
+        creation (Issue #89's Implementation Decisions), so nothing here can
+        change it.
+        """
+        existing = self._category_or_none(category_id)
+        if existing is None:
+            raise CategoryNotFound(f"No Category has id {category_id}")
+        if existing.locked:
+            raise CategoryLocked(f"Category {existing.name!r} is locked and cannot be renamed")
+
+        name = name.strip()
+        if not name:
+            raise ValueError("Category name must not be blank")
+        colliding_id = self._category_id_or_none(name)
+        if colliding_id is not None and colliding_id != category_id:
+            raise ValueError(f"Category {name!r} already exists")
+
+        self._connection.execute("UPDATE categories SET name = ?, emoji = ? WHERE id = ?", (name, emoji, category_id))
+        self._connection.commit()
+        return Category(id=category_id, type=existing.type, name=name, emoji=emoji, locked=False)
+
+    def delete_category(self, category_id: int) -> None:
+        existing = self._category_or_none(category_id)
+        if existing is None:
+            raise CategoryNotFound(f"No Category has id {category_id}")
+        if existing.locked:
+            raise CategoryLocked(f"Category {existing.name!r} is locked and cannot be deleted")
+
+        in_use = self._connection.execute(
+            "SELECT "
+            "(SELECT COUNT(*) FROM transactions WHERE category_id = :id) + "
+            "(SELECT COUNT(*) FROM recurring_rules WHERE category_id = :id) + "
+            "(SELECT COUNT(*) FROM category_budgets WHERE category_id = :id)",
+            {"id": category_id},
+        ).fetchone()[0]
+        if in_use > 0:
+            raise CategoryInUse(
+                f"Category {existing.name!r} is still used by {in_use} record(s) and cannot be deleted"
+            )
+
+        self._connection.execute("DELETE FROM categories WHERE id = ?", (category_id,))
+        self._connection.commit()
+
+    def _require_valid_pair(self, transaction_type: str, category: str) -> None:
+        """Raise unless `category` exists and belongs to `transaction_type` -
+        sourced from the live `categories` table (Issue #91), not the
+        hardcoded CATEGORIES_BY_TYPE dict, so a Category added through
+        Category Management is usable immediately, in this process and after
+        a restart alike.
+        """
+        row = self._connection.execute("SELECT type FROM categories WHERE name = ?", (category,)).fetchone()
+        if row is None or row[0] != transaction_type:
+            raise ValueError(f"Category {category!r} is not a valid {transaction_type} Category")
+
+    def _category_or_none(self, category_id: int) -> Category | None:
+        row = self._connection.execute(
+            "SELECT id, type, name, emoji, locked FROM categories WHERE id = ?", (category_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        row_id, row_type, name, emoji, locked = row
+        return Category(id=row_id, type=row_type, name=name, emoji=emoji, locked=bool(locked))
 
     def _category_id(self, name: str) -> int:
         category_id = self._category_id_or_none(name)
@@ -354,15 +459,6 @@ def _as_transaction(transaction_id: int, candidate: Candidate) -> Transaction:
         category=candidate.category,
         notes=candidate.notes,
     )
-
-
-def _validate_pair(rule: RecurringRule) -> None:
-    """Reject a rule whose (Type, Category) pair isn't one this project allows.
-
-    RecurringRule's own __post_init__ already vets the schedule (Frequency,
-    Interval, Day against Start Date); the pair is the part it can't see.
-    """
-    require_valid_type_category_pair(rule.type, rule.category)
 
 
 def _as_rule(columns) -> RecurringRule:
