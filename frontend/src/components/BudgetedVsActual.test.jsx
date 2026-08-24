@@ -52,6 +52,22 @@ describe("BudgetedVsActual", () => {
     expect(over[5]).toHaveTextContent("+18%");
   });
 
+  it("shows 0% Diff, not -100%, when both Budgeted and Actual are $0", () => {
+    // The endpoint's pct is undefined when budgeted is $0 and falls back to
+    // 0, which the table's usual `pct - 100` reading would show as -100% -
+    // wrong when there's genuinely nothing to compare (both sides are $0).
+    render(
+      <BudgetedVsActual
+        rows={[{ type: "Expense", category: "Rental Expense", budgeted: 0, actual: 0, diff: 0, pct: 0 }]}
+      />,
+    );
+
+    const cells = within(row("Rental Expense")).getAllByRole("cell");
+    expect(cells[4]).toHaveTextContent("+$0");
+    expect(cells[5]).toHaveTextContent("+0%");
+    expect(cells[5]).not.toHaveTextContent("-100%");
+  });
+
   it("partitions rows into Income, Expense, and Debt sections, each with its own subtotal", () => {
     render(
       <BudgetedVsActual

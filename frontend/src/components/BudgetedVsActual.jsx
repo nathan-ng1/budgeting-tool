@@ -17,6 +17,12 @@ function overspend(row) {
   if (row.budgeted === null) {
     return { diff: null, pct: null };
   }
+  // A $0 Category Budget with $0 actual isn't overspend at all - there's
+  // nothing to divide, so the endpoint's 0-for-undefined-division fallback
+  // would otherwise read as -100%.
+  if (row.budgeted === 0 && row.actual === 0) {
+    return { diff: -row.diff, pct: 0 };
+  }
   return { diff: -row.diff, pct: row.pct - 100 };
 }
 
