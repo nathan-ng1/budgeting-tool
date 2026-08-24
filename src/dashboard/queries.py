@@ -453,17 +453,21 @@ def _budgeted_vs_actual_rows(budgets: dict[str, float], actuals: dict[str, float
 
     rows = []
     for category in categories:
+        transaction_type = type_for_category(category)
+        if transaction_type is None:
+            # A Category Budget can outlive its Category - e.g. Refund's
+            # retirement (ADR-0016) left stale $0 rows behind from before
+            # then. There's no Type section left to display it under, so
+            # skip it rather than crash the sort below.
+            continue
         budgeted = budgets.get(category)
         actual = _round(actuals.get(category, 0.0))
         # Positive diff = under budget (budget remaining); negative = overspent.
         diff = _round(budgeted - actual) if budgeted is not None else None
         pct = _pct(actual, budgeted) if budgeted is not None else None
-        # type_for_category never returns None here - every Category in
-        # `budgets`/`actuals` was already validated on write (store.py's
-        # require_valid_type_category_pair), so it always has one.
         rows.append(
             BudgetVsActual(
-                type=type_for_category(category), category=category, budgeted=budgeted, actual=actual, diff=diff, pct=pct
+                type=transaction_type, category=category, budgeted=budgeted, actual=actual, diff=diff, pct=pct
             )
         )
 
