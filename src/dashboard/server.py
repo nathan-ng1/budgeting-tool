@@ -33,6 +33,7 @@ RECURRING_RULES_PATH = "/api/recurring-rules"
 TRANSACTIONS_PATH = "/api/transactions"
 BUDGET_EDITOR_PATH = "/api/budget-editor"
 BUDGET_GRID_PATH = "/api/budget-grid"
+BUDGET_SUGGESTION_PATH = "/api/budget-suggestion"
 
 BUILD_INSTRUCTIONS = (
     "The Dashboard has not been built yet. Run `npm install` and `npm run build` "
@@ -99,6 +100,11 @@ def _make_handler(store, static_root: Path):
                 self._serve_budget_editor(parse_qs(parsed.query))
             elif parsed.path == BUDGET_GRID_PATH:
                 self._serve_budget_grid(parse_qs(parsed.query))
+            elif parsed.path == BUDGET_SUGGESTION_PATH:
+                # Not scoped to a (year, month) - the one standing write-up
+                # renders identically no matter which month pill is selected
+                # (Issue #66).
+                self._send_json(200, budgets.as_suggestion_payload(store.read_budget_suggestion()))
             elif parsed.path == "/api/categories":
                 # What the Transaction/Recurring Rule forms' Type/Category
                 # selects offer, so transaction_log.categories stays the one

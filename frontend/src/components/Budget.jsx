@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { autoPopulatedValuesFrom, valuesFrom, changesFrom } from "../lib/budgetEditorForm.js";
-import { deleteCategoryBudget, fetchBudgetEditor, fetchBudgetGrid, saveCategoryBudget } from "../lib/budgetsApi.js";
+import {
+  deleteCategoryBudget,
+  fetchBudgetEditor,
+  fetchBudgetGrid,
+  fetchBudgetSuggestion,
+  saveCategoryBudget,
+} from "../lib/budgetsApi.js";
 import { totalsByType } from "../lib/budgetTotals.js";
 import { financialYearFor } from "../lib/financialYear.js";
 import { UNSET, money, signedPct } from "../lib/format.js";
 import BudgetGrid from "./BudgetGrid.jsx";
+import BudgetSuggestion from "./BudgetSuggestion.jsx";
 import MonthSelector from "./MonthSelector.jsx";
 
 // The trailing windows the Budget tab's dropdown offers - see
@@ -34,6 +41,11 @@ export default function Budget() {
   const [saveError, setSaveError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [autoPopulateOpen, setAutoPopulateOpen] = useState(false);
+  // undefined until the fetch resolves, then either the BudgetSuggestion
+  // object or null (never generated) - kept separate from `editor`/`grid`
+  // since the write-up isn't scoped to `selected` at all (Issue #66).
+  const [suggestion, setSuggestion] = useState(undefined);
+  const [suggestionError, setSuggestionError] = useState(null);
 
   // The Budget tab has no Financial Year switcher: every pill (Full year
   // included) always belongs to the FY containing today, the same way
@@ -96,6 +108,21 @@ export default function Budget() {
     return () => controller.abort();
   }, [selected, trailingWindow, financialYear, load, loadGrid]);
 
+  // Fetched once, independent of `selected`/`trailingWindow`/`financialYear` -
+  // the write-up displays identically no matter which month pill (or Full
+  // year) is selected (Issue #66).
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchBudgetSuggestion({ signal: controller.signal })
+      .then((loaded) => setSuggestion(loaded.write_up === null ? null : loaded))
+      .catch((cause) => {
+        if (cause.name !== "AbortError") {
+          setSuggestionError(cause.message);
+        }
+      });
+    return () => controller.abort();
+  }, []);
+
   function set(category, value) {
     setValues((current) => ({ ...current, [category]: value }));
   }
@@ -133,154 +160,176 @@ export default function Budget() {
   }
 
   return (
-    <section className="card">
-      <div className="card__head">
-        <div>
-          <h3>Budget</h3>
-          <p className="card__note">
-            {selected === null
-              ? "Full year is read-only — select a month to edit its Category Budgets."
-              : "Set this month’s Category Budgets, then Save to apply them."}
+    <>
+      {suggestionError !== null && (
+        <section className="card budget-suggestion">
+          <h3>Budget Suggestion</h3>
+          <p className="state state--error" role="alert">
+            {suggestionError}
           </p>
-        </div>
-        {selected !== null && (
-          <div className="card__actions">
-            <div className="menu">
-              <button
-                type="button"
-                className="button button--quiet"
-                aria-haspopup="true"
-                aria-expanded={autoPopulateOpen}
-                disabled={saving || editor === null}
-                onClick={() => setAutoPopulateOpen((open) => !open)}
-              >
-                Auto-populate
+        </section>
+      )}
+
+      {suggestionError === null && suggestion === undefined && (
+        <section className="card budget-suggestion">
+          <h3>Budget Suggestion</h3>
+          <p className="state">Loading the Budget Suggestion&hellip;</p>
+        </section>
+      )}
+
+      {suggestionError === null && suggestion !== undefined && (
+        <BudgetSuggestion suggestion={suggestion} editor={editor} />
+      )}
+
+      <section className="card">
+        <div className="card__head">
+          <div>
+            <h3>Budget</h3>
+            <p className="card__note">
+              {selected === null
+                ? "Full year is read-only — select a month to edit its Category Budgets."
+                : "Set this month’s Category Budgets, then Save to apply them."}
+            </p>
+          </div>
+          {selected !== null && (
+            <div className="card__actions">
+              <div className="menu">
+                <button
+                  type="button"
+                  className="button button--quiet"
+                  aria-haspopup="true"
+                  aria-expanded={autoPopulateOpen}
+                  disabled={saving || editor === null}
+                  onClick={() => setAutoPopulateOpen((open) => !open)}
+                >
+                  Auto-populate
+                </button>
+                {autoPopulateOpen && (
+                  <div className="menu__list" role="menu">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="menu__item"
+                      onClick={() => applyAutoPopulate("actual")}
+                    >
+                      Last actuals
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="menu__item"
+                      onClick={() => applyAutoPopulate("budgeted")}
+                    >
+                      Last budgeted
+                    </button>
+                  </div>
+                )}
+              </div>
+              <button type="button" className="button" disabled={saving || changes.length === 0} onClick={save}>
+                Save budgets
               </button>
-              {autoPopulateOpen && (
-                <div className="menu__list" role="menu">
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="menu__item"
-                    onClick={() => applyAutoPopulate("actual")}
-                  >
-                    Last actuals
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="menu__item"
-                    onClick={() => applyAutoPopulate("budgeted")}
-                  >
-                    Last budgeted
-                  </button>
-                </div>
-              )}
             </div>
-            <button type="button" className="button" disabled={saving || changes.length === 0} onClick={save}>
-              Save budgets
-            </button>
+          )}
+        </div>
+
+        <MonthSelector financialYear={financialYear} selected={selected} onSelect={setSelected} />
+
+        {selected !== null && (
+          <div className="filters">
+            <label className="field">
+              <span className="field__label">Trailing window</span>
+              <select
+                value={trailingWindow}
+                onChange={(event) => setTrailingWindow(Number(event.target.value))}
+              >
+                {TRAILING_WINDOWS.map((months) => (
+                  <option key={months} value={months}>
+                    {months} months
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
         )}
-      </div>
 
-      <MonthSelector financialYear={financialYear} selected={selected} onSelect={setSelected} />
+        {error !== null && (
+          <p className="state state--error" role="alert">
+            {error}
+          </p>
+        )}
 
-      {selected !== null && (
-        <div className="filters">
-          <label className="field">
-            <span className="field__label">Trailing window</span>
-            <select
-              value={trailingWindow}
-              onChange={(event) => setTrailingWindow(Number(event.target.value))}
-            >
-              {TRAILING_WINDOWS.map((months) => (
-                <option key={months} value={months}>
-                  {months} months
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      )}
+        {saveError !== null && (
+          <p className="state state--error" role="alert">
+            {saveError}
+          </p>
+        )}
 
-      {error !== null && (
-        <p className="state state--error" role="alert">
-          {error}
-        </p>
-      )}
+        {error === null && selected !== null && editor === null && (
+          <p className="state">Loading this month&rsquo;s Category Budgets&hellip;</p>
+        )}
 
-      {saveError !== null && (
-        <p className="state state--error" role="alert">
-          {saveError}
-        </p>
-      )}
+        {error === null && selected === null && grid === null && (
+          <p className="state">Loading the Full year&rsquo;s Category Budgets&hellip;</p>
+        )}
 
-      {error === null && selected !== null && editor === null && (
-        <p className="state">Loading this month&rsquo;s Category Budgets&hellip;</p>
-      )}
-
-      {error === null && selected === null && grid === null && (
-        <p className="state">Loading the Full year&rsquo;s Category Budgets&hellip;</p>
-      )}
-
-      {selected !== null && editor !== null && (
-        <div className="table-scroll">
-          <table className="table">
-            <thead>
-              <tr>
-                <th scope="col">Category</th>
-                <th scope="col" className="table__num">
-                  Last Month Actual
-                </th>
-                <th scope="col" className="table__num">
-                  {trailingWindow}-Month Avg Actual
-                </th>
-                <th scope="col" className="table__num">
-                  Avg Variance %
-                </th>
-                <th scope="col" className="table__num">
-                  Budgeted Amount
-                </th>
-              </tr>
-            </thead>
-            {Object.entries(editor).map(([type, rows]) => (
-              <tbody key={type}>
+        {selected !== null && editor !== null && (
+          <div className="table-scroll">
+            <table className="table">
+              <thead>
                 <tr>
-                  <th scope="colgroup" colSpan={5} className="table__section">
-                    {type}
+                  <th scope="col">Category</th>
+                  <th scope="col" className="table__num">
+                    Last Month Actual
+                  </th>
+                  <th scope="col" className="table__num">
+                    {trailingWindow}-Month Avg Actual
+                  </th>
+                  <th scope="col" className="table__num">
+                    Avg Variance %
+                  </th>
+                  <th scope="col" className="table__num">
+                    Budgeted Amount
                   </th>
                 </tr>
-                {rows.map(({ category, last_month_actual, trailing_average_actual, average_variance_pct }) => (
-                  <tr key={category}>
-                    <td>{category}</td>
-                    <td className="table__num muted">{money(last_month_actual)}</td>
-                    <td className="table__num muted">{trailing_average_actual === null ? UNSET : money(trailing_average_actual)}</td>
-                    <td className="table__num muted">{average_variance_pct === null ? UNSET : signedPct(average_variance_pct)}</td>
-                    <td className="table__num">
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        className="budget__amount-input"
-                        aria-label={`${category} Budgeted Amount`}
-                        value={values[category] ?? ""}
-                        onChange={(event) => set(category, event.target.value)}
-                      />
-                    </td>
+              </thead>
+              {Object.entries(editor).map(([type, rows]) => (
+                <tbody key={type}>
+                  <tr>
+                    <th scope="colgroup" colSpan={5} className="table__section">
+                      {type}
+                    </th>
                   </tr>
-                ))}
-                <tr className="budget__total-row">
-                  <td colSpan={4}>Total</td>
-                  <td className="table__num">{money(totals[type])}</td>
-                </tr>
-              </tbody>
-            ))}
-          </table>
-        </div>
-      )}
+                  {rows.map(({ category, last_month_actual, trailing_average_actual, average_variance_pct }) => (
+                    <tr key={category}>
+                      <td>{category}</td>
+                      <td className="table__num muted">{money(last_month_actual)}</td>
+                      <td className="table__num muted">{trailing_average_actual === null ? UNSET : money(trailing_average_actual)}</td>
+                      <td className="table__num muted">{average_variance_pct === null ? UNSET : signedPct(average_variance_pct)}</td>
+                      <td className="table__num">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          className="budget__amount-input"
+                          aria-label={`${category} Budgeted Amount`}
+                          value={values[category] ?? ""}
+                          onChange={(event) => set(category, event.target.value)}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="budget__total-row">
+                    <td colSpan={4}>Total</td>
+                    <td className="table__num">{money(totals[type])}</td>
+                  </tr>
+                </tbody>
+              ))}
+            </table>
+          </div>
+        )}
 
-      {selected === null && grid !== null && <BudgetGrid financialYear={financialYear} grid={grid} />}
-    </section>
+        {selected === null && grid !== null && <BudgetGrid financialYear={financialYear} grid={grid} />}
+      </section>
+    </>
   );
 }

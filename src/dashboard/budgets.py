@@ -6,6 +6,7 @@ editor's rows look like on the wire is a question about the domain, not about
 HTTP - mirrors dashboard.recurring.
 """
 
+from budget_suggestions.suggestion import BudgetSuggestion
 from dashboard.queries import BudgetEditorRow, BudgetGridRow
 from transaction_log.categories import TYPE_ORDER
 
@@ -53,6 +54,16 @@ def as_grid_payload(rows: list[BudgetGridRow]) -> dict[str, list[dict]]:
     for row in rows:
         grouped[row.type].append({"category": row.category, "amounts": row.amounts})
     return grouped
+
+
+def as_suggestion_payload(suggestion: BudgetSuggestion | None) -> dict:
+    """The standing Budget Suggestion write-up (Issue #66), or nulls if the
+    script has never been run - the Budget tab renders its own empty state
+    for that case rather than treating it as an error.
+    """
+    if suggestion is None:
+        return {"write_up": None, "generated_at": None}
+    return {"write_up": suggestion.write_up, "generated_at": suggestion.generated_at.isoformat()}
 
 
 def amount_from_payload(payload) -> float:

@@ -1,9 +1,10 @@
 from advisor.interface import CategoryHistory, MalformedResponseError, SuggestionResult
 
 RESPONSE_INSTRUCTIONS = """Respond with the write-up itself only - plain text, no JSON, no markdown \
-code fences, no preamble. A few short paragraphs is enough: call out which Categories are \
-running over or under Budgeted, and any Category worth a closer look next time Category \
-Budgets are set."""
+code fences, no preamble. Structure it as a short bulleted list, one line per bullet starting with \
+"- ": one bullet per Category worth mentioning, saying whether it's running over or under Budgeted \
+and by how much, or flagging it as worth a closer look next time Category Budgets are set. Skip \
+Categories tracking close to Budgeted or with no history to compare against."""
 
 
 def build_prompt(history: list[CategoryHistory]) -> str:

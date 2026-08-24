@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { dayMonth, dayMonthLong, money, pct, signedMoney, signedPct } from "./format.js";
+import { dayMonth, dayMonthLong, generatedAt, money, pct, signedMoney, signedPct } from "./format.js";
 
 describe("money", () => {
   it("renders whole dollars with a thousands separator", () => {
@@ -55,5 +55,16 @@ describe("dayMonth", () => {
 describe("dayMonthLong", () => {
   it("spells the month out, the way the mockup's 'As at' line reads", () => {
     expect(dayMonthLong("2026-08-19")).toBe("19 August");
+  });
+});
+
+describe("generatedAt", () => {
+  it("renders a full timestamp with a 12-hour clock", () => {
+    expect(generatedAt("2026-08-20T14:32:00")).toBe("20 Aug 2026, 2:32pm");
+  });
+
+  it("renders midnight and noon as 12, not 0", () => {
+    expect(generatedAt("2026-08-20T00:05:00")).toBe("20 Aug 2026, 12:05am");
+    expect(generatedAt("2026-08-20T12:00:00")).toBe("20 Aug 2026, 12:00pm");
   });
 });
