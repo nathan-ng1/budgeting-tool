@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { groupByType } from "../lib/categories.js";
+import { categoryLabel, emojiLookup, groupByType } from "../lib/categories.js";
 import { FINANCIAL_YEAR_START_MONTH, financialYearFor } from "../lib/financialYear.js";
 import { preciseMoney } from "../lib/format.js";
 import { blankValues, toPayload, valuesFrom, withType } from "../lib/transactionForm.js";
@@ -49,6 +49,7 @@ function ariaSortFor(sort, key) {
 export default function Transactions() {
   const [transactions, setTransactions] = useState(null);
   const [categories, setCategories] = useState({});
+  const [categoryList, setCategoryList] = useState([]);
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [sort, setSort] = useState(DEFAULT_SORT);
@@ -66,7 +67,13 @@ export default function Transactions() {
     ]);
     setTransactions(loadedTransactions);
     setCategories(groupByType(loadedCategories));
+    setCategoryList(loadedCategories);
   }, []);
+
+  // The same flat list `categories` above was grouped from, kept around
+  // separately so the table/filter/form can show a Category's emoji (Issue
+  // #92) without the grouped Type->names shape changing.
+  const emoji = useMemo(() => emojiLookup(categoryList), [categoryList]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -155,7 +162,13 @@ export default function Transactions() {
       </div>
 
       {adding !== null && (
-        <TransactionForm initial={adding} categories={categories} onCancel={() => setAdding(null)} onSave={saveNew} />
+        <TransactionForm
+          initial={adding}
+          categories={categories}
+          emoji={emoji}
+          onCancel={() => setAdding(null)}
+          onSave={saveNew}
+        />
       )}
 
       {transactions === null && <p className="state">Loading the Transactions&hellip;</p>}
@@ -170,7 +183,9 @@ export default function Transactions() {
               <select value={filters.category} onChange={(event) => setFilter("category", event.target.value)}>
                 <option value={ALL_CATEGORIES}>{ALL_CATEGORIES}</option>
                 {categoryFilterOptions.map((category) => (
-                  <option key={category}>{category}</option>
+                  <option key={category} value={category}>
+                    {categoryLabel(category, emoji)}
+                  </option>
                 ))}
               </select>
             </label>
@@ -241,6 +256,7 @@ export default function Transactions() {
                           key={transaction.id}
                           initial={editing.values}
                           categories={categories}
+                          emoji={emoji}
                           onCancel={() => setEditing(null)}
                           onSave={saveEdit}
                         />
@@ -252,7 +268,7 @@ export default function Transactions() {
                         <td>{transaction.date}</td>
                         <td className="table__num">{preciseMoney(transaction.amount)}</td>
                         <td>{transaction.type}</td>
-                        <td>{transaction.category}</td>
+                        <td>{categoryLabel(transaction.category, emoji)}</td>
                         <td>{transaction.notes}</td>
                         <td className="table__actions">
                           {deletingId === transaction.id ? (
@@ -344,7 +360,7 @@ function useTransactionEditor(initial, categories, onSave) {
   return { values, set, setType, types, allowed, error, saving, save };
 }
 
-function TransactionForm({ initial, categories, onCancel, onSave }) {
+function TransactionForm({ initial, categories, emoji, onCancel, onSave }) {
   const { values, set, setType, types, allowed, error, saving, save } = useTransactionEditor(
     initial,
     categories,
@@ -396,7 +412,9 @@ function TransactionForm({ initial, categories, onCancel, onSave }) {
           <select value={values.category} onChange={(event) => set("category", event.target.value)} required>
             <option value="">Choose a Category</option>
             {allowed.map((category) => (
-              <option key={category}>{category}</option>
+              <option key={category} value={category}>
+                {categoryLabel(category, emoji)}
+              </option>
             ))}
           </select>
         </label>
@@ -419,7 +437,7 @@ function TransactionForm({ initial, categories, onCancel, onSave }) {
   );
 }
 
-function EditableRow({ initial, categories, onCancel, onSave }) {
+function EditableRow({ initial, categories, emoji, onCancel, onSave }) {
   const { values, set, setType, types, allowed, error, saving, save } = useTransactionEditor(
     initial,
     categories,
@@ -452,7 +470,9 @@ function EditableRow({ initial, categories, onCancel, onSave }) {
         <select aria-label="Category" value={values.category} onChange={(event) => set("category", event.target.value)}>
           <option value="">Choose a Category</option>
           {allowed.map((category) => (
-            <option key={category}>{category}</option>
+            <option key={category} value={category}>
+              {categoryLabel(category, emoji)}
+            </option>
           ))}
         </select>
       </td>

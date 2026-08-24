@@ -31,3 +31,30 @@ export function groupByType(categories) {
   }
   return result;
 }
+
+// Category name -> emoji (Issue #92) - the one lookup every display site
+// joins against, built from the same flat /api/categories list groupByType
+// reads. `categories` defaults to empty so a tab that hasn't finished
+// loading them yet (or whose fetch failed) degrades to name-only labels
+// rather than throwing.
+export function emojiLookup(categories) {
+  const map = new Map();
+  if (!Array.isArray(categories)) {
+    return map;
+  }
+  for (const category of categories) {
+    if (category.emoji) {
+      map.set(category.name, category.emoji);
+    }
+  }
+  return map;
+}
+
+// A Category's display label: "emoji name" once it has one, name-only
+// otherwise - including for a name the lookup doesn't recognise at all,
+// which is never an error here (a stale/renamed Category should still
+// render, just without an emoji).
+export function categoryLabel(name, emoji) {
+  const found = emoji.get(name);
+  return found ? `${found} ${name}` : name;
+}

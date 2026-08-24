@@ -88,7 +88,7 @@ function gridFromByMonth(byMonth) {
  * /api/budget-suggestion, all sourced from the same byMonth state - so a save
  * round-trips through a real GET/PUT/DELETE cycle, and the Full year grid
  * provably reflects it. */
-function backend(initial = editor(), suggestion = { write_up: null, generated_at: null }) {
+function backend(initial = editor(), suggestion = { write_up: null, generated_at: null }, categories = []) {
   const byMonth = new Map([["2026-8", structuredClone(initial)]]);
 
   return vi.fn(async (url, options = {}) => {
@@ -97,6 +97,10 @@ function backend(initial = editor(), suggestion = { write_up: null, generated_at
     const year = parsed.searchParams.get("year");
     const month = parsed.searchParams.get("month");
     const key = `${year}-${month}`;
+
+    if (parsed.pathname === "/api/categories") {
+      return { ok: true, status: 200, json: async () => categories };
+    }
 
     if (parsed.pathname === "/api/budget-suggestion") {
       return { ok: true, status: 200, json: async () => suggestion };
@@ -143,8 +147,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function useBackend(initial, suggestion) {
-  fetchMock = backend(initial, suggestion);
+function useBackend(initial, suggestion, categories) {
+  fetchMock = backend(initial, suggestion, categories);
   vi.stubGlobal("fetch", fetchMock);
 }
 
@@ -166,6 +170,13 @@ describe("Budget", () => {
 
     expect(await screen.findByLabelText("Groceries Budgeted Amount")).toHaveValue(650);
     expect(screen.getByLabelText("Salary Budgeted Amount")).toHaveValue(null);
+  });
+
+  it("shows a Category's emoji next to its name in the editor", async () => {
+    useBackend(undefined, undefined, [{ id: 1, type: "Expense", name: "Groceries", emoji: "🛒", locked: false }]);
+    render(<Budget />);
+
+    expect(await screen.findByText("🛒 Groceries")).toBeInTheDocument();
   });
 
   it("shows each Category's historical context columns, greyed out from the editable Budgeted column", async () => {

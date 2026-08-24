@@ -222,6 +222,7 @@ describe("App", () => {
       status: 200,
       json: async () => {
         if (url.startsWith("/api/annual-overview")) return annualWithSpending();
+        if (url.startsWith("/api/categories")) return [];
         return url.includes("month=9") ? monthOverview({ year: 2026, month: 9 }) : monthWithSpending(2026, 8);
       },
     }));
@@ -248,6 +249,9 @@ describe("App", () => {
     fetchMock.mockImplementation(async (url) => {
       if (url.startsWith("/api/annual-overview")) {
         return { ok: true, status: 200, json: async () => annualWithSpending() };
+      }
+      if (url.startsWith("/api/categories")) {
+        return { ok: true, status: 200, json: async () => [] };
       }
       if (url.includes("month=9")) {
         await septemberPending;

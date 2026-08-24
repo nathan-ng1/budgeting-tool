@@ -15,6 +15,7 @@ import StatTiles from "./components/StatTiles.jsx";
 import TopExpenses from "./components/TopExpenses.jsx";
 import Transactions from "./components/Transactions.jsx";
 import { fetchAnnualOverview, fetchLatestTransactionDate, fetchMonthOverview } from "./lib/api.js";
+import { fetchCategories } from "./lib/categoriesApi.js";
 import { financialYearFor, financialYearLabel } from "./lib/financialYear.js";
 import { dayMonthLong } from "./lib/format.js";
 
@@ -42,6 +43,11 @@ export default function App() {
   const [selected, setSelected] = useState(null);
   const [overview, setOverview] = useState(null);
   const [error, setError] = useState(null);
+  // Feeds Spending by Category's legend and Budgeted vs Actual's table
+  // (Issue #92) - fetched once, the same way `asAt` is: those cards' emoji
+  // is cosmetic, so a stale/empty list just means name-only labels, never a
+  // page-blocking error.
+  const [categories, setCategories] = useState([]);
 
   // There is no Financial Year switcher (ADR-0011): the selector, the header,
   // and Full year all always show the FY containing today.
@@ -58,6 +64,18 @@ export default function App() {
         // An undated header is a smaller problem than an error banner over a
         // page whose figures are all fine, so this failure stays quiet.
         setAsAt(null);
+      });
+
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    fetchCategories({ signal: controller.signal })
+      .then(setCategories)
+      .catch(() => {
+        // As above: this only degrades emoji display, so it fails quietly.
       });
 
     return () => controller.abort();
@@ -167,10 +185,14 @@ export default function App() {
                   <>
                     <div className="row--wide-pair">
                       <div className="row--wide-pair__top">
-                        <SpendingByCategory spending={overview.spending_by_category} total={overview.stat_tiles.expenses} />
+                        <SpendingByCategory
+                          spending={overview.spending_by_category}
+                          total={overview.stat_tiles.expenses}
+                          categories={categories}
+                        />
                       </div>
                       <div className="row--wide-pair__wide">
-                        <BudgetedVsActual rows={overview.budgeted_vs_actual} />
+                        <BudgetedVsActual rows={overview.budgeted_vs_actual} categories={categories} />
                       </div>
                       <div className="row--wide-pair__bottom">
                         <DebtSummary debtSummary={overview.debt_summary} total={overview.stat_tiles.debt} />
@@ -194,7 +216,7 @@ export default function App() {
                         <MonthByMonth months={overview.month_by_month} />
                       </div>
                       <div className="row--wide-pair__wide">
-                        <BudgetedVsActual rows={overview.budgeted_vs_actual} />
+                        <BudgetedVsActual rows={overview.budgeted_vs_actual} categories={categories} />
                       </div>
                       <div className="row--wide-pair__bottom">
                         <DebtSummary
@@ -205,7 +227,11 @@ export default function App() {
                       </div>
                     </div>
                     <div className="row--split">
-                      <SpendingByCategory spending={overview.spending_by_category} total={overview.stat_tiles.expenses} />
+                      <SpendingByCategory
+                        spending={overview.spending_by_category}
+                        total={overview.stat_tiles.expenses}
+                        categories={categories}
+                      />
                       <TopExpenses expenses={overview.top_expenses} count={10} />
                     </div>
                   </>

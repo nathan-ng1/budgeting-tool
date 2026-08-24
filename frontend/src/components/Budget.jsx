@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { autoPopulatedValuesFrom, valuesFrom, changesFrom } from "../lib/budgetEditorForm.js";
+import { categoryLabel, emojiLookup } from "../lib/categories.js";
+import { fetchCategories } from "../lib/categoriesApi.js";
 import {
   deleteCategoryBudget,
   fetchBudgetEditor,
@@ -46,6 +48,10 @@ export default function Budget() {
   // since the write-up isn't scoped to `selected` at all (Issue #66).
   const [suggestion, setSuggestion] = useState(undefined);
   const [suggestionError, setSuggestionError] = useState(null);
+  // Feeds the Category Budget editor's rows (Issue #92) - fetched once like
+  // the write-up below, since emoji display is cosmetic and shouldn't block
+  // or error the editor if it fails.
+  const [categories, setCategories] = useState([]);
 
   // The Budget tab has no Financial Year switcher: every pill (Full year
   // included) always belongs to the FY containing today, the same way
@@ -122,6 +128,18 @@ export default function Budget() {
       });
     return () => controller.abort();
   }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchCategories({ signal: controller.signal })
+      .then(setCategories)
+      .catch(() => {
+        // As above: only degrades emoji display, so it fails quietly.
+      });
+    return () => controller.abort();
+  }, []);
+
+  const emoji = useMemo(() => emojiLookup(categories), [categories]);
 
   function set(category, value) {
     setValues((current) => ({ ...current, [category]: value }));
@@ -301,7 +319,7 @@ export default function Budget() {
                   </tr>
                   {rows.map(({ category, last_month_actual, trailing_average_actual, average_variance_pct }) => (
                     <tr key={category}>
-                      <td>{category}</td>
+                      <td>{categoryLabel(category, emoji)}</td>
                       <td className="table__num muted">{money(last_month_actual)}</td>
                       <td className="table__num muted">{trailing_average_actual === null ? UNSET : money(trailing_average_actual)}</td>
                       <td className="table__num muted">{average_variance_pct === null ? UNSET : signedPct(average_variance_pct)}</td>

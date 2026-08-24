@@ -29,7 +29,7 @@ function rule(overrides = {}) {
 let fetchMock;
 
 /** Answer each endpoint from `rules`, so the screen reloads real state. */
-function backend(rules = []) {
+function backend(rules = [], categories = CATEGORIES) {
   let stored = [...rules];
   let nextId = 100;
 
@@ -37,7 +37,7 @@ function backend(rules = []) {
     const method = options.method ?? "GET";
 
     if (url === "/api/categories") {
-      return { ok: true, status: 200, json: async () => CATEGORIES };
+      return { ok: true, status: 200, json: async () => categories };
     }
     if (method === "GET") {
       return { ok: true, status: 200, json: async () => stored };
@@ -181,6 +181,27 @@ describe("RecurringRules", () => {
 
     expect(within(category).queryByRole("option", { name: "Subscriptions" })).not.toBeInTheDocument();
     expect(within(category).getByRole("option", { name: "Salary" })).toBeInTheDocument();
+  });
+
+  it("shows a Category's emoji next to its name, in the table and in the Category select", async () => {
+    fetchMock = backend(
+      [rule()],
+      [
+        { id: 1, type: "Expense", name: "Groceries", emoji: null, locked: false },
+        { id: 2, type: "Expense", name: "Subscriptions", emoji: "📺", locked: false },
+        { id: 3, type: "Income", name: "Salary", emoji: null, locked: false },
+      ],
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<RecurringRules />);
+
+    expect(await screen.findByText("📺 Subscriptions")).toBeInTheDocument();
+
+    await openForm("Edit Streaming service");
+    const category = screen.getByLabelText("Category");
+    expect(within(category).getByRole("option", { name: "📺 Subscriptions" })).toBeInTheDocument();
+    // The value posted back is still the bare name, not the decorated label.
+    expect(within(category).getByRole("option", { name: "📺 Subscriptions" })).toHaveValue("Subscriptions");
   });
 
   it("derives a Weekly rule's Day from its Start Date, so the two cannot disagree", async () => {
