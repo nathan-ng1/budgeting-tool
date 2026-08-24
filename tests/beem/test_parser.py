@@ -39,7 +39,11 @@ def test_parse_does_not_drop_positive_amount_rows(transactions: list[RawTransact
     assert any(t.amount > 0 for t in transactions)
 
 
-def test_categorise_turns_positive_rows_into_income_beem_adjustment_candidates(make_candidate):
+def test_categorise_turns_positive_rows_into_expense_beem_adjustment_candidates_with_negated_amount(
+    make_candidate,
+):
+    # ADR-0015 - an incoming Beem Adjustment reduces Expense instead of
+    # counting as Income, so the Amount is negated on the way in.
     positive = RawTransaction(date=date(2026, 7, 13), amount=42.0, notes="trip repayment")
 
     candidates, needs_categorisation = categorise([positive])
@@ -47,8 +51,8 @@ def test_categorise_turns_positive_rows_into_income_beem_adjustment_candidates(m
     assert candidates == [
         make_candidate(
             date=date(2026, 7, 13),
-            amount=42.0,
-            type="Income",
+            amount=-42.0,
+            type="Expense",
             category="Beem Adjustment",
             notes="trip repayment",
         )

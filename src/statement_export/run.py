@@ -40,12 +40,17 @@ def process_data_dir(
 
         if issuer == "Beem":
             deterministic, to_categorise = beem_parser.categorise(beem_parser.parse(source))
+            dropped_count = 0
         else:
-            deterministic, to_categorise = [], statement_export_parser.parse(source)
+            dropped, to_categorise = statement_export_parser.categorise(
+                statement_export_parser.parse(source)
+            )
+            deterministic, dropped_count = [], len(dropped)
         logger.info(
-            "%s: %d deterministic candidate(s), %d transaction(s) to categorise",
+            "%s: %d deterministic candidate(s), %d dropped Bill Payment(s), %d transaction(s) to categorise",
             source.name,
             len(deterministic),
+            dropped_count,
             len(to_categorise),
         )
 

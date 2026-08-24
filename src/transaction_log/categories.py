@@ -3,9 +3,7 @@
 CATEGORIES_BY_TYPE = {
     "Income": {
         "Salary",
-        "Beem Adjustment",
         "Rental",
-        "Refund",
     },
     "Expense": {
         "Groceries",
@@ -19,6 +17,7 @@ CATEGORIES_BY_TYPE = {
         "Subscriptions",
         "Insurance & Bills",
         "Rental Expense",
+        "Beem Adjustment",
     },
     "Debt": {
         "Mortgage Repayment",
@@ -68,3 +67,19 @@ def types_with_categories(categories_by_type: dict[str, set[str]] = CATEGORIES_B
     categorisation prompt nor the Needs Review prompt should offer it.
     """
     return sorted(t for t, categories in categories_by_type.items() if categories)
+
+
+def assignable_categories_by_type(
+    categories_by_type: dict[str, set[str]] = CATEGORIES_BY_TYPE,
+) -> dict[str, set[str]]:
+    """The categories-by-type view offered to the categorisation prompt.
+
+    Beem Adjustment is excluded (see ADR-0015): it must only ever be produced
+    by the deterministic Beem parser path, never model-assigned to an
+    ordinary card transaction. It remains a fully valid Expense Category
+    everywhere else - this only narrows what the prompt is offered.
+    """
+    return {
+        transaction_type: categories - {"Beem Adjustment"}
+        for transaction_type, categories in categories_by_type.items()
+    }

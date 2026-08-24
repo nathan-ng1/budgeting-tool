@@ -82,7 +82,7 @@ class LocalStore:
         self._connection.executemany(
             "INSERT INTO transactions (date, amount, type, category, notes) VALUES (?, ?, ?, ?, ?)",
             [
-                (c.date.isoformat(), round(abs(c.amount), 2), c.type, c.category, c.notes)
+                (c.date.isoformat(), round(c.stored_amount, 2), c.type, c.category, c.notes)
                 for c in candidates
             ],
         )

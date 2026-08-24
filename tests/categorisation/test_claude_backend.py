@@ -33,7 +33,6 @@ def batch_dict(transaction_type="Expense", category="Groceries", needs_review=Fa
                 "type": transaction_type,
                 "category": category,
                 "needs_review": needs_review,
-                "is_bill_payment": False,
                 "reason": None,
             }
         ]

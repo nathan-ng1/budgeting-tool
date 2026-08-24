@@ -44,7 +44,7 @@ def test_stat_tiles_sum_by_type_for_the_selected_month(tmp_path: Path, make_cand
     store.append_rows(
         [
             make_candidate(date=date(2026, 8, 1), amount=4000.0, type="Income", category="Salary", notes="Employer"),
-            make_candidate(date=date(2026, 8, 2), amount=100.0, type="Income", category="Refund", notes="Return"),
+            make_candidate(date=date(2026, 8, 2), amount=100.0, type="Income", category="Rental", notes="Tenant"),
             make_candidate(date=date(2026, 8, 3), amount=200.0, type="Expense", category="Groceries", notes="Woolworths"),
             make_candidate(date=date(2026, 8, 4), amount=50.0, type="Expense", category="Transport", notes="Fuel"),
             make_candidate(date=date(2026, 8, 5), amount=875.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
@@ -319,6 +319,24 @@ def test_budgeted_vs_actual_excludes_categories_with_no_budget_and_no_spend(fake
     overview = get_month_overview(store, year=2026, month=8)
 
     assert "Transport" not in {row.category for row in overview.budgeted_vs_actual}
+
+
+def test_budgeted_vs_actual_skips_a_stale_budget_for_a_retired_category(fake_store, make_transaction):
+    # ADR-0016 retired Refund as a Category. A Category Budget written for it
+    # before retirement (e.g. via the Budget tab's Auto-populate) can still
+    # exist in the store - type_for_category("Refund") now returns None, so
+    # this stale row must be skipped rather than crashing the sort by Type.
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 8, 1), amount=450.0, type="Expense", category="Groceries", notes="Woolworths"),
+        ],
+        category_budgets={("Groceries", 2026, 8): 500.0, ("Refund", 2026, 8): 0.0},
+    )
+
+    overview = get_month_overview(store, year=2026, month=8)
+
+    assert "Refund" not in {row.category for row in overview.budgeted_vs_actual}
+    assert {row.category for row in overview.budgeted_vs_actual} == {"Groceries"}
 
 
 def test_budgeted_vs_actual_includes_income_and_debt_categories(fake_store, make_transaction):

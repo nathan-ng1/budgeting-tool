@@ -30,8 +30,8 @@ def categorise(
             candidates.append(
                 Candidate(
                     date=transaction.date,
-                    amount=transaction.amount,
-                    type="Income",
+                    amount=-transaction.amount,
+                    type="Expense",
                     category="Beem Adjustment",
                     notes=transaction.notes,
                 )
