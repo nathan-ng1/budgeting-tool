@@ -1220,6 +1220,19 @@ tbody:first-of-type .bva__section {
   content: " \25BC";
 }
 
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.pagination__status {
+  font-size: 13px;
+  color: var(--color-neutral-600);
+}
+
 /* — budget editor (Budget tab) — */
 
 .table th.table__section {

@@ -10,6 +10,9 @@ export const ALL_CATEGORIES = "All categories";
 export const ALL_MONTHS = "All months";
 export const ALL_TYPES = "All types";
 
+export const PAGE_SIZE_OPTIONS = [10, 20, 50];
+export const DEFAULT_PAGE_SIZE = PAGE_SIZE_OPTIONS[1];
+
 // Fixed per ADR-0006/ADR-0012, not derived from loaded data - Type is a closed
 // set regardless of which Types happen to appear in the current Financial Year.
 export const TYPES = ["Income", "Expense", "Debt", "Transfer"];
@@ -64,4 +67,15 @@ export function nextSort({ sortKey, sortDirection }, clickedKey) {
     return { sortKey, sortDirection: sortDirection === "asc" ? "desc" : "asc" };
   }
   return { sortKey: clickedKey, sortDirection };
+}
+
+// Always at least 1, so a page number always has a valid page to sit on even
+// when there are no matching Transactions.
+export function pageCount(total, pageSize) {
+  return Math.max(1, Math.ceil(total / pageSize));
+}
+
+export function paginate(transactions, page, pageSize) {
+  const start = (page - 1) * pageSize;
+  return transactions.slice(start, start + pageSize);
 }

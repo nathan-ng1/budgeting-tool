@@ -8,6 +8,8 @@ import {
   categoryOptions,
   monthOptions,
   nextSort,
+  pageCount,
+  paginate,
   visibleTransactions,
 } from "./transactionsView.js";
 
@@ -140,5 +142,36 @@ describe("nextSort", () => {
       sortKey: "amount",
       sortDirection: "desc",
     });
+  });
+});
+
+describe("pageCount", () => {
+  it("divides the total by the page size, rounding up", () => {
+    expect(pageCount(25, 10)).toBe(3);
+    expect(pageCount(20, 10)).toBe(2);
+  });
+
+  it("is always at least 1, even for zero Transactions", () => {
+    expect(pageCount(0, 10)).toBe(1);
+  });
+});
+
+describe("paginate", () => {
+  const transactions = [
+    transaction({ id: 1 }),
+    transaction({ id: 2 }),
+    transaction({ id: 3 }),
+    transaction({ id: 4 }),
+    transaction({ id: 5 }),
+  ];
+
+  it("returns the slice for the given page and page size", () => {
+    expect(paginate(transactions, 1, 2).map((t) => t.id)).toEqual([1, 2]);
+    expect(paginate(transactions, 2, 2).map((t) => t.id)).toEqual([3, 4]);
+    expect(paginate(transactions, 3, 2).map((t) => t.id)).toEqual([5]);
+  });
+
+  it("returns an empty page past the end of the list", () => {
+    expect(paginate(transactions, 4, 2)).toEqual([]);
   });
 });
