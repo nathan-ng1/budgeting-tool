@@ -8,6 +8,7 @@ import IncomeAllocation from "./components/IncomeAllocation.jsx";
 import IncomeVsExpensesByMonth from "./components/IncomeVsExpensesByMonth.jsx";
 import MonthByMonth from "./components/MonthByMonth.jsx";
 import MonthSelector from "./components/MonthSelector.jsx";
+import CategoriesPrototype from "./components/prototype/CategoriesPrototype.jsx";
 import RecurringRules from "./components/RecurringRules.jsx";
 import SpendingByCategory from "./components/SpendingByCategory.jsx";
 import StatTiles from "./components/StatTiles.jsx";
@@ -129,6 +130,11 @@ export default function App() {
           })}
           {asAt !== null && <span className="nav__asat">As at {dayMonthLong(asAt)}</span>}
         </nav>
+
+        {/* PROTOTYPE — Category management UI exploration, dev build only. See
+            components/prototype/CategoriesPrototype.jsx. Remove this block once
+            a variant is folded into real code (or the prototype is abandoned). */}
+        {tab === "Settings" && import.meta.env.DEV && <CategoriesPrototype />}
 
         {tab === "Settings" && <RecurringRules />}
 
