@@ -31,7 +31,7 @@ class CodexCategoriser:
     def categorise(self, transactions: list[RawTransaction], categories: list[Category]) -> BatchResult:
         prompt = build_prompt(transactions, categories)
         stdout = self._run_process(["codex", "exec", prompt])
-        return parse_batch_response(stdout, expected_count=len(transactions))
+        return parse_batch_response(stdout, expected_count=len(transactions), categories=categories)
 
 
 def connect() -> CodexCategoriser:

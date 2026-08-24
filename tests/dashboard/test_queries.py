@@ -339,6 +339,24 @@ def test_budgeted_vs_actual_skips_a_stale_budget_for_a_retired_category(fake_sto
     assert {row.category for row in overview.budgeted_vs_actual} == {"Groceries"}
 
 
+def test_budgeted_vs_actual_includes_a_category_added_through_category_management(fake_store, make_transaction):
+    # Issue #90 - Type is resolved from the live `categories` table, not the
+    # hardcoded CATEGORIES_BY_TYPE dict, so a Category added via Category
+    # Management (#91) isn't silently dropped from spending it has.
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 8, 1), amount=45.0, type="Expense", category="Pet Care", notes="Vet"),
+        ]
+    )
+    store.create_category("Expense", "Pet Care", None)
+
+    overview = get_month_overview(store, year=2026, month=8)
+    by_category = {row.category: row for row in overview.budgeted_vs_actual}
+
+    assert by_category["Pet Care"].type == "Expense"
+    assert by_category["Pet Care"].actual == 45.0
+
+
 def test_budgeted_vs_actual_includes_income_and_debt_categories(fake_store, make_transaction):
     store = fake_store(
         transactions=[
@@ -955,6 +973,18 @@ def test_budget_editor_includes_every_budgetable_category_grouped_by_type_not_tr
     assert {row.type for row in rows} == {"Income", "Expense", "Debt"}
     assert "Salary" in {row.category for row in rows}
     assert "Mortgage Repayment" in {row.category for row in rows}
+
+
+def test_budget_editor_includes_a_category_added_through_category_management(fake_store):
+    # Issue #90 - Category/Type pairs are read from the live `categories`
+    # table, not the hardcoded CATEGORIES_BY_TYPE dict, so a Category added
+    # via Category Management (#91) shows up in the editor immediately.
+    store = fake_store()
+    store.create_category("Expense", "Pet Care", None)
+
+    rows = get_budget_editor(store, year=2026, month=8)
+
+    assert ("Expense", "Pet Care") in {(row.type, row.category) for row in rows}
 
 
 def test_budget_editor_reports_this_months_budgeted_amount_or_none_if_unset(fake_store):

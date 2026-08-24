@@ -12,7 +12,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from dashboard import budgets, categories, queries, recurring, transactions
 from database.store import CategoryNotFound, RecurringRuleNotFound, TransactionNotFound
-from transaction_log.categories import type_for_category
+from transaction_log.categories import type_lookup
 
 # Where `npm run build` puts the frontend (see frontend/vite.config.js). The
 # directory is a build artefact, so it is absent in a fresh clone until the
@@ -312,7 +312,7 @@ def _make_handler(store, static_root: Path):
                 return
             year, month = parsed
 
-            transaction_type = type_for_category(category)
+            transaction_type = type_lookup(store.read_categories()).get(category)
             if transaction_type is None:
                 self._send_json(400, {"error": f"Category {category!r} is not a valid Category"})
                 return

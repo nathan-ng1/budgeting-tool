@@ -65,7 +65,7 @@ class OpenAICompatibleCategoriser:
         except (KeyError, IndexError, TypeError) as exc:
             raise MalformedResponseError(f"Unexpected OpenAI-compatible response shape: {exc}") from exc
 
-        return parse_batch_response(content, expected_count=len(transactions))
+        return parse_batch_response(content, expected_count=len(transactions), categories=categories)
 
 
 def connect(env: Mapping[str, str]) -> OpenAICompatibleCategoriser:

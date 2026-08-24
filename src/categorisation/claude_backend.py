@@ -54,7 +54,7 @@ class ClaudeCodeCategoriser:
                 "Claude CLI output is missing both 'structured_output' and a string 'result' field"
             )
 
-        return parse_batch_response(raw, expected_count=len(transactions))
+        return parse_batch_response(raw, expected_count=len(transactions), categories=categories)
 
 
 def connect() -> ClaudeCodeCategoriser:

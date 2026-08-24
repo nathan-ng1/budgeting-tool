@@ -87,7 +87,7 @@ def test_valid_response_parses_into_a_batch_result_in_order():
         }
     )
 
-    batch = parse_batch_response(raw, expected_count=2)
+    batch = parse_batch_response(raw, expected_count=2, categories=CATEGORIES)
 
     assert [r.type for r in batch.results] == ["Expense", "Income"]
     assert [r.category for r in batch.results] == ["Groceries", "Salary"]
@@ -108,7 +108,7 @@ def test_reason_defaults_to_none_when_omitted():
         }
     )
 
-    batch = parse_batch_response(raw, expected_count=1)
+    batch = parse_batch_response(raw, expected_count=1, categories=CATEGORIES)
 
     assert batch.results[0].reason is None
 
@@ -124,7 +124,7 @@ def test_reason_defaults_to_none_when_omitted():
 )
 def test_structurally_invalid_response_raises_malformed_response_error(raw):
     with pytest.raises(MalformedResponseError):
-        parse_batch_response(raw, expected_count=1)
+        parse_batch_response(raw, expected_count=1, categories=CATEGORIES)
 
 
 def test_wrong_result_count_raises_malformed_response_error():
@@ -141,14 +141,14 @@ def test_wrong_result_count_raises_malformed_response_error():
     )
 
     with pytest.raises(MalformedResponseError):
-        parse_batch_response(raw, expected_count=2)
+        parse_batch_response(raw, expected_count=2, categories=CATEGORIES)
 
 
 def test_missing_key_raises_malformed_response_error():
     raw = json.dumps({"results": [{"type": "Expense", "needs_review": False}]})
 
     with pytest.raises(MalformedResponseError):
-        parse_batch_response(raw, expected_count=1)
+        parse_batch_response(raw, expected_count=1, categories=CATEGORIES)
 
 
 def test_invalid_type_category_pair_raises_malformed_response_error():
@@ -165,7 +165,49 @@ def test_invalid_type_category_pair_raises_malformed_response_error():
     )
 
     with pytest.raises(MalformedResponseError):
-        parse_batch_response(raw, expected_count=1)
+        parse_batch_response(raw, expected_count=1, categories=CATEGORIES)
+
+
+def test_a_locked_category_returned_by_the_model_is_rejected():
+    # ADR-0015 - Beem Adjustment must only ever be produced by the
+    # deterministic Beem parser path, never model-assigned, even though it's
+    # a real Expense Category (mirrors what build_prompt withholds from it).
+    raw = json.dumps(
+        {
+            "results": [
+                {
+                    "type": "Expense",
+                    "category": "Beem Adjustment",
+                    "needs_review": False,
+                }
+            ]
+        }
+    )
+
+    with pytest.raises(MalformedResponseError):
+        parse_batch_response(raw, expected_count=1, categories=CATEGORIES)
+
+
+def test_a_category_added_since_the_prompt_was_built_is_accepted():
+    # Issue #90/#92 - validation reads the live `categories` table passed in,
+    # not a hardcoded dict, so a Category added via Category Management is
+    # immediately assignable.
+    raw = json.dumps(
+        {
+            "results": [
+                {
+                    "type": "Expense",
+                    "category": "Pet Care",
+                    "needs_review": False,
+                }
+            ]
+        }
+    )
+    categories = [*CATEGORIES, Category(id=6, type="Expense", name="Pet Care", emoji=None, locked=False)]
+
+    batch = parse_batch_response(raw, expected_count=1, categories=categories)
+
+    assert batch.results[0].category == "Pet Care"
 
 
 def test_non_boolean_needs_review_raises_malformed_response_error():
@@ -182,4 +224,4 @@ def test_non_boolean_needs_review_raises_malformed_response_error():
     )
 
     with pytest.raises(MalformedResponseError):
-        parse_batch_response(raw, expected_count=1)
+        parse_batch_response(raw, expected_count=1, categories=CATEGORIES)

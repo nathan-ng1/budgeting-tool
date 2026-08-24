@@ -88,6 +88,29 @@ def types_with_categories(categories_by_type: dict[str, set[str]] = CATEGORIES_B
     return sorted(t for t, categories in categories_by_type.items() if categories)
 
 
+def categories_by_type(categories: list[Category]) -> dict[str, set[str]]:
+    """Every Category name grouped by its Type, from the live `categories`
+    table - the DB-backed replacement for CATEGORIES_BY_TYPE wherever a
+    caller already has a live `categories` list (Issue #90's dashboard query
+    and API call sites). Unlike assignable_categories_by_type, this includes
+    locked Categories: this is for display/lookup, not for what the
+    categorisation prompt may assign.
+    """
+    result: dict[str, set[str]] = {}
+    for category in categories:
+        result.setdefault(category.type, set()).add(category.name)
+    return result
+
+
+def type_lookup(categories: list[Category]) -> dict[str, str]:
+    """Category name -> Type, from the live `categories` table - the
+    DB-backed replacement for type_for_category wherever a caller already
+    has a live `categories` list, built once for O(1) lookups across many
+    Categories rather than rescanning per lookup.
+    """
+    return {category.name: category.type for category in categories}
+
+
 def assignable_categories_by_type(categories: list[Category]) -> dict[str, set[str]]:
     """The categories-by-type view offered to the categorisation prompt.
 
