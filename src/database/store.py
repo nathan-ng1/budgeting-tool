@@ -82,21 +82,11 @@ class LocalStore:
         self._connection.executemany(
             "INSERT INTO transactions (date, amount, type, category, notes) VALUES (?, ?, ?, ?, ?)",
             [
-                (c.date.isoformat(), round(self._normalise_amount(c), 2), c.type, c.category, c.notes)
+                (c.date.isoformat(), round(c.stored_amount, 2), c.type, c.category, c.notes)
                 for c in candidates
             ],
         )
         self._connection.commit()
-
-    @staticmethod
-    def _normalise_amount(candidate: Candidate) -> float:
-        """Amount is always written positive (see CONTEXT.md) - except Category
-        Beem Adjustment, a deliberate, narrow exception (ADR-0015) that stores
-        negative so it reduces Expense totals instead of adding to them.
-        """
-        if candidate.category == "Beem Adjustment":
-            return candidate.amount
-        return abs(candidate.amount)
 
     def read_transactions(self) -> list[Transaction]:
         rows = self._connection.execute(

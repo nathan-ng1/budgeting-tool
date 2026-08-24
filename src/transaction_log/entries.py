@@ -20,6 +20,17 @@ class Candidate:
                 f"Category {self.category!r} is not valid for Type {self.type!r}"
             )
 
+    @property
+    def stored_amount(self) -> float:
+        """Amount as written to the Transaction Log - always positive except
+        Category Beem Adjustment, a deliberate, narrow exception (ADR-0015)
+        that stores negative so it reduces Expense totals instead of adding
+        to them.
+        """
+        if self.category == "Beem Adjustment":
+            return self.amount
+        return abs(self.amount)
+
 
 @dataclass(frozen=True)
 class ExistingRow:
