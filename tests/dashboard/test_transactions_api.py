@@ -5,12 +5,16 @@ tests/dashboard/test_recurring_api.py - a test failing here means the
 Dashboard's Transactions tab would fail the same way.
 """
 
+import io
 import json
 from datetime import date
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+import openpyxl
 import pytest
+
+from transaction_log.categories import TYPE_ORDER, assignable_categories_by_type
 
 PAYLOAD = {
     "date": "2026-08-05",
@@ -322,3 +326,107 @@ def test_export_malformed_date_returns_400(running_server):
         )
 
     assert exc_info.value.code == 400
+
+
+def get_workbook(server, path: str):
+    """(status, headers, openpyxl Workbook) for a GET against `path`."""
+    with urlopen(f"http://127.0.0.1:{server.server_port}{path}") as response:
+        status, headers, body = response.status, response.headers, response.read()
+    return status, headers, openpyxl.load_workbook(io.BytesIO(body))
+
+
+def category_dropdown_values(workbook) -> list[str]:
+    lists_sheet = workbook["Lists"]
+    return [
+        lists_sheet.cell(row=row, column=2).value
+        for row in range(1, lists_sheet.max_row + 1)
+        if lists_sheet.cell(row=row, column=2).value is not None
+    ]
+
+
+def instructions_type_category_rows(workbook) -> list[tuple[str, str]]:
+    rows = list(workbook["Instructions"].iter_rows(values_only=True))
+    header_index = rows.index(("Type", "Category", None))
+    return [(row[0], row[1]) for row in rows[header_index + 1 :] if row[0] is not None]
+
+
+IMPORT_TEMPLATE_PATH = "/api/transactions/import-template"
+
+
+def test_import_template_sets_content_disposition_attachment(running_server):
+    _store, server = running_server
+
+    with urlopen(f"http://127.0.0.1:{server.server_port}{IMPORT_TEMPLATE_PATH}") as response:
+        status, headers = response.status, response.headers
+
+    assert status == 200
+    assert headers["Content-Disposition"].startswith("attachment;")
+    assert headers["Content-Disposition"].endswith('.xlsx"')
+
+
+def test_import_template_data_sheet_has_the_transaction_log_columns_in_order(running_server):
+    _store, server = running_server
+
+    _status, _headers, workbook = get_workbook(server, IMPORT_TEMPLATE_PATH)
+
+    sheet = workbook["Transactions"]
+    assert [cell.value for cell in sheet[1]] == ["Date", "Amount", "Type", "Category", "Notes"]
+
+
+def test_import_template_date_column_is_formatted_as_a_real_date_column(running_server):
+    _store, server = running_server
+
+    _status, _headers, workbook = get_workbook(server, IMPORT_TEMPLATE_PATH)
+
+    sheet = workbook["Transactions"]
+    assert sheet.cell(row=2, column=1).number_format == "YYYY-MM-DD"
+    assert sheet.cell(row=50, column=1).number_format == "YYYY-MM-DD"
+
+
+def test_import_template_type_dropdown_offers_the_four_fixed_types(running_server):
+    _store, server = running_server
+
+    _status, _headers, workbook = get_workbook(server, IMPORT_TEMPLATE_PATH)
+
+    lists_sheet = workbook["Lists"]
+    assert lists_sheet.sheet_state == "hidden"
+    type_values = [lists_sheet.cell(row=row, column=1).value for row in range(1, 5)]
+    assert type_values == list(TYPE_ORDER)
+
+
+def test_import_template_category_dropdown_matches_live_categories_and_excludes_locked(running_server):
+    store, server = running_server
+    store.create_category("Expense", "Pet Care", None)
+
+    _status, _headers, workbook = get_workbook(server, IMPORT_TEMPLATE_PATH)
+
+    expected = sorted({c.name for c in store.read_categories() if not c.locked})
+    assert category_dropdown_values(workbook) == expected
+    assert "Beem Adjustment" not in expected  # sanity: the live fixture really is locked
+    assert "Beem Adjustment" not in category_dropdown_values(workbook)
+
+
+def test_import_template_instructions_type_category_table_matches_live_categories(running_server):
+    store, server = running_server
+
+    _status, _headers, workbook = get_workbook(server, IMPORT_TEMPLATE_PATH)
+
+    assignable = assignable_categories_by_type(store.read_categories())
+    expected = [(t, name) for t in TYPE_ORDER for name in sorted(assignable.get(t, set()))]
+
+    rows = instructions_type_category_rows(workbook)
+    assert rows == expected
+    assert all(name != "Beem Adjustment" for _t, name in rows)
+
+
+def test_import_template_reflects_a_newly_added_category_with_no_restart(running_server):
+    store, server = running_server
+    _status, _headers, before = get_workbook(server, IMPORT_TEMPLATE_PATH)
+    assert "Pet Care" not in category_dropdown_values(before)
+    assert not any(name == "Pet Care" for _t, name in instructions_type_category_rows(before))
+
+    store.create_category("Expense", "Pet Care", None)
+
+    _status, _headers, after = get_workbook(server, IMPORT_TEMPLATE_PATH)
+    assert "Pet Care" in category_dropdown_values(after)
+    assert ("Expense", "Pet Care") in instructions_type_category_rows(after)

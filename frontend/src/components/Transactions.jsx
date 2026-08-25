@@ -71,6 +71,7 @@ export default function Transactions() {
   const [deleteError, setDeleteError] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [exportRange, setExportRange] = useState(null);
+  const [importOpen, setImportOpen] = useState(false);
   const menuRef = useRef(null);
 
   const financialYear = currentFinancialYear();
@@ -170,6 +171,11 @@ export default function Transactions() {
     setExportRange(defaultExportRange(financialYear));
   }
 
+  function openImport() {
+    setMenuOpen(false);
+    setImportOpen(true);
+  }
+
   function startDelete(transaction) {
     setDeleteError(null);
     setDeletingId(transaction.id);
@@ -207,12 +213,12 @@ export default function Transactions() {
       <div className="card__head">
         <h3>Transactions</h3>
         <div className="card__actions">
-          {adding === null && exportRange === null && (
+          {adding === null && exportRange === null && !importOpen && (
             <button type="button" className="button" onClick={() => setAdding(blankValues())}>
               Add transaction
             </button>
           )}
-          {adding === null && editing === null && exportRange === null && (
+          {adding === null && editing === null && exportRange === null && !importOpen && (
             <div className="menu" ref={menuRef}>
               <button
                 type="button"
@@ -226,7 +232,7 @@ export default function Transactions() {
               </button>
               {menuOpen && (
                 <div className="menu__list" role="menu">
-                  <button type="button" role="menuitem" className="menu__item" disabled>
+                  <button type="button" role="menuitem" className="menu__item" onClick={openImport}>
                     Import transactions
                   </button>
                   <button type="button" role="menuitem" className="menu__item" onClick={openExport}>
@@ -252,6 +258,8 @@ export default function Transactions() {
       {exportRange !== null && (
         <ExportPanel initial={exportRange} onCancel={() => setExportRange(null)} />
       )}
+
+      {importOpen && <ImportPanel onCancel={() => setImportOpen(false)} />}
 
       {transactions === null && <p className="state">Loading the Transactions&hellip;</p>}
 
@@ -575,6 +583,28 @@ function ExportPanel({ initial, onCancel }) {
       <div className="rule-form__actions">
         <a className="button" href={`/api/transactions/export?start=${start}&end=${end}`}>
           Download CSV
+        </a>
+        <button type="button" className="button button--quiet" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// The Import panel itself doesn't yet upload anything - only the template
+// download (Issue #97). Uploading/preview/commit is a follow-on ticket.
+function ImportPanel({ onCancel }) {
+  return (
+    <div className="rule-form">
+      <p>
+        Download the template, fill in your Transactions using the Category dropdowns, then come back here to
+        import it.
+      </p>
+
+      <div className="rule-form__actions">
+        <a className="button" href="/api/transactions/import-template">
+          Download template
         </a>
         <button type="button" className="button button--quiet" onClick={onCancel}>
           Cancel

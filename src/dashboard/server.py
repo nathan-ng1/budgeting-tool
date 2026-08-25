@@ -33,6 +33,7 @@ CONTENT_TYPES = {
 RECURRING_RULES_PATH = "/api/recurring-rules"
 TRANSACTIONS_PATH = "/api/transactions"
 TRANSACTIONS_EXPORT_PATH = "/api/transactions/export"
+TRANSACTIONS_IMPORT_TEMPLATE_PATH = "/api/transactions/import-template"
 BUDGET_EDITOR_PATH = "/api/budget-editor"
 BUDGET_GRID_PATH = "/api/budget-grid"
 BUDGET_SUGGESTION_PATH = "/api/budget-suggestion"
@@ -99,6 +100,8 @@ def _make_handler(store, static_root: Path):
                 self._send_json(200, [recurring.as_payload(r) for r in store.read_stored_recurring_rules()])
             elif parsed.path == TRANSACTIONS_EXPORT_PATH:
                 self._serve_transactions_export(parse_qs(parsed.query))
+            elif parsed.path == TRANSACTIONS_IMPORT_TEMPLATE_PATH:
+                self._serve_transactions_import_template()
             elif parsed.path == TRANSACTIONS_PATH:
                 self._serve_transactions(parse_qs(parsed.query))
             elif parsed.path == BUDGET_EDITOR_PATH:
@@ -376,6 +379,13 @@ def _make_handler(store, static_root: Path):
             body = transactions.as_csv(rows)
             self._send_csv(body, filename=f"transactions_{start.isoformat()}_to_{end.isoformat()}.csv")
 
+        def _serve_transactions_import_template(self) -> None:
+            # Generated fresh from the live Category list on every request
+            # (Issue #97) - never cached, so a Category added, renamed, or
+            # removed via Category Management shows up with no restart.
+            body = transactions.as_import_template(store.read_categories())
+            self._send_xlsx(body, filename="transaction_import_template.xlsx")
+
         def _serve_budget_editor(self, params) -> None:
             parsed = self._year_month(params)
             if parsed is None:
@@ -488,6 +498,20 @@ def _make_handler(store, static_root: Path):
             # (Issue #96).
             self.send_response(200)
             self.send_header("Content-Type", "text/csv; charset=utf-8")
+            self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def _send_xlsx(self, body: bytes, filename: str) -> None:
+            # Mirrors _send_csv: Content-Disposition: attachment lets the
+            # Import panel's "Download template" control be a plain <a href>
+            # (Issue #97).
+            self.send_response(200)
+            self.send_header(
+                "Content-Type",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
             self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
