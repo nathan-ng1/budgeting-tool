@@ -545,12 +545,28 @@ describe("Transactions", () => {
       expect(screen.queryByRole("menuitem", { name: "Export transactions" })).not.toBeInTheDocument();
     });
 
-    it("Import transactions is inert for now", async () => {
+    it("opens an inline Import panel with a Download template link", async () => {
       useBackend([]);
       render(<Transactions />);
       await userEvent.click(await screen.findByRole("button", { name: "More options" }));
 
-      expect(screen.getByRole("menuitem", { name: "Import transactions" })).toBeDisabled();
+      await userEvent.click(screen.getByRole("menuitem", { name: "Import transactions" }));
+
+      const link = screen.getByRole("link", { name: "Download template" });
+      expect(link).toHaveAttribute("href", "/api/transactions/import-template");
+      expect(screen.queryByRole("button", { name: "More options" })).not.toBeInTheDocument();
+    });
+
+    it("cancelling the Import panel closes it and brings back the … button", async () => {
+      useBackend([]);
+      render(<Transactions />);
+      await userEvent.click(await screen.findByRole("button", { name: "More options" }));
+      await userEvent.click(screen.getByRole("menuitem", { name: "Import transactions" }));
+
+      await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+      expect(screen.queryByRole("link", { name: "Download template" })).not.toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: "More options" })).toBeInTheDocument();
     });
 
     it("opens an inline Export panel defaulting to the current Financial Year", async () => {

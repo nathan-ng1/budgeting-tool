@@ -112,13 +112,17 @@ def type_lookup(categories: list[Category]) -> dict[str, str]:
 
 
 def assignable_categories_by_type(categories: list[Category]) -> dict[str, set[str]]:
-    """The categories-by-type view offered to the categorisation prompt.
+    """The categories-by-type view of every Category a human or the
+    categorisation prompt may actually pick - used both by the prompt itself
+    and by the Dashboard's Import template (Issue #97), whose Type/Category
+    dropdowns and Instructions-sheet table must offer exactly the same set.
 
     Every locked Category (Beem Adjustment today - see ADR-0015) is excluded:
     it must only ever be produced by the deterministic Beem parser path,
-    never model-assigned to an ordinary card transaction. It remains a fully
-    valid Expense Category everywhere else - this only narrows what the
-    prompt is offered. Driven by the generic `locked` column rather than a
+    never model-assigned to an ordinary card transaction, and offering it as
+    a pick for a hand-typed Import row would be just as wrong. It remains a
+    fully valid Expense Category everywhere else - this only narrows what's
+    offered as a choice. Driven by the generic `locked` column rather than a
     hardcoded name, so a future locked Category needs no change here.
     """
     result: dict[str, set[str]] = {}

@@ -70,7 +70,11 @@ export default function Transactions() {
   const [deletingId, setDeletingId] = useState(null);
   const [deleteError, setDeleteError] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [exportRange, setExportRange] = useState(null);
+  // Which "…" menu panel (if any) is open - null | "export" | "import". A
+  // single flag rather than one boolean/state per panel, so a third panel
+  // only needs a third value here, not a third clause on every visibility
+  // check below (Issue #97 code review).
+  const [panel, setPanel] = useState(null);
   const menuRef = useRef(null);
 
   const financialYear = currentFinancialYear();
@@ -167,7 +171,16 @@ export default function Transactions() {
 
   function openExport() {
     setMenuOpen(false);
-    setExportRange(defaultExportRange(financialYear));
+    setPanel("export");
+  }
+
+  function openImport() {
+    setMenuOpen(false);
+    setPanel("import");
+  }
+
+  function closePanel() {
+    setPanel(null);
   }
 
   function startDelete(transaction) {
@@ -207,12 +220,12 @@ export default function Transactions() {
       <div className="card__head">
         <h3>Transactions</h3>
         <div className="card__actions">
-          {adding === null && exportRange === null && (
+          {adding === null && panel === null && (
             <button type="button" className="button" onClick={() => setAdding(blankValues())}>
               Add transaction
             </button>
           )}
-          {adding === null && editing === null && exportRange === null && (
+          {adding === null && editing === null && panel === null && (
             <div className="menu" ref={menuRef}>
               <button
                 type="button"
@@ -226,7 +239,7 @@ export default function Transactions() {
               </button>
               {menuOpen && (
                 <div className="menu__list" role="menu">
-                  <button type="button" role="menuitem" className="menu__item" disabled>
+                  <button type="button" role="menuitem" className="menu__item" onClick={openImport}>
                     Import transactions
                   </button>
                   <button type="button" role="menuitem" className="menu__item" onClick={openExport}>
@@ -249,9 +262,11 @@ export default function Transactions() {
         />
       )}
 
-      {exportRange !== null && (
-        <ExportPanel initial={exportRange} onCancel={() => setExportRange(null)} />
+      {panel === "export" && (
+        <ExportPanel initial={defaultExportRange(financialYear)} onCancel={closePanel} />
       )}
+
+      {panel === "import" && <ImportPanel onCancel={closePanel} />}
 
       {transactions === null && <p className="state">Loading the Transactions&hellip;</p>}
 
@@ -575,6 +590,28 @@ function ExportPanel({ initial, onCancel }) {
       <div className="rule-form__actions">
         <a className="button" href={`/api/transactions/export?start=${start}&end=${end}`}>
           Download CSV
+        </a>
+        <button type="button" className="button button--quiet" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// The Import panel itself doesn't yet upload anything - only the template
+// download (Issue #97). Uploading/preview/commit is a follow-on ticket.
+function ImportPanel({ onCancel }) {
+  return (
+    <div className="rule-form">
+      <p>
+        Download the template, fill in your Transactions using the Category dropdowns, then come back here to
+        import it.
+      </p>
+
+      <div className="rule-form__actions">
+        <a className="button" href="/api/transactions/import-template">
+          Download template
         </a>
         <button type="button" className="button button--quiet" onClick={onCancel}>
           Cancel
