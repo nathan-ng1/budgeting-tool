@@ -316,7 +316,7 @@ def get_financial_year_transactions(store, year: int, month: int) -> list[Transa
     start = date(year, month, 1)
     end = date(year + 1, month, 1)
     transactions = [t for t in store.read_transactions() if start <= t.date < end]
-    return sorted(transactions, key=lambda t: (t.date, t.id), reverse=True)
+    return _newest_first(transactions)
 
 
 def get_transactions_in_range(store, start: date, end: date) -> list[Transaction]:
@@ -324,8 +324,17 @@ def get_transactions_in_range(store, start: date, end: date) -> list[Transaction
     newest first - the Export panel's query (Issue #96). Unlike
     get_financial_year_transactions, the range is caller-chosen rather than a
     Financial Year, so Export can span a Financial Year boundary.
+
+    Filters/sorts server-side, same as get_financial_year_transactions -
+    ADR-0010's "client-side filtering" choice was about the Transactions
+    tab's own interactive filters, not about this query: a downloadable CSV
+    has no client to filter in, so the range narrowing has to happen here.
     """
     transactions = [t for t in store.read_transactions() if start <= t.date <= end]
+    return _newest_first(transactions)
+
+
+def _newest_first(transactions: list[Transaction]) -> list[Transaction]:
     return sorted(transactions, key=lambda t: (t.date, t.id), reverse=True)
 
 
