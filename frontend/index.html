@@ -2,6 +2,25 @@
 <html lang="en-AU">
   <head>
     <meta charset="utf-8" />
+    <!-- Applies the stored colour theme (Issue #102) before the stylesheet
+         paints, so there's no flash of the wrong theme on load. Blocking
+         and non-module so it runs before anything else in <head>. -->
+    <script>
+      (function () {
+        try {
+          // "terracotta" is the implicit default (plain :root in styles.css)
+          // and needs no attribute; any other stored value is applied as-is
+          // so a future theme needs no change here.
+          var theme = localStorage.getItem("dashboard.theme");
+          if (theme && theme !== "terracotta") {
+            document.documentElement.dataset.theme = theme;
+          }
+        } catch (error) {
+          // localStorage can throw (private mode, disabled storage) - the
+          // Terracotta default from styles.css's plain :root still applies.
+        }
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Budgeting Dashboard</title>
   </head>

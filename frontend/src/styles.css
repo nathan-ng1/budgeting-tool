@@ -62,6 +62,7 @@
   --color-accent-700: #8c491a;
   --color-accent-800: #643312;
 
+  --color-accent-2-300: #e2e8d7;
   --color-accent-2-500: #8fa073;
   --color-accent-2-700: #56633f;
 
@@ -69,11 +70,39 @@
   --color-debt: #2d2d86;
 
   --color-card: #fffdf9;
+  --color-on-accent: #fff;
 
   --font-heading: "Caprasimo", system-ui, sans-serif;
   --font-body: "Figtree", system-ui, sans-serif;
 
   --radius-md: 16px;
+}
+
+/* "Terracotta" (Issue #102) is the plain :root block above - the implicit
+   default when no data-theme is set. "Blossom" is the only theme that needs
+   its own block: danger/debt/the accent-2 (green) ramp are shared across
+   themes because they carry meaning (adverse/favourable, debt) rather than
+   just decoration, and they already read fine against Blossom's near-white
+   card - see the /grilling session behind this issue. Blossom's category
+   chart palette lives separately, in lib/categoryColours.js. */
+[data-theme="blossom"] {
+  --color-text: #362229;
+  --color-accent: #d46b91;
+
+  --color-neutral-100: #fdf1f5;
+  --color-neutral-200: #f7e3ea;
+  --color-neutral-300: #ecd0da;
+  --color-neutral-400: #d9b2c0;
+  --color-neutral-500: #b98da0;
+  --color-neutral-600: #96687b;
+  --color-neutral-700: #6f4a58;
+
+  --color-accent-300: #f3c4d6;
+  --color-accent-600: #a83d66;
+  --color-accent-700: #82304f;
+  --color-accent-800: #5c2138;
+
+  --color-card: #fff8fa;
 }
 
 *,
@@ -836,7 +865,7 @@ tbody:first-of-type .bva__section {
   border: 1px solid var(--color-accent-600);
   border-radius: 999px;
   background: var(--color-accent-600);
-  color: #fff;
+  color: var(--color-on-accent);
   font-family: var(--font-body);
   font-size: 13.5px;
   font-weight: 600;
@@ -869,7 +898,7 @@ tbody:first-of-type .bva__section {
 .button--danger:hover {
   background: var(--color-accent-700);
   border-color: var(--color-accent-700);
-  color: #fff;
+  color: var(--color-on-accent);
 }
 
 .rule-form {
@@ -967,6 +996,51 @@ tbody:first-of-type .bva__section {
   margin-top: -1px;
   border-top-left-radius: 0;
   border-top-right-radius: 0;
+}
+
+/* — Appearance / theme switcher (Settings tab, Issue #102) — */
+
+.theme-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.theme-switcher__option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px 8px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--color-neutral-300);
+  background: var(--color-card);
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--color-neutral-600);
+  cursor: pointer;
+}
+
+.theme-switcher__option:hover {
+  border-color: var(--color-neutral-400);
+}
+
+.theme-switcher__option[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.theme-switcher__option:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.theme-switcher__swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--color-text) 15%, transparent);
 }
 
 /* — Category Management (Settings tab) — */
@@ -1127,7 +1201,7 @@ tbody:first-of-type .bva__section {
   border-radius: 10px;
   border: 1px solid var(--color-neutral-300);
   background: var(--color-card);
-  box-shadow: 0 10px 30px rgba(32, 30, 29, 0.18);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--color-text) 18%, transparent);
 }
 
 .emoji-picker__grid {
@@ -1296,7 +1370,7 @@ tbody:first-of-type .table th.table__section {
 }
 
 .budget-suggestion__chip.figure--favourable {
-  background: #e2e8d7;
+  background: var(--color-accent-2-300);
   color: var(--color-accent-2-700);
 }
 
@@ -1341,7 +1415,7 @@ tbody:first-of-type .table th.table__section {
   border: 1px solid var(--color-neutral-300);
   border-radius: 10px;
   background: var(--color-card);
-  box-shadow: 0 8px 24px rgba(32, 30, 29, 0.12);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--color-text) 12%, transparent);
 }
 
 .menu__item {

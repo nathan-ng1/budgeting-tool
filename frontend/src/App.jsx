@@ -12,6 +12,7 @@ import MonthSelector from "./components/MonthSelector.jsx";
 import RecurringRules from "./components/RecurringRules.jsx";
 import SpendingByCategory from "./components/SpendingByCategory.jsx";
 import StatTiles from "./components/StatTiles.jsx";
+import ThemeSwitcher from "./components/ThemeSwitcher.jsx";
 import TopExpenses from "./components/TopExpenses.jsx";
 import Transactions from "./components/Transactions.jsx";
 import { fetchAnnualOverview, fetchLatestTransactionDate, fetchMonthOverview } from "./lib/api.js";
@@ -150,10 +151,13 @@ export default function App() {
         </nav>
 
         {tab === "Settings" && (
-          <div className="settings-group">
-            <CategoryManagement />
-            <RecurringRules />
-          </div>
+          <>
+            <ThemeSwitcher />
+            <div className="settings-group">
+              <CategoryManagement />
+              <RecurringRules />
+            </div>
+          </>
         )}
 
         {tab === "Transactions" && <Transactions />}
