@@ -48,7 +48,11 @@ const PALETTE = [
 // (index) as under Terracotta, so switching themes doesn't reshuffle which
 // Categories look alike or different from each other - just what they look
 // like. Picked from the /prototype comparison's winning "Blush" variant.
-const BLOSSOM_PALETTE = [
+// Exported so the throwaway accent-palette prototype (Issue #102 follow-up,
+// frontend/src/components/AccentPaletteProto102.jsx) can substitute
+// candidate shades for indices 4-7 while comparing options - not otherwise
+// used outside this module.
+export const BLOSSOM_PALETTE = [
   "#82304f",
   "#a83d66",
   "#c96f8f",

@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
 
+// PROTOTYPE (Issue #102 follow-up), dev-only - see the component's header
+// comment. Remove this import and its mount below once the accent-colour
+// question is settled.
+import AccentPaletteProto102 from "./components/AccentPaletteProto102.jsx";
 import Budget from "./components/Budget.jsx";
 import BudgetedVsActual from "./components/BudgetedVsActual.jsx";
 import CategoryManagement from "./components/CategoryManagement.jsx";
@@ -121,6 +125,7 @@ export default function App() {
 
   return (
     <div className="page">
+      {import.meta.env.DEV && <AccentPaletteProto102 />}
       <div className="page__inner">
         <header className="header">
           <div>
