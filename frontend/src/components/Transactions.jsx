@@ -19,10 +19,12 @@ import {
   visibleTransactions,
 } from "../lib/transactionsView.js";
 import {
+  commitImport,
   createTransaction,
   deleteTransaction,
   fetchCategories,
   fetchTransactions,
+  previewImport,
   updateTransaction,
 } from "../lib/transactionsApi.js";
 
@@ -75,6 +77,9 @@ export default function Transactions() {
   // only needs a third value here, not a third clause on every visibility
   // check below (Issue #97 code review).
   const [panel, setPanel] = useState(null);
+  // The commit summary shown after a successful Import (Issue #98) - cleared
+  // whenever another panel or the Add form opens, so it can't go stale.
+  const [importMessage, setImportMessage] = useState(null);
   const menuRef = useRef(null);
 
   const financialYear = currentFinancialYear();
@@ -171,16 +176,30 @@ export default function Transactions() {
 
   function openExport() {
     setMenuOpen(false);
+    setImportMessage(null);
     setPanel("export");
   }
 
   function openImport() {
     setMenuOpen(false);
+    setImportMessage(null);
     setPanel("import");
   }
 
   function closePanel() {
     setPanel(null);
+  }
+
+  // Flags a written row whose Date falls outside the Financial Year on
+  // screen, since the `load()` refresh below won't surface it (Issue #98).
+  async function handleImportComplete(written) {
+    setPanel(null);
+    const outsideCount = written.filter((row) => {
+      const [year, month] = row.date.split("-").map(Number);
+      return financialYearFor(year, month) !== financialYear;
+    }).length;
+    setImportMessage(importSummary(written.length, outsideCount));
+    await load();
   }
 
   function startDelete(transaction) {
@@ -221,7 +240,14 @@ export default function Transactions() {
         <h3>Transactions</h3>
         <div className="card__actions">
           {adding === null && panel === null && (
-            <button type="button" className="button" onClick={() => setAdding(blankValues())}>
+            <button
+              type="button"
+              className="button"
+              onClick={() => {
+                setImportMessage(null);
+                setAdding(blankValues());
+              }}
+            >
               Add transaction
             </button>
           )}
@@ -266,7 +292,13 @@ export default function Transactions() {
         <ExportPanel initial={defaultExportRange(financialYear)} onCancel={closePanel} />
       )}
 
-      {panel === "import" && <ImportPanel onCancel={closePanel} />}
+      {panel === "import" && <ImportPanel onCancel={closePanel} onImported={handleImportComplete} />}
+
+      {importMessage !== null && (
+        <p className="state" role="status">
+          {importMessage}
+        </p>
+      )}
 
       {transactions === null && <p className="state">Loading the Transactions&hellip;</p>}
 
@@ -599,20 +631,131 @@ function ExportPanel({ initial, onCancel }) {
   );
 }
 
-// The Import panel itself doesn't yet upload anything - only the template
-// download (Issue #97). Uploading/preview/commit is a follow-on ticket.
-function ImportPanel({ onCancel }) {
+// Reads a File as base64 (no data: URL prefix) - the shape
+// dashboard.transactions.decode_import_file expects, since the backend's
+// _read_json/_send_json handling is JSON-only, not multipart (Issue #98).
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+    reader.onerror = () => reject(reader.error ?? new Error("Could not read the selected file"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function summariseRows(rows) {
+  return {
+    write: rows.filter((row) => row.outcome === "write").length,
+    duplicate: rows.filter((row) => row.outcome === "duplicate").length,
+    rejected: rows.filter((row) => row.outcome === "rejected").length,
+  };
+}
+
+function importSummary(writtenCount, outsideCount) {
+  const base = `Imported ${writtenCount} transaction${writtenCount === 1 ? "" : "s"}.`;
+  if (outsideCount === 0) {
+    return base;
+  }
+  return `${base} ${outsideCount} ${outsideCount === 1 ? "is" : "are"} outside the Financial Year currently on screen and won't appear in the table above.`;
+}
+
+// Upload -> preview -> confirm (Issue #98). The preview writes nothing; only
+// "Confirm import" does, sending back exactly the to-write Candidates the
+// preview returned - no re-upload of the file, no server-held state between
+// the two calls.
+function ImportPanel({ onCancel, onImported }) {
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  async function upload() {
+    if (file === null) {
+      return;
+    }
+    setError(null);
+    setBusy(true);
+    try {
+      const fileBase64 = await readFileAsBase64(file);
+      setPreview(await previewImport(fileBase64));
+    } catch (cause) {
+      setError(cause.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirm() {
+    setError(null);
+    setBusy(true);
+    try {
+      const { written } = await commitImport(preview.candidates);
+      onImported(written);
+    } catch (cause) {
+      setError(cause.message);
+      setBusy(false);
+    }
+  }
+
+  const counts = preview === null ? null : summariseRows(preview.rows);
+  const rejections = preview === null ? [] : preview.rows.filter((row) => row.outcome === "rejected");
+
   return (
     <div className="rule-form">
-      <p>
-        Download the template, fill in your Transactions using the Category dropdowns, then come back here to
-        import it.
-      </p>
+      {preview === null && (
+        <>
+          <p>
+            Download the template, fill in your Transactions using the Category dropdowns, then come back here to
+            import it.
+          </p>
+          <label className="field">
+            <span className="field__label">Import file</span>
+            <input
+              type="file"
+              accept=".xlsx"
+              onChange={(event) => setFile(event.target.files[0] ?? null)}
+            />
+          </label>
+        </>
+      )}
+
+      {preview !== null && (
+        <div>
+          <p>
+            {counts.write} to write, {counts.duplicate} already in the Transaction Log, {counts.rejected} rejected.
+          </p>
+          {rejections.length > 0 && (
+            <ul>
+              {rejections.map((row) => (
+                <li key={row.row}>
+                  Row {row.row}: {row.reason}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {error !== null && (
+        <p className="state state--error" role="alert">
+          {error}
+        </p>
+      )}
 
       <div className="rule-form__actions">
         <a className="button" href="/api/transactions/import-template">
           Download template
         </a>
+        {preview === null && (
+          <button type="button" className="button" disabled={file === null || busy} onClick={upload}>
+            Upload
+          </button>
+        )}
+        {preview !== null && (
+          <button type="button" className="button" disabled={busy} onClick={confirm}>
+            Confirm import
+          </button>
+        )}
         <button type="button" className="button button--quiet" onClick={onCancel}>
           Cancel
         </button>

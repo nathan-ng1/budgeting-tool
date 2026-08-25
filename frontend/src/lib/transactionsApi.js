@@ -55,3 +55,13 @@ export function updateTransaction(id, transaction) {
 export function deleteTransaction(id) {
   return request(`${BASE}/${id}`, { method: "DELETE" });
 }
+
+// Issue #98 - upload/preview/confirm. A base64 body, not multipart, since the
+// backend's `_read_json`/`_send_json` handling is JSON-only (see the AC).
+export function previewImport(fileBase64) {
+  return request(`${BASE}/import-preview`, jsonRequest("POST", { file: fileBase64 }));
+}
+
+export function commitImport(candidates) {
+  return request(`${BASE}/import-commit`, jsonRequest("POST", { candidates }));
+}

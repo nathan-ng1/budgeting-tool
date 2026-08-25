@@ -5,6 +5,7 @@ tests/dashboard/test_recurring_api.py - a test failing here means the
 Dashboard's Transactions tab would fail the same way.
 """
 
+import base64
 import io
 import json
 from datetime import date
@@ -15,6 +16,7 @@ import openpyxl
 import pytest
 
 from transaction_log.categories import TYPE_ORDER, assignable_categories_by_type
+from transaction_log.entries import Candidate
 
 PAYLOAD = {
     "date": "2026-08-05",
@@ -430,3 +432,184 @@ def test_import_template_reflects_a_newly_added_category_with_no_restart(running
     _status, _headers, after = get_workbook(server, IMPORT_TEMPLATE_PATH)
     assert "Pet Care" in category_dropdown_values(after)
     assert ("Expense", "Pet Care") in instructions_type_category_rows(after)
+
+
+# Issue #98 - upload/preview/confirm.
+
+IMPORT_PREVIEW_PATH = "/api/transactions/import-preview"
+IMPORT_COMMIT_PATH = "/api/transactions/import-commit"
+
+
+def build_import_workbook(rows: list[tuple]) -> bytes:
+    """An in-memory `.xlsx` shaped like the Import template - same header,
+    same "Transactions" sheet name - with `rows` written as data rows
+    starting at row 2. Each row is a (date, amount, type, category, notes)
+    tuple; `date` may be a `date`/`datetime` (a genuine Excel date cell) or a
+    plain string (a text cell).
+    """
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "Transactions"
+    sheet.append(["Date", "Amount", "Type", "Category", "Notes"])
+    for row in rows:
+        sheet.append(list(row))
+
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    return buffer.getvalue()
+
+
+def upload_payload(file_bytes: bytes) -> dict:
+    return {"file": base64.b64encode(file_bytes).decode("ascii")}
+
+
+def outcomes_by_row(body: dict) -> dict[int, dict]:
+    return {row["row"]: row for row in body["rows"]}
+
+
+def test_import_preview_classifies_a_mixed_files_rows_correctly(running_server):
+    store, server = running_server
+    store.append_rows(
+        [
+            _candidate(date=date(2026, 8, 1), amount=15.0, type="Expense", category="Groceries", notes="Existing row")
+        ]
+    )
+
+    file_bytes = build_import_workbook(
+        [
+            (date(2026, 8, 10), 55.0, "Expense", "Groceries", "New row"),  # row 2: write
+            (date(2026, 8, 1), 15.0, "Expense", "Groceries", "Existing row"),  # row 3: duplicate
+            (date(2026, 8, 11), 20.0, "Expense", "Salary", "Bad pair"),  # row 4: rejected - bad pair
+            (date(2026, 8, 12), 0, "Expense", "Groceries", "Zero amount"),  # row 5: rejected - zero
+            (date(2026, 8, 13), -5.0, "Expense", "Groceries", "Negative amount"),  # row 6: rejected - negative
+            (date(2026, 8, 14), 30.0, "Expense", "Beem Adjustment", "Locked category"),  # row 7: rejected - locked
+            ("11/08/2026", 40.0, "Expense", "Groceries", "Ambiguous date"),  # row 8: rejected - ambiguous date
+            (date(2026, 8, 15), 60.0, "Expense", "Groceries", "Real Excel date"),  # row 9: write
+        ]
+    )
+
+    status, body = call(server, "POST", IMPORT_PREVIEW_PATH, upload_payload(file_bytes))
+
+    assert status == 200
+    outcomes = outcomes_by_row(body)
+    assert outcomes[2]["outcome"] == "write"
+    assert outcomes[3]["outcome"] == "duplicate"
+    assert outcomes[4]["outcome"] == "rejected"
+    assert "Salary" in outcomes[4]["reason"]
+    assert outcomes[5]["outcome"] == "rejected"
+    assert outcomes[6]["outcome"] == "rejected"
+    assert outcomes[7]["outcome"] == "rejected"
+    assert "Beem Adjustment" in outcomes[7]["reason"]
+    assert outcomes[8]["outcome"] == "rejected"
+    assert outcomes[9]["outcome"] == "write"
+
+    assert [c["notes"] for c in body["candidates"]] == ["New row", "Real Excel date"]
+
+    # A preview writes nothing - only the row seeded before the request exists.
+    assert [t.notes for t in store.read_transactions()] == ["Existing row"]
+
+
+def test_import_preview_writes_nothing(running_server):
+    store, server = running_server
+    file_bytes = build_import_workbook([(date(2026, 8, 10), 55.0, "Expense", "Groceries", "New row")])
+
+    call(server, "POST", IMPORT_PREVIEW_PATH, upload_payload(file_bytes))
+
+    assert store.read_transactions() == []
+
+
+def test_import_preview_skips_fully_blank_rows(running_server):
+    _store, server = running_server
+    file_bytes = build_import_workbook(
+        [
+            (date(2026, 8, 10), 55.0, "Expense", "Groceries", "New row"),
+            (None, None, None, None, None),
+        ]
+    )
+
+    status, body = call(server, "POST", IMPORT_PREVIEW_PATH, upload_payload(file_bytes))
+
+    assert status == 200
+    assert [row["row"] for row in body["rows"]] == [2]
+
+
+def test_import_preview_rejects_a_structurally_malformed_upload_with_one_top_level_error(running_server):
+    _store, server = running_server
+
+    with pytest.raises(HTTPError) as exc_info:
+        call(server, "POST", IMPORT_PREVIEW_PATH, upload_payload(b"not an xlsx file at all"))
+
+    assert exc_info.value.code == 400
+    body = json.loads(exc_info.value.read())
+    assert "error" in body
+    assert "rows" not in body
+
+
+def test_import_preview_rejects_a_workbook_with_renamed_columns(running_server):
+    _store, server = running_server
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "Transactions"
+    sheet.append(["Date", "Amount", "Kind", "Category", "Notes"])
+    sheet.append([date(2026, 8, 10), 55.0, "Expense", "Groceries", "New row"])
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+
+    with pytest.raises(HTTPError) as exc_info:
+        call(server, "POST", IMPORT_PREVIEW_PATH, upload_payload(buffer.getvalue()))
+
+    assert exc_info.value.code == 400
+    assert "error" in json.loads(exc_info.value.read())
+
+
+def test_import_commit_writes_exactly_the_previewed_to_write_candidates(running_server):
+    store, server = running_server
+    file_bytes = build_import_workbook(
+        [
+            (date(2026, 8, 10), 55.0, "Expense", "Groceries", "New row"),
+            (date(2026, 8, 11), 20.0, "Income", "Salary", "Payday"),
+        ]
+    )
+    _status, preview = call(server, "POST", IMPORT_PREVIEW_PATH, upload_payload(file_bytes))
+
+    status, body = call(server, "POST", IMPORT_COMMIT_PATH, {"candidates": preview["candidates"]})
+
+    assert status == 200
+    assert {t.notes for t in store.read_transactions()} == {"New row", "Payday"}
+    assert {row["notes"] for row in body["written"]} == {"New row", "Payday"}
+
+
+def test_import_commit_reskips_a_row_that_became_a_duplicate_since_preview(running_server):
+    store, server = running_server
+    file_bytes = build_import_workbook([(date(2026, 8, 10), 55.0, "Expense", "Groceries", "New row")])
+    _status, preview = call(server, "POST", IMPORT_PREVIEW_PATH, upload_payload(file_bytes))
+
+    # The row is written by some other means between preview and commit.
+    store.append_rows(
+        [_candidate(date=date(2026, 8, 10), amount=55.0, type="Expense", category="Groceries", notes="New row")]
+    )
+
+    status, body = call(server, "POST", IMPORT_COMMIT_PATH, {"candidates": preview["candidates"]})
+
+    assert status == 200
+    assert body["written"] == []
+    assert len(store.read_transactions()) == 1
+
+
+def test_reimporting_a_file_already_present_reports_every_row_as_duplicate_and_writes_nothing(running_server):
+    store, server = running_server
+    file_bytes = build_import_workbook([(date(2026, 8, 10), 55.0, "Expense", "Groceries", "New row")])
+    call(server, "POST", IMPORT_PREVIEW_PATH, upload_payload(file_bytes))
+    _status, first_preview = call(server, "POST", IMPORT_PREVIEW_PATH, upload_payload(file_bytes))
+    call(server, "POST", IMPORT_COMMIT_PATH, {"candidates": first_preview["candidates"]})
+
+    status, second_preview = call(server, "POST", IMPORT_PREVIEW_PATH, upload_payload(file_bytes))
+
+    assert status == 200
+    assert [row["outcome"] for row in second_preview["rows"]] == ["duplicate"]
+    assert second_preview["candidates"] == []
+    assert len(store.read_transactions()) == 1
+
+
+def _candidate(**kwargs):
+    return Candidate(**kwargs)

@@ -569,6 +569,143 @@ describe("Transactions", () => {
       expect(await screen.findByRole("button", { name: "More options" })).toBeInTheDocument();
     });
 
+    describe("importing (upload, preview, confirm)", () => {
+      function importBackend({ transactions = [], categories = CATEGORIES, preview, commitWritten = [] } = {}) {
+        let stored = [...transactions];
+        let nextId = 900;
+
+        return vi.fn(async (url, options = {}) => {
+          if (url === "/api/categories") {
+            return { ok: true, status: 200, json: async () => categories };
+          }
+          if (url === "/api/transactions/import-preview") {
+            return { ok: true, status: 200, json: async () => preview };
+          }
+          if (url === "/api/transactions/import-commit") {
+            stored = [...stored, ...commitWritten.map((row) => ({ id: (nextId += 1), ...row }))];
+            return { ok: true, status: 200, json: async () => ({ written: commitWritten }) };
+          }
+          return { ok: true, status: 200, json: async () => stored };
+        });
+      }
+
+      function xlsxFile() {
+        return new File(["dummy content"], "transactions.xlsx", {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        });
+      }
+
+      async function openImportPanel() {
+        render(<Transactions />);
+        await userEvent.click(await screen.findByRole("button", { name: "More options" }));
+        await userEvent.click(screen.getByRole("menuitem", { name: "Import transactions" }));
+      }
+
+      it("uploads the chosen file as base64 JSON to the preview endpoint", async () => {
+        fetchMock = importBackend({ preview: { rows: [], candidates: [] } });
+        vi.stubGlobal("fetch", fetchMock);
+        await openImportPanel();
+
+        await userEvent.upload(screen.getByLabelText(/import file/i), xlsxFile());
+        await userEvent.click(screen.getByRole("button", { name: "Upload" }));
+
+        const call = await waitFor(() => {
+          const found = fetchMock.mock.calls.find(([url]) => url === "/api/transactions/import-preview");
+          expect(found).toBeTruthy();
+          return found;
+        });
+        const body = JSON.parse(call[1].body);
+        expect(body.file).toBe(btoa("dummy content"));
+      });
+
+      it("shows the preview's write/duplicate/rejected counts and a rejection's reason, without writing anything", async () => {
+        fetchMock = importBackend({
+          preview: {
+            rows: [
+              { row: 2, outcome: "write" },
+              { row: 3, outcome: "duplicate" },
+              { row: 4, outcome: "rejected", reason: "Category 'Salary' is not a valid Expense Category" },
+            ],
+            candidates: [{ date: "2026-08-10", amount: 55, type: "Expense", category: "Groceries", notes: "New row" }],
+          },
+        });
+        vi.stubGlobal("fetch", fetchMock);
+        await openImportPanel();
+
+        await userEvent.upload(screen.getByLabelText(/import file/i), xlsxFile());
+        await userEvent.click(screen.getByRole("button", { name: "Upload" }));
+
+        expect(await screen.findByText(/1 to write, 1 already in the Transaction Log, 1 rejected/i)).toBeInTheDocument();
+        expect(screen.getByText(/Row 4: Category 'Salary' is not a valid Expense Category/)).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Confirm import" })).toBeInTheDocument();
+        expect(fetchMock.mock.calls.some(([url]) => url === "/api/transactions/import-commit")).toBe(false);
+      });
+
+      it("commits exactly the previewed candidates, closes the panel, reloads the list, and reports how many rows were written", async () => {
+        const candidates = [{ date: "2026-08-10", amount: 55, type: "Expense", category: "Groceries", notes: "New row" }];
+        fetchMock = importBackend({
+          preview: { rows: [{ row: 2, outcome: "write" }], candidates },
+          commitWritten: candidates,
+        });
+        vi.stubGlobal("fetch", fetchMock);
+        await openImportPanel();
+        await userEvent.upload(screen.getByLabelText(/import file/i), xlsxFile());
+        await userEvent.click(screen.getByRole("button", { name: "Upload" }));
+        await screen.findByRole("button", { name: "Confirm import" });
+
+        await userEvent.click(screen.getByRole("button", { name: "Confirm import" }));
+
+        const commitCall = await waitFor(() => {
+          const found = fetchMock.mock.calls.find(([url]) => url === "/api/transactions/import-commit");
+          expect(found).toBeTruthy();
+          return found;
+        });
+        expect(JSON.parse(commitCall[1].body)).toEqual({ candidates });
+        expect(await screen.findByText(/Imported 1 transaction\./)).toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "Confirm import" })).not.toBeInTheDocument();
+        expect(await screen.findByRole("button", { name: "More options" })).toBeInTheDocument();
+        expect(await screen.findByText("New row")).toBeInTheDocument();
+      });
+
+      it("flags when a written row's date falls outside the Financial Year currently on screen", async () => {
+        // System time is 21 August 2026 (Financial Year 2026, Jul 2026 - Jun 2027).
+        const candidates = [{ date: "2025-01-01", amount: 55, type: "Expense", category: "Groceries", notes: "Old row" }];
+        fetchMock = importBackend({
+          preview: { rows: [{ row: 2, outcome: "write" }], candidates },
+          commitWritten: candidates,
+        });
+        vi.stubGlobal("fetch", fetchMock);
+        await openImportPanel();
+        await userEvent.upload(screen.getByLabelText(/import file/i), xlsxFile());
+        await userEvent.click(screen.getByRole("button", { name: "Upload" }));
+        await screen.findByRole("button", { name: "Confirm import" });
+
+        await userEvent.click(screen.getByRole("button", { name: "Confirm import" }));
+
+        expect(await screen.findByText(/1 is outside the Financial Year currently on screen/)).toBeInTheDocument();
+      });
+
+      it("shows the backend's top-level error for a structurally invalid upload", async () => {
+        fetchMock = vi.fn(async (url) => {
+          if (url === "/api/categories") {
+            return { ok: true, status: 200, json: async () => CATEGORIES };
+          }
+          if (url === "/api/transactions/import-preview") {
+            return { ok: false, status: 400, json: async () => ({ error: "The uploaded file isn't a valid .xlsx workbook" }) };
+          }
+          return { ok: true, status: 200, json: async () => [] };
+        });
+        vi.stubGlobal("fetch", fetchMock);
+        await openImportPanel();
+        await userEvent.upload(screen.getByLabelText(/import file/i), xlsxFile());
+
+        await userEvent.click(screen.getByRole("button", { name: "Upload" }));
+
+        expect(await screen.findByRole("alert")).toHaveTextContent(/isn't a valid \.xlsx workbook/);
+        expect(screen.queryByRole("button", { name: "Confirm import" })).not.toBeInTheDocument();
+      });
+    });
+
     it("opens an inline Export panel defaulting to the current Financial Year", async () => {
       useBackend([]);
       render(<Transactions />);

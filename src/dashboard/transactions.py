@@ -6,15 +6,19 @@ Transaction looks like on the wire is a question about the domain, not about
 HTTP - mirrors dashboard.recurring.
 """
 
+import base64
+import binascii
 import csv
 import io
-from datetime import date
+import zipfile
+from datetime import date, datetime
 
 import openpyxl
 from openpyxl.worksheet.datavalidation import DataValidation
 
-from transaction_log.categories import TYPE_ORDER, Category, assignable_categories_by_type
-from transaction_log.entries import Candidate, Transaction
+from transaction_log.categories import TYPE_ORDER, Category, assignable_categories_by_type, type_lookup
+from transaction_log.entries import Candidate, ExistingRow, Transaction
+from transaction_log.writer import resolve_writes
 
 FIELDS = ("date", "amount", "type", "category", "notes")
 CSV_HEADER = ("Date", "Amount", "Type", "Category", "Notes")
@@ -178,3 +182,186 @@ def _date(value, field: str) -> date:
         return date.fromisoformat(value)
     except (TypeError, ValueError):
         raise ValueError(f"Field {field!r} must be a date as YYYY-MM-DD, got {value!r}") from None
+
+
+def as_candidate_payload(candidate: Candidate) -> dict:
+    """The wire shape of one Candidate - the same fields `from_payload`
+    reads back, with no `id` (a Candidate isn't stored yet). Round-trips the
+    Import preview's to-write list to the commit endpoint (Issue #98).
+    """
+    return {
+        "date": candidate.date.isoformat(),
+        "amount": candidate.amount,
+        "type": candidate.type,
+        "category": candidate.category,
+        "notes": candidate.notes,
+    }
+
+
+def decode_import_file(payload) -> bytes:
+    """The raw `.xlsx` bytes `payload["file"]` (base64) decodes to.
+
+    Raises ValueError - a single top-level error, per Issue #98's AC - for
+    anything that isn't a JSON object carrying a base64 `file` string.
+    """
+    if not isinstance(payload, dict) or not isinstance(payload.get("file"), str):
+        raise ValueError("Expected a JSON object with a base64-encoded 'file'")
+
+    try:
+        return base64.b64decode(payload["file"], validate=True)
+    except binascii.Error:
+        raise ValueError("Field 'file' must be valid base64") from None
+
+
+def candidates_from_import_payload(payload) -> list[Candidate]:
+    """The to-write Candidate list an Import-commit request body describes -
+    exactly what the preview response's `candidates` handed back to the
+    caller (Issue #98). Reuses `from_payload` per row, so a malformed entry
+    fails the same way a malformed Add-transaction body would.
+    """
+    if not isinstance(payload, dict) or not isinstance(payload.get("candidates"), list):
+        raise ValueError("Expected a JSON object with a 'candidates' array")
+
+    return [from_payload(item) for item in payload["candidates"]]
+
+
+def resolve_commit(candidates: list[Candidate], existing_rows: list[ExistingRow]) -> list[Candidate]:
+    """The subset of `candidates` still worth writing, re-resolved against
+    the store's *current* rows - covering the case where the Transaction Log
+    changed between an Import preview and its commit (Issue #98), so a row
+    that became a duplicate in the meantime is skipped rather than
+    double-written. Kept here, not in dashboard.server, so the HTTP layer
+    stays a router - mirrors `preview_import`.
+    """
+    return resolve_writes(candidates, existing_rows).to_write
+
+
+def preview_import(file_bytes: bytes, categories: list[Category], existing_rows: list[ExistingRow]) -> dict:
+    """Parse an uploaded Import workbook and classify every data row without
+    writing anything (Issue #98) - `{"rows": [...], "candidates": [...]}`,
+    where `rows` reports every data row's outcome (write / duplicate /
+    rejected, with a reason for rejected) and `candidates` is the to-write
+    list the commit endpoint expects back verbatim.
+
+    Raises ValueError - a single top-level error - for a structurally
+    invalid upload (missing/renamed columns, or bytes that aren't a real
+    `.xlsx`); a row that's merely bad (invalid pair, unparsable date, ...) is
+    reported per-row instead, never aborts the whole request.
+
+    (Type, Category) validity and the locked-Category check are both against
+    `categories` - the live table, not the fixed CATEGORIES_BY_TYPE dict - so
+    a Category added through Category Management (Issue #91) is importable
+    immediately, matching the Import template's own live dropdown (Issue
+    #97) and how the store validates a manually-added transaction.
+    """
+    sheet = _load_transactions_sheet(file_bytes)
+    type_by_category = type_lookup(categories)
+    locked_categories = {c.name for c in categories if c.locked}
+
+    parsed: list[tuple[int, Candidate]] = []
+    rows: list[dict] = []
+    for row_number, values in _data_rows(sheet):
+        try:
+            candidate = _candidate_from_row(values, type_by_category, locked_categories)
+        except ValueError as cause:
+            rows.append({"row": row_number, "outcome": "rejected", "reason": str(cause)})
+            continue
+        parsed.append((row_number, candidate))
+
+    result = resolve_writes([candidate for _, candidate in parsed], existing_rows)
+    to_write_ids = {id(candidate) for candidate in result.to_write}
+    for row_number, candidate in parsed:
+        outcome = "write" if id(candidate) in to_write_ids else "duplicate"
+        rows.append({"row": row_number, "outcome": outcome})
+
+    rows.sort(key=lambda row: row["row"])
+
+    return {
+        "rows": rows,
+        "candidates": [as_candidate_payload(candidate) for candidate in result.to_write],
+    }
+
+
+def _load_transactions_sheet(file_bytes: bytes):
+    """The Import template's "Transactions" data sheet - falling back to
+    whichever sheet was active on save, in case a user renames it. Raises
+    ValueError if `file_bytes` isn't a readable `.xlsx` at all, or if its
+    header row doesn't match the template's exactly (a renamed/missing
+    column - Issue #98's structural-error AC).
+    """
+    try:
+        workbook = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True)
+    except (zipfile.BadZipFile, KeyError, OSError) as cause:
+        raise ValueError("The uploaded file isn't a valid .xlsx workbook") from cause
+
+    sheet = workbook["Transactions"] if "Transactions" in workbook.sheetnames else workbook.active
+
+    header = tuple(cell.value for cell in sheet[1])
+    if header != CSV_HEADER:
+        seen = ", ".join(str(value) for value in header if value is not None) or "nothing"
+        raise ValueError(f"Expected columns {', '.join(CSV_HEADER)} - got {seen}")
+
+    return sheet
+
+
+def _data_rows(sheet):
+    """(row_number, [date, amount, type, category, notes]) for every data
+    row that isn't entirely blank - the Import template pre-formats 500 rows
+    (Issue #97), most of which a real upload leaves untouched.
+    """
+    for row_number in range(2, sheet.max_row + 1):
+        values = [sheet.cell(row=row_number, column=column).value for column in range(1, 6)]
+        if all(value is None or (isinstance(value, str) and value.strip() == "") for value in values):
+            continue
+        yield row_number, values
+
+
+def _candidate_from_row(values: list, type_by_category: dict[str, str], locked_categories: set[str]) -> Candidate:
+    date_value, amount_value, type_value, category_value, notes_value = values
+
+    row_date = _import_date(date_value)
+    amount = _import_amount(amount_value)
+    transaction_type = str(type_value).strip() if type_value is not None else ""
+    category = str(category_value).strip() if category_value is not None else ""
+    notes = str(notes_value).strip() if notes_value is not None else ""
+
+    if not transaction_type:
+        raise ValueError("Type is required")
+    if not category:
+        raise ValueError("Category is required")
+    if category in locked_categories:
+        raise ValueError(f"Category {category!r} is locked and cannot be imported")
+    if type_by_category.get(category) != transaction_type:
+        raise ValueError(f"Category {category!r} is not a valid {transaction_type} Category")
+
+    return Candidate(date=row_date, amount=amount, type=transaction_type, category=category, notes=notes)
+
+
+def _import_date(value) -> date:
+    """A genuine Excel date cell is accepted unambiguously; a text cell only
+    as strict YYYY-MM-DD - anything else (an ambiguous DD/MM/YYYY-style
+    string, a number, nothing) is rejected rather than guessed at (Issue
+    #98's AC).
+    """
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        try:
+            return date.fromisoformat(value.strip())
+        except ValueError:
+            pass
+
+    raise ValueError(f"Date must be a real Excel date or text as YYYY-MM-DD, got {value!r}")
+
+
+def _import_amount(value) -> float:
+    """A positive, non-zero number - matching the manual Add-transaction
+    form's min="0.01" restriction (Issue #98's AC), stricter than Candidate's
+    own __post_init__ (which only rejects zero, since a Statement Export
+    Candidate may still carry a negative sign - see transaction_log.writer).
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
+        raise ValueError(f"Amount must be a positive number, got {value!r}")
+    return float(value)
