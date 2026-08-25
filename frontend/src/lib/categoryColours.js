@@ -48,15 +48,18 @@ const PALETTE = [
 // (index) as under Terracotta, so switching themes doesn't reshuffle which
 // Categories look alike or different from each other - just what they look
 // like. Picked from the /prototype comparison's winning "Blush" variant.
+// Indices 4-7 were originally the shared accent-2 (green) ramp; a later
+// /prototype (Issue #102 follow-up) replaced them with a warm gold ramp
+// after user feedback that green read as off-theme against pink.
 const BLOSSOM_PALETTE = [
   "#82304f",
   "#a83d66",
   "#c96f8f",
   "#e0a0b9",
-  "#56633f",
-  "#728157",
-  "#8fa073",
-  "#aebf92",
+  "#8a6425",
+  "#a87c2e",
+  "#c99b4f",
+  "#dfc08c",
   "#6f4a58",
   "#96687b",
   "#b98da0",
