@@ -44,9 +44,9 @@ describe("colourForCategory under the Blossom theme", () => {
     expect(new Set(blossomColours).size).toBe(EXPENSE_CATEGORIES.length);
     blossomColours.forEach((colour) => expect(colour).toMatch(/^#[0-9a-f]{6}$/i));
     // A Blossom-specific palette (Issue #102), not Terracotta's colours
-    // relabelled - overall it's a different palette. (The two share their
-    // green - accent-2 - steps by design: that ramp means "favourable"
-    // and stays constant across themes, so a handful of slots do match.)
+    // relabelled - every slot differs, including the former green steps
+    // (indices 4-7), which moved to a Blossom-only gold ramp after user
+    // feedback that green read as off-theme against pink.
     expect(blossomColours).not.toEqual(terracottaColours);
   });
 

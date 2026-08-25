@@ -62,12 +62,23 @@
   --color-accent-700: #8c491a;
   --color-accent-800: #643312;
 
-  --color-accent-2-300: #e2e8d7;
   --color-accent-2-500: #8fa073;
-  --color-accent-2-700: #56633f;
 
   --color-danger: #b3382a;
   --color-debt: #2d2d86;
+  --color-transfer: var(--color-accent-300);
+
+  /* Value-judgment colours for a figure/chip (favourable vs adverse) are
+     their own tokens, not aliases of the accent ramp - Blossom (Issue #102
+     follow-up) needs to give these independent values while every other
+     accent-ramp use (buttons, hovers, errors) stays on the accent ramp
+     itself. Terracotta's defaults are the green/accent values it always
+     used, kept as literals now that nothing else reads the old
+     accent-2-300/700 steps. */
+  --color-positive: #56633f;
+  --color-positive-tint: #e2e8d7;
+  --color-negative: var(--color-accent-700);
+  --color-negative-tint: var(--color-accent-300);
 
   --color-card: #fffdf9;
   --color-on-accent: #fff;
@@ -80,11 +91,16 @@
 
 /* "Terracotta" (Issue #102) is the plain :root block above - the implicit
    default when no data-theme is set. "Blossom" is the only theme that needs
-   its own block: danger/debt/the accent-2 (green) ramp are shared across
-   themes because they carry meaning (adverse/favourable, debt) rather than
-   just decoration, and they already read fine against Blossom's near-white
-   card - see the /grilling session behind this issue. Blossom's category
-   chart palette lives separately, in lib/categoryColours.js. */
+   its own block. Danger stays shared across themes (it carries meaning
+   rather than decoration, and reads fine against Blossom's near-white card -
+   see the /grilling session behind Issue #102). Debt, Transfer,
+   Income/Remaining and positive/negative (favourable/adverse) do NOT stay
+   shared, per user feedback after #102 shipped: blue and green read as
+   off-theme against a pink UI, so Blossom gets its own values for each -
+   chosen via /prototype, comparing three positive/negative pairs live
+   against real data ("Rose & Plum" won) plus one fixed set of neutral/gold
+   replacements for Debt/Transfer/Income. Blossom's category chart palette
+   lives separately, in lib/categoryColours.js. */
 [data-theme="blossom"] {
   --color-text: #362229;
   --color-accent: #d46b91;
@@ -97,10 +113,18 @@
   --color-neutral-600: #96687b;
   --color-neutral-700: #6f4a58;
 
-  --color-accent-300: #f3c4d6;
   --color-accent-600: #a83d66;
   --color-accent-700: #82304f;
   --color-accent-800: #5c2138;
+
+  --color-accent-2-500: #b8863a;
+  --color-debt: #6b5c5a;
+  --color-transfer: #ab9490;
+
+  --color-positive: #a8225f;
+  --color-positive-tint: #f6dbe6;
+  --color-negative: #5b3161;
+  --color-negative-tint: #e6dae8;
 
   --color-card: #fff8fa;
 }
@@ -140,13 +164,13 @@ h3 {
 }
 
 /* A figure that went the wrong way (overspent, negative Net Balance) reads in
-   the warm accent; one that went the right way reads in the green. */
+   --color-negative; one that went the right way reads in --color-positive. */
 .figure--adverse {
-  color: var(--color-accent-700);
+  color: var(--color-negative);
 }
 
 .figure--favourable {
-  color: var(--color-accent-2-700);
+  color: var(--color-positive);
 }
 
 /* — page shell — */
@@ -1165,7 +1189,7 @@ tbody:first-of-type .bva__section {
 }
 
 .category-chip__save {
-  color: var(--color-accent-2-700);
+  color: var(--color-positive);
 }
 
 .category-chip__cancel {
@@ -1365,13 +1389,13 @@ tbody:first-of-type .table th.table__section {
 }
 
 .budget-suggestion__chip.figure--adverse {
-  background: var(--color-accent-300);
-  color: var(--color-accent-800);
+  background: var(--color-negative-tint);
+  color: var(--color-negative);
 }
 
 .budget-suggestion__chip.figure--favourable {
-  background: var(--color-accent-2-300);
-  color: var(--color-accent-2-700);
+  background: var(--color-positive-tint);
+  color: var(--color-positive);
 }
 
 .budget-suggestion__chips-empty {

@@ -4,7 +4,7 @@ import { money } from "../lib/format.js";
 const SEGMENT_COLOURS = {
   expenses: "var(--color-accent-600)",
   debt: "var(--color-debt)",
-  transferred: "var(--color-accent-300)",
+  transferred: "var(--color-transfer)",
   remaining: "var(--color-accent-2-500)",
   over_income: "var(--color-danger)",
 };
