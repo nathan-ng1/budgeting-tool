@@ -12,6 +12,8 @@
 // falls through to the hashed fallback below and still renders a stable colour,
 // just not a hand-picked one.
 
+import { getCurrentTheme } from "./theme.js";
+
 export const EXPENSE_CATEGORIES = [
   "Groceries",
   "Dining & Takeaway",
@@ -42,12 +44,34 @@ const PALETTE = [
   "#c0b6a5", // neutral-400
 ];
 
-const ASSIGNED = new Map(EXPENSE_CATEGORIES.map((category, index) => [category, PALETTE[index % PALETTE.length]]));
+// Blossom's own palette (Issue #102): a Category keeps the same *slot*
+// (index) as under Terracotta, so switching themes doesn't reshuffle which
+// Categories look alike or different from each other - just what they look
+// like. Picked from the /prototype comparison's winning "Blush" variant.
+const BLOSSOM_PALETTE = [
+  "#82304f",
+  "#a83d66",
+  "#c96f8f",
+  "#e0a0b9",
+  "#56633f",
+  "#728157",
+  "#8fa073",
+  "#aebf92",
+  "#6f4a58",
+  "#96687b",
+  "#b98da0",
+  "#d9b2c0",
+];
+
+function activePalette() {
+  return getCurrentTheme() === "blossom" ? BLOSSOM_PALETTE : PALETTE;
+}
 
 export function colourForCategory(category) {
-  const assigned = ASSIGNED.get(category);
-  if (assigned !== undefined) {
-    return assigned;
+  const palette = activePalette();
+  const index = EXPENSE_CATEGORIES.indexOf(category);
+  if (index !== -1) {
+    return palette[index % palette.length];
   }
 
   // An unrecognised Category still needs a colour that is stable across
@@ -56,5 +80,5 @@ export function colourForCategory(category) {
   for (let i = 0; i < category.length; i += 1) {
     hash = (hash * 31 + category.charCodeAt(i)) % 1000003;
   }
-  return PALETTE[hash % PALETTE.length];
+  return palette[hash % palette.length];
 }

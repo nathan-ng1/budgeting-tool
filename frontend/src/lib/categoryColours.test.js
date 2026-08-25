@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { EXPENSE_CATEGORIES, colourForCategory } from "./categoryColours.js";
 
@@ -27,5 +27,40 @@ describe("colourForCategory", () => {
 
     expect(first).toMatch(/^#[0-9a-f]{6}$/i);
     expect(colourForCategory("Some Future Category")).toBe(first);
+  });
+});
+
+describe("colourForCategory under the Blossom theme", () => {
+  afterEach(() => {
+    delete document.documentElement.dataset.theme;
+  });
+
+  it("gives every known Expense Category its own colour, distinct from Terracotta's", () => {
+    const terracottaColours = EXPENSE_CATEGORIES.map(colourForCategory);
+
+    document.documentElement.dataset.theme = "blossom";
+    const blossomColours = EXPENSE_CATEGORIES.map(colourForCategory);
+
+    expect(new Set(blossomColours).size).toBe(EXPENSE_CATEGORIES.length);
+    blossomColours.forEach((colour) => expect(colour).toMatch(/^#[0-9a-f]{6}$/i));
+    // A Blossom-specific palette (Issue #102), not Terracotta's colours
+    // relabelled - overall it's a different palette. (The two share their
+    // green - accent-2 - steps by design: that ramp means "favourable"
+    // and stays constant across themes, so a handful of slots do match.)
+    expect(blossomColours).not.toEqual(terracottaColours);
+  });
+
+  it("keeps a Category in the same relative slot across themes", () => {
+    // Same rank in each theme's palette, so switching themes doesn't also
+    // reshuffle which Categories look alike or different from each other.
+    document.documentElement.dataset.theme = "blossom";
+    const groceriesBlossom = colourForCategory("Groceries");
+
+    delete document.documentElement.dataset.theme;
+    const groceriesTerracotta = colourForCategory("Groceries");
+
+    document.documentElement.dataset.theme = "blossom";
+    expect(colourForCategory("Groceries")).toBe(groceriesBlossom);
+    expect(groceriesBlossom).not.toBe(groceriesTerracotta);
   });
 });
