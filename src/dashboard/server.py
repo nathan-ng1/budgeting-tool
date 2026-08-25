@@ -14,6 +14,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 from dashboard import budgets, categories, queries, recurring, transactions
 from database.store import CategoryNotFound, RecurringRuleNotFound, TransactionNotFound
 from transaction_log.categories import type_lookup
+from transaction_log.writer import resolve_writes
 
 # Where `npm run build` puts the frontend (see frontend/vite.config.js). The
 # directory is a build artefact, so it is absent in a fresh clone until the
@@ -34,6 +35,8 @@ RECURRING_RULES_PATH = "/api/recurring-rules"
 TRANSACTIONS_PATH = "/api/transactions"
 TRANSACTIONS_EXPORT_PATH = "/api/transactions/export"
 TRANSACTIONS_IMPORT_TEMPLATE_PATH = "/api/transactions/import-template"
+TRANSACTIONS_IMPORT_PREVIEW_PATH = "/api/transactions/import-preview"
+TRANSACTIONS_IMPORT_COMMIT_PATH = "/api/transactions/import-commit"
 BUDGET_EDITOR_PATH = "/api/budget-editor"
 BUDGET_GRID_PATH = "/api/budget-grid"
 BUDGET_SUGGESTION_PATH = "/api/budget-suggestion"
@@ -133,6 +136,10 @@ def _make_handler(store, static_root: Path):
                 self._write_transaction(lambda candidate: (201, store.create_transaction(candidate)))
             elif path == CATEGORIES_PATH:
                 self._create_category()
+            elif path == TRANSACTIONS_IMPORT_PREVIEW_PATH:
+                self._import_preview()
+            elif path == TRANSACTIONS_IMPORT_COMMIT_PATH:
+                self._import_commit()
             else:
                 self._send_json(404, {"error": "Not found"})
 
@@ -290,6 +297,46 @@ def _make_handler(store, static_root: Path):
                 return
 
             self._send_json(201, categories.as_payload(created))
+
+        def _import_preview(self) -> None:
+            """Parse an uploaded Import workbook and answer with its
+            per-row report, writing nothing (Issue #98)."""
+            try:
+                file_bytes = transactions.decode_import_file(self._read_json())
+            except ValueError as cause:
+                self._send_json(400, {"error": str(cause)})
+                return
+
+            try:
+                report = transactions.preview_import(file_bytes, store.read_categories(), store.read_existing_rows())
+            except ValueError as cause:
+                self._send_json(400, {"error": str(cause)})
+                return
+
+            self._send_json(200, report)
+
+        def _import_commit(self) -> None:
+            """Write exactly the to-write Candidate list an Import preview
+            handed back - re-resolved against the store's *current* rows, so
+            a row that became a duplicate since preview is skipped rather
+            than double-written (Issue #98)."""
+            try:
+                candidates = transactions.candidates_from_import_payload(self._read_json())
+            except ValueError as cause:
+                self._send_json(400, {"error": str(cause)})
+                return
+
+            result = resolve_writes(candidates, store.read_existing_rows())
+            try:
+                store.append_rows(result.to_write)
+            except ValueError as cause:
+                # A Category referenced by the preview was renamed or deleted
+                # in the meantime - the store is the authority on why the
+                # write is refused.
+                self._send_json(400, {"error": str(cause)})
+                return
+
+            self._send_json(200, {"written": [transactions.candidate_payload(c) for c in result.to_write]})
 
         def _update_category(self, category_id: int) -> None:
             try:
