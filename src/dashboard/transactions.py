@@ -184,7 +184,7 @@ def _date(value, field: str) -> date:
         raise ValueError(f"Field {field!r} must be a date as YYYY-MM-DD, got {value!r}") from None
 
 
-def candidate_payload(candidate: Candidate) -> dict:
+def as_candidate_payload(candidate: Candidate) -> dict:
     """The wire shape of one Candidate - the same fields `from_payload`
     reads back, with no `id` (a Candidate isn't stored yet). Round-trips the
     Import preview's to-write list to the commit endpoint (Issue #98).
@@ -223,6 +223,17 @@ def candidates_from_import_payload(payload) -> list[Candidate]:
         raise ValueError("Expected a JSON object with a 'candidates' array")
 
     return [from_payload(item) for item in payload["candidates"]]
+
+
+def resolve_commit(candidates: list[Candidate], existing_rows: list[ExistingRow]) -> list[Candidate]:
+    """The subset of `candidates` still worth writing, re-resolved against
+    the store's *current* rows - covering the case where the Transaction Log
+    changed between an Import preview and its commit (Issue #98), so a row
+    that became a duplicate in the meantime is skipped rather than
+    double-written. Kept here, not in dashboard.server, so the HTTP layer
+    stays a router - mirrors `preview_import`.
+    """
+    return resolve_writes(candidates, existing_rows).to_write
 
 
 def preview_import(file_bytes: bytes, categories: list[Category], existing_rows: list[ExistingRow]) -> dict:
@@ -267,7 +278,7 @@ def preview_import(file_bytes: bytes, categories: list[Category], existing_rows:
 
     return {
         "rows": rows,
-        "candidates": [candidate_payload(candidate) for candidate in result.to_write],
+        "candidates": [as_candidate_payload(candidate) for candidate in result.to_write],
     }
 
 

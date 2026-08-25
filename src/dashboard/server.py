@@ -14,7 +14,6 @@ from urllib.parse import parse_qs, unquote, urlparse
 from dashboard import budgets, categories, queries, recurring, transactions
 from database.store import CategoryNotFound, RecurringRuleNotFound, TransactionNotFound
 from transaction_log.categories import type_lookup
-from transaction_log.writer import resolve_writes
 
 # Where `npm run build` puts the frontend (see frontend/vite.config.js). The
 # directory is a build artefact, so it is absent in a fresh clone until the
@@ -326,9 +325,9 @@ def _make_handler(store, static_root: Path):
                 self._send_json(400, {"error": str(cause)})
                 return
 
-            result = resolve_writes(candidates, store.read_existing_rows())
+            to_write = transactions.resolve_commit(candidates, store.read_existing_rows())
             try:
-                store.append_rows(result.to_write)
+                store.append_rows(to_write)
             except ValueError as cause:
                 # A Category referenced by the preview was renamed or deleted
                 # in the meantime - the store is the authority on why the
@@ -336,7 +335,7 @@ def _make_handler(store, static_root: Path):
                 self._send_json(400, {"error": str(cause)})
                 return
 
-            self._send_json(200, {"written": [transactions.candidate_payload(c) for c in result.to_write]})
+            self._send_json(200, {"written": [transactions.as_candidate_payload(c) for c in to_write]})
 
         def _update_category(self, category_id: int) -> None:
             try:
