@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { categoryLabel, emojiLookup, groupByType } from "../lib/categories.js";
 import { FINANCIAL_YEAR_START_MONTH, financialYearFor } from "../lib/financialYear.js";
@@ -29,6 +29,12 @@ import {
 function currentFinancialYear() {
   const today = new Date();
   return financialYearFor(today.getFullYear(), today.getMonth() + 1);
+}
+
+// The Financial Year's own bounds - July 1 through June 30 (see
+// lib/financialYear.js) - the Export panel's default date range (Issue #96).
+function defaultExportRange(financialYear) {
+  return { start: `${financialYear}-07-01`, end: `${financialYear + 1}-06-30` };
 }
 
 const DEFAULT_FILTERS = { category: ALL_CATEGORIES, month: ALL_MONTHS, type: ALL_TYPES, search: "" };
@@ -63,8 +69,28 @@ export default function Transactions() {
   const [editing, setEditing] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [deleteError, setDeleteError] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [exportRange, setExportRange] = useState(null);
+  const menuRef = useRef(null);
 
   const financialYear = currentFinancialYear();
+
+  // Clicking anywhere outside the "…" menu closes it, same as clicking the
+  // button again - Issue #96.
+  useEffect(() => {
+    if (!menuOpen) {
+      return undefined;
+    }
+
+    function handleClick(event) {
+      if (menuRef.current !== null && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [menuOpen]);
 
   const load = useCallback(async (signal) => {
     const [loadedTransactions, loadedCategories] = await Promise.all([
@@ -139,6 +165,11 @@ export default function Transactions() {
     setEditing(null);
   }
 
+  function openExport() {
+    setMenuOpen(false);
+    setExportRange(defaultExportRange(financialYear));
+  }
+
   function startDelete(transaction) {
     setDeleteError(null);
     setDeletingId(transaction.id);
@@ -175,11 +206,37 @@ export default function Transactions() {
     <section className="card">
       <div className="card__head">
         <h3>Transactions</h3>
-        {adding === null && (
-          <button type="button" className="button" onClick={() => setAdding(blankValues())}>
-            Add transaction
-          </button>
-        )}
+        <div className="card__actions">
+          {adding === null && exportRange === null && (
+            <button type="button" className="button" onClick={() => setAdding(blankValues())}>
+              Add transaction
+            </button>
+          )}
+          {adding === null && editing === null && exportRange === null && (
+            <div className="menu" ref={menuRef}>
+              <button
+                type="button"
+                className="button button--quiet"
+                aria-haspopup="true"
+                aria-expanded={menuOpen}
+                aria-label="More options"
+                onClick={() => setMenuOpen((open) => !open)}
+              >
+                &hellip;
+              </button>
+              {menuOpen && (
+                <div className="menu__list" role="menu">
+                  <button type="button" role="menuitem" className="menu__item" disabled>
+                    Import transactions
+                  </button>
+                  <button type="button" role="menuitem" className="menu__item" onClick={openExport}>
+                    Export transactions
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {adding !== null && (
@@ -190,6 +247,10 @@ export default function Transactions() {
           onCancel={() => setAdding(null)}
           onSave={saveNew}
         />
+      )}
+
+      {exportRange !== null && (
+        <ExportPanel initial={exportRange} onCancel={() => setExportRange(null)} />
       )}
 
       {transactions === null && <p className="state">Loading the Transactions&hellip;</p>}
@@ -490,6 +551,36 @@ function TransactionForm({ initial, categories, emoji, onCancel, onSave }) {
         </button>
       </div>
     </form>
+  );
+}
+
+function ExportPanel({ initial, onCancel }) {
+  const [start, setStart] = useState(initial.start);
+  const [end, setEnd] = useState(initial.end);
+
+  return (
+    <div className="rule-form">
+      <div className="rule-form__grid">
+        <label className="field">
+          <span className="field__label">Start date</span>
+          <input type="date" required value={start} onChange={(event) => setStart(event.target.value)} />
+        </label>
+
+        <label className="field">
+          <span className="field__label">End date</span>
+          <input type="date" required value={end} onChange={(event) => setEnd(event.target.value)} />
+        </label>
+      </div>
+
+      <div className="rule-form__actions">
+        <a className="button" href={`/api/transactions/export?start=${start}&end=${end}`}>
+          Download CSV
+        </a>
+        <button type="button" className="button button--quiet" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </div>
   );
 }
 

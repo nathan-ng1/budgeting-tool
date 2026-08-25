@@ -319,6 +319,16 @@ def get_financial_year_transactions(store, year: int, month: int) -> list[Transa
     return sorted(transactions, key=lambda t: (t.date, t.id), reverse=True)
 
 
+def get_transactions_in_range(store, start: date, end: date) -> list[Transaction]:
+    """Every Transaction between `start` and `end`, both bounds inclusive,
+    newest first - the Export panel's query (Issue #96). Unlike
+    get_financial_year_transactions, the range is caller-chosen rather than a
+    Financial Year, so Export can span a Financial Year boundary.
+    """
+    transactions = [t for t in store.read_transactions() if start <= t.date <= end]
+    return sorted(transactions, key=lambda t: (t.date, t.id), reverse=True)
+
+
 def get_latest_transaction_date(store) -> date | None:
     """The most recent date in the Transaction Log, or None if it is empty.
 
