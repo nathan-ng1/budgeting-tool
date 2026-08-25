@@ -5,6 +5,7 @@ ADR-0008 (local web app, no data leaves the machine). Binds to localhost only.
 import json
 import threading
 from dataclasses import asdict
+from datetime import date
 from functools import wraps
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -31,6 +32,7 @@ CONTENT_TYPES = {
 
 RECURRING_RULES_PATH = "/api/recurring-rules"
 TRANSACTIONS_PATH = "/api/transactions"
+TRANSACTIONS_EXPORT_PATH = "/api/transactions/export"
 BUDGET_EDITOR_PATH = "/api/budget-editor"
 BUDGET_GRID_PATH = "/api/budget-grid"
 BUDGET_SUGGESTION_PATH = "/api/budget-suggestion"
@@ -95,6 +97,8 @@ def _make_handler(store, static_root: Path):
                 self._send_json(200, {"date": latest.isoformat() if latest is not None else None})
             elif parsed.path == RECURRING_RULES_PATH:
                 self._send_json(200, [recurring.as_payload(r) for r in store.read_stored_recurring_rules()])
+            elif parsed.path == TRANSACTIONS_EXPORT_PATH:
+                self._serve_transactions_export(parse_qs(parsed.query))
             elif parsed.path == TRANSACTIONS_PATH:
                 self._serve_transactions(parse_qs(parsed.query))
             elif parsed.path == BUDGET_EDITOR_PATH:
@@ -362,6 +366,16 @@ def _make_handler(store, static_root: Path):
             rows = queries.get_financial_year_transactions(store, year=parsed[0], month=parsed[1])
             self._send_json(200, [transactions.as_payload(t) for t in rows])
 
+        def _serve_transactions_export(self, params) -> None:
+            parsed = self._date_range(params)
+            if parsed is None:
+                return
+            start, end = parsed
+
+            rows = queries.get_transactions_in_range(store, start, end)
+            body = transactions.as_csv(rows)
+            self._send_csv(body, filename=f"transactions_{start.isoformat()}_to_{end.isoformat()}.csv")
+
         def _serve_budget_editor(self, params) -> None:
             parsed = self._year_month(params)
             if parsed is None:
@@ -414,6 +428,17 @@ def _make_handler(store, static_root: Path):
                 return None
             return year
 
+        def _date_range(self, params) -> tuple[date, date] | None:
+            """The (start, end) query params as dates, or None - with a 400
+            already sent - if either is missing or not a YYYY-MM-DD date."""
+            try:
+                start = date.fromisoformat(params["start"][0])
+                end = date.fromisoformat(params["end"][0])
+            except (KeyError, ValueError, IndexError):
+                self._send_json(400, {"error": "start and end query parameters are required dates (YYYY-MM-DD)"})
+                return None
+            return start, end
+
         def _serve_static(self, path: str) -> None:
             # The Dashboard is one page with no client-side router, so only "/"
             # serves it. Every other path is a real file or nothing at all -
@@ -456,6 +481,17 @@ def _make_handler(store, static_root: Path):
 
         def _send_plain(self, status: int, message: str) -> None:
             self._send_bytes(status, message.encode("utf-8"), "text/plain; charset=utf-8")
+
+        def _send_csv(self, body: bytes, filename: str) -> None:
+            # Content-Disposition: attachment is what lets the Export panel's
+            # download control be a plain <a href> - no fetch+blob flow needed
+            # (Issue #96).
+            self.send_response(200)
+            self.send_header("Content-Type", "text/csv; charset=utf-8")
+            self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
 
         def _send_bytes(self, status: int, body: bytes, content_type: str) -> None:
             self.send_response(status)

@@ -14,6 +14,7 @@ from dashboard.queries import (
     get_full_year_budget_grid,
     get_latest_transaction_date,
     get_month_overview,
+    get_transactions_in_range,
 )
 from database.store import connect
 
@@ -946,6 +947,60 @@ def test_financial_year_transactions_include_their_id(tmp_path: Path, make_candi
     [transaction] = get_financial_year_transactions(store, year=2026, month=7)
 
     assert transaction.id is not None
+
+
+def test_transactions_in_range_on_an_empty_database_returns_no_transactions(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    assert get_transactions_in_range(store, date(2026, 7, 1), date(2027, 6, 30)) == []
+
+
+def test_transactions_in_range_includes_both_bounds(tmp_path: Path, make_candidate):
+    store = connect(tmp_path / "budget.db")
+    store.append_rows(
+        [
+            make_candidate(date=date(2026, 7, 31), notes="Before the range"),
+            make_candidate(date=date(2026, 8, 1), notes="Start of the range"),
+            make_candidate(date=date(2026, 8, 15), notes="Inside the range"),
+            make_candidate(date=date(2026, 8, 31), notes="End of the range"),
+            make_candidate(date=date(2026, 9, 1), notes="After the range"),
+        ]
+    )
+
+    notes = {t.notes for t in get_transactions_in_range(store, date(2026, 8, 1), date(2026, 8, 31))}
+
+    assert notes == {"Start of the range", "Inside the range", "End of the range"}
+
+
+def test_transactions_in_range_spans_a_financial_year_boundary(tmp_path: Path, make_candidate):
+    store = connect(tmp_path / "budget.db")
+    store.append_rows(
+        [
+            make_candidate(date=date(2026, 6, 15), notes="Prior Financial Year"),
+            make_candidate(date=date(2026, 6, 30), notes="Last day of FY25-26"),
+            make_candidate(date=date(2026, 7, 1), notes="First day of FY26-27"),
+            make_candidate(date=date(2026, 7, 15), notes="Next Financial Year"),
+        ]
+    )
+
+    notes = {t.notes for t in get_transactions_in_range(store, date(2026, 6, 30), date(2026, 7, 1))}
+
+    assert notes == {"Last day of FY25-26", "First day of FY26-27"}
+
+
+def test_transactions_in_range_are_sorted_newest_first(tmp_path: Path, make_candidate):
+    store = connect(tmp_path / "budget.db")
+    store.append_rows(
+        [
+            make_candidate(date=date(2026, 8, 1), notes="Oldest"),
+            make_candidate(date=date(2026, 8, 20), notes="Newest"),
+            make_candidate(date=date(2026, 8, 10), notes="Middle"),
+        ]
+    )
+
+    ordered = get_transactions_in_range(store, date(2026, 8, 1), date(2026, 8, 31))
+
+    assert [t.notes for t in ordered] == ["Newest", "Middle", "Oldest"]
 
 
 def test_latest_transaction_date_counts_every_type_not_just_expenses(tmp_path: Path, make_candidate):

@@ -234,3 +234,91 @@ def test_a_non_numeric_transaction_id_returns_404(running_server):
         call(server, "DELETE", "/api/transactions/not-a-number")
 
     assert exc_info.value.code == 404
+
+
+def get_csv(server, path: str):
+    with urlopen(f"http://127.0.0.1:{server.server_port}{path}") as response:
+        return response.status, response.headers, response.read().decode("utf-8")
+
+
+def test_export_on_an_empty_range_returns_a_header_only_csv(running_server):
+    _store, server = running_server
+
+    status, _headers, body = get_csv(server, "/api/transactions/export?start=2026-08-01&end=2026-08-31")
+
+    assert status == 200
+    assert body == "Date,Amount,Type,Category,Notes\r\n"
+
+
+def test_export_has_exactly_five_columns_and_no_id(running_server):
+    _store, server = running_server
+    call(server, "POST", "/api/transactions", PAYLOAD)
+
+    _status, _headers, body = get_csv(server, "/api/transactions/export?start=2026-08-01&end=2026-08-31")
+
+    lines = body.strip("\r\n").split("\r\n")
+    assert lines[0] == "Date,Amount,Type,Category,Notes"
+    assert lines[1] == "2026-08-05,42.5,Expense,Groceries,Woolworths"
+
+
+def test_export_bounds_are_inclusive(running_server, make_candidate):
+    store, server = running_server
+    store.append_rows(
+        [
+            make_candidate(date=date(2026, 7, 31), notes="Before the range"),
+            make_candidate(date=date(2026, 8, 1), notes="Start of the range"),
+            make_candidate(date=date(2026, 8, 31), notes="End of the range"),
+            make_candidate(date=date(2026, 9, 1), notes="After the range"),
+        ]
+    )
+
+    _status, _headers, body = get_csv(server, "/api/transactions/export?start=2026-08-01&end=2026-08-31")
+
+    assert "Before the range" not in body
+    assert "Start of the range" in body
+    assert "End of the range" in body
+    assert "After the range" not in body
+
+
+def test_export_spans_a_financial_year_boundary(running_server, make_candidate):
+    store, server = running_server
+    store.append_rows(
+        [
+            make_candidate(date=date(2026, 6, 30), notes="Last day of FY25-26"),
+            make_candidate(date=date(2026, 7, 1), notes="First day of FY26-27"),
+        ]
+    )
+
+    _status, _headers, body = get_csv(server, "/api/transactions/export?start=2026-06-30&end=2026-07-01")
+
+    assert "Last day of FY25-26" in body
+    assert "First day of FY26-27" in body
+
+
+def test_export_sets_content_disposition_attachment(running_server):
+    _store, server = running_server
+
+    _status, headers, _body = get_csv(server, "/api/transactions/export?start=2026-08-01&end=2026-08-31")
+
+    assert headers["Content-Disposition"].startswith("attachment;")
+    assert ".csv" in headers["Content-Disposition"]
+
+
+def test_export_missing_query_params_returns_400(running_server):
+    _store, server = running_server
+
+    with pytest.raises(HTTPError) as exc_info:
+        urlopen(f"http://127.0.0.1:{server.server_port}/api/transactions/export")
+
+    assert exc_info.value.code == 400
+
+
+def test_export_malformed_date_returns_400(running_server):
+    _store, server = running_server
+
+    with pytest.raises(HTTPError) as exc_info:
+        urlopen(
+            f"http://127.0.0.1:{server.server_port}/api/transactions/export?start=not-a-date&end=2026-08-31"
+        )
+
+    assert exc_info.value.code == 400

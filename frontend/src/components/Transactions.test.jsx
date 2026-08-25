@@ -500,4 +500,101 @@ describe("Transactions", () => {
       ).toBe(true);
     });
   });
+
+  describe("the more-options menu and Export", () => {
+    it("shows the … button by default, hiding it while Add is open", async () => {
+      useBackend([]);
+      render(<Transactions />);
+
+      expect(await screen.findByRole("button", { name: "More options" })).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole("button", { name: "Add transaction" }));
+
+      expect(screen.queryByRole("button", { name: "More options" })).not.toBeInTheDocument();
+    });
+
+    it("hides the … button while editing a row", async () => {
+      useBackend([transaction()]);
+      render(<Transactions />);
+      await userEvent.click(await screen.findByRole("button", { name: "Edit Woolworths" }));
+
+      expect(screen.queryByRole("button", { name: "More options" })).not.toBeInTheDocument();
+    });
+
+    it("reveals Import and Export options when clicked, and closes on a second click", async () => {
+      useBackend([]);
+      render(<Transactions />);
+
+      await userEvent.click(await screen.findByRole("button", { name: "More options" }));
+
+      expect(screen.getByRole("menuitem", { name: "Import transactions" })).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: "Export transactions" })).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole("button", { name: "More options" }));
+
+      expect(screen.queryByRole("menuitem", { name: "Export transactions" })).not.toBeInTheDocument();
+    });
+
+    it("closes the menu when clicking elsewhere", async () => {
+      useBackend([]);
+      render(<Transactions />);
+      await userEvent.click(await screen.findByRole("button", { name: "More options" }));
+
+      await userEvent.click(document.body);
+
+      expect(screen.queryByRole("menuitem", { name: "Export transactions" })).not.toBeInTheDocument();
+    });
+
+    it("Import transactions is inert for now", async () => {
+      useBackend([]);
+      render(<Transactions />);
+      await userEvent.click(await screen.findByRole("button", { name: "More options" }));
+
+      expect(screen.getByRole("menuitem", { name: "Import transactions" })).toBeDisabled();
+    });
+
+    it("opens an inline Export panel defaulting to the current Financial Year", async () => {
+      useBackend([]);
+      render(<Transactions />);
+      await userEvent.click(await screen.findByRole("button", { name: "More options" }));
+
+      await userEvent.click(screen.getByRole("menuitem", { name: "Export transactions" }));
+
+      // System time is 21 August 2026, in Financial Year 2026 (Jul 2026 - Jun 2027).
+      expect(screen.getByLabelText("Start date")).toHaveValue("2026-07-01");
+      expect(screen.getByLabelText("End date")).toHaveValue("2027-06-30");
+      expect(screen.queryByRole("button", { name: "More options" })).not.toBeInTheDocument();
+    });
+
+    it("the download link's href reflects the chosen date range", async () => {
+      useBackend([]);
+      render(<Transactions />);
+      await userEvent.click(await screen.findByRole("button", { name: "More options" }));
+      await userEvent.click(screen.getByRole("menuitem", { name: "Export transactions" }));
+
+      const link = screen.getByRole("link", { name: "Download CSV" });
+      expect(link).toHaveAttribute("href", "/api/transactions/export?start=2026-07-01&end=2027-06-30");
+
+      const startInput = screen.getByLabelText("Start date");
+      await userEvent.clear(startInput);
+      await userEvent.type(startInput, "2026-08-01");
+
+      expect(screen.getByRole("link", { name: "Download CSV" })).toHaveAttribute(
+        "href",
+        "/api/transactions/export?start=2026-08-01&end=2027-06-30",
+      );
+    });
+
+    it("cancelling the Export panel closes it and brings back the … button", async () => {
+      useBackend([]);
+      render(<Transactions />);
+      await userEvent.click(await screen.findByRole("button", { name: "More options" }));
+      await userEvent.click(screen.getByRole("menuitem", { name: "Export transactions" }));
+
+      await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+      expect(screen.queryByLabelText("Start date")).not.toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: "More options" })).toBeInTheDocument();
+    });
+  });
 });

@@ -6,11 +6,14 @@ Transaction looks like on the wire is a question about the domain, not about
 HTTP - mirrors dashboard.recurring.
 """
 
+import csv
+import io
 from datetime import date
 
 from transaction_log.entries import Candidate, Transaction
 
 FIELDS = ("date", "amount", "type", "category", "notes")
+CSV_HEADER = ("Date", "Amount", "Type", "Category", "Notes")
 
 
 def as_payload(transaction: Transaction) -> dict:
@@ -22,6 +25,19 @@ def as_payload(transaction: Transaction) -> dict:
         "category": transaction.category,
         "notes": transaction.notes,
     }
+
+
+def as_csv(transactions: list[Transaction]) -> bytes:
+    """The Export panel's `.csv` (Issue #96) - the same 5 columns as the
+    Transaction Log, header-only when `transactions` is empty, with no
+    internal `id` since that's meaningless outside the Dashboard.
+    """
+    buffer = io.StringIO(newline="")
+    writer = csv.writer(buffer)
+    writer.writerow(CSV_HEADER)
+    for t in transactions:
+        writer.writerow([t.date.isoformat(), t.amount, t.type, t.category, t.notes])
+    return buffer.getvalue().encode("utf-8")
 
 
 def from_payload(payload) -> Candidate:
