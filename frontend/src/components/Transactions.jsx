@@ -70,8 +70,11 @@ export default function Transactions() {
   const [deletingId, setDeletingId] = useState(null);
   const [deleteError, setDeleteError] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [exportRange, setExportRange] = useState(null);
-  const [importOpen, setImportOpen] = useState(false);
+  // Which "…" menu panel (if any) is open - null | "export" | "import". A
+  // single flag rather than one boolean/state per panel, so a third panel
+  // only needs a third value here, not a third clause on every visibility
+  // check below (Issue #97 code review).
+  const [panel, setPanel] = useState(null);
   const menuRef = useRef(null);
 
   const financialYear = currentFinancialYear();
@@ -168,12 +171,16 @@ export default function Transactions() {
 
   function openExport() {
     setMenuOpen(false);
-    setExportRange(defaultExportRange(financialYear));
+    setPanel("export");
   }
 
   function openImport() {
     setMenuOpen(false);
-    setImportOpen(true);
+    setPanel("import");
+  }
+
+  function closePanel() {
+    setPanel(null);
   }
 
   function startDelete(transaction) {
@@ -213,12 +220,12 @@ export default function Transactions() {
       <div className="card__head">
         <h3>Transactions</h3>
         <div className="card__actions">
-          {adding === null && exportRange === null && !importOpen && (
+          {adding === null && panel === null && (
             <button type="button" className="button" onClick={() => setAdding(blankValues())}>
               Add transaction
             </button>
           )}
-          {adding === null && editing === null && exportRange === null && !importOpen && (
+          {adding === null && editing === null && panel === null && (
             <div className="menu" ref={menuRef}>
               <button
                 type="button"
@@ -255,11 +262,11 @@ export default function Transactions() {
         />
       )}
 
-      {exportRange !== null && (
-        <ExportPanel initial={exportRange} onCancel={() => setExportRange(null)} />
+      {panel === "export" && (
+        <ExportPanel initial={defaultExportRange(financialYear)} onCancel={closePanel} />
       )}
 
-      {importOpen && <ImportPanel onCancel={() => setImportOpen(false)} />}
+      {panel === "import" && <ImportPanel onCancel={closePanel} />}
 
       {transactions === null && <p className="state">Loading the Transactions&hellip;</p>}
 
