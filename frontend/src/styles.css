@@ -62,23 +62,55 @@
   --color-accent-700: #8c491a;
   --color-accent-800: #643312;
 
-  --color-accent-2-500: #8fa073;
+  /* --color-positive/-tint, --color-accent-2-500, --color-negative/-tint,
+     --color-danger, --color-debt and --color-transfer were revised in Issue
+     #111 to follow the same hue-anchor + HSL-ramp + contrast-check
+     convention Midnight and Orchid's own semantic tokens already use,
+     rather than staying one-off literals (Blossom, Issue #102 follow-up,
+     had given positive/negative independent values, but as hand-picked
+     hexes with no documented formula - and --color-debt was an unrelated
+     indigo, --color-negative just aliased the accent ramp). Settled via
+     /prototype directly (three derived-shade variants compared live via a
+     throwaway ?variant=A/B/C toggle, see prototype/terracotta-theme-variants,
+     kept as the primary source, not merged) - Variant C, "Muted" won:
 
-  --color-danger: #b3382a;
-  --color-debt: #2d2d86;
-  --color-transfer: var(--color-accent-300);
+     - --color-debt/--color-transfer move off the standalone indigo/accent
+       alias onto Terracotta's own (unvaried) neutral ramp's hue (~38deg -
+       measurably different from --color-accent's ~24deg, despite both
+       reading as "warm tan" at a glance) instead, matching the "debt/
+       transfer ride the neutral ramp" convention Midnight/Orchid use - not
+       part of the A/B/C comparison, since the neutral ramp itself didn't
+       change.
+     - --color-positive (+ --color-accent-2-500 for Income/Remaining, + its
+       tint) keeps its existing olive/sage hue family (~88deg, close to the
+       old literal's ~82deg), now formula-derived and contrast-checked
+       against --color-card instead of a hand-picked hex.
+     - --color-negative (+ its tint) moves off aliasing the accent ramp onto
+       its own brick-red hue, distinct from both the accent (~24deg) and
+       --color-danger. Variant C landed at ~9deg; live feedback on the Budget
+       Suggestion chips (they read as "out of place" pink against the rest of
+       the earthy palette) warmed this further to ~17deg, closer to the
+       accent, while keeping it distinct enough to still read as "bad".
+     - --color-danger becomes its own crimson hue (~355deg), distinct from
+       --color-negative, rather than an unrelated hand-picked literal.
 
-  /* Value-judgment colours for a figure/chip (favourable vs adverse) are
-     their own tokens, not aliases of the accent ramp - Blossom (Issue #102
-     follow-up) needs to give these independent values while every other
-     accent-ramp use (buttons, hovers, errors) stays on the accent ramp
-     itself. Terracotta's defaults are the green/accent values it always
-     used, kept as literals now that nothing else reads the old
-     accent-2-300/700 steps. */
-  --color-positive: #56633f;
-  --color-positive-tint: #e2e8d7;
-  --color-negative: var(--color-accent-700);
-  --color-negative-tint: var(--color-accent-300);
+     Every text-bearing token above (--color-positive, --color-negative,
+     --color-danger - all used as figure/chip text, see .figure--adverse/
+     .figure--favourable and the danger-confirm state below) is
+     contrast-checked >=4.5:1 (WCAG AA) against --color-card.
+     --color-debt/--color-transfer are swatch/fill-only (income-allocation
+     bar, month-by-month chart), so aren't held to the same bar. Terracotta's
+     category chart palette lives separately, in lib/categoryColours.js. */
+  --color-accent-2-500: #95a583;
+
+  --color-danger: #792a31;
+  --color-debt: #8d7b5e;
+  --color-transfer: #c2af8e;
+
+  --color-positive: #53653e;
+  --color-positive-tint: #dfe8d4;
+  --color-negative: #7b4732;
+  --color-negative-tint: #e8dad4;
 
   --color-card: #fffdf9;
   --color-on-accent: #fff;

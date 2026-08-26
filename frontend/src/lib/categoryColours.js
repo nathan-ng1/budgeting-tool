@@ -29,19 +29,29 @@ export const EXPENSE_CATEGORIES = [
   "Mortgage Repayment",
 ];
 
+// Slots 4-7 (the accent-2/green ramp) were re-derived in Issue #111
+// alongside --color-positive's move off a hand-picked literal onto a
+// documented hue formula (~88deg, see styles.css's :root comment) - settled
+// via /prototype (see prototype/terracotta-theme-variants; Variant C,
+// "Muted" won). Slots 0-3 (accent) and 8-11 (neutral) are unchanged. As
+// before this revision, every slot with a same-named CSS custom property
+// (700/600 in the accent ramp, 700/500 in the accent-2 ramp, every step in
+// the neutral ramp) stays byte-identical to that property's value - slots
+// 5/7 (accent-2-600/400) have no CSS-token counterpart, so are this file's
+// own interpolated in-between steps.
 const PALETTE = [
-  "#8c491a", // accent-700
-  "#b2622d", // accent-600
-  "#d67f48", // accent-500
-  "#f6a06b", // accent-400
-  "#56633f", // accent-2-700
-  "#728157", // accent-2-600
-  "#8fa073", // accent-2-500
-  "#aebf92", // accent-2-400
-  "#645c50", // neutral-700
-  "#82796a", // neutral-600
-  "#a19786", // neutral-500
-  "#c0b6a5", // neutral-400
+  "#8c491a", // accent-700 == --color-accent-700
+  "#b2622d", // accent-600 == --color-accent-600
+  "#d67f48", // accent-500 (no CSS token - interpolated)
+  "#f6a06b", // accent-400 (no CSS token - interpolated)
+  "#53653e", // accent-2-700 == --color-positive
+  "#697e52", // accent-2-600 (no CSS token - interpolated)
+  "#95a583", // accent-2-500 == --color-accent-2-500
+  "#c1c7ba", // accent-2-400 (no CSS token - interpolated)
+  "#645c50", // neutral-700 == --color-neutral-700
+  "#82796a", // neutral-600 == --color-neutral-600
+  "#a19786", // neutral-500 == --color-neutral-500
+  "#c0b6a5", // neutral-400 == --color-neutral-400
 ];
 
 // Orchid's own palette: a Category keeps the same *slot* (index) as under
