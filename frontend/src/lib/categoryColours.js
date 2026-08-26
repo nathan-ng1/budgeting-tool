@@ -44,30 +44,32 @@ const PALETTE = [
   "#c0b6a5", // neutral-400
 ];
 
-// Blossom's own palette (Issue #102): a Category keeps the same *slot*
-// (index) as under Terracotta, so switching themes doesn't reshuffle which
-// Categories look alike or different from each other - just what they look
-// like. Picked from the /prototype comparison's winning "Blush" variant.
-// Indices 4-7 were originally the shared accent-2 (green) ramp; a later
-// /prototype (Issue #102 follow-up) replaced them with a warm gold ramp
-// after user feedback that green read as off-theme against pink.
-const BLOSSOM_PALETTE = [
-  "#82304f",
-  "#a83d66",
-  "#c96f8f",
-  "#e0a0b9",
-  "#8a6425",
-  "#a87c2e",
-  "#c99b4f",
-  "#dfc08c",
-  "#6f4a58",
-  "#96687b",
-  "#b98da0",
-  "#d9b2c0",
+// Orchid's own palette (Issue #102 follow-up #2, replacing Blossom's):
+// a Category keeps the same *slot* (index) as under Terracotta, so
+// switching themes doesn't reshuffle which Categories look alike or
+// different from each other - just what they look like. Four shades each of
+// the accent (pink), positive (lavender) and neutral (taupe) hues from the
+// theme's source palette - settled via /grilling then /prototype (see
+// prototype/orchid-theme-palette). Indices 4-7 were Blossom's gold ramp
+// before that; lavender replaces it since positive/Income share that hue
+// under Orchid, and gold doesn't exist in Orchid's palette at all.
+const ORCHID_PALETTE = [
+  "#71285d",
+  "#9f3883",
+  "#c355a6",
+  "#d586bf",
+  "#3e2277",
+  "#5630a6",
+  "#764dcb",
+  "#9e81da",
+  "#5c443d",
+  "#815f56",
+  "#a37f75",
+  "#bea49d",
 ];
 
 function activePalette() {
-  return getCurrentTheme() === "blossom" ? BLOSSOM_PALETTE : PALETTE;
+  return getCurrentTheme() === "orchid" ? ORCHID_PALETTE : PALETTE;
 }
 
 export function colourForCategory(category) {

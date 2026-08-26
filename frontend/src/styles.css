@@ -90,43 +90,56 @@
 }
 
 /* "Terracotta" (Issue #102) is the plain :root block above - the implicit
-   default when no data-theme is set. "Blossom" is the only theme that needs
-   its own block. Danger stays shared across themes (it carries meaning
-   rather than decoration, and reads fine against Blossom's near-white card -
-   see the /grilling session behind Issue #102). Debt, Transfer,
-   Income/Remaining and positive/negative (favourable/adverse) do NOT stay
-   shared, per user feedback after #102 shipped: blue and green read as
-   off-theme against a pink UI, so Blossom gets its own values for each -
-   chosen via /prototype, comparing three positive/negative pairs live
-   against real data ("Rose & Plum" won) plus one fixed set of neutral/gold
-   replacements for Debt/Transfer/Income. Blossom's category chart palette
-   lives separately, in lib/categoryColours.js. */
-[data-theme="blossom"] {
-  --color-text: #362229;
-  --color-accent: #d46b91;
+   default when no data-theme is set. "Orchid" is the only theme that needs
+   its own block - it replaces "Blossom" (Issue #102), which even after its
+   own accent/debt fix (#102 follow-up) kept drawing feedback that it didn't
+   read well against yellow/gold. Danger stays shared across themes (it
+   carries meaning rather than decoration, and reads fine against Orchid's
+   near-white card).
 
-  --color-neutral-100: #fdf1f5;
-  --color-neutral-200: #f7e3ea;
-  --color-neutral-300: #ecd0da;
-  --color-neutral-400: #d9b2c0;
-  --color-neutral-500: #b98da0;
-  --color-neutral-600: #96687b;
-  --color-neutral-700: #6f4a58;
+   Orchid's palette comes from a 4-colour Figma export the user supplied,
+   settled via /grilling (role mapping) then /prototype (derived-shade
+   comparison, Issue #102 follow-up #2 - see prototype/orchid-theme-palette):
+   accent #f1a7dd (pink), neutral #d8c9c5 (taupe), positive #dccff7
+   (lavender), negative #f4d2d8 (blush). None of the four clear WCAG text
+   contrast on their own (1.3-1.8:1 against a near-white card), so they stay
+   literal only for tint backgrounds (--color-positive-tint,
+   --color-negative-tint) and the ThemeSwitcher swatch (theme.js) - every
+   text-bearing token below is a derived darker shade in the same hue
+   ("Option A - hue-locked, moderate" from the /prototype comparison).
+   --color-accent itself uses the same derived shade as --color-accent-600
+   rather than the literal seed, for the same reason (the raw seed fails
+   contrast where the active month pill uses --color-accent as a background
+   under --color-neutral-100 text). --color-accent-2-500 (Income/Remaining)
+   is its own lighter lavender shade rather than the darker --color-positive,
+   since it's a bar/dot fill, not text. Orchid's category chart palette lives
+   separately, in lib/categoryColours.js. */
+[data-theme="orchid"] {
+  --color-text: #32202d;
+  --color-accent: #a63a89;
 
-  --color-accent-600: #a83d66;
-  --color-accent-700: #82304f;
-  --color-accent-800: #5c2138;
+  --color-neutral-100: #f8f5f4;
+  --color-neutral-200: #ede5e3;
+  --color-neutral-300: #dccfcb;
+  --color-neutral-400: #c4aca6;
+  --color-neutral-500: #a9877e;
+  --color-neutral-600: #8a655c;
+  --color-neutral-700: #684d45;
 
-  --color-accent-2-500: #b8863a;
-  --color-debt: #6b5c5a;
-  --color-transfer: #ab9490;
+  --color-accent-600: #a63a89;
+  --color-accent-700: #7f2e69;
+  --color-accent-800: #531d44;
 
-  --color-positive: #a8225f;
-  --color-positive-tint: #f6dbe6;
-  --color-negative: #5b3161;
-  --color-negative-tint: #e6dae8;
+  --color-accent-2-500: #764dcb;
+  --color-debt: #7c615a;
+  --color-transfer: #ba9e97;
 
-  --color-card: #fff8fa;
+  --color-positive: #4a298e;
+  --color-positive-tint: #dccff7;
+  --color-negative: #7a2937;
+  --color-negative-tint: #f4d2d8;
+
+  --color-card: #fdf8fc;
 }
 
 *,

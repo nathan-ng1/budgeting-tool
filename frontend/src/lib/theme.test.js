@@ -3,10 +3,10 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_THEME, THEMES, applyTheme, getCurrentTheme, getStoredTheme, storeTheme } from "./theme.js";
 
 describe("THEMES", () => {
-  it("lists Terracotta and Blossom, each with a key, label and swatch", () => {
+  it("lists Terracotta and Orchid, each with a key, label and swatch", () => {
     const keys = THEMES.map((theme) => theme.key);
 
-    expect(keys).toEqual(["terracotta", "blossom"]);
+    expect(keys).toEqual(["terracotta", "orchid"]);
     THEMES.forEach((theme) => {
       expect(theme.label).toEqual(expect.any(String));
       expect(theme.swatch).toMatch(/^#[0-9a-f]{6}$/i);
@@ -24,9 +24,9 @@ describe("getStoredTheme", () => {
   });
 
   it("returns a previously stored theme", () => {
-    localStorage.setItem("dashboard.theme", "blossom");
+    localStorage.setItem("dashboard.theme", "orchid");
 
-    expect(getStoredTheme()).toBe("blossom");
+    expect(getStoredTheme()).toBe("orchid");
   });
 
   it("falls back to the default theme for a value that isn't a known theme", () => {
@@ -43,9 +43,9 @@ describe("storeTheme", () => {
   });
 
   it("persists the theme so a later getStoredTheme call returns it", () => {
-    storeTheme("blossom");
+    storeTheme("orchid");
 
-    expect(getStoredTheme()).toBe("blossom");
+    expect(getStoredTheme()).toBe("orchid");
   });
 });
 
@@ -55,9 +55,9 @@ describe("applyTheme", () => {
   });
 
   it("sets the data-theme attribute on <html> to the given theme", () => {
-    applyTheme("blossom");
+    applyTheme("orchid");
 
-    expect(document.documentElement.dataset.theme).toBe("blossom");
+    expect(document.documentElement.dataset.theme).toBe("orchid");
   });
 
   it("leaves the data-theme attribute unset for the default theme", () => {
@@ -65,7 +65,7 @@ describe("applyTheme", () => {
     // so setting the attribute explicitly would be inert but would leave the
     // DOM in a different state than a fresh page load (index.html's
     // pre-paint script also leaves it unset for the default theme).
-    applyTheme("blossom");
+    applyTheme("orchid");
     applyTheme(DEFAULT_THEME);
 
     expect(document.documentElement.dataset.theme).toBeUndefined();
@@ -82,8 +82,8 @@ describe("getCurrentTheme", () => {
   });
 
   it("returns the applied theme", () => {
-    applyTheme("blossom");
+    applyTheme("orchid");
 
-    expect(getCurrentTheme()).toBe("blossom");
+    expect(getCurrentTheme()).toBe("orchid");
   });
 });
