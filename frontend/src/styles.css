@@ -83,6 +83,13 @@
   --color-card: #fffdf9;
   --color-on-accent: #fff;
 
+  /* Separate from --color-neutral-100 (Issue #108) so a theme's page
+     backdrop can go bold without dragging along neutral-100's other
+     uses (selected month-pill text, .rule-form background,
+     .category-chip background) - Orchid needs this, Terracotta/Midnight
+     don't, so theirs is just neutral-100 unchanged. */
+  --color-background: var(--color-neutral-100);
+
   /* Decoupled from --color-text (rather than every box-shadow's color-mix
      reading --color-text directly) so a dark theme whose text is light can
      still cast a dark shadow instead of a light glow - Midnight overrides
@@ -99,53 +106,69 @@
    default when no data-theme is set. "Orchid" is the only theme that needs
    its own block - it replaces "Blossom" (Issue #102), which even after its
    own accent/debt fix (#102 follow-up) kept drawing feedback that it didn't
-   read well against yellow/gold. Danger stays shared across themes (it
-   carries meaning rather than decoration, and reads fine against Orchid's
-   near-white card).
+   read well against yellow/gold.
 
-   Orchid's palette comes from a 4-colour Figma export the user supplied,
-   settled via /grilling (role mapping) then /prototype (derived-shade
-   comparison, Issue #102 follow-up #2 - see prototype/orchid-theme-palette):
-   accent #f1a7dd (pink), neutral #d8c9c5 (taupe), positive #dccff7
-   (lavender), negative #f4d2d8 (blush). None of the four clear WCAG text
-   contrast on their own (1.3-1.8:1 against a near-white card), so they stay
-   literal only for tint backgrounds (--color-positive-tint,
-   --color-negative-tint) and the ThemeSwitcher swatch (theme.js) - every
-   text-bearing token below is a derived darker shade in the same hue
-   ("Option A - hue-locked, moderate" from the /prototype comparison).
-   --color-accent itself uses the same derived shade as --color-accent-600
-   rather than the literal seed, for the same reason (the raw seed fails
-   contrast where the active month pill uses --color-accent as a background
-   under --color-neutral-100 text). --color-accent-2-500 (Income/Remaining)
-   is its own lighter lavender shade rather than the darker --color-positive,
-   since it's a bar/dot fill, not text. Orchid's category chart palette lives
-   separately, in lib/categoryColours.js. */
+   Orchid was revised a third time (Issue #108): it still read too close to
+   Terracotta (same brown/taupe neutral ramp, similar off-white
+   background/card). Settled via /grilling, then compared as three
+   derived-shade variants via /prototype (see prototype/orchid-theme-variants,
+   kept as the primary source, not merged) - "Variant B, Richer" won:
+
+   - --color-background (page backdrop, decoupled from --color-neutral-100 -
+     see :root) and --color-card are a bold-then-pale pink pairing, iterated
+     live against the running prototype after the initial derivation (both
+     started more saturated, then were progressively lightened on feedback).
+     --color-neutral-100 itself is unchanged - it keeps the selected
+     month-pill's text colour, .rule-form's background and .category-chip's
+     background, none of which should follow the page backdrop's colour.
+   - --color-neutral-200..700 (+ --color-debt/--color-transfer, which just
+     ride along the ramp rather than getting a standalone hue) move from
+     taupe/brown to a mauve/rose-grey hue-locked to --color-accent, matching
+     the convention Terracotta (warm tan) and Midnight (blue) already use.
+   - --color-positive (+ --color-accent-2-500 for Income/Remaining, + its
+     tint) moves off purple to sage green: purple is reserved for a planned
+     future dark-purple theme, so Orchid needed to stop using it everywhere,
+     not just here.
+   - --color-negative (+ its tint) moves from wine to a rose-red derived from
+     a user-supplied seed (#DC7386).
+   - --color-danger is now Orchid's own (previously fell through to
+     Terracotta's shared #b3382a, which fails contrast - ~2.3:1 - against
+     the new, no-longer-near-white card).
+
+   Every text-bearing derived token above was contrast-checked >=4.5:1 (WCAG
+   AA) against --color-card. --color-accent itself uses the same derived
+   shade as --color-accent-600 rather than a literal seed, since the active
+   month pill uses --color-accent as a background under --color-neutral-100
+   text. Orchid's category chart palette lives separately, in
+   lib/categoryColours.js. */
 [data-theme="orchid"] {
   --color-text: #22161f;
   --color-accent: #a63a89;
 
+  --color-background: #f7cbe4;
+  --color-card: #f0e0e6;
+
   --color-neutral-100: #f8f5f4;
-  --color-neutral-200: #ede5e3;
-  --color-neutral-300: #dccfcb;
-  --color-neutral-400: #c4aca6;
-  --color-neutral-500: #a9877e;
-  --color-neutral-600: #8a655c;
-  --color-neutral-700: #684d45;
+  --color-neutral-200: #efe1eb;
+  --color-neutral-300: #e1c5da;
+  --color-neutral-400: #cd9dc0;
+  --color-neutral-500: #b671a3;
+  --color-neutral-600: #984e84;
+  --color-neutral-700: #723b63;
 
   --color-accent-600: #a63a89;
   --color-accent-700: #7f2e69;
   --color-accent-800: #531d44;
 
-  --color-accent-2-500: #764dcb;
-  --color-debt: #7c615a;
-  --color-transfer: #ba9e97;
+  --color-accent-2-500: #92c17b;
+  --color-debt: #8d497b;
+  --color-transfer: #c48db5;
 
-  --color-positive: #4a298e;
-  --color-positive-tint: #dccff7;
-  --color-negative: #7a2937;
-  --color-negative-tint: #f4d2d8;
-
-  --color-card: #fdf8fc;
+  --color-positive: #417029;
+  --color-positive-tint: #def1d5;
+  --color-negative: #921c31;
+  --color-negative-tint: #f1d5da;
+  --color-danger: #911229;
 }
 
 /* Midnight (Issue #106) is the first genuinely dark theme - card/text invert
@@ -193,6 +216,7 @@
 
   --color-card: #082a42;
   --color-shadow: #0b1014;
+  --color-background: var(--color-neutral-100);
 }
 
 /* Neutral-500/600 are Midnight's shared muted-text colours (used across the
@@ -219,7 +243,7 @@ body {
   font-family: var(--font-body);
   font-size: 15px;
   line-height: 1.55;
-  background: var(--color-neutral-100);
+  background: var(--color-background);
   color: var(--color-text);
 }
 
