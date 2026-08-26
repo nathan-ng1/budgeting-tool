@@ -88,7 +88,7 @@ export default function RecurringRules() {
   if (error !== null && rules === null) {
     return (
       <section className="card">
-        <h3>Recurring Transactions Config</h3>
+        <h3>Recurring Transactions</h3>
         <p className="state state--error" role="alert">
           {error}
         </p>
@@ -100,7 +100,7 @@ export default function RecurringRules() {
     <section className="card">
       <div className="card__head">
         <div>
-          <h3>Recurring Transactions Config</h3>
+          <h3>Recurring Transactions</h3>
           <p className="card__note">
             Predictable items expanded into the Transaction Log on the next Statement Export run.
           </p>

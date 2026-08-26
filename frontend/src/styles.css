@@ -953,7 +953,7 @@ tbody:first-of-type .bva__section {
   color: var(--color-accent-700);
 }
 
-/* — Recurring Transactions Config (Settings tab) — */
+/* — Recurring Transactions (Settings tab) — */
 
 .card__note {
   margin-top: 6px;
@@ -1078,26 +1078,6 @@ tbody:first-of-type .bva__section {
 
 .filters .field {
   min-width: 160px;
-}
-
-/* Category Management sits directly above Recurring Transactions Config with
-   no gap between them (Issue #89's Further Notes), unlike .page__inner's
-   usual 26px between top-level sections - the shared border reads as one
-   continuous Settings block rather than two separately-spaced cards. */
-.settings-group {
-  display: flex;
-  flex-direction: column;
-}
-
-.settings-group > .card:first-child {
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
-.settings-group > .card:last-child {
-  margin-top: -1px;
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
 }
 
 /* — Appearance / theme switcher (Settings tab, Issue #102) — */

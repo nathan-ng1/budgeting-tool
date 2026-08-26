@@ -153,10 +153,8 @@ export default function App() {
         {tab === "Settings" && (
           <>
             <ThemeSwitcher />
-            <div className="settings-group">
-              <CategoryManagement />
-              <RecurringRules />
-            </div>
+            <CategoryManagement />
+            <RecurringRules />
           </>
         )}
 
