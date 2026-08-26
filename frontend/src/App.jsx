@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 
 import Budget from "./components/Budget.jsx";
 import BudgetedVsActual from "./components/BudgetedVsActual.jsx";
@@ -9,6 +9,10 @@ import IncomeAllocation from "./components/IncomeAllocation.jsx";
 import IncomeVsExpensesByMonth from "./components/IncomeVsExpensesByMonth.jsx";
 import MonthByMonth from "./components/MonthByMonth.jsx";
 import MonthSelector from "./components/MonthSelector.jsx";
+// PROTOTYPE (Midnight dark theme), dev-only - see the component's header
+// comment. Remove this import and its mount below once the Midnight
+// question is settled.
+import MidnightThemeProto, { THEME_CHANGE_EVENT } from "./components/MidnightThemeProto.jsx";
 import RecurringRules from "./components/RecurringRules.jsx";
 import SpendingByCategory from "./components/SpendingByCategory.jsx";
 import StatTiles from "./components/StatTiles.jsx";
@@ -49,6 +53,27 @@ export default function App() {
   // is cosmetic, so a stale/empty list just means name-only labels, never a
   // page-blocking error.
   const [categories, setCategories] = useState([]);
+  // PROTOTYPE (Midnight dark theme) - MidnightThemeProto's preview toggle
+  // mutates data-theme directly (bypassing React state), which leaves
+  // already-rendered theme-coloured elements (e.g. Spending by Category's
+  // donut/legend) frozen on whichever theme was active at their last real
+  // render. Bumping this on THEME_CHANGE_EVENT and keying the overview
+  // content on it forces a remount so those colours get recomputed. Remove
+  // alongside MidnightThemeProto once the Midnight question is settled.
+  const [themeTick, setThemeTick] = useState(0);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) {
+      return undefined;
+    }
+
+    function bump() {
+      setThemeTick((tick) => tick + 1);
+    }
+
+    window.addEventListener(THEME_CHANGE_EVENT, bump);
+    return () => window.removeEventListener(THEME_CHANGE_EVENT, bump);
+  }, []);
 
   // There is no Financial Year switcher (ADR-0011): the selector, the header,
   // and Full year all always show the FY containing today.
@@ -121,6 +146,7 @@ export default function App() {
 
   return (
     <div className="page">
+      {import.meta.env.DEV && <MidnightThemeProto />}
       <div className="page__inner">
         <header className="header">
           <div>
@@ -181,7 +207,7 @@ export default function App() {
             )}
 
             {error === null && overview !== null && (
-              <>
+              <Fragment key={themeTick}>
                 <StatTiles tiles={overview.stat_tiles} average={selected === null ? overview.monthly_average : undefined} />
                 <IncomeAllocation allocation={overview.income_allocation} income={overview.stat_tiles.income} />
 
@@ -240,7 +266,7 @@ export default function App() {
                     </div>
                   </>
                 )}
-              </>
+              </Fragment>
             )}
           </>
         )}

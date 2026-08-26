@@ -68,8 +68,32 @@ const ORCHID_PALETTE = [
   "#bea49d",
 ];
 
+// PROTOTYPE (Midnight theme, /grilling + /prototype session) - fixed across
+// the A/B/C variants being compared in MidnightThemeProto.jsx, so it isn't
+// duplicated per-variant there. Four shades each of the accent (blue),
+// positive (amber - Midnight's one new hue) and neutral (desaturated blue)
+// hues. If the Midnight idea is dropped, delete this array along with
+// MidnightThemeProto.jsx and its branch below.
+const MIDNIGHT_PALETTE = [
+  "#2e719e",
+  "#4192c8",
+  "#71add6",
+  "#a0c8e3",
+  "#ab852b",
+  "#d0a643",
+  "#dcbd74",
+  "#e9d4a5",
+  "#465d6d",
+  "#5f8095",
+  "#839daf",
+  "#a8bbc7",
+];
+
 function activePalette() {
-  return getCurrentTheme() === "orchid" ? ORCHID_PALETTE : PALETTE;
+  const theme = getCurrentTheme();
+  if (theme === "orchid") return ORCHID_PALETTE;
+  if (theme === "midnight") return MIDNIGHT_PALETTE;
+  return PALETTE;
 }
 
 export function colourForCategory(category) {
