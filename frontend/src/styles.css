@@ -136,7 +136,7 @@
      --color-neutral-100 (which stays near-white, see --color-background
      above) onto its own bold pink; the card darkens to match. */
   --color-background: #f7cbe4;
-  --color-card: #edabc4;
+  --color-card: #f0e0e6;
 
   --color-neutral-100: #f8f5f4;
 
@@ -161,7 +161,7 @@
   --color-debt: #815675;
   --color-transfer: #ba97b1;
 
-  --color-positive: #365228;
+  --color-positive: #486d36;
   --color-positive-tint: #dfeed8;
   --color-negative: #8a283a;
   --color-negative-tint: #eed8dc;
@@ -182,7 +182,7 @@
   --color-debt: #8d497b;
   --color-transfer: #c48db5;
 
-  --color-positive: #325620;
+  --color-positive: #417029;
   --color-positive-tint: #def1d5;
   --color-negative: #921c31;
   --color-negative-tint: #f1d5da;
@@ -203,7 +203,7 @@
   --color-debt: #785e71;
   --color-transfer: #b39ead;
 
-  --color-positive: #3d5134;
+  --color-positive: #536d46;
   --color-positive-tint: #e0ebdb;
   --color-negative: #7f3442;
   --color-negative-tint: #ebdbde;
