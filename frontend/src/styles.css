@@ -102,6 +102,63 @@
   --radius-md: 16px;
 }
 
+/* PROTOTYPE (prototype/terracotta-theme-variants) - throwaway, dev-only.
+   Terracotta's --color-positive/-tint, --color-accent-2-500,
+   --color-negative/-tint and --color-danger are today's "standalone"
+   literals (line 65-81 above): hand-picked hexes with no documented hue
+   formula, unlike Midnight/Orchid where every derived token is generated
+   from a named hue anchor and contrast-checked against --color-card. This
+   block compares three re-derivations of just those tokens (same shape as
+   prototype/orchid-theme-variants: A/B/C, switched via
+   TerracottaVariantPrototypeSwitcher.jsx). The :root literals above are
+   left untouched so production is unaffected when the switcher isn't
+   mounted.
+
+   --color-debt/--color-transfer are NOT part of the comparison: today they
+   are a standalone indigo (#2d2d86, unrelated to every other hue in the
+   theme) and an accent-ramp alias, respectively. Both move to ride
+   Terracotta's existing (unvaried) warm-tan neutral ramp instead, matching
+   the "debt/transfer ride the neutral ramp" convention Midnight and Orchid
+   already use - computed once here since the neutral ramp itself isn't
+   changing. Applies under any variant. */
+:root[data-terracotta-variant] {
+  --color-debt: #8d715e;
+  --color-transfer: #c2a38e;
+}
+
+/* Variant A - Moderate: same saturation weight as today's literals, just
+   hue-anchored (positive hue 88, olive/sage - close to today's ~82 - and
+   negative/danger split into two distinct reds, hue 9 and hue 355, instead
+   of negative aliasing the accent ramp and danger being unrelated to it). */
+:root[data-terracotta-variant="A"] {
+  --color-positive: #536d36;
+  --color-positive-tint: #dfebd1;
+  --color-accent-2-500: #96b078;
+  --color-negative: #863527;
+  --color-negative-tint: #eedbd8;
+  --color-danger: #841f27;
+}
+
+/* Variant B - Richer: more saturated throughout. */
+:root[data-terracotta-variant="B"] {
+  --color-positive: #54772c;
+  --color-positive-tint: #e9f4dd;
+  --color-accent-2-500: #97bd6b;
+  --color-negative: #922d1c;
+  --color-negative-tint: #f1d9d5;
+  --color-danger: #8f141f;
+}
+
+/* Variant C - Muted: soft, closer to today's earthy weight. */
+:root[data-terracotta-variant="C"] {
+  --color-positive: #53653e;
+  --color-positive-tint: #dfe8d4;
+  --color-accent-2-500: #95a583;
+  --color-negative: #7b3d32;
+  --color-negative-tint: #ebdddb;
+  --color-danger: #792a31;
+}
+
 /* "Terracotta" (Issue #102) is the plain :root block above - the implicit
    default when no data-theme is set. "Orchid" is the only theme that needs
    its own block - it replaces "Blossom" (Issue #102), which even after its

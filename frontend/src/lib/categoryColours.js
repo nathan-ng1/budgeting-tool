@@ -29,20 +29,26 @@ export const EXPENSE_CATEGORIES = [
   "Mortgage Repayment",
 ];
 
-const PALETTE = [
-  "#8c491a", // accent-700
-  "#b2622d", // accent-600
-  "#d67f48", // accent-500
-  "#f6a06b", // accent-400
-  "#56633f", // accent-2-700
-  "#728157", // accent-2-600
-  "#8fa073", // accent-2-500
-  "#aebf92", // accent-2-400
-  "#645c50", // neutral-700
-  "#82796a", // neutral-600
-  "#a19786", // neutral-500
-  "#c0b6a5", // neutral-400
-];
+// PROTOTYPE (prototype/terracotta-theme-variants): slots 4-7 (the
+// accent-2/green ramp, tied to --color-positive's hue) are under an A/B/C
+// comparison alongside the CSS token variants in styles.css - see
+// [data-terracotta-variant] there. Slots 0-3 (accent) and 8-11 (neutral) are
+// unchanged and not part of the comparison. Real code keeps only the
+// winning array, folded back into a single PALETTE like before this
+// prototype.
+const PALETTE_ACCENT = ["#8c491a", "#b2622d", "#d67f48", "#f6a06b"];
+const PALETTE_NEUTRAL = ["#645c50", "#82796a", "#a19786", "#c0b6a5"];
+const PALETTE_GREEN_VARIANTS = {
+  A: ["#4e6732", "#6e9047", "#8cb262", "#afc992"],
+  B: ["#4f7029", "#6e9c3a", "#8dc054", "#b0d388"],
+  C: ["#4e5f3a", "#6d8551", "#8ca66e", "#afc19a"],
+};
+
+function terracottaPalette() {
+  const variant = document.documentElement.dataset.terracottaVariant;
+  const green = PALETTE_GREEN_VARIANTS[variant] ?? PALETTE_GREEN_VARIANTS.A;
+  return [...PALETTE_ACCENT, ...green, ...PALETTE_NEUTRAL];
+}
 
 // Orchid's own palette: a Category keeps the same *slot* (index) as under
 // every other theme, so switching themes doesn't reshuffle which
@@ -98,7 +104,11 @@ const THEME_PALETTES = {
 };
 
 function activePalette() {
-  return THEME_PALETTES[getCurrentTheme()] ?? PALETTE;
+  const theme = getCurrentTheme();
+  if (theme === "terracotta") {
+    return terracottaPalette();
+  }
+  return THEME_PALETTES[theme] ?? terracottaPalette();
 }
 
 export function colourForCategory(category) {

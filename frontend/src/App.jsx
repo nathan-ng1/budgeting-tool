@@ -12,6 +12,7 @@ import MonthSelector from "./components/MonthSelector.jsx";
 import RecurringRules from "./components/RecurringRules.jsx";
 import SpendingByCategory from "./components/SpendingByCategory.jsx";
 import StatTiles from "./components/StatTiles.jsx";
+import TerracottaVariantPrototypeSwitcher from "./components/TerracottaVariantPrototypeSwitcher.jsx"; // PROTOTYPE (prototype/terracotta-theme-variants)
 import ThemeSwitcher from "./components/ThemeSwitcher.jsx";
 import TopExpenses from "./components/TopExpenses.jsx";
 import Transactions from "./components/Transactions.jsx";
@@ -121,6 +122,7 @@ export default function App() {
 
   return (
     <div className="page">
+      <TerracottaVariantPrototypeSwitcher />
       <div className="page__inner">
         <header className="header">
           <div>
