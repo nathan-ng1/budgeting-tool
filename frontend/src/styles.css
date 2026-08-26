@@ -135,7 +135,7 @@
      not part of the A/B/C comparison below: page background moves off
      --color-neutral-100 (which stays near-white, see --color-background
      above) onto its own bold pink; the card darkens to match. */
-  --color-background: #fbb1db;
+  --color-background: #f7cbe4;
   --color-card: #edabc4;
 
   --color-neutral-100: #f8f5f4;
