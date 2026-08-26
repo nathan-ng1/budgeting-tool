@@ -195,15 +195,16 @@
   --color-shadow: #0b1014;
 }
 
-/* Neutral-600 is Midnight's shared muted-text colour (used across the whole
-   app, e.g. tile labels, axis labels), tuned to read fine at a glance -
-   but the live prototype showed two elements the reader's eye goes to
-   directly (which month is selected, where income went) wanting more pop
-   than "muted" gives. Scoped to just these two rather than brightening
-   neutral-600 itself, which would also lift labels never flagged as a
-   problem. */
+/* Neutral-500/600 are Midnight's shared muted-text colours (used across the
+   whole app, e.g. tile labels, axis labels), tuned to read fine at a glance -
+   but the live prototype showed the reader's eye going straight to these
+   three (which month is selected, where income went, the bar's own percent
+   scale) wanting more pop than "muted" gives. Scoped to just these three
+   rather than brightening the neutral ramp itself, which would also lift
+   labels never flagged as a problem. */
 [data-theme="midnight"] .months__pill,
-[data-theme="midnight"] .allocation__legend-item .muted {
+[data-theme="midnight"] .allocation__legend-item .muted,
+[data-theme="midnight"] .allocation__tick {
   color: var(--color-text);
 }
 
