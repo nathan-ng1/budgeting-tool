@@ -3,10 +3,10 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_THEME, THEMES, applyTheme, getCurrentTheme, getStoredTheme, storeTheme } from "./theme.js";
 
 describe("THEMES", () => {
-  it("lists Terracotta and Orchid, each with a key, label and swatch", () => {
+  it("lists Terracotta, Orchid and Midnight, each with a key, label and swatch", () => {
     const keys = THEMES.map((theme) => theme.key);
 
-    expect(keys).toEqual(["terracotta", "orchid"]);
+    expect(keys).toEqual(["terracotta", "orchid", "midnight"]);
     THEMES.forEach((theme) => {
       expect(theme.label).toEqual(expect.any(String));
       expect(theme.swatch).toMatch(/^#[0-9a-f]{6}$/i);
@@ -31,7 +31,7 @@ describe("getStoredTheme", () => {
 
   it("falls back to the default theme for a value that isn't a known theme", () => {
     // Guards against a future build removing a theme a past visit stored.
-    localStorage.setItem("dashboard.theme", "midnight");
+    localStorage.setItem("dashboard.theme", "bogus");
 
     expect(getStoredTheme()).toBe(DEFAULT_THEME);
   });

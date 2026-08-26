@@ -68,8 +68,34 @@ const ORCHID_PALETTE = [
   "#bea49d",
 ];
 
+// Midnight's own palette (Issue #106): same slot-per-Category convention as
+// Orchid. Four shades each of the accent (blue), positive (amber -
+// Midnight's one new hue, since its source palette is monochrome blue) and
+// neutral (desaturated blue) hues - settled via /grilling then /prototype
+// (see prototype/midnight-theme-variants; "Option C - Muted" won the
+// three-variant comparison).
+const MIDNIGHT_PALETTE = [
+  "#2e719e",
+  "#4192c8",
+  "#71add6",
+  "#a0c8e3",
+  "#ab852b",
+  "#d0a643",
+  "#dcbd74",
+  "#e9d4a5",
+  "#465d6d",
+  "#5f8095",
+  "#839daf",
+  "#a8bbc7",
+];
+
+const THEME_PALETTES = {
+  orchid: ORCHID_PALETTE,
+  midnight: MIDNIGHT_PALETTE,
+};
+
 function activePalette() {
-  return getCurrentTheme() === "orchid" ? ORCHID_PALETTE : PALETTE;
+  return THEME_PALETTES[getCurrentTheme()] ?? PALETTE;
 }
 
 export function colourForCategory(category) {

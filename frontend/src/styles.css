@@ -83,6 +83,12 @@
   --color-card: #fffdf9;
   --color-on-accent: #fff;
 
+  /* Decoupled from --color-text (rather than every box-shadow's color-mix
+     reading --color-text directly) so a dark theme whose text is light can
+     still cast a dark shadow instead of a light glow - Midnight overrides
+     this, Terracotta/Orchid don't need to. */
+  --color-shadow: var(--color-text);
+
   --font-heading: "Caprasimo", system-ui, sans-serif;
   --font-body: "Figtree", system-ui, sans-serif;
 
@@ -140,6 +146,66 @@
   --color-negative-tint: #f4d2d8;
 
   --color-card: #fdf8fc;
+}
+
+/* Midnight (Issue #106) is the first genuinely dark theme - card/text invert
+   the tonal relationship every other theme uses (card near-white, text
+   near-black). Palette is a 4-colour set the user supplied (#1B262C, #0F4C75,
+   #3282B8, #BBE1FA), settled via /grilling (role mapping) then /prototype
+   (three derived-shade variants for the two new hues - amber positive, red
+   negative, since the source palette is monochrome blue - and the hover lift
+   size; see prototype/midnight-theme-variants). "Option C - Muted" won.
+
+   Card and text depart from the palette's own literals: #0F4C75 (the
+   palette's card seed) didn't read as distinct enough from accent-600 once
+   live, so the card goes darker to #082A42; #BBE1FA (the palette's text
+   seed) read as muted rather than crisp, so text goes to plain white -  both
+   adjustments made after viewing the live prototype. accent-700/accent-800
+   are lighter than accent-600, not darker - the opposite of every other
+   theme's hover direction - because a dark theme's hover wants to lift
+   toward the light end of the ramp. Midnight's category chart palette lives
+   separately, in lib/categoryColours.js. */
+[data-theme="midnight"] {
+  --color-text: #ffffff;
+  --color-accent: #3282b8;
+
+  --color-neutral-100: #1c252c;
+  --color-neutral-200: #28353e;
+  --color-neutral-300: #3c505d;
+  --color-neutral-400: #547083;
+  --color-neutral-500: #7694a7;
+  --color-neutral-600: #a2b6c3;
+  --color-neutral-700: #cdd8df;
+
+  --color-accent-600: #3282b8;
+  --color-accent-700: #679dc1;
+  --color-accent-800: #8bb4d0;
+
+  --color-accent-2-500: #dcbd74;
+  --color-debt: #627f93;
+  --color-transfer: #495f6e;
+
+  --color-positive: #c4aa6e;
+  --color-positive-tint: #453a21;
+  --color-negative: #ddb6b0;
+  --color-negative-tint: #4a2a26;
+  --color-danger: #ddb6b0;
+
+  --color-card: #082a42;
+  --color-shadow: #0b1014;
+}
+
+/* Neutral-500/600 are Midnight's shared muted-text colours (used across the
+   whole app, e.g. tile labels, axis labels), tuned to read fine at a glance -
+   but the live prototype showed the reader's eye going straight to these
+   three (which month is selected, where income went, the bar's own percent
+   scale) wanting more pop than "muted" gives. Scoped to just these three
+   rather than brightening the neutral ramp itself, which would also lift
+   labels never flagged as a problem. */
+[data-theme="midnight"] .months__pill,
+[data-theme="midnight"] .allocation__legend-item .muted,
+[data-theme="midnight"] .allocation__tick {
+  color: var(--color-text);
 }
 
 *,
@@ -888,7 +954,7 @@ tbody:first-of-type .bva__section {
   color: var(--color-accent-700);
 }
 
-/* — Recurring Transactions Config (Settings tab) — */
+/* — Recurring Transactions (Settings tab) — */
 
 .card__note {
   margin-top: 6px;
@@ -1013,26 +1079,6 @@ tbody:first-of-type .bva__section {
 
 .filters .field {
   min-width: 160px;
-}
-
-/* Category Management sits directly above Recurring Transactions Config with
-   no gap between them (Issue #89's Further Notes), unlike .page__inner's
-   usual 26px between top-level sections - the shared border reads as one
-   continuous Settings block rather than two separately-spaced cards. */
-.settings-group {
-  display: flex;
-  flex-direction: column;
-}
-
-.settings-group > .card:first-child {
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
-.settings-group > .card:last-child {
-  margin-top: -1px;
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
 }
 
 /* — Appearance / theme switcher (Settings tab, Issue #102) — */
@@ -1238,7 +1284,7 @@ tbody:first-of-type .bva__section {
   border-radius: 10px;
   border: 1px solid var(--color-neutral-300);
   background: var(--color-card);
-  box-shadow: 0 10px 30px color-mix(in srgb, var(--color-text) 18%, transparent);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--color-shadow) 18%, transparent);
 }
 
 .emoji-picker__grid {
@@ -1452,7 +1498,7 @@ tbody:first-of-type .table th.table__section {
   border: 1px solid var(--color-neutral-300);
   border-radius: 10px;
   background: var(--color-card);
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--color-text) 12%, transparent);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--color-shadow) 12%, transparent);
 }
 
 .menu__item {

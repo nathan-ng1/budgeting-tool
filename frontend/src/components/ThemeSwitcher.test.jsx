@@ -13,14 +13,15 @@ describe("ThemeSwitcher", () => {
     delete document.documentElement.dataset.theme;
   });
 
-  it("offers Terracotta and Orchid, each with a swatch", () => {
+  it("offers Terracotta, Orchid and Midnight, each with a swatch", () => {
     render(<ThemeSwitcher />);
 
     const options = screen.getAllByRole("button");
 
-    expect(options).toHaveLength(2);
+    expect(options).toHaveLength(3);
     expect(options[0]).toHaveTextContent("Terracotta");
     expect(options[1]).toHaveTextContent("Orchid");
+    expect(options[2]).toHaveTextContent("Midnight");
   });
 
   it("marks Terracotta as pressed when no theme is stored yet", () => {

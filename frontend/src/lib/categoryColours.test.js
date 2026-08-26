@@ -64,3 +64,36 @@ describe("colourForCategory under the Orchid theme", () => {
     expect(groceriesOrchid).not.toBe(groceriesTerracotta);
   });
 });
+
+describe("colourForCategory under the Midnight theme", () => {
+  afterEach(() => {
+    delete document.documentElement.dataset.theme;
+  });
+
+  it("gives every known Expense Category its own colour, distinct from Terracotta's and Orchid's", () => {
+    const terracottaColours = EXPENSE_CATEGORIES.map(colourForCategory);
+
+    document.documentElement.dataset.theme = "orchid";
+    const orchidColours = EXPENSE_CATEGORIES.map(colourForCategory);
+
+    document.documentElement.dataset.theme = "midnight";
+    const midnightColours = EXPENSE_CATEGORIES.map(colourForCategory);
+
+    expect(new Set(midnightColours).size).toBe(EXPENSE_CATEGORIES.length);
+    midnightColours.forEach((colour) => expect(colour).toMatch(/^#[0-9a-f]{6}$/i));
+    expect(midnightColours).not.toEqual(terracottaColours);
+    expect(midnightColours).not.toEqual(orchidColours);
+  });
+
+  it("keeps a Category in the same relative slot as under Terracotta", () => {
+    document.documentElement.dataset.theme = "midnight";
+    const groceriesMidnight = colourForCategory("Groceries");
+
+    delete document.documentElement.dataset.theme;
+    const groceriesTerracotta = colourForCategory("Groceries");
+
+    document.documentElement.dataset.theme = "midnight";
+    expect(colourForCategory("Groceries")).toBe(groceriesMidnight);
+    expect(groceriesMidnight).not.toBe(groceriesTerracotta);
+  });
+});
