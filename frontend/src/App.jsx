@@ -9,6 +9,7 @@ import IncomeAllocation from "./components/IncomeAllocation.jsx";
 import IncomeVsExpensesByMonth from "./components/IncomeVsExpensesByMonth.jsx";
 import MonthByMonth from "./components/MonthByMonth.jsx";
 import MonthSelector from "./components/MonthSelector.jsx";
+import OrchidVariantPrototypeSwitcher from "./components/OrchidVariantPrototypeSwitcher.jsx"; // PROTOTYPE (prototype/orchid-theme-variants)
 import RecurringRules from "./components/RecurringRules.jsx";
 import SpendingByCategory from "./components/SpendingByCategory.jsx";
 import StatTiles from "./components/StatTiles.jsx";
@@ -121,6 +122,7 @@ export default function App() {
 
   return (
     <div className="page">
+      <OrchidVariantPrototypeSwitcher />
       <div className="page__inner">
         <header className="header">
           <div>

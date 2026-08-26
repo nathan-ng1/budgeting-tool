@@ -53,20 +53,24 @@ const PALETTE = [
 // prototype/orchid-theme-palette). Indices 4-7 were Blossom's gold ramp
 // before that; lavender replaces it since positive/Income share that hue
 // under Orchid, and gold doesn't exist in Orchid's palette at all.
-const ORCHID_PALETTE = [
-  "#71285d",
-  "#9f3883",
-  "#c355a6",
-  "#d586bf",
-  "#3e2277",
-  "#5630a6",
-  "#764dcb",
-  "#9e81da",
-  "#5c443d",
-  "#815f56",
-  "#a37f75",
-  "#bea49d",
-];
+// PROTOTYPE (prototype/orchid-theme-variants): slots 4-11 (previously a
+// lavender ramp tied to the old purple --color-positive, then a taupe ramp
+// tied to the old brown neutral ramp) are under an A/B/C comparison
+// alongside the CSS token variants in styles.css - see
+// [data-orchid-variant] there. Slots 0-3 (pink/accent) are unchanged and
+// not part of the comparison. Real code keeps only the winning array.
+const ORCHID_PALETTE_PINK = ["#71285d", "#9f3883", "#c355a6", "#d586bf"];
+const ORCHID_PALETTE_VARIANTS = {
+  A: ["#b0d09f", "#88b86f", "#689d4d", "#4d7439", "#7a5270", "#a37597", "#be9db5", "#d6c2d1"],
+  B: ["#add897", "#83c563", "#63ab3f", "#497f2f", "#874575", "#b1689d", "#c893ba", "#dcbcd4"],
+  C: ["#b2c7a8", "#8cab7c", "#6d8f5b", "#506a44", "#725a6c", "#9a7e93", "#b7a4b2", "#d2c6cf"],
+};
+
+function orchidPalette() {
+  const variant = document.documentElement.dataset.orchidVariant;
+  const rest = ORCHID_PALETTE_VARIANTS[variant] ?? ORCHID_PALETTE_VARIANTS.A;
+  return [...ORCHID_PALETTE_PINK, ...rest];
+}
 
 // Midnight's own palette (Issue #106): same slot-per-Category convention as
 // Orchid. Four shades each of the accent (blue), positive (amber -
@@ -90,12 +94,15 @@ const MIDNIGHT_PALETTE = [
 ];
 
 const THEME_PALETTES = {
-  orchid: ORCHID_PALETTE,
   midnight: MIDNIGHT_PALETTE,
 };
 
 function activePalette() {
-  return THEME_PALETTES[getCurrentTheme()] ?? PALETTE;
+  const theme = getCurrentTheme();
+  if (theme === "orchid") {
+    return orchidPalette();
+  }
+  return THEME_PALETTES[theme] ?? PALETTE;
 }
 
 export function colourForCategory(category) {
