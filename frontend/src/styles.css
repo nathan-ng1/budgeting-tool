@@ -115,10 +115,17 @@
    kept as the primary source, not merged) - "Variant B, Richer" won:
 
    - --color-background (page backdrop, decoupled from --color-neutral-100 -
-     see :root) and --color-card are a bold-then-pale pink pairing, iterated
+     see :root) and --color-card are a pale-vs-richer pink pairing, iterated
      live against the running prototype after the initial derivation (both
-     started more saturated, then were progressively lightened on feedback).
-     --color-neutral-100 itself is unchanged - it keeps the selected
+     started more saturated, then were lightened, then swapped so the card
+     carries the bolder of the two pinks and the page is the paler one).
+     --color-card was tuned again afterwards (#f7cbe4 -> #eacdd8 -> #ecd9e1):
+     hue-locked to --color-background's ~337° rather than its own ~326°, and
+     lightened/desaturated in two more live passes to sit closer to the
+     background, so the two pinks read as one family instead of visibly
+     different hues - the card still separates from the page via its own
+     border/lightness delta, not via a hue jump. --color-neutral-100
+     itself is unchanged - it keeps the selected
      month-pill's text colour, .rule-form's background and .category-chip's
      background, none of which should follow the page backdrop's colour.
    - --color-neutral-200..700 (+ --color-debt/--color-transfer, which just
@@ -136,7 +143,9 @@
      the new, no-longer-near-white card).
 
    Every text-bearing derived token above was contrast-checked >=4.5:1 (WCAG
-   AA) against --color-card. --color-accent itself uses the same derived
+   AA) against --color-card (re-checked after the background/card swap -
+   --color-positive needed darkening, --color-negative/--color-danger
+   already had enough headroom). --color-accent itself uses the same derived
    shade as --color-accent-600 rather than a literal seed, since the active
    month pill uses --color-accent as a background under --color-neutral-100
    text. Orchid's category chart palette lives separately, in
@@ -145,8 +154,8 @@
   --color-text: #22161f;
   --color-accent: #a63a89;
 
-  --color-background: #f7cbe4;
-  --color-card: #f0e0e6;
+  --color-background: #f0e0e6;
+  --color-card: #ecd9e1;
 
   --color-neutral-100: #f8f5f4;
   --color-neutral-200: #efe1eb;
@@ -164,7 +173,7 @@
   --color-debt: #8d497b;
   --color-transfer: #c48db5;
 
-  --color-positive: #417029;
+  --color-positive: #325620;
   --color-positive-tint: #def1d5;
   --color-negative: #921c31;
   --color-negative-tint: #f1d5da;
