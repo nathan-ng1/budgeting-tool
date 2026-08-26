@@ -115,7 +115,7 @@
    since it's a bar/dot fill, not text. Orchid's category chart palette lives
    separately, in lib/categoryColours.js. */
 [data-theme="orchid"] {
-  --color-text: #32202d;
+  --color-text: #22161f;
   --color-accent: #a63a89;
 
   --color-neutral-100: #f8f5f4;
