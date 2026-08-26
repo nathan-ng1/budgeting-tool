@@ -44,28 +44,31 @@ const PALETTE = [
   "#c0b6a5", // neutral-400
 ];
 
-// Orchid's own palette (Issue #102 follow-up #2, replacing Blossom's):
-// a Category keeps the same *slot* (index) as under Terracotta, so
-// switching themes doesn't reshuffle which Categories look alike or
-// different from each other - just what they look like. Four shades each of
-// the accent (pink), positive (lavender) and neutral (taupe) hues from the
-// theme's source palette - settled via /grilling then /prototype (see
-// prototype/orchid-theme-palette). Indices 4-7 were Blossom's gold ramp
-// before that; lavender replaces it since positive/Income share that hue
-// under Orchid, and gold doesn't exist in Orchid's palette at all.
+// Orchid's own palette: a Category keeps the same *slot* (index) as under
+// every other theme, so switching themes doesn't reshuffle which
+// Categories look alike or different from each other - just what they
+// look like. Four shades each of the accent (pink), positive (sage green)
+// and neutral (mauve/rose-grey) hues.
+//
+// Indices 4-7 and 8-11 were revised in Issue #108 (a lavender ramp tied to
+// the old purple --color-positive, and a taupe ramp tied to the old brown
+// neutral ramp, respectively) to follow those tokens' new hues - settled
+// via /grilling then /prototype (see prototype/orchid-theme-variants;
+// "Variant B, Richer" won a three-variant comparison). Indices 0-3 are
+// unchanged since Issue #102 follow-up #2 (see prototype/orchid-theme-palette).
 const ORCHID_PALETTE = [
   "#71285d",
   "#9f3883",
   "#c355a6",
   "#d586bf",
-  "#3e2277",
-  "#5630a6",
-  "#764dcb",
-  "#9e81da",
-  "#5c443d",
-  "#815f56",
-  "#a37f75",
-  "#bea49d",
+  "#add897",
+  "#83c563",
+  "#63ab3f",
+  "#497f2f",
+  "#874575",
+  "#b1689d",
+  "#c893ba",
+  "#dcbcd4",
 ];
 
 // Midnight's own palette (Issue #106): same slot-per-Category convention as
