@@ -119,7 +119,13 @@
      live against the running prototype after the initial derivation (both
      started more saturated, then were lightened, then swapped so the card
      carries the bolder of the two pinks and the page is the paler one).
-     --color-neutral-100 itself is unchanged - it keeps the selected
+     --color-card was tuned again afterwards (#f7cbe4 -> #eacdd8 -> #ecd9e1):
+     hue-locked to --color-background's ~337° rather than its own ~326°, and
+     lightened/desaturated in two more live passes to sit closer to the
+     background, so the two pinks read as one family instead of visibly
+     different hues - the card still separates from the page via its own
+     border/lightness delta, not via a hue jump. --color-neutral-100
+     itself is unchanged - it keeps the selected
      month-pill's text colour, .rule-form's background and .category-chip's
      background, none of which should follow the page backdrop's colour.
    - --color-neutral-200..700 (+ --color-debt/--color-transfer, which just
@@ -149,7 +155,7 @@
   --color-accent: #a63a89;
 
   --color-background: #f0e0e6;
-  --color-card: #f7cbe4;
+  --color-card: #ecd9e1;
 
   --color-neutral-100: #f8f5f4;
   --color-neutral-200: #efe1eb;
