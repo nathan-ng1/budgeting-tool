@@ -30,7 +30,7 @@ describe("colourForCategory", () => {
   });
 });
 
-describe("colourForCategory under the Blossom theme", () => {
+describe("colourForCategory under the Orchid theme", () => {
   afterEach(() => {
     delete document.documentElement.dataset.theme;
   });
@@ -38,29 +38,29 @@ describe("colourForCategory under the Blossom theme", () => {
   it("gives every known Expense Category its own colour, distinct from Terracotta's", () => {
     const terracottaColours = EXPENSE_CATEGORIES.map(colourForCategory);
 
-    document.documentElement.dataset.theme = "blossom";
-    const blossomColours = EXPENSE_CATEGORIES.map(colourForCategory);
+    document.documentElement.dataset.theme = "orchid";
+    const orchidColours = EXPENSE_CATEGORIES.map(colourForCategory);
 
-    expect(new Set(blossomColours).size).toBe(EXPENSE_CATEGORIES.length);
-    blossomColours.forEach((colour) => expect(colour).toMatch(/^#[0-9a-f]{6}$/i));
-    // A Blossom-specific palette (Issue #102), not Terracotta's colours
-    // relabelled - every slot differs, including the former green steps
-    // (indices 4-7), which moved to a Blossom-only gold ramp after user
-    // feedback that green read as off-theme against pink.
-    expect(blossomColours).not.toEqual(terracottaColours);
+    expect(new Set(orchidColours).size).toBe(EXPENSE_CATEGORIES.length);
+    orchidColours.forEach((colour) => expect(colour).toMatch(/^#[0-9a-f]{6}$/i));
+    // An Orchid-specific palette (Issue #102 follow-up #2), not Terracotta's
+    // colours relabelled - every slot differs, including indices 4-7, which
+    // moved from Blossom's gold ramp to a lavender ramp (Orchid's positive/
+    // Income hue - gold doesn't exist in Orchid's source palette).
+    expect(orchidColours).not.toEqual(terracottaColours);
   });
 
   it("keeps a Category in the same relative slot across themes", () => {
     // Same rank in each theme's palette, so switching themes doesn't also
     // reshuffle which Categories look alike or different from each other.
-    document.documentElement.dataset.theme = "blossom";
-    const groceriesBlossom = colourForCategory("Groceries");
+    document.documentElement.dataset.theme = "orchid";
+    const groceriesOrchid = colourForCategory("Groceries");
 
     delete document.documentElement.dataset.theme;
     const groceriesTerracotta = colourForCategory("Groceries");
 
-    document.documentElement.dataset.theme = "blossom";
-    expect(colourForCategory("Groceries")).toBe(groceriesBlossom);
-    expect(groceriesBlossom).not.toBe(groceriesTerracotta);
+    document.documentElement.dataset.theme = "orchid";
+    expect(colourForCategory("Groceries")).toBe(groceriesOrchid);
+    expect(groceriesOrchid).not.toBe(groceriesTerracotta);
   });
 });

@@ -7,7 +7,7 @@ const STORAGE_KEY = "dashboard.theme";
 
 export const THEMES = [
   { key: "terracotta", label: "Terracotta", swatch: "#c67139" },
-  { key: "blossom", label: "Blossom", swatch: "#d46b91" },
+  { key: "orchid", label: "Orchid", swatch: "#f1a7dd" },
 ];
 
 export const DEFAULT_THEME = "terracotta";

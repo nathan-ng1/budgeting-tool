@@ -13,39 +13,39 @@ describe("ThemeSwitcher", () => {
     delete document.documentElement.dataset.theme;
   });
 
-  it("offers Terracotta and Blossom, each with a swatch", () => {
+  it("offers Terracotta and Orchid, each with a swatch", () => {
     render(<ThemeSwitcher />);
 
     const options = screen.getAllByRole("button");
 
     expect(options).toHaveLength(2);
     expect(options[0]).toHaveTextContent("Terracotta");
-    expect(options[1]).toHaveTextContent("Blossom");
+    expect(options[1]).toHaveTextContent("Orchid");
   });
 
   it("marks Terracotta as pressed when no theme is stored yet", () => {
     render(<ThemeSwitcher />);
 
     expect(screen.getByRole("button", { name: /Terracotta/ })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: /Blossom/ })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: /Orchid/ })).toHaveAttribute("aria-pressed", "false");
   });
 
   it("marks the previously stored theme as pressed on load", () => {
-    localStorage.setItem("dashboard.theme", "blossom");
+    localStorage.setItem("dashboard.theme", "orchid");
 
     render(<ThemeSwitcher />);
 
-    expect(screen.getByRole("button", { name: /Blossom/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /Orchid/ })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("applies and persists a theme immediately on click, with no separate Save step", async () => {
     render(<ThemeSwitcher />);
 
-    await userEvent.click(screen.getByRole("button", { name: /Blossom/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Orchid/ }));
 
-    expect(document.documentElement.dataset.theme).toBe("blossom");
-    expect(localStorage.getItem("dashboard.theme")).toBe("blossom");
-    expect(screen.getByRole("button", { name: /Blossom/ })).toHaveAttribute("aria-pressed", "true");
+    expect(document.documentElement.dataset.theme).toBe("orchid");
+    expect(localStorage.getItem("dashboard.theme")).toBe("orchid");
+    expect(screen.getByRole("button", { name: /Orchid/ })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: /Terracotta/ })).toHaveAttribute("aria-pressed", "false");
   });
 });
