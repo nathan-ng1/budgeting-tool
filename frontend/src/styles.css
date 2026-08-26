@@ -86,8 +86,11 @@
        old literal's ~82deg), now formula-derived and contrast-checked
        against --color-card instead of a hand-picked hex.
      - --color-negative (+ its tint) moves off aliasing the accent ramp onto
-       its own brick-red hue (~9deg), distinct from both the accent (~24deg)
-       and --color-danger.
+       its own brick-red hue, distinct from both the accent (~24deg) and
+       --color-danger. Variant C landed at ~9deg; live feedback on the Budget
+       Suggestion chips (they read as "out of place" pink against the rest of
+       the earthy palette) warmed this further to ~17deg, closer to the
+       accent, while keeping it distinct enough to still read as "bad".
      - --color-danger becomes its own crimson hue (~355deg), distinct from
        --color-negative, rather than an unrelated hand-picked literal.
 
@@ -106,8 +109,8 @@
 
   --color-positive: #53653e;
   --color-positive-tint: #dfe8d4;
-  --color-negative: #7b3d32;
-  --color-negative-tint: #ebdddb;
+  --color-negative: #7b4732;
+  --color-negative-tint: #e8dad4;
 
   --color-card: #fffdf9;
   --color-on-accent: #fff;
