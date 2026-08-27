@@ -57,28 +57,38 @@ const PALETTE = [
 // Orchid's own palette: a Category keeps the same *slot* (index) as under
 // every other theme, so switching themes doesn't reshuffle which
 // Categories look alike or different from each other - just what they
-// look like. Four shades each of the accent (pink), positive (sage green)
-// and neutral (mauve/rose-grey) hues.
+// look like.
 //
-// Indices 4-7 and 8-11 were revised in Issue #108 (a lavender ramp tied to
-// the old purple --color-positive, and a taupe ramp tied to the old brown
-// neutral ramp, respectively) to follow those tokens' new hues - settled
-// via /grilling then /prototype (see prototype/orchid-theme-variants;
-// "Variant B, Richer" won a three-variant comparison). Indices 0-3 are
-// unchanged since Issue #102 follow-up #2 (see prototype/orchid-theme-palette).
+// Re-derived wholesale in pass 9 (prototype/orchid-pastel-palette) at the
+// user's request to "match the new ramping between hot pink and royal
+// purple" - the CSS side's --color-negative-fill (hot pink, H=330) and
+// --color-positive/--color-accent-2-500 (royal purple, H=278) waypoints.
+// This replaces the three-separate-family arrangement passes 6-8 left
+// behind (a pink family at 0-3, a purple family at 4-7 re-hued twice
+// chasing --color-positive, and a leftover neutral/mauve family at 8-11
+// tied to the old neutral ramp) with one continuous sweep: three 4-shade
+// bands at H=330 (hot pink) -> H=304 (midpoint) -> H=278 (royal purple),
+// each band running dark-to-light (S=65%, L=26/42/58/74 - the same >=16%
+// per-step lightness delta pass 6 established for telling adjacent chart
+// segments apart). All fill-only (donut segments, legend/list dots - see
+// colourForCategory's callers), so none of these are held to the 4.5:1
+// text bar. Band 3's second step (index 9, H=278/L=42) lands on
+// #7e25b1 - the exact same value as --color-accent-2-500 - confirming the
+// derivation lines up with the CSS tokens it's ramping between, not a
+// deliberate cross-reference.
 const ORCHID_PALETTE = [
-  "#71285d",
-  "#9f3883",
-  "#c355a6",
-  "#d586bf",
-  "#add897",
-  "#83c563",
-  "#63ab3f",
-  "#497f2f",
-  "#874575",
-  "#b1689d",
-  "#c893ba",
-  "#dcbcd4",
+  "#6d1742",
+  "#b1256b",
+  "#d94e94",
+  "#e892bd",
+  "#6d1768",
+  "#b125a7",
+  "#d94ed0",
+  "#e892e2",
+  "#4e176d",
+  "#7e25b1",
+  "#a64ed9",
+  "#c892e8",
 ];
 
 // Midnight's own palette (Issue #106): same slot-per-Category convention as
