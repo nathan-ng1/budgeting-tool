@@ -36,8 +36,8 @@ export default function ExpensesOverTime({ overTime }) {
             aria-label={`Cumulative expenses across the month, ${money(overTime.total)} by month end`}>
             <defs>
               <linearGradient id="spendFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--color-accent-600)" stopOpacity="0.26" />
-                <stop offset="100%" stopColor="var(--color-accent-600)" stopOpacity="0.03" />
+                <stop offset="0%" stopColor="var(--color-negative-fill)" stopOpacity="0.26" />
+                <stop offset="100%" stopColor="var(--color-negative-fill)" stopOpacity="0.03" />
               </linearGradient>
             </defs>
             <g stroke="var(--color-neutral-300)" strokeWidth="1" vectorEffect="non-scaling-stroke">
@@ -60,7 +60,7 @@ export default function ExpensesOverTime({ overTime }) {
                 <path
                   d={chart.linePath}
                   fill="none"
-                  stroke="var(--color-accent-600)"
+                  stroke="var(--color-negative-fill)"
                   strokeWidth="2.25"
                   strokeLinejoin="round"
                   strokeLinecap="round"

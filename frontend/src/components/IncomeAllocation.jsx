@@ -2,7 +2,7 @@ import { allocationBar } from "../lib/allocationBar.js";
 import { money } from "../lib/format.js";
 
 const SEGMENT_COLOURS = {
-  expenses: "var(--color-accent-600)",
+  expenses: "var(--color-negative-fill)",
   debt: "var(--color-debt)",
   transferred: "var(--color-transfer)",
   remaining: "var(--color-accent-2-500)",

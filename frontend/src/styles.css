@@ -115,6 +115,39 @@
   --color-card: #fffdf9;
   --color-on-accent: #fff;
 
+  /* PROTOTYPE (prototype/orchid-pastel-palette, pass 9) - .button:hover and
+     .button--danger:hover used to read var(--color-accent-700) directly,
+     like the genuine text uses of that token (.state--error,
+     .category-chip--add:hover). Orchid's buttons move to a vivid,
+     unconstrained hot pink with dark text (see the pass 9 comment below),
+     which flips the direction a hover state needs to move in - lighter,
+     not darker, since a darker hover would fail contrast against dark
+     text - without dragging the AA-constrained text uses of accent-700
+     along with it. Aliased to accent-700 every other theme already used
+     so their (darker) hover direction is unchanged. */
+  --color-button-hover: var(--color-accent-700);
+
+  /* PROTOTYPE (prototype/orchid-pastel-palette) - the Net line/dot markers
+     (IncomeVsExpensesByMonth.jsx) and their .mbe__line-swatch legend marker
+     used to read var(--color-neutral-700) directly, like several genuine
+     text uses of that token (.button--quiet, .field__derived). Orchid's
+     revised palette wants this one decorative stroke pushed to white
+     without dragging those text uses along with it - hence a token of its
+     own, aliased to the neutral-700 every other theme already used so
+     their appearance is unchanged. */
+  --color-chart-line: var(--color-neutral-700);
+
+  /* PROTOTYPE (prototype/orchid-pastel-palette, pass 8) - IncomeAllocation's
+     "expenses" segment, IncomeVsExpensesByMonth's Expense bars/dot and
+     ExpensesOverTime's line/gradient/marker all used to read
+     var(--color-accent-600) directly, like the genuine text/white-on-bg
+     uses of that token (.figure--adverse, .button backgrounds). Orchid
+     wants its Expenses fills pushed to a vivid hot pink well past what
+     4.5:1 text contrast allows, without dragging those text/button uses
+     along with it - hence a token of its own, aliased to accent-600 every
+     other theme already used so their appearance is unchanged. */
+  --color-negative-fill: var(--color-accent-600);
+
   /* Separate from --color-neutral-100 (Issue #108) so a theme's page
      backdrop can go bold without dragging along neutral-100's other
      uses (selected month-pill text, .rule-form background,
@@ -182,34 +215,366 @@
    month pill uses --color-accent as a background under --color-neutral-100
    text. Orchid's category chart palette lives separately, in
    lib/categoryColours.js. */
+/* PROTOTYPE (prototype/orchid-pastel-palette) - a fourth Orchid revision,
+   starting from a user-supplied 4-colour palette (#F7DEE3 background,
+   #F4D2D8 card, #DCCFF7 lavender for secondary/inactive elements, #DC7386
+   rose as the single "pop" colour) rather than a /grilling role mapping.
+   Settled in two live-feedback passes:
+
+   Pass 1 compared #DC7386 applied literally vs. a darkened derivation, via
+   a throwaway ?variant=A/B toggle (now removed - "safe" won and is folded
+   in below). Raw #DC7386 measured ~2.2:1 as text against --color-card and
+   ~3.1:1 as white-on-fill (the selected month pill, 13px bold) - nowhere
+   near the 4.5:1 this project holds every other text-bearing token to, and
+   visibly washed out live (the Budgeted vs Actual Total Diff figure, the
+   Full year pill). --color-accent/--color-negative/--color-danger below
+   are all a ~349°-hue derivation darkened until both contexts clear AA:
+   #a32941 measures ~7.1:1 for the pill and ~5.1:1 for figure text.
+   --color-danger nudges darker/more crimson again so it stays visually
+   distinct from --color-negative, matching every other theme's convention.
+   This is the same seed hex Orchid's *previous* --color-negative was
+   already derived from (see the revision history above) - not a new
+   problem, the reason a derived shade exists at all.
+
+   Pass 2, live feedback on pass 1's build:
+   - --color-background lightened further (#f7dee3 -> #fbeef1) so it
+     separates more clearly from --color-card, which is unchanged.
+   - --color-neutral-100/200/300 keep the lavender ramp hue-locked to
+     #DCCFF7 (~260°) - deliberately distinct from the rose accent, per the
+     brief, and only ever a background/border/gridline colour
+     (.months__pill/.card/.nav border, hover fills), never text.
+   - --color-neutral-400/500/600/700 revert to the mauve/rose-grey ramp
+     hue-locked to --color-accent (~349°) that every prior Orchid revision
+     shipped with (see history above) - these steps are almost entirely
+     read as *text* (.nav__tab, .months__pill, table headers, muted
+     subtext, .button--quiet, .field__derived) and the lavender version of
+     them read as "purple, hard to read" live. --color-debt/--color-
+     transfer ride this ramp (600/400 steps) again too, same as before.
+   - --color-chart-line (new token, see :root) takes the one genuinely
+     decorative use of the old --color-neutral-700 - the Net line/dots in
+     IncomeVsExpensesByMonth.jsx and its .mbe__line-swatch legend marker -
+     to white, since "purple ornaments" in the live feedback specifically
+     called out that line. Kept as its own token rather than repointing
+     --color-neutral-700 itself, since that token's other, more numerous
+     uses are body text that needs to stay legible dark-on-light, not white.
+   - --color-text/--color-positive/-tint/--color-accent-2-500 are
+     untouched: text was already dark charcoal, and green stays reserved
+     for positive Net Balance per the brief.
+
+   Pass 3, live feedback on pass 2's build - green dropped entirely, and
+   the neutral ramp's remaining mauve tint still read as "purple":
+   - --color-accent-2-500 (Income bars/dots, the allocation bar's
+     "Remaining" segment - all fill-only, no text ever sits directly on
+     it, see IncomeAllocation.jsx/IncomeVsExpensesByMonth.jsx) is now the
+     literal seed #DC7386 - safe here since it's never held to the 4.5:1
+     text bar.
+   - --color-positive (+ its tint) moves off green onto the same ~349° rose
+     family, but *is* text (.figure--favourable, the Net Balance figure,
+     Budget Suggestion chips) - so it's a separate, darker/less saturated
+     derivation (#642b35, ~7.8:1 against --color-card) from --color-accent/
+     --color-negative's brighter crimson (#a32941, ~5.1:1), rather than the
+     same value - a single hex for both signs would make the Month by
+     month table's per-row Net column (favourable/adverse rows stacked
+     together) unreadable as a sequence.
+   - --color-neutral-100..700 all become literal white: text/border/
+     gridline elements that read as "purple" survived pass 2's hue
+     revert, so the ask this round was pure white rather than another
+     shade. This is a real, deliberate legibility trade: white-on-card
+     (--color-card #f4d2d8) measures ~1.4:1, so muted labels
+     (.nav__tab, table headers, .button--quiet, subtext) and borders
+     effectively disappear rather than staying faintly visible - shown
+     live rather than walked back unasked, since this is the second time
+     it's been requested after the contrast tradeoff was already flagged.
+   - --color-debt/--color-transfer no longer ride the neutral ramp (it's
+     white now, and both are fill-only chart/bar colours that need to stay
+     visible against --color-card) - they get their own fixed steps in the
+     same rose family instead, ordered so all four "Where did my income
+     go?" segments plus Income stay distinguishable by lightness: Expenses
+     #a32941 (darkest) -> Debt #c65068 -> Remaining/Income #dc7386 ->
+     Transferred #eeb3c0 (lightest).
+
+   Pass 4, live feedback on pass 3's build - white text still wasn't the
+   ask (asked again, this time for black), and green's replacement is now
+   its own purple rather than a lightness step of the negative rose:
+   - --color-neutral-300/400/500/600/700 go to literal black (#000000).
+     --color-neutral-100/200 do NOT - grep showed they're never a text/
+     border/gridline colour in this file, only backgrounds (.rule-form,
+     .category-chip, .months__pill[aria-pressed] hover fills, the
+     allocation bar's track) - flipping those to black would blacken form
+     panels and hover states, which is a different, unrequested change.
+     neutral-300 is border/gridline-only (confirmed via grep: no
+     `background:` use) so it's a clean flip - this is also the SVG chart
+     gridline stroke (IncomeVsExpensesByMonth.jsx). One known gap: a
+     handful of `border-bottom: var(--color-neutral-200)` row dividers
+     (Transactions/Budget list rows) stay whatever neutral-200 is, since
+     that token's background role wins - flag if those should go black
+     too, since it'd need splitting into its own token like
+     --color-chart-line below.
+   - --color-accent-2-500 (Income/Remaining fill) and --color-positive
+     (+ its tint, the *text* form - same darken-for-contrast reasoning as
+     every other text token here) move off pink onto purple (~275°):
+     #6e3399 fill, #4d2768 text (~8.3:1 against --color-card).
+     --color-debt/--color-transfer become the two waypoints of a pink
+     (#a32941, ~349°) -> purple (#6e3399, ~275°) hue ramp instead of a
+     single-hue lightness ramp: Debt #962c6a (~325°), Transfer #962c96
+     (~300°) - so the "Where did my income go?" bar now reads as a
+     genuine pink-to-purple gradient left to right (Expenses, Debt,
+     Transferred, Remaining) rather than one hue at four lightnesses.
+     --color-negative/--color-danger stay pink/crimson, unchanged.
+
+   Pass 5, live feedback on pass 4's build - flat black text/borders/
+   gridlines read as "too much":
+   - --color-neutral-300..700 move off literal black onto a single
+     hue-locked ramp instead, following the convention Terracotta (warm
+     tan/brown, ~36 deg) and Midnight (blue-grey, ~203 deg) already use -
+     tie the neutral ramp to a hue from the theme's own palette rather
+     than true grey/black/white. H=312 deg is the midpoint between
+     --color-accent's pink (~349 deg) and --color-positive's purple
+     (~275 deg), so the ramp reads as a muted version of *both* semantic
+     ends rather than favouring one - literally "complements the palette"
+     the way pass 2's short-lived mauve/rose-grey ramp did, but now
+     hue-locked to the pink<->purple pair instead of only the old
+     negative-rose accent. S=28% throughout, in the same
+     muted/low-saturation register as Terracotta's ~11% and Midnight's
+     ~22% (never full brand saturation).
+   - --color-neutral-300 (#b983ae, L=62%) and -400 (#a76299, L=52%) are
+     border/gridline/border-color-only roles (confirmed via the same grep
+     used for pass 4) so they're held to visibility, not the 4.5:1 text
+     bar - ~2.2:1 against --color-card, a deliberate step down from flat
+     black's ~17:1 but clearly more present than pass 3's white-on-pink
+     (~1.4:1). This is also the SVG chart gridline stroke.
+   - --color-neutral-500 (#7c4671, ~5.1:1), -600 (#623759, ~6.8:1) and
+     -700 (#482842, ~9.1:1) are predominantly *text* roles (nav tabs,
+     table headers, muted subtext, .field__derived) so each clears the
+     4.5:1 AA bar with the same kind of headroom the rest of this theme
+     uses, darkest-to-lightest matching the project's light-theme
+     convention (700 = darkest/most text-heavy, matching Terracotta).
+   - --color-neutral-100/200 and --color-chart-line are unchanged - still
+     white backgrounds/decorative net-line, per pass 4's and pass 2's
+     reasoning respectively; this round only touched the text/border/
+     gridline steps that were flagged as too harsh.
+
+   Pass 6, live feedback on pass 5's build - "red" negative asked to become
+   hot pink, "purple" positive asked to become royal purple, and the
+   pink<->purple bar/donut ramp (Expenses/Debt/Transferred/Remaining) was
+   "a little hard to decipher":
+   - --color-accent/-600/--color-negative move from crimson (~349 deg) to
+     canonical hot pink (~330 deg, the hue of the web colour #FF69B4),
+     darkened/saturated (S=85%, L=32% -> #970c52) until it clears 4.5:1
+     again (~6.0:1 against --color-card) - same derive-from-a-named-hue-
+     then-darken-for-contrast method as every prior Orchid pass.
+     --color-accent-700 (#71093d, ~8.3:1) and -800 (#50072b) step down by
+     the same ~8% L per step pass 4's crimson ramp used, just re-hued.
+   - --color-danger nudges further toward true red (~350 deg, #770d1f,
+     ~8.1:1) rather than following the accent hue this time - keeping it
+     a visually distinct "alert red" from the new hot pink, matching the
+     "stays visually distinct from --color-negative" rule every earlier
+     Orchid revision has followed for this token.
+   - --color-positive (+ --color-accent-2-500 for Income/Remaining, + its
+     tint) move from ~275 deg to ~266 deg, the hue of the named colour
+     "royal purple" (#7851A9), at higher saturation (S=55%) than the
+     previous pass's more muted purple for a richer/more "royal" read.
+     --color-positive (#42206f, ~9.0:1 text) stays the darker/less-
+     saturated derivation from --color-accent-2-500 (#622bab, fill-only)
+     for the same reason established in pass 3 - one hex can't serve both
+     a 4.5:1 text bar and a vivid fill.
+   - The real fix for "hard to decipher": pass 4's ramp varied only hue
+     between the four bar/donut segments (Expenses/Debt/Transferred/
+     Remaining all sat at ~38-40% lightness) - on a thin stacked bar,
+     near-identical lightness made adjacent segments blur together even
+     though the hues technically differed. --color-debt (#d025a5, H=315,
+     L=48%) and --color-transfer (#ce4eda, H=295, L=58%) now swing
+     lightness *and* saturation, not just hue, between the two fixed
+     endpoints (dark hot-pink Expenses at L=32%, medium royal-purple
+     Remaining at L=42%) - every adjacent pair in the sequence now differs
+     by >=16% lightness, which is what actually separates segments at a
+     glance, not hue alone.
+   - lib/categoryColours.js's ORCHID_PALETTE indices 4-7 (Spending by
+     Category's "positive" slot-group) still carried pass-108's sage
+     green, untouched by every CSS-token-only pass so far since that file
+     is a separate hand-maintained palette - re-derived onto the same
+     ~266 deg royal-purple hue as --color-positive above so no green
+     remains anywhere in Orchid. Indices 0-3 (pink) and 8-11 (neutral)
+     were already close enough in hue to the revised accent/neutral
+     tokens that they didn't need re-deriving.
+
+   Pass 7, live feedback on pass 6's build - Debt read as the "hot pink"
+   segment rather than Expenses, the buttons (--color-accent-600
+   background) still read as crimson rather than hot pink, the royal
+   purple leaned too blue, and the negative-tint Budget Suggestion chips
+   nearly vanished against --color-card:
+   - Root cause of both the Debt/Expenses mixup and the "still crimson"
+     button complaint was the same thing: pass 6's #970c52 (L=32%) sat
+     near the *bottom* of what 4.5:1 against --color-card allows, so it
+     read dark/muddy rather than "hot" - meanwhile pass 6's --color-debt
+     (#d025a5, fill-only, no contrast ceiling) sat at L=48%, genuinely
+     brighter, so it visually won the "which one is hot pink" contest.
+     Fix: push --color-accent/-600/--color-negative as light+saturated as
+     the AA floor allows (S=90%, L=36% -> #ae095c, ~5.0:1 against
+     --color-card and ~7:1 for white button text on top of it) - as
+     vivid as this hue can get while every text/background role it plays
+     still clears 4.5:1 - and pull --color-debt down to L=20% (#521442)
+     instead, so Expenses is unambiguously the boldest, most saturated
+     pink in the theme and Debt reads as a supporting, muted plum rather
+     than competing with it. --color-transfer/--color-accent-2-500's
+     lightness gap either side of the new --color-debt is still >=16%
+     (20 -> 58 -> 42), so pass 6's "decipherable at a glance" fix holds.
+     --color-accent-700 (#7e0742) / -800 (#52042b) re-derive off the new
+     S=90%/H=330deg base at the same ~10% L step pass 6 used.
+   - --color-positive (+ --color-accent-2-500, + its tint) move from
+     ~266deg to ~278deg - both are technically "royal purple" (named
+     royal purple #7851A9 itself measures ~266deg) but pale, moderately-
+     saturated colours near 266deg sit close enough to true blue (~240deg)
+     that they read as periwinkle rather than purple; 278deg is far
+     enough into violet territory to read unambiguously purple at any
+     lightness, and saturation is raised a step (accent-2-500 55%->65%,
+     positive 45%->60%) so the hue reads confidently rather than washed
+     out. --color-accent-2-500 (#7e25b1) and --color-positive (#531d72,
+     ~8.4:1) keep the same fill-vs-text split as every earlier pass.
+   - --color-negative-tint (#f6dae8, H=330/S=61%/L=91%) sat only ~2%
+     lighter than --color-card (H=349/S=61%/L=89%) and a scant 19deg
+     apart in hue - close enough that the adverse Budget Suggestion
+     chips' pill shape nearly disappeared into the card, leaving only the
+     text visible. Pushed to S=70%/L=87% (#f5c7de) - saturated/darkened
+     enough to read as its own pill against the card (still >=4.5:1 for
+     --color-negative text sitting on it, ~4.7:1) without needing a hue
+     change, since hue was never the problem here. --color-positive-tint
+     didn't have this problem (purple vs pink is a large hue jump from
+     --color-card even at similar lightness) so it only got the pass's
+     hue nudge, not a saturation/lightness rework.
+   - lib/categoryColours.js's ORCHID_PALETTE indices 4-7 re-derive onto
+     the new ~278deg hue too, keeping the "same hue as --color-positive"
+     rule pass 6 established.
+
+   Pass 8, live feedback on pass 7's build - the "Save budgets" button
+   only *looked* like a different colour from the Aug pill/Add
+   transaction/Add rule because it was disabled (no unsaved budget
+   changes yet) and .button:disabled is opacity:0.55 over --color-card -
+   confirmed live by entering a budget amount, which makes it render the
+   identical #ae095c; no token changed for that half of the report.
+   Transferred (#ce4eda, fill-only, L=58%) still read as "the hot pink"
+   over Expenses itself, for the same structural reason pass 7 fixed for
+   Debt: a fill-only waypoint with no AA ceiling can always out-brighten
+   a text-constrained anchor. Pass 7 only fixed the Expenses-vs-Debt half
+   of that; Transferred was still brighter than accent-600's L=36% AA
+   ceiling.
+   - This pass finally breaks the ceiling itself rather than patching
+     around it again: --color-negative-fill (new token, see :root) takes
+     over every Expenses-only *fill* role (IncomeAllocation's "expenses"
+     segment, IncomeVsExpensesByMonth's Expense bars/dot,
+     ExpensesOverTime's line/gradient/marker) that used to read
+     --color-accent-600 directly. --color-accent/-600/--color-negative
+     stay at pass 7's #ae095c - still the token for buttons, the active
+     month pill and .figure--adverse text, all genuinely AA-constrained -
+     while --color-negative-fill (#fa429e, H=330/S=95%/L=62%) is free to
+     be actual, unconstrained hot pink, the same fill-vs-text split
+     --color-accent-2-500/--color-positive already used for the positive
+     side.
+   - --color-debt (#df20b6, H=313/L=50%) and --color-transfer (#b22fbc,
+     H=296/L=46%) are re-ramped as waypoints between the new, brighter
+     --color-negative-fill (L=62%) and --color-accent-2-500 (#7e25b1,
+     L=42%, unchanged) - lightness now descends the whole way across the
+     sequence (62 -> 50 -> 46 -> 42) so Expenses reads as the unambiguous
+     peak and nothing downstream of it competes for "the hot pink"
+     again.
+
+   Pass 9, live feedback on pass 8's build - "all buttons" (the Save
+   budgets/Add transaction/Add rule buttons, the selected Month pill)
+   asked to become the vivid hot pink too, not the AA-safe #ae095c pass 7
+   settled buttons on, and lib/categoryColours.js's ORCHID_PALETTE asked
+   to "match the new ramping between hot pink and royal purple":
+   - --color-accent/-600 move to #fa429e - the same value pass 8 already
+     established as --color-negative-fill - rather than another shade of
+     their own: the user's ask was for buttons and Expenses to read as
+     the same hot pink, so this is a deliberate merge, not a coincidence.
+     This is only possible now because pass 8 already split the
+     AA-constrained anchor (then --color-accent-600) away from the
+     unconstrained fill (--color-negative-fill) - without that split,
+     pushing buttons this vivid would have dragged Expenses-fill along
+     too tightly-coupled to re-tune independently. --color-negative
+     (.figure--adverse text) stays its own token at pass 7's #ae095c,
+     unmoved - it was already independent of --color-accent-600 in name,
+     just coincidentally the same hex, so decoupling needed no structural
+     change, only picking different literals.
+   - #fa429e as a *background* needs a different text colour than every
+     other theme's button: white (--color-on-accent's :root default)
+     measures ~3.3:1 against it, well under 4.5:1 AA, while this theme's
+     own --color-text (#22161f) measures ~5.3:1. --color-on-accent is
+     overridden to var(--color-text) here (confirmed via grep to have
+     exactly two usages, both button text, and to be otherwise unscoped -
+     safe to override without touching Terracotta/Midnight).
+     .months__pill[aria-pressed="true"] hardcodes color:
+     var(--color-neutral-100) instead of reading --color-on-accent (a
+     pre-existing, unrelated-to-this-pass quirk in the shared rule), so it
+     needed its own scoped override (below) to the same dark text - the
+     same theme-scoped-selector pattern Midnight already uses for its own
+     .months__pill text-legibility fix.
+   - Dark text flips which direction a hover state needs to move: with
+     white text, hover darkens for more contrast (every other theme); with
+     dark text on an already-vivid, high-lightness fill, darkening the
+     background would *reduce* contrast instead. New token
+     --color-button-hover (see :root - aliased to --color-accent-700
+     there, so every other theme's hover keeps darkening as before) takes
+     over .button:hover/.button--danger:hover's background here, set to
+     #f98bc2 (same H=330/S=90% as the button base, L pushed up from 62%
+     to 76%) - ~7.9:1 against --color-text, comfortably clear of AA and
+     brighter than the pass 7 #ae095c literal that used to sit there.
+     --color-accent-700 itself is untouched - .state--error and
+     .category-chip--add:hover still read it as AA-constrained *text*, a
+     role this pass didn't touch.
+   - --color-button-hover/--color-on-accent only affect .button and the
+     active month pill: .button--quiet (Auto-populate, and the default
+     Delete state) stays its existing transparent/outlined style,
+     unrequested and left alone; the user's own examples ("Add
+     transactions, Add rule") are all solid .button already.
+   - lib/categoryColours.js's ORCHID_PALETTE is rebuilt wholesale onto a
+     three-band hot-pink (H=330) -> mid (H=304) -> royal-purple (H=278)
+     sweep in place of the old three-unrelated-families arrangement - see
+     that file's own comment for the full derivation. */
 [data-theme="orchid"] {
   --color-text: #22161f;
-  --color-accent: #a63a89;
+  --color-accent: #fa429e;
 
-  --color-background: #f0e0e6;
-  --color-card: #ecd9e1;
+  --color-background: #fbeef1;
+  --color-card: #f4d2d8;
 
-  --color-neutral-100: #f8f5f4;
-  --color-neutral-200: #efe1eb;
-  --color-neutral-300: #e1c5da;
-  --color-neutral-400: #cd9dc0;
-  --color-neutral-500: #b671a3;
-  --color-neutral-600: #984e84;
-  --color-neutral-700: #723b63;
+  --color-neutral-100: #ffffff;
+  --color-neutral-200: #ffffff;
+  --color-neutral-300: #b983ae;
+  --color-neutral-400: #a76299;
+  --color-neutral-500: #7c4671;
+  --color-neutral-600: #623759;
+  --color-neutral-700: #482842;
 
-  --color-accent-600: #a63a89;
-  --color-accent-700: #7f2e69;
-  --color-accent-800: #531d44;
+  --color-accent-600: #fa429e;
+  --color-accent-700: #7e0742;
+  --color-accent-800: #52042b;
+  --color-negative-fill: #fa429e;
+  --color-button-hover: #f98bc2;
+  --color-on-accent: var(--color-text);
 
-  --color-accent-2-500: #92c17b;
-  --color-debt: #8d497b;
-  --color-transfer: #c48db5;
+  --color-accent-2-500: #7e25b1;
+  --color-debt: #df20b6;
+  --color-transfer: #b22fbc;
 
-  --color-positive: #325620;
-  --color-positive-tint: #def1d5;
-  --color-negative: #921c31;
-  --color-negative-tint: #f1d5da;
-  --color-danger: #911229;
+  --color-positive: #531d72;
+  --color-positive-tint: #e5d0f1;
+  --color-negative: #ae095c;
+  --color-negative-tint: #f5c7de;
+  --color-danger: #770d1f;
+
+  --color-chart-line: #ffffff;
+}
+
+/* PROTOTYPE (prototype/orchid-pastel-palette, pass 9) - Orchid's
+   .months__pill[aria-pressed="true"] would otherwise keep the shared rule's
+   color: var(--color-neutral-100) (near-white, chosen for every other
+   theme's darker --color-accent background) - illegible against pass 9's
+   much lighter vivid-pink pill background below. Scoped to Orchid only,
+   the same pattern styles.css already uses for Midnight's muted
+   .months__pill text (see that theme's block). */
+[data-theme="orchid"] .months__pill[aria-pressed="true"] {
+  color: var(--color-text);
 }
 
 /* Midnight (Issue #106) is the first genuinely dark theme - card/text invert
@@ -962,7 +1327,7 @@ tbody:first-of-type .bva__section {
   height: 9px;
   margin: -4.5px 0 0 -4.5px;
   border-radius: 999px;
-  background: var(--color-accent-600);
+  background: var(--color-negative-fill);
 }
 
 .timechart__xaxis {
@@ -998,7 +1363,7 @@ tbody:first-of-type .bva__section {
 .mbe__line-swatch {
   width: 14px;
   height: 2px;
-  background: var(--color-neutral-700);
+  background: var(--color-chart-line);
   flex: none;
 }
 
@@ -1041,8 +1406,8 @@ tbody:first-of-type .bva__section {
 }
 
 .button:hover {
-  background: var(--color-accent-700);
-  border-color: var(--color-accent-700);
+  background: var(--color-button-hover);
+  border-color: var(--color-button-hover);
 }
 
 .button:disabled {
@@ -1064,8 +1429,8 @@ tbody:first-of-type .bva__section {
 }
 
 .button--danger:hover {
-  background: var(--color-accent-700);
-  border-color: var(--color-accent-700);
+  background: var(--color-button-hover);
+  border-color: var(--color-button-hover);
   color: var(--color-on-accent);
 }
 

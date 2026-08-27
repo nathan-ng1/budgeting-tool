@@ -29,7 +29,7 @@ describe("IncomeVsExpensesByMonth", () => {
     );
 
     const incomeBars = container.querySelectorAll('g[fill="var(--color-accent-2-500)"] rect');
-    const expenseBars = container.querySelectorAll('g[fill="var(--color-accent-600)"] rect');
+    const expenseBars = container.querySelectorAll('g[fill="var(--color-negative-fill)"] rect');
     const debtBars = container.querySelectorAll('g[fill="var(--color-debt)"] rect');
     expect(incomeBars).toHaveLength(12);
     expect(expenseBars).toHaveLength(12);
@@ -51,7 +51,7 @@ describe("IncomeVsExpensesByMonth", () => {
   it("plots a Net line across the months", () => {
     const { container } = render(<IncomeVsExpensesByMonth months={twelveMonths()} />);
 
-    expect(container.querySelector("path[stroke='var(--color-neutral-700)']")).toBeInTheDocument();
+    expect(container.querySelector("path[stroke='var(--color-chart-line)']")).toBeInTheDocument();
   });
 
   it("titles the card and shows a legend for Income, Expenses, Debt, and Net", () => {

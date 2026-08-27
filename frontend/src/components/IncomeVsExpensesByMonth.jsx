@@ -16,7 +16,7 @@ export default function IncomeVsExpensesByMonth({ months }) {
             Income
           </span>
           <span className="allocation__legend-item">
-            <span className="dot dot--lg" style={{ background: "var(--color-accent-600)" }} />
+            <span className="dot dot--lg" style={{ background: "var(--color-negative-fill)" }} />
             Expenses
           </span>
           <span className="allocation__legend-item">
@@ -60,7 +60,7 @@ export default function IncomeVsExpensesByMonth({ months }) {
                 <rect key={index} x={bar.x} y={bar.y} width={bar.width} height={bar.height} rx="3" />
               ))}
             </g>
-            <g fill="var(--color-accent-600)">
+            <g fill="var(--color-negative-fill)">
               {chart.expenseBars.map((bar, index) => (
                 <rect key={index} x={bar.x} y={bar.y} width={bar.width} height={bar.height} rx="3" />
               ))}
@@ -75,13 +75,13 @@ export default function IncomeVsExpensesByMonth({ months }) {
                 <path
                   d={chart.netLinePath}
                   fill="none"
-                  stroke="var(--color-neutral-700)"
+                  stroke="var(--color-chart-line)"
                   strokeWidth="2"
                   strokeLinejoin="round"
                   strokeLinecap="round"
                   vectorEffect="non-scaling-stroke"
                 />
-                <g fill="var(--color-card)" stroke="var(--color-neutral-700)" strokeWidth="1.75" vectorEffect="non-scaling-stroke">
+                <g fill="var(--color-card)" stroke="var(--color-chart-line)" strokeWidth="1.75" vectorEffect="non-scaling-stroke">
                   {chart.netPoints.map((point, index) => (
                     <circle key={index} cx={point.x} cy={point.y} r="3.2" />
                   ))}
