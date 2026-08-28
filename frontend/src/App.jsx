@@ -9,32 +9,23 @@ import IncomeAllocation from "./components/IncomeAllocation.jsx";
 import IncomeVsExpensesByMonth from "./components/IncomeVsExpensesByMonth.jsx";
 import MonthByMonth from "./components/MonthByMonth.jsx";
 import MonthSelector from "./components/MonthSelector.jsx";
+import PeriodSwitcher from "./components/PeriodSwitcher.jsx";
 import RecurringRules from "./components/RecurringRules.jsx";
 import SpendingByCategory from "./components/SpendingByCategory.jsx";
 import StatTiles from "./components/StatTiles.jsx";
 import ThemeSwitcher from "./components/ThemeSwitcher.jsx";
 import TopExpenses from "./components/TopExpenses.jsx";
 import Transactions from "./components/Transactions.jsx";
-import { fetchAnnualOverview, fetchLatestTransactionDate, fetchMonthOverview } from "./lib/api.js";
+import { fetchAnnualOverview, fetchLatestTransactionDate, fetchMonthOverview, fetchTransactionDateRange } from "./lib/api.js";
 import { fetchCategories } from "./lib/categoriesApi.js";
-import { financialYearFor, financialYearLabel } from "./lib/financialYear.js";
 import { dayMonthLong } from "./lib/format.js";
+import { currentReferenceYear, getStoredPeriodType, remapReferenceYear } from "./lib/period.js";
 
 // Settings holds the Recurring Transactions Config editor (Issue #29);
 // Transactions holds the read-only Transaction list (Issue #33); Budget holds
 // the per-month Category Budget editor (Issue #62).
 const TABS = ["Overview", "Transactions", "Budget", "Settings"];
 const WIRED_TABS = ["Overview", "Transactions", "Budget", "Settings"];
-
-function currentMonth() {
-  const today = new Date();
-  return { year: today.getFullYear(), month: today.getMonth() + 1 };
-}
-
-function currentFinancialYear() {
-  const { year, month } = currentMonth();
-  return financialYearFor(year, month);
-}
 
 export default function App() {
   const [tab, setTab] = useState("Overview");
@@ -50,9 +41,16 @@ export default function App() {
   // page-blocking error.
   const [categories, setCategories] = useState([]);
 
-  // There is no Financial Year switcher (ADR-0011): the selector, the header,
-  // and Full year all always show the FY containing today.
-  const financialYear = currentFinancialYear();
+  // The Financial Year/Calendar Year switcher's shared state (ADR-0021),
+  // consumed today only by the Overview tab below - Budget and Transactions
+  // pick it up in later tickets. periodType persists across reloads;
+  // referenceYear never does, always starting at the period containing today
+  // (ADR-0011's existing no-persistence rule for navigation state).
+  const [periodType, setPeriodType] = useState(getStoredPeriodType);
+  const [referenceYear, setReferenceYear] = useState(() => currentReferenceYear(getStoredPeriodType()));
+  // Bounds the switcher's Previous arrow - null (unbounded) until the fetch
+  // below resolves, or if it fails.
+  const [earliestTransactionDate, setEarliestTransactionDate] = useState(null);
 
   // Fetched once: the newest Transaction in the log doesn't change as the
   // reader moves between months or tabs.
@@ -65,6 +63,19 @@ export default function App() {
         // An undated header is a smaller problem than an error banner over a
         // page whose figures are all fine, so this failure stays quiet.
         setAsAt(null);
+      });
+
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    fetchTransactionDateRange({ signal: controller.signal })
+      .then(({ earliest }) => setEarliestTransactionDate(earliest))
+      .catch(() => {
+        // As above: an unbounded Previous arrow is a smaller problem than an
+        // error banner, so this failure stays quiet too.
       });
 
     return () => controller.abort();
@@ -96,7 +107,7 @@ export default function App() {
     setOverview(null);
     const request =
       selected === null
-        ? fetchAnnualOverview(financialYear, { signal: controller.signal })
+        ? fetchAnnualOverview({ year: referenceYear, periodType }, { signal: controller.signal })
         : fetchMonthOverview(selected, { signal: controller.signal });
     request
       .then(setOverview)
@@ -108,7 +119,7 @@ export default function App() {
       });
 
     return () => controller.abort();
-  }, [selected, tab, financialYear]);
+  }, [selected, tab, referenceYear, periodType]);
 
   // Full year's and a month's Overview responses are different shapes
   // (Issue #38) - clearing `overview` in the same update as `selected`
@@ -119,15 +130,39 @@ export default function App() {
     setSelected(next);
   }
 
+  // Flipping periodType keeps a selected real month anchored (only its
+  // displayed referenceYear/label changes) and falls back Full year to the
+  // period containing today (ADR-0021) - see period.js's remapReferenceYear.
+  function changePeriodType(nextPeriodType) {
+    setPeriodType(nextPeriodType);
+    setReferenceYear(remapReferenceYear(selected, nextPeriodType));
+  }
+
+  // Paging to a different year has no "same real month" to preserve the way
+  // a periodType flip does - the selected month pill may not even exist in
+  // the newly-browsed year's list, so browsing to it lands on Full year
+  // instead, the same safe landing spot a periodType flip falls back to.
+  function changeReferenceYear(nextReferenceYear) {
+    selectPill(null);
+    setReferenceYear(nextReferenceYear);
+  }
+
   return (
     <div className="page">
       <div className="page__inner">
         <header className="header">
-          <div>
-            <h1>Budgeting Dashboard</h1>
-            <div className="header__subtitle">{financialYearLabel(financialYear)}</div>
-          </div>
+          <h1>Budgeting Dashboard</h1>
         </header>
+
+        {tab !== "Settings" && (
+          <PeriodSwitcher
+            periodType={periodType}
+            referenceYear={referenceYear}
+            earliestTransactionDate={earliestTransactionDate}
+            onPeriodTypeChange={changePeriodType}
+            onReferenceYearChange={changeReferenceYear}
+          />
+        )}
 
         <nav className="nav">
           {TABS.map((name) => {
@@ -164,7 +199,7 @@ export default function App() {
 
         {tab === "Overview" && (
           <>
-            <MonthSelector financialYear={financialYear} selected={selected} onSelect={selectPill} />
+            <MonthSelector referenceYear={referenceYear} periodType={periodType} selected={selected} onSelect={selectPill} />
 
             {error !== null && (
               <p className="state state--page state--error" role="alert">

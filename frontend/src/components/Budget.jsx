@@ -53,9 +53,9 @@ export default function Budget() {
   // or error the editor if it fails.
   const [categories, setCategories] = useState([]);
 
-  // The Budget tab has no Financial Year switcher: every pill (Full year
-  // included) always belongs to the FY containing today, the same way
-  // App.jsx's Overview tab has none either (ADR-0011).
+  // The Budget tab isn't wired to the shared Financial Year/Calendar Year
+  // switcher yet (ADR-0021) - that's a later ticket. Every pill (Full year
+  // included) always belongs to the FY containing today, same as before.
   const today = currentMonth();
   const financialYear = financialYearFor(today.year, today.month);
 
@@ -250,7 +250,7 @@ export default function Budget() {
           )}
         </div>
 
-        <MonthSelector financialYear={financialYear} selected={selected} onSelect={setSelected} />
+        <MonthSelector referenceYear={financialYear} periodType="financial" selected={selected} onSelect={setSelected} />
 
         {selected !== null && (
           <div className="filters">

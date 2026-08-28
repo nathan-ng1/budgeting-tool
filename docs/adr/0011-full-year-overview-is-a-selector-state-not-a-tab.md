@@ -27,7 +27,7 @@ chart) that a shared endpoint would mean every caller branching on which fields 
 
 - Full year, like per-month Overview, has no Financial Year switcher — it always shows the FY
   containing today. Viewing a past Financial Year's Full year stays out of scope until a switcher
-  exists.
+  exists. **Resolved by [ADR-0021](./0021-financial-year-switcher-and-calendar-year-toggle.md)**.
 - When a real per-month-capable Category Budget is built, the annual Expected/Diff/% columns need
   revisiting — this ADR's "always —" rule is a placeholder, not a permanent design. **Resolved by
   [ADR-0013](./0013-category-budget-is-per-month-across-income-expense-and-debt.md)**: Category Budget

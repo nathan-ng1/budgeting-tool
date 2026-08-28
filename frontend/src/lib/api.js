@@ -11,10 +11,11 @@ export async function fetchMonthOverview({ year, month }, { signal } = {}) {
   return response.json();
 }
 
-// The Full year Overview endpoint (Issue #38) - the Financial Year containing
-// today, aggregated over elapsed months only. See ADR-0011.
-export async function fetchAnnualOverview(year, { signal } = {}) {
-  const response = await fetch(`/api/annual-overview?year=${year}`, { signal });
+// The Full year Overview endpoint (Issue #38) - the active Financial Year or
+// Calendar Year (ADR-0021), aggregated over elapsed months only. See
+// ADR-0011.
+export async function fetchAnnualOverview({ year, periodType }, { signal } = {}) {
+  const response = await fetch(`/api/annual-overview?year=${year}&period=${periodType}`, { signal });
 
   if (!response.ok) {
     throw new Error(`The Dashboard backend returned ${response.status} for Full year ${year}.`);
@@ -37,4 +38,17 @@ export async function fetchLatestTransactionDate({ signal } = {}) {
   // date, and an undated header is the one thing the caller has to handle.
   const { date } = await response.json();
   return date || null;
+}
+
+// Bounds the Financial Year/Calendar Year switcher's arrows (ADR-0021): the
+// earliest and latest dates in the Transaction Log, as ISO date strings or
+// null for an empty log.
+export async function fetchTransactionDateRange({ signal } = {}) {
+  const response = await fetch("/api/transaction-date-range", { signal });
+
+  if (!response.ok) {
+    throw new Error(`The Dashboard backend returned ${response.status} for the Transaction date range.`);
+  }
+
+  return response.json();
 }
