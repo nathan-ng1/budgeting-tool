@@ -3,6 +3,11 @@
 A personal, manually-triggered process that turns credit card statement exports into
 categorised entries in a local budget database.
 
+> **Windows, and already a collaborator on this private repo?** Skip straight to a guided install:
+> download `setup.bat` from the [latest Release](https://github.com/nathan-ng1/budgeting-tool/releases)
+> and double-click it — see `docs/setup-guide.html` for the full walkthrough (ADR-0017). The
+> manual steps below stay here for advanced use, troubleshooting, and non-Windows setups.
+
 See `CONTEXT.md` for the full glossary of terms used below (Statement Export, Sanitising,
 Transaction Log, Needs Review, Recurring Transaction, etc).
 
@@ -45,9 +50,11 @@ real database or archiving anything.
 - **Git**, to clone this repo.
 - Optional: **[Node.js](https://nodejs.org/) 20+**, only needed to build the Dashboard's frontend
   (step 4 of "One-time setup"). The Statement Export pipeline doesn't need it.
-- Optional: **[GitHub CLI (`gh`)](https://cli.github.com/)**, only needed if you also want
-  Claude's issue-tracker agent skill (`docs/agents/issue-tracker.md`) to file/read GitHub issues
-  against your own fork/clone.
+- Optional (for this manual walkthrough): **[GitHub CLI (`gh`)](https://cli.github.com/)**, logged
+  in — needed for Claude's issue-tracker agent skill (`docs/agents/issue-tracker.md`), and for
+  `open_dashboard.bat`'s best-effort "update available" notice and `update.bat` (ADR-0019); both
+  degrade to doing nothing if `gh` isn't set up. It's a *required*, guided step in `setup.bat`
+  (`docs/setup-guide.html`), since that path also needs it to clone this private repo.
 - Optional: a **Google account** with access to Google Cloud Console and your own budget
   spreadsheet, only if you want the historical/reference Google Sheets MCP connection for ad hoc
   chat queries or a one-off export — see `docs/agents/google-sheets-mcp.md` for setup (install
@@ -94,7 +101,10 @@ cp .env.example .env
 | `OPENAI_COMPATIBLE_BASE_URL` | only for the `openai-compatible` backend | Base URL of the OpenAI-compatible chat-completions endpoint (e.g. `http://localhost:11434/v1` for a local Ollama). |
 | `OPENAI_COMPATIBLE_API_KEY` | only if your endpoint requires one | API key sent as a Bearer token. Most local Ollama installs don't need a real one. |
 | `OPENAI_COMPATIBLE_MODEL` | only for the `openai-compatible` backend | Model name to request (e.g. `llama3`). |
-| `SERVICE_ACCOUNT_PATH` / `SPREADSHEET_ID` | no | Only needed for the historical/reference Google Sheets MCP connection — see `docs/agents/google-sheets-mcp.md`. Not required to run the pipeline. |
+
+The historical/reference Google Sheets MCP connection (`docs/agents/google-sheets-mcp.md`) needs its
+own `SERVICE_ACCOUNT_PATH`, but that's set directly in its MCP server registration, not in `.env` —
+nothing in the pipeline reads it from here.
 
 Any of these also work as a real environment variable set in your shell for the session (e.g.
 `$env:BEEM_USERNAME = "your_beem_username"` in PowerShell) — `.env` just saves you from setting
@@ -185,8 +195,12 @@ uv run python -m dashboard
 Then open <http://127.0.0.1:8765>. The Dashboard's Overview tab shows one month at a time: the
 Income/Expenses/Net Balance/Transferred tiles, where your income went, spending by Category,
 Budgeted vs Actual, your top 5 expenses, and expenses over the month. Pick a month with the
-Jul–Jun pills — it opens on the current month of the current Financial Year. The **Settings** tab
-edits your Recurring Transactions Config (below); Transactions and Budget have no screens yet.
+Jul–Jun pills — it opens on the current month of the current Financial Year. The **Transactions**
+tab lists, adds, edits, and deletes individual transactions by hand, with search/sort/export. The
+**Budget** tab edits each Category's per-month budget and shows the standing Budget Suggestion
+write-up (see `generate_budget_suggestion.bat` below). The **Settings** tab edits Category
+Management (below) and your Recurring Transactions Config (below). See `docs/dashboard-guide.html`
+for a full walkthrough of every tab and script.
 
 It runs entirely on your machine and reads the local database directly; no transaction data
 leaves the machine ([ADR-0008](docs/adr/0008-dashboard-is-a-local-web-app-not-a-hosted-artifact.md)),
@@ -217,8 +231,13 @@ both together.
 CONTEXT.md                 Domain glossary
 docs/adr/                  Architecture decisions
 docs/agents/                Agent-facing runbooks (issue tracker, MCP, pipeline)
+docs/setup-guide.html       Installation Pack guide (self-contained, terracotta-themed)
+docs/dashboard-guide.html   Dashboard usage guide - the four tabs, and what each .bat script does
 .env.example               Template for your .env (TRANSACTIONS_INBOX, DATABASE_PATH, etc.)
 .data/                     Sanitised exports awaiting processing; .data/processed/ once written
+setup.bat / update.bat      Installation Pack bootstrapper/updater (see docs/setup-guide.html)
+src/setup/                 .env-merging + update-availability logic setup.bat/update.bat/
+                            open_dashboard.bat shell out to
 src/sanitising/            Sanitising script (run manually)
 src/statement_export/      Statement Export parsing, categorisation orchestration, entry point
 src/beem/                  Beem Report parsing + deterministic Income categorisation
@@ -230,6 +249,7 @@ src/dashboard/             Dashboard server + Month Overview query; serves the b
 frontend/                  Dashboard frontend (React + Vite), built into src/dashboard/static/
 docs/mockups/              Approved Claude Design mockup the Overview tab is built to
 tests/                     pytest suite
+tests/dev/                 Frontend-dev-only convenience scripts (Vite hot reload), not day-to-day
 ```
 
 ## Running tests

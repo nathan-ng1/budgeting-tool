@@ -5,6 +5,9 @@ env/
 .data/
 config/
 
+# Installation Pack update-check throttle state (issue #116, ADR-0019)
+.setup/
+
 # Python
 __pycache__/
 *.pyc
