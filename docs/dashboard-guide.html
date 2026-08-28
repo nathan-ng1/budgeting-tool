@@ -149,7 +149,15 @@
 
   <div class="notice">
     <strong>New here?</strong> This guide assumes setup is already done. If you haven't installed
-    yet, see <code>docs/setup-guide.html</code> instead.
+    yet, see <code>docs/setup-guide.html</code> (Windows) or <code>docs/setup-guide-mac.html</code>
+    (macOS) instead.
+  </div>
+
+  <div class="notice">
+    <strong>Windows vs. Mac:</strong> every script below lives in <code>windows/</code> on Windows
+    and <code>mac/</code> on macOS, with a matching name (<code>.bat</code> vs. <code>.command</code>)
+    — e.g. Windows' <code>windows\open_dashboard.bat</code> is macOS's
+    <code>mac/open_dashboard.command</code>. The tables use the shared base name only.
   </div>
 
   <h2>Opening and closing the Dashboard</h2>
@@ -159,53 +167,55 @@
   <table>
     <tr><th>Script</th><th>What it does</th></tr>
     <tr>
-      <td><code>open_dashboard.bat</code></td>
+      <td><code>open_dashboard</code></td>
       <td>Double-click to start the server and open the Dashboard in Chrome (falling back to your
       default browser). If it's already running, this just opens the page instead of starting a
       second server. Leave its window open while you use the Dashboard. Also prints a one-line
       "update available" notice here, at most once a day, if a newer Release exists — see
-      <code>update.bat</code> below.</td>
+      <code>update</code> below.</td>
     </tr>
     <tr>
-      <td><code>close_dashboard.bat</code></td>
+      <td><code>close_dashboard</code></td>
       <td>Stops whatever Dashboard server is currently running. Use this after pulling code changes
-      so the next <code>open_dashboard.bat</code> actually picks up the new code, rather than
+      so the next <code>open_dashboard</code> actually picks up the new code, rather than
       silently still serving the old one.</td>
     </tr>
   </table>
 
-  <h2>The other scripts in the repo root</h2>
+  <h2>The other scripts, in <code>windows/</code> or <code>mac/</code></h2>
   <table>
     <tr><th>Script</th><th>When to run it</th></tr>
     <tr>
-      <td><code>process_statement_export.bat</code></td>
+      <td><code>process_statement_export</code></td>
       <td>Whenever you've downloaded a new Statement Export into your Transactions Inbox. Sanitises
       it, categorises every transaction via your configured AI backend (pausing for Needs Review
       items in the terminal), then writes it to the Transaction Log. Pass <code>--dry-run</code> to
       preview without writing. Full walkthrough: <code>docs/agents/statement-export-pipeline.md</code>.</td>
     </tr>
     <tr>
-      <td><code>generate_budget_suggestion.bat</code></td>
+      <td><code>generate_budget_suggestion</code></td>
       <td>Regenerates the standing Budget Suggestion write-up shown on the Budget tab, from recent
       spending history. Replaces whatever write-up was there before — one standing document, not a
       history. Refresh the Dashboard's Budget tab afterwards to see it.</td>
     </tr>
     <tr>
-      <td><code>setup.bat</code></td>
+      <td><code>setup</code></td>
       <td>The guided installer. Safe to re-run any time — e.g. to add the AI-categorisation path to
-      a Dashboard-only install. See <code>docs/setup-guide.html</code>.</td>
+      a Dashboard-only install. See <code>docs/setup-guide.html</code> /
+      <code>docs/setup-guide-mac.html</code>.</td>
     </tr>
     <tr>
-      <td><code>update.bat</code></td>
+      <td><code>update</code></td>
       <td>Pulls the latest Release and re-syncs dependencies, after showing you what's changed and
-      asking you to confirm. Run this when <code>open_dashboard.bat</code>'s notice says an update
+      asking you to confirm. Run this when <code>open_dashboard</code>'s notice says an update
       is available.</td>
     </tr>
   </table>
   <p>
-    <code>tests/dev/open_dashboard_dev.bat</code> and <code>close_dashboard_dev.bat</code> are a
-    separate pair, for people working on the frontend's source code itself (hot-reloading Vite dev
-    server rather than the built static page) — not needed for normal day-to-day use.
+    <code>tests/dev/windows/</code> and <code>tests/dev/mac/</code> hold a separate
+    <code>open_dashboard_dev</code>/<code>close_dashboard_dev</code> pair, for people working on
+    the frontend's source code itself (hot-reloading Vite dev server rather than the built static
+    page) — not needed for normal day-to-day use.
   </p>
 
   <h2>The four tabs</h2>

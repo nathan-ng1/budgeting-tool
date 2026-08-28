@@ -1,0 +1,8 @@
+# Bash scripts must stay LF - a CRLF shebang/line ending breaks them on
+# macOS regardless of this machine's core.autocrlf setting (issue #117).
+*.command text eol=lf
+*.sh text eol=lf
+
+# Batch scripts stay CRLF, matching Windows convention (and this repo's
+# existing checked-in line endings).
+*.bat text eol=crlf

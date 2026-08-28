@@ -5,10 +5,13 @@ REM server described in ADR-0008; nothing leaves this machine.
 REM
 REM Leave this window open while you use the Dashboard - closing it, or
 REM pressing Ctrl+C, stops the server.
+REM
+REM Lives under windows/, alongside the other Windows scripts - see mac/ for
+REM the macOS equivalents (issue #117).
 
 setlocal
 
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
 REM Re-entry: the browser is opened by a second copy of this script, so the
 REM server can hold the foreground of this window (see the start /b below).
@@ -103,7 +106,7 @@ if errorlevel 1 exit /b 0
 gh auth status >nul 2>&1
 if errorlevel 1 exit /b 0
 
-set "STATE_DIR=%~dp0.setup"
+set "STATE_DIR=%~dp0..\.setup"
 set "STATE_FILE=%STATE_DIR%\last_update_check.txt"
 if not exist "%STATE_DIR%" mkdir "%STATE_DIR%" >nul 2>&1
 

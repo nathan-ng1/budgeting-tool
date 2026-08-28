@@ -7,8 +7,11 @@ REM stored before - one standing document, no history kept (ADR-0014: a
 REM scripted flow, not a live Dashboard call).
 REM
 REM Refresh the Dashboard's Budget tab afterwards to see the new write-up.
+REM
+REM Lives under windows/, alongside the other Windows scripts - see mac/ for
+REM the macOS equivalents (issue #117).
 
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
 echo Regenerating the Budget Suggestion...
 uv run python -m budget_suggestions

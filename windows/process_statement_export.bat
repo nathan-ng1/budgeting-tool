@@ -4,8 +4,11 @@ REM Inbox, then categorise and write it to the Transaction Log via whichever
 REM backend is configured (CATEGORISER_BACKEND in .env - claude, codex, or
 REM openai-compatible). Pass --dry-run to preview without writing.
 REM See docs/agents/statement-export-pipeline.md for the full walkthrough.
+REM
+REM Lives under windows/, alongside the other Windows scripts - see mac/ for
+REM the macOS equivalents (issue #117).
 
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
 echo Sanitising exports from the Transactions Inbox...
 uv run python -m sanitising

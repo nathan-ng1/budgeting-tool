@@ -28,7 +28,8 @@ Review, Recurring Transaction, etc).
    ```
    uv run python -m statement_export
    ```
-   (Or just run `process_statement_export.bat`, which does steps 2 and 3 together.) The script
+   (Or just run `windows/process_statement_export.bat` / `mac/process_statement_export.command`,
+   which does steps 2 and 3 together.) The script
    looks at what's sitting in `.data\` and handles each file there by issuer:
    - **Card export (e.g. ANZ)**: parse the export (both signs — negative spend and positive
      Bill Payment/Refund rows all flow into categorisation, see
@@ -101,8 +102,9 @@ model backend rather than improvised in chat:
 
 ## Dry runs
 
-Pass `--dry-run` to `uv run python -m statement_export` (or `process_statement_export.bat
---dry-run`) to preview a run before committing to it — you're still prompted through any Needs
+Pass `--dry-run` to `uv run python -m statement_export` (or `windows/process_statement_export.bat
+--dry-run` / `mac/process_statement_export.command --dry-run`) to preview a run before committing
+to it — you're still prompted through any Needs
 Review items, so you see and answer them, but nothing is written to the local database and no
 source file is archived. Useful when trying an unfamiliar or weaker local model backend for the
 first time.

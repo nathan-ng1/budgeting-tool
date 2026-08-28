@@ -4,9 +4,12 @@ REM open_dashboard.bat's silent "update available" notice. Fetches tags, shows
 REM what's changed since your installed version, confirms, then pulls and
 REM re-syncs dependencies. Never reconfigures .env or switches AI path - that
 REM stays setup.bat's job (re-run it instead).
+REM
+REM Lives under windows/, alongside the other Windows scripts - see mac/ for
+REM the macOS equivalents (issue #117).
 
 setlocal enabledelayedexpansion
-cd /d "%~dp0"
+cd /d "%~dp0.."
 title Budgeting Tool - Update
 
 if not exist ".git" (

@@ -10,6 +10,11 @@ REM install" path and the "Dashboard-only user adding the AI path later" path
 REM (ADR-0017's idempotency requirement, issue #116 user stories 4 and 13).
 REM
 REM See docs/setup-guide.html for the guided walkthrough this script backs.
+REM
+REM Lives under windows/ in this repo for source-tree organisation, but is
+REM downloaded standalone from a Release, so it never assumes anything about
+REM its own folder - see mac/setup.command for the macOS equivalent
+REM (issue #117).
 
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
@@ -68,9 +73,9 @@ echo ===============================================
 echo  Setup complete.
 echo ===============================================
 echo.
-echo Double-click open_dashboard.bat to view the Dashboard.
+echo Double-click windows\open_dashboard.bat to view the Dashboard.
 if defined AI_BACKEND (
-    echo Run process_statement_export.bat whenever you have a new Statement Export to categorise.
+    echo Run windows\process_statement_export.bat whenever you have a new Statement Export to categorise.
 ) else (
     echo You're on the Dashboard-only path - add transactions by hand via the Dashboard's
     echo Transactions tab. Re-run setup.bat any time to add the AI-categorisation path.

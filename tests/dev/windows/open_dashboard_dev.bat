@@ -9,15 +9,16 @@ REM
 REM Opens two windows, one per server. Closing either stops that server; use
 REM close_dashboard_dev.bat to stop both at once from elsewhere.
 REM
-REM Lives under tests/dev/, not the repo root - this is a manual frontend-dev
-REM convenience script, not part of the guided end-user path (see
-REM docs/dashboard-guide.html for that). REPO_ROOT below resolves two levels
-REM up from this file's own location so it still works from wherever it's
+REM Lives under tests/dev/windows/, not the repo root - this is a manual
+REM frontend-dev convenience script, not part of the guided end-user path (see
+REM docs/dashboard-guide.html for that). See tests/dev/mac/ for the macOS
+REM equivalent (issue #117). REPO_ROOT below resolves three levels up from
+REM this file's own location so it still works from wherever it's
 REM double-clicked.
 
 setlocal
 
-set "REPO_ROOT=%~dp0..\.."
+set "REPO_ROOT=%~dp0..\..\.."
 cd /d "%REPO_ROOT%"
 
 REM Re-entry: the browser is opened by a second copy of this script, once the
