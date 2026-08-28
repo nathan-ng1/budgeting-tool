@@ -1,8 +1,25 @@
+import { useState } from "react";
+
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { currentMonth } from "../lib/period.js";
 import Budget from "./Budget.jsx";
+
+// Budget is a controlled component - `selected`/`onSelect` and
+// `periodType`/`referenceYear` are owned by App.jsx (ADR-0021). This harness
+// stands in for that: a real month/Full-year selection, defaulting to the
+// current month the same way App.jsx's own `budgetSelected` state does, so
+// the existing (period-agnostic) tests below still exercise real pill
+// clicks. Tests about the shared switcher itself pass their own props
+// straight to <Budget /> instead.
+function ControlledBudget(props) {
+  const [selected, setSelected] = useState(currentMonth);
+  return (
+    <Budget periodType="financial" referenceYear={2026} selected={selected} onSelect={setSelected} {...props} />
+  );
+}
 
 function row(overrides = {}) {
   return {
@@ -154,7 +171,7 @@ function useBackend(initial, suggestion, categories) {
 
 describe("Budget", () => {
   it("opens on the current month, showing every Category grouped by Type", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
 
     expect(await screen.findByText("Salary")).toBeInTheDocument();
     expect(screen.getByText("Groceries")).toBeInTheDocument();
@@ -166,7 +183,7 @@ describe("Budget", () => {
   });
 
   it("shows a set Category Budget's Amount, and blank for an unset one", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
 
     expect(await screen.findByLabelText("Groceries Budgeted Amount")).toHaveValue(650);
     expect(screen.getByLabelText("Salary Budgeted Amount")).toHaveValue(null);
@@ -174,13 +191,13 @@ describe("Budget", () => {
 
   it("shows a Category's emoji next to its name in the editor", async () => {
     useBackend(undefined, undefined, [{ id: 1, type: "Expense", name: "Groceries", emoji: "🛒", locked: false }]);
-    render(<Budget />);
+    render(<ControlledBudget />);
 
     expect(await screen.findByText("🛒 Groceries")).toBeInTheDocument();
   });
 
   it("shows each Category's historical context columns, greyed out from the editable Budgeted column", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
     await screen.findByText("Groceries");
 
     const groceriesRow = screen.getByText("Groceries").closest("tr");
@@ -196,7 +213,7 @@ describe("Budget", () => {
   });
 
   it("shows an unset historical column as a dash, not $0", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
     await screen.findByText("Salary");
 
     const salaryRow = screen.getByText("Salary").closest("tr");
@@ -207,14 +224,14 @@ describe("Budget", () => {
   });
 
   it("defaults the trailing window dropdown to 3 months", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
     await screen.findByText("Salary");
 
     expect(screen.getByLabelText("Trailing window")).toHaveValue("3");
   });
 
   it("requests the newly selected trailing window from the backend", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
     await screen.findByText("Salary");
 
     await userEvent.selectOptions(screen.getByLabelText("Trailing window"), "12");
@@ -225,7 +242,7 @@ describe("Budget", () => {
   });
 
   it("changing the trailing window does not discard an unsaved Budgeted edit", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
     const salary = await screen.findByLabelText("Salary Budgeted Amount");
 
     await userEvent.type(salary, "5000");
@@ -239,21 +256,21 @@ describe("Budget", () => {
 
   it("renders a month with no Category Budgets set as an all-blank table, not an error", async () => {
     useBackend(editor({ Expense: [row({ category: "Groceries" })] }));
-    render(<Budget />);
+    render(<ControlledBudget />);
 
     expect(await screen.findByLabelText("Groceries Budgeted Amount")).toHaveValue(null);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("offers a Full year pill alongside the twelve months", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
     await screen.findByText("Salary");
 
     expect(screen.getByRole("button", { name: "Full year" })).toBeInTheDocument();
   });
 
   it("does not persist an edit until Save is clicked", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
     const salary = await screen.findByLabelText("Salary Budgeted Amount");
 
     await userEvent.type(salary, "5000");
@@ -262,7 +279,7 @@ describe("Budget", () => {
   });
 
   it("disables Save until something changes", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
     await screen.findByText("Salary");
 
     expect(screen.getByRole("button", { name: "Save budgets" })).toBeDisabled();
@@ -273,7 +290,7 @@ describe("Budget", () => {
   });
 
   it("saves an edited Amount as an upsert for that Category and month", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
     const salary = await screen.findByLabelText("Salary Budgeted Amount");
 
     await userEvent.type(salary, "5000");
@@ -289,7 +306,7 @@ describe("Budget", () => {
   });
 
   it("clearing a set field back to blank and saving deletes that Category's Category Budget", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
     const groceries = await screen.findByLabelText("Groceries Budgeted Amount");
 
     await userEvent.clear(groceries);
@@ -304,7 +321,7 @@ describe("Budget", () => {
   });
 
   it("only writes the Categories that actually changed, not every row", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
     await userEvent.type(await screen.findByLabelText("Salary Budgeted Amount"), "5000");
 
     await userEvent.click(screen.getByRole("button", { name: "Save budgets" }));
@@ -315,7 +332,7 @@ describe("Budget", () => {
   });
 
   it("reflects saved values after Save, sourced from what the store actually holds", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
     await userEvent.type(await screen.findByLabelText("Salary Budgeted Amount"), "5000");
     await userEvent.click(screen.getByRole("button", { name: "Save budgets" }));
 
@@ -324,7 +341,7 @@ describe("Budget", () => {
   });
 
   it("switching months loads that month's own Category Budgets independently", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
     await screen.findByText("Salary");
 
     await userEvent.click(screen.getByRole("button", { name: "Sep" }));
@@ -337,7 +354,7 @@ describe("Budget", () => {
 
   it("surfaces a load failure instead of an empty table", async () => {
     fetchMock.mockResolvedValue({ ok: false, status: 500, json: async () => ({}) });
-    render(<Budget />);
+    render(<ControlledBudget />);
 
     // The Budget Suggestion fetch fails the same way, so both it and the
     // editor surface their own alert - assert on the editor's specifically.
@@ -346,7 +363,7 @@ describe("Budget", () => {
   });
 
   it("surfaces the store's own rejection on Save and keeps the edit on screen", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
     const salary = await screen.findByLabelText("Salary Budgeted Amount");
     await userEvent.type(salary, "5000");
 
@@ -362,7 +379,7 @@ describe("Budget", () => {
   });
 
   it("shows a Total row per Type, summing that Type's Budgeted Amount column", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
     await screen.findByText("Groceries");
 
     const expenseTotalRow = screen.getAllByText("Total")[1].closest("tr");
@@ -371,7 +388,7 @@ describe("Budget", () => {
   });
 
   it("recalculates the Total row live as an input changes, before Save", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
     const groceries = await screen.findByLabelText("Groceries Budgeted Amount");
 
     await userEvent.clear(groceries);
@@ -382,7 +399,7 @@ describe("Budget", () => {
   });
 
   it("offers an Auto-populate control next to Save budgets, closed by default", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
     await screen.findByText("Salary");
 
     expect(screen.getByRole("button", { name: "Auto-populate" })).toBeInTheDocument();
@@ -390,7 +407,7 @@ describe("Budget", () => {
   });
 
   it("opens a menu offering Last actuals and Last budgeted", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
     await screen.findByText("Salary");
 
     await userEvent.click(screen.getByRole("button", { name: "Auto-populate" }));
@@ -400,7 +417,7 @@ describe("Budget", () => {
   });
 
   it("Last actuals overwrites every Category's field with last month's actual, including an explicit $0", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
     await screen.findByText("Salary");
 
     await userEvent.click(screen.getByRole("button", { name: "Auto-populate" }));
@@ -414,7 +431,7 @@ describe("Budget", () => {
   });
 
   it("Last budgeted overwrites every Category's field with last month's Category Budget, clearing an unset one to blank", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
     await screen.findByText("Salary");
 
     await userEvent.click(screen.getByRole("button", { name: "Auto-populate" }));
@@ -425,7 +442,7 @@ describe("Budget", () => {
   });
 
   it("does not persist an Auto-populate choice until Save is clicked", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
     await screen.findByText("Salary");
 
     await userEvent.click(screen.getByRole("button", { name: "Auto-populate" }));
@@ -435,7 +452,7 @@ describe("Budget", () => {
   });
 
   it("enables Save once an Auto-populate choice has changed a value", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
     await screen.findByText("Salary");
 
     await userEvent.click(screen.getByRole("button", { name: "Auto-populate" }));
@@ -447,7 +464,7 @@ describe("Budget", () => {
 
 describe("Budget Full year", () => {
   it("shows a read-only grid of every Category by Type against the Financial Year's 12 months", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
     await screen.findByText("Salary");
 
     await userEvent.click(screen.getByRole("button", { name: "Full year" }));
@@ -460,7 +477,7 @@ describe("Budget Full year", () => {
   });
 
   it("shows a blank cell, not a placeholder, for an unset month", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
     await screen.findByText("Salary");
 
     await userEvent.click(screen.getByRole("button", { name: "Full year" }));
@@ -474,7 +491,7 @@ describe("Budget Full year", () => {
   });
 
   it("offers no editing surface in the Full year grid - no inputs, no Save button, no trailing window", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
     await screen.findByText("Salary");
 
     await userEvent.click(screen.getByRole("button", { name: "Full year" }));
@@ -486,7 +503,7 @@ describe("Budget Full year", () => {
   });
 
   it("reflects a Category Budget saved via a month pill without a page reload", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
     const salary = await screen.findByLabelText("Salary Budgeted Amount");
 
     await userEvent.type(salary, "5000");
@@ -502,7 +519,7 @@ describe("Budget Full year", () => {
   });
 
   it("marks the Full year pill pressed, and only that one, while it is selected", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
     await screen.findByText("Salary");
 
     await userEvent.click(screen.getByRole("button", { name: "Full year" }));
@@ -512,7 +529,7 @@ describe("Budget Full year", () => {
   });
 
   it("surfaces a Full year load failure instead of an empty grid", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
     await screen.findByText("Salary");
     fetchMock.mockResolvedValue({ ok: false, status: 500, json: async () => ({}) });
 
@@ -522,7 +539,7 @@ describe("Budget Full year", () => {
   });
 
   it("shows a Total row per Type, summing each month's Category Budgets", async () => {
-    render(<Budget />);
+    render(<ControlledBudget />);
     const salary = await screen.findByLabelText("Salary Budgeted Amount");
 
     // Give Salary (Income) a value too, so Aug's Expense and Income totals differ.
@@ -542,16 +559,88 @@ describe("Budget Full year", () => {
   });
 });
 
+// Budget's periodType/referenceYear come from App.jsx as props, sourced from
+// the shared Financial Year/Calendar Year switcher (ADR-0021) - these tests
+// render <Budget /> directly with explicit props, rather than through
+// ControlledBudget, since they're about what Budget shows for a given
+// periodType/referenceYear, not about interactive pill clicking.
+describe("Budget period awareness", () => {
+  it("orders the month pills Jan→Dec when Calendar Year is active, matching Overview", async () => {
+    render(<Budget periodType="calendar" referenceYear={2026} selected={null} onSelect={vi.fn()} />);
+    await screen.findByText("Salary");
+
+    const pills = screen.getByRole("group", { name: "Select month" });
+    const labels = within(pills)
+      .getAllByRole("button")
+      .map((pill) => pill.textContent);
+    expect(labels).toEqual([
+      "Full year",
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ]);
+  });
+
+  it("requests the Full year grid for the shared referenceYear and periodType", async () => {
+    render(<Budget periodType="calendar" referenceYear={2025} selected={null} onSelect={vi.fn()} />);
+    await screen.findByText("Salary");
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/budget-grid?year=2025&period=calendar", expect.anything());
+  });
+
+  it("renders the Full year grid's columns Jan→Dec for Calendar Year", async () => {
+    render(<Budget periodType="calendar" referenceYear={2026} selected={null} onSelect={vi.fn()} />);
+    await screen.findByText("Salary");
+
+    const headerRow = screen.getAllByRole("columnheader")[0].closest("tr");
+    const monthHeaders = within(headerRow)
+      .getAllByRole("columnheader")
+      .map((header) => header.textContent);
+    expect(monthHeaders).toEqual([
+      "Category",
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ]);
+  });
+
+  it("requests the per-month editor by year/month alone, unaffected by periodType", async () => {
+    render(<Budget periodType="calendar" referenceYear={2026} selected={{ year: 2026, month: 3 }} onSelect={vi.fn()} />);
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/budget-editor?year=2026&month=3&window=3", expect.anything()),
+    );
+  });
+});
+
 describe("Budget Suggestion", () => {
   it("renders the stored write-up in its own card above the table", async () => {
     useBackend(editor(), { write_up: "Groceries has run over budget.", generated_at: "2026-08-20T14:32:00" });
-    render(<Budget />);
+    render(<ControlledBudget />);
 
     expect(await screen.findByText("Groceries has run over budget.")).toBeInTheDocument();
   });
 
   it("shows a coherent empty state when no write-up has ever been generated", async () => {
-    render(<Budget />); // default backend() seeds { write_up: null }
+    render(<ControlledBudget />); // default backend() seeds { write_up: null }
     await screen.findByText("Salary");
 
     expect(await screen.findByText(/No Budget Suggestion yet/)).toBeInTheDocument();
@@ -560,7 +649,7 @@ describe("Budget Suggestion", () => {
 
   it("shows the same write-up whichever month pill is selected", async () => {
     useBackend(editor(), { write_up: "Standing advice.", generated_at: "2026-08-20T14:32:00" });
-    render(<Budget />);
+    render(<ControlledBudget />);
     await screen.findByText("Standing advice.");
 
     await userEvent.click(screen.getByRole("button", { name: "Sep" }));
@@ -570,7 +659,7 @@ describe("Budget Suggestion", () => {
 
   it("shows the same write-up when Full year is selected", async () => {
     useBackend(editor(), { write_up: "Standing advice.", generated_at: "2026-08-20T14:32:00" });
-    render(<Budget />);
+    render(<ControlledBudget />);
     await screen.findByText("Standing advice.");
 
     await userEvent.click(screen.getByRole("button", { name: "Full year" }));

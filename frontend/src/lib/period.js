@@ -51,6 +51,15 @@ export function currentReferenceYear(periodType, today = new Date()) {
   return periodFor(today.getFullYear(), today.getMonth() + 1, periodType);
 }
 
+// Today as a `{ year, month }` pill selection - framing-agnostic (a real
+// calendar month, not scoped to either periodType), but kept here alongside
+// currentReferenceYear since both answer "what does today default to": the
+// Budget tab's own default pill (App.jsx's `budgetSelected`), unlike
+// Overview's Full year default (ADR-0011, ADR-0021).
+export function currentMonth(today = new Date()) {
+  return { year: today.getFullYear(), month: today.getMonth() + 1 };
+}
+
 // The Financial Year or Calendar Year containing a bare "YYYY-MM-DD" date -
 // e.g. the switcher's Previous arrow lower bound, which is whichever period
 // contains the Transaction Log's earliest Transaction. Split rather than

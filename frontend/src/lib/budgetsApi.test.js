@@ -90,8 +90,20 @@ describe("budgetsApi", () => {
   it("fetches the Full year grid for one Financial Year", async () => {
     ok({ Income: [], Expense: [], Debt: [] });
 
-    expect(await fetchBudgetGrid(2026)).toEqual({ Income: [], Expense: [], Debt: [] });
-    expect(fetchMock).toHaveBeenCalledWith("/api/budget-grid?year=2026", expect.anything());
+    expect(await fetchBudgetGrid({ year: 2026, periodType: "financial" })).toEqual({
+      Income: [],
+      Expense: [],
+      Debt: [],
+    });
+    expect(fetchMock).toHaveBeenCalledWith("/api/budget-grid?year=2026&period=financial", expect.anything());
+  });
+
+  it("fetches the Full year grid for one Calendar Year", async () => {
+    ok({ Income: [], Expense: [], Debt: [] });
+
+    await fetchBudgetGrid({ year: 2026, periodType: "calendar" });
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/budget-grid?year=2026&period=calendar", expect.anything());
   });
 
   it("fetches the standing Budget Suggestion, unscoped to any month", async () => {

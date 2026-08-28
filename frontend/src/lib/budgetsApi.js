@@ -51,9 +51,10 @@ export function deleteCategoryBudget({ year, month }, category) {
 }
 
 // The Full year read-only grid (Issue #64) - every Category Budget across
-// the Financial Year starting `year`-07, grouped by Type.
-export function fetchBudgetGrid(year, { signal } = {}) {
-  return request(`${GRID_BASE}?year=${year}`, { signal });
+// the Financial Year or Calendar Year starting `year` (ADR-0021), grouped by
+// Type. Mirrors fetchAnnualOverview's `{ year, periodType }` shape.
+export function fetchBudgetGrid({ year, periodType }, { signal } = {}) {
+  return request(`${GRID_BASE}?year=${year}&period=${periodType}`, { signal });
 }
 
 // The standing Budget Suggestion write-up (Issue #66) - not scoped to any
