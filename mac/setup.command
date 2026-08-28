@@ -60,7 +60,7 @@ ensure_homebrew() {
     echo "Homebrew was not found. It's needed to install this tool's other"
     echo "prerequisites (Git, uv, Node.js, GitHub CLI)."
     read -r -p "Install Homebrew now? [Y/n] " confirm
-    if [[ "${confirm,,}" == "n" ]]; then
+    if [[ "$confirm" == [Nn] ]]; then
         echo "Skipping Homebrew. Setup can't continue without it - install it"
         echo "yourself (https://brew.sh) and re-run this script when you're ready."
         press_any_key
@@ -97,7 +97,7 @@ ensure_prereq() {
     echo
     echo "$display_name was not found."
     read -r -p "Install $display_name now via Homebrew? [Y/n] " confirm
-    if [[ "${confirm,,}" == "n" ]]; then
+    if [[ "$confirm" == [Nn] ]]; then
         echo "Skipping $display_name. Setup can't continue without it - install it"
         echo "yourself ($manual_url) and re-run this script when you're ready."
         press_any_key
@@ -129,6 +129,45 @@ ensure_python() {
     # first time `uv sync` runs below, so there's nothing to confirm here
     # beyond making sure uv itself is present (already handled above).
     echo "[ok] Python 3.12+ will be provisioned automatically by uv if needed."
+}
+
+ensure_node() {
+    # Node needs a version check, not just a presence check - a stale Node
+    # <20 already on PATH shouldn't count as satisfying "20+" (mirrors
+    # windows/setup.bat's :ensure_node; the frontend build needs 20+).
+    if command -v node >/dev/null 2>&1; then
+        if node -e "process.exit(parseInt(process.versions.node.split('.')[0], 10) >= 20 ? 0 : 1)" >/dev/null 2>&1; then
+            echo "[ok] Node.js 20+ is already installed."
+            return 0
+        fi
+    fi
+
+    echo
+    echo "Node.js 20+ was not found."
+    read -r -p "Install Node.js now via Homebrew? [Y/n] " confirm
+    if [[ "$confirm" == [Nn] ]]; then
+        echo "Skipping Node.js. Setup can't continue without it - install it"
+        echo "yourself (https://nodejs.org/) and re-run this script when you're ready."
+        press_any_key
+        exit 1
+    fi
+
+    echo "Installing Node.js..."
+    brew install node
+    if [[ $? -ne 0 ]]; then
+        echo "Installing Node.js via Homebrew failed. Try manually: https://nodejs.org/"
+        press_any_key
+        exit 1
+    fi
+
+    refresh_path
+    if ! node -e "process.exit(parseInt(process.versions.node.split('.')[0], 10) >= 20 ? 0 : 1)" >/dev/null 2>&1; then
+        echo "Node.js installed, but this shell still can't see 20+ on PATH."
+        echo "Close this window, open a new one, and re-run this script."
+        press_any_key
+        exit 1
+    fi
+    echo "Node.js installed."
 }
 
 ensure_gh_auth() {
@@ -203,7 +242,7 @@ ensure_npm_global() {
     echo
     echo "$display_name was not found."
     read -r -p "Install $display_name now via npm? [Y/n] " confirm
-    if [[ "${confirm,,}" == "n" ]]; then
+    if [[ "$confirm" == [Nn] ]]; then
         echo "Skipping $display_name - install it yourself, then re-run this script."
         press_any_key
         exit 1
@@ -276,7 +315,7 @@ configure_ai_path() {
     # (ADR-0018) - configure_env below reads it to decide what goes in .env.
     echo
     read -r -p "Do you have a Claude Code or Codex CLI subscription? [y/N] " has_ai
-    if [[ "${has_ai,,}" != "y" ]]; then
+    if [[ "$has_ai" != [Yy] ]]; then
         echo "Continuing on the Dashboard-only path. You can add AI categorisation"
         echo "later by re-running this script."
         return 0
@@ -328,7 +367,7 @@ configure_env() {
         echo "  TRANSACTIONS_INBOX=$existing_inbox"
         echo "  DATABASE_PATH=$existing_db"
         read -r -p "Change these? [y/N] " reconfigure
-        if [[ "${reconfigure,,}" != "y" ]]; then
+        if [[ "$reconfigure" != [Yy] ]]; then
             transactions_inbox="$existing_inbox"
             database_path="$existing_db"
         fi
@@ -369,7 +408,7 @@ build_frontend() {
     echo
     if [[ -f "src/dashboard/static/index.html" ]]; then
         read -r -p "Dashboard frontend is already built - rebuild it? [y/N] " rebuild
-        if [[ "${rebuild,,}" != "y" ]]; then
+        if [[ "$rebuild" != [Yy] ]]; then
             return 0
         fi
     fi
@@ -392,7 +431,7 @@ ensure_homebrew
 ensure_prereq "Git" git git "https://git-scm.com/downloads"
 ensure_prereq "uv" uv uv "https://docs.astral.sh/uv/getting-started/installation/"
 ensure_python
-ensure_prereq "Node.js" node node "https://nodejs.org/"
+ensure_node
 ensure_prereq "GitHub CLI" gh gh "https://cli.github.com/"
 ensure_gh_auth
 ensure_clone

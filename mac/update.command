@@ -56,7 +56,7 @@ git log --oneline "HEAD..$LATEST_TAG"
 echo
 
 read -r -p "Update now? [Y/n] " confirm
-if [[ "${confirm,,}" == "n" ]]; then
+if [[ "$confirm" == [Nn] ]]; then
     echo "No changes made."
     exit 0
 fi
