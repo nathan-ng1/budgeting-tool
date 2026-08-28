@@ -169,14 +169,15 @@ def get_month_overview(store, year: int, month: int) -> MonthOverview:
     )
 
 
-def get_annual_overview(store, year: int, today: date | None = None) -> AnnualOverview:
-    """The Full year Overview view-model for the Financial Year starting
-    `year`-07 - aggregated over elapsed months only (including the current
+def get_annual_overview(store, year: int, today: date | None = None, start_month: int = 7) -> AnnualOverview:
+    """The Full year Overview view-model for the year-shaped period starting
+    `year`-`start_month` (7 for Financial Year, 1 for Calendar Year - see
+    ADR-0021) - aggregated over elapsed months only (including the current
     in-progress month before it ends), never all twelve. See ADR-0011.
     """
     today = today if today is not None else date.today()
-    elapsed_months = _elapsed_months(year, today)
-    start = date(year, 7, 1)
+    elapsed_months = _elapsed_months(year, today, start_month)
+    start = date(year, start_month, 1)
     end = _add_months(start, elapsed_months)
     transactions = [t for t in store.read_transactions() if start <= t.date < end]
     stat_tiles = _stat_tiles(transactions)
@@ -284,16 +285,17 @@ def get_budget_editor(store, year: int, month: int, trailing_months: int = 3) ->
     return rows
 
 
-def get_full_year_budget_grid(store, year: int) -> list[BudgetGridRow]:
+def get_full_year_budget_grid(store, year: int, start_month: int = 7) -> list[BudgetGridRow]:
     """The Budget tab's Full year read-only grid rows (Issue #64) - every
     Income/Expense/Debt Category (grouped by Type, alphabetical within it -
     same ordering as get_budget_editor) against its Category Budget for each
-    of the Financial Year starting `year`-07's 12 months, in July-to-June
-    order. Unlike get_annual_overview, this is never restricted to elapsed
-    months only: a Category Budget can be set ahead for a month that hasn't
+    of the 12 months of the year-shaped period starting `year`-`start_month`
+    (7 for Financial Year, 1 for Calendar Year - ADR-0021), in that order.
+    Unlike get_annual_overview, this is never restricted to elapsed months
+    only: a Category Budget can be set ahead for a month that hasn't
     happened yet, and this grid shows it.
     """
-    start = date(year, 7, 1)
+    start = date(year, start_month, 1)
     months = [_add_months(start, offset) for offset in range(12)]
     budgets_by_month = {
         (month_start.year, month_start.month): store.read_category_budgets(month_start.year, month_start.month)
@@ -349,6 +351,17 @@ def get_latest_transaction_date(store) -> date | None:
     return max(dates) if dates else None
 
 
+def get_transaction_date_range(store) -> tuple[date | None, date | None]:
+    """The earliest and latest dates in the Transaction Log, or (None, None)
+    if it is empty - bounds which years the Financial Year switcher offers
+    (ADR-0021).
+    """
+    dates = [transaction.date for transaction in store.read_transactions()]
+    if not dates:
+        return None, None
+    return min(dates), max(dates)
+
+
 def _stat_tiles(transactions: list[Transaction]) -> StatTiles:
     income = _round(sum(t.amount for t in transactions if t.type == "Income"))
     expenses = _round(sum(t.amount for t in transactions if t.type == "Expense"))
@@ -358,12 +371,13 @@ def _stat_tiles(transactions: list[Transaction]) -> StatTiles:
     return StatTiles(income=income, expenses=expenses, debt=debt, net_balance=net_balance, transferred=transferred)
 
 
-def _elapsed_months(year: int, today: date) -> int:
-    """How many months of the Financial Year starting `year`-07 have elapsed as
-    of `today`, counting the current in-progress month - see ADR-0011. 0 before
-    the Financial Year starts, 12 once it has fully finished.
+def _elapsed_months(year: int, today: date, start_month: int = 7) -> int:
+    """How many months of the year-shaped period starting `year`-`start_month`
+    have elapsed as of `today`, counting the current in-progress month - see
+    ADR-0011. 0 before the period starts, 12 once it has fully finished.
+    `start_month` is 7 for a Financial Year, 1 for a Calendar Year (ADR-0021).
     """
-    start = date(year, 7, 1)
+    start = date(year, start_month, 1)
     if today < start:
         return 0
     return min((today.year - start.year) * 12 + (today.month - start.month) + 1, 12)

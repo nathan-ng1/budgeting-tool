@@ -14,6 +14,7 @@ from dashboard.queries import (
     get_full_year_budget_grid,
     get_latest_transaction_date,
     get_month_overview,
+    get_transaction_date_range,
     get_transactions_in_range,
 )
 from database.store import connect
@@ -865,6 +866,170 @@ def test_annual_overview_income_vs_expenses_by_month_matches_month_by_month(fake
     overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21))
 
     assert overview.income_vs_expenses_by_month == overview.month_by_month
+
+
+def test_annual_overview_before_the_calendar_year_starts_elapses_no_months(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    overview = get_annual_overview(store, year=2026, today=date(2025, 12, 15), start_month=1)
+
+    assert overview.year == 2026
+    assert overview.elapsed_months == 0
+    assert overview.stat_tiles.income == 0
+
+
+def test_annual_overview_counts_the_current_in_progress_month_as_elapsed_for_calendar_year(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 1, 10), amount=1000.0, type="Income", category="Salary", notes="Employer"),
+            make_transaction(date=date(2026, 2, 5), amount=500.0, type="Income", category="Salary", notes="Employer"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 2, 21), start_month=1)
+
+    assert overview.elapsed_months == 2
+    assert overview.stat_tiles.income == 1500.0
+
+
+def test_annual_overview_on_a_completed_calendar_year_elapses_all_twelve_months(fake_store):
+    store = fake_store(transactions=[])
+
+    overview = get_annual_overview(store, year=2026, today=date(2027, 2, 1), start_month=1)
+
+    assert overview.elapsed_months == 12
+
+
+def test_annual_overview_excludes_transactions_from_before_the_calendar_year(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2025, 12, 31), amount=500.0, type="Expense", category="Groceries", notes="Last CY"),
+            make_transaction(date=date(2026, 1, 1), amount=250.0, type="Expense", category="Groceries", notes="This CY"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 2, 21), start_month=1)
+
+    assert overview.stat_tiles.expenses == 250.0
+
+
+def test_annual_overview_budgeted_vs_actual_sums_category_budgets_across_elapsed_months_for_calendar_year(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 1, 1), amount=450.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 2, 1), amount=500.0, type="Expense", category="Groceries", notes="Coles"),
+            make_transaction(date=date(2026, 3, 1), amount=520.0, type="Expense", category="Groceries", notes="Aldi"),
+        ],
+        category_budgets={
+            ("Groceries", 2026, 1): 500.0,
+            ("Groceries", 2026, 2): 500.0,
+            ("Groceries", 2026, 3): 500.0,
+        },
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 3, 10), start_month=1)
+    by_category = {row.category: row for row in overview.budgeted_vs_actual}
+
+    assert by_category["Groceries"].budgeted == 1500.0
+    assert by_category["Groceries"].actual == 1470.0
+    assert by_category["Groceries"].diff == 30.0
+
+
+def test_annual_overview_month_by_month_always_has_twelve_entries_in_calendar_year_order(fake_store):
+    store = fake_store(transactions=[])
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21), start_month=1)
+
+    assert len(overview.month_by_month) == 12
+    assert [(row.year, row.month) for row in overview.month_by_month] == [
+        (2026, 1), (2026, 2), (2026, 3), (2026, 4), (2026, 5), (2026, 6),
+        (2026, 7), (2026, 8), (2026, 9), (2026, 10), (2026, 11), (2026, 12),
+    ]
+
+
+def test_annual_overview_month_by_month_zero_fills_months_not_yet_elapsed_for_calendar_year(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 3, 1), amount=999.0, type="Expense", category="Groceries", notes="Not yet elapsed"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 2, 21), start_month=1)
+    by_month = {(row.year, row.month): row for row in overview.month_by_month}
+
+    assert by_month[(2026, 3)] == MonthlyTotals(
+        year=2026, month=3, income=0.0, expenses=0.0, debt=0.0, net_balance=0.0, transferred=0.0
+    )
+    assert len(overview.month_by_month) == 12
+
+
+def test_financial_year_transactions_with_month_1_does_not_span_two_calendar_years(tmp_path: Path, make_candidate):
+    store = connect(tmp_path / "budget.db")
+    store.append_rows(
+        [
+            make_candidate(date=date(2025, 12, 31), notes="Last day of 2025"),
+            make_candidate(date=date(2026, 1, 1), notes="First day of 2026"),
+            make_candidate(date=date(2026, 12, 31), notes="Last day of 2026"),
+            make_candidate(date=date(2027, 1, 1), notes="First day of 2027"),
+        ]
+    )
+
+    notes = {t.notes for t in get_financial_year_transactions(store, year=2026, month=1)}
+
+    assert notes == {"First day of 2026", "Last day of 2026"}
+
+
+def test_full_year_grid_has_twelve_amounts_per_row_in_january_to_december_order_for_calendar_year(fake_store):
+    store = fake_store(
+        category_budgets={
+            ("Groceries", 2026, 1): 300.0,
+            ("Groceries", 2026, 12): 350.0,
+        }
+    )
+
+    rows = get_full_year_budget_grid(store, year=2026, start_month=1)
+    groceries = next(row for row in rows if row.category == "Groceries")
+
+    assert len(groceries.amounts) == 12
+    assert groceries.amounts[0] == 300.0  # January
+    assert groceries.amounts[11] == 350.0  # December
+    assert groceries.amounts[1:11] == [None] * 10
+
+
+def test_full_year_grid_a_category_budget_outside_the_calendar_year_is_not_included(fake_store):
+    # December 2025 is the tail of the previous Calendar Year, not the one
+    # starting 2026-01 - it must not leak into this grid's January slot.
+    store = fake_store(category_budgets={("Groceries", 2025, 12): 999.0})
+
+    rows = get_full_year_budget_grid(store, year=2026, start_month=1)
+    groceries = next(row for row in rows if row.category == "Groceries")
+
+    assert all(amount is None for amount in groceries.amounts)
+
+
+def test_transaction_date_range_on_an_empty_log_is_none_and_none(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    assert get_transaction_date_range(store) == (None, None)
+
+
+def test_transaction_date_range_is_the_earliest_and_latest_transaction_dates(tmp_path: Path, make_candidate):
+    store = connect(tmp_path / "budget.db")
+    store.append_rows(
+        [
+            make_candidate(date=date(2026, 6, 30)),
+            make_candidate(date=date(2026, 8, 3)),
+            make_candidate(date=date(2026, 7, 15)),
+        ]
+    )
+
+    assert get_transaction_date_range(store) == (date(2026, 6, 30), date(2026, 8, 3))
 
 
 def _insert_transaction(database_path: Path, **fields) -> None:
