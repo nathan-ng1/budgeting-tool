@@ -13,9 +13,12 @@ REM that's close_dashboard.bat's job.
 REM
 REM If Vite had to pick a different port than 5173 (because something else was
 REM already using it), this won't find that process - close its window by hand.
+REM
+REM Lives under tests/dev/, alongside open_dashboard_dev.bat - see that file's
+REM header for why.
 
 setlocal
-cd /d "%~dp0"
+cd /d "%~dp0..\.."
 
 set "BACKEND_PORT=8765"
 if exist ".env" (

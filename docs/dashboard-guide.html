@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Budgeting Tool — Dashboard Guide</title>
+<style>
+  /* Same terracotta palette as docs/setup-guide.html, lifted from
+     frontend/src/styles.css's :root block - system fonts only, no vendored
+     webfonts, so this renders correctly offline. */
+  :root {
+    --color-text: #201e1d;
+    --color-accent: #c67139;
+    --color-neutral-100: #f9f4ed;
+    --color-neutral-200: #eee7db;
+    --color-neutral-300: #dcd3c4;
+    --color-neutral-400: #c0b6a5;
+    --color-neutral-600: #82796a;
+    --color-neutral-700: #645c50;
+    --color-accent-600: #b2622d;
+    --color-accent-700: #8c491a;
+    --color-card: #fffdf9;
+    --color-on-accent: #fff;
+    --color-background: var(--color-neutral-100);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--color-background);
+    color: var(--color-text);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+  }
+
+  .wrap {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 24px 64px;
+  }
+
+  header.hero {
+    background: linear-gradient(135deg, var(--color-accent), var(--color-accent-700));
+    color: var(--color-on-accent);
+    padding: 48px 24px;
+    margin-bottom: 32px;
+  }
+
+  header.hero .wrap { padding: 0 24px; }
+  header.hero h1 { margin: 0 0 8px; font-size: 2rem; }
+  header.hero p { margin: 0; max-width: 640px; opacity: 0.95; }
+
+  .notice {
+    background: var(--color-neutral-200);
+    border-left: 4px solid var(--color-accent);
+    border-radius: 6px;
+    padding: 16px 20px;
+    margin: 24px 0;
+  }
+
+  .notice strong { color: var(--color-accent-700); }
+
+  h2 {
+    color: var(--color-accent-700);
+    border-bottom: 2px solid var(--color-neutral-300);
+    padding-bottom: 8px;
+    margin-top: 48px;
+  }
+
+  h3 { color: var(--color-text); margin-bottom: 4px; }
+  h4 { color: var(--color-accent-700); margin: 0 0 4px; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    background: var(--color-card);
+    border: 1px solid var(--color-neutral-300);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--color-neutral-200); vertical-align: top; }
+  th { background: var(--color-neutral-200); color: var(--color-accent-700); }
+  tr:last-child td { border-bottom: none; }
+
+  code, pre {
+    font-family: "Cascadia Code", Consolas, "Courier New", monospace;
+    background: var(--color-neutral-200);
+    border-radius: 4px;
+  }
+  code { padding: 2px 6px; }
+  pre { padding: 14px 16px; overflow-x: auto; border: 1px solid var(--color-neutral-300); }
+  pre code { background: none; padding: 0; }
+
+  a { color: var(--color-accent-700); }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 18px;
+    margin: 20px 0;
+  }
+
+  .card {
+    background: var(--color-card);
+    border: 1px solid var(--color-neutral-300);
+    border-radius: 10px;
+    padding: 18px 22px;
+  }
+
+  .card .tag {
+    display: inline-block;
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 999px;
+    margin-bottom: 10px;
+  }
+
+  ul, ol { padding-left: 1.3em; }
+  li { margin-bottom: 5px; }
+
+  footer {
+    margin-top: 48px;
+    padding-top: 16px;
+    border-top: 1px solid var(--color-neutral-300);
+    color: var(--color-neutral-600);
+    font-size: 0.9rem;
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <h1>Using the Dashboard</h1>
+    <p>A tour of the Dashboard's four tabs, and what each of the scripts in the repo root actually
+    does — for day-to-day use once the Installation Pack has already set things up.</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="notice">
+    <strong>New here?</strong> This guide assumes setup is already done. If you haven't installed
+    yet, see <code>docs/setup-guide.html</code> instead.
+  </div>
+
+  <h2>Opening and closing the Dashboard</h2>
+  <p>Everything runs locally — the Dashboard is a small web server on your own machine, reading
+  your local database directly. No transaction data ever leaves it
+  (<a href="https://github.com/nathan-ng1/budgeting-tool/blob/master/docs/adr/0008-dashboard-is-a-local-web-app-not-a-hosted-artifact.md">ADR-0008</a>).</p>
+  <table>
+    <tr><th>Script</th><th>What it does</th></tr>
+    <tr>
+      <td><code>open_dashboard.bat</code></td>
+      <td>Double-click to start the server and open the Dashboard in Chrome (falling back to your
+      default browser). If it's already running, this just opens the page instead of starting a
+      second server. Leave its window open while you use the Dashboard. Also prints a one-line
+      "update available" notice here, at most once a day, if a newer Release exists — see
+      <code>update.bat</code> below.</td>
+    </tr>
+    <tr>
+      <td><code>close_dashboard.bat</code></td>
+      <td>Stops whatever Dashboard server is currently running. Use this after pulling code changes
+      so the next <code>open_dashboard.bat</code> actually picks up the new code, rather than
+      silently still serving the old one.</td>
+    </tr>
+  </table>
+
+  <h2>The other scripts in the repo root</h2>
+  <table>
+    <tr><th>Script</th><th>When to run it</th></tr>
+    <tr>
+      <td><code>process_statement_export.bat</code></td>
+      <td>Whenever you've downloaded a new Statement Export into your Transactions Inbox. Sanitises
+      it, categorises every transaction via your configured AI backend (pausing for Needs Review
+      items in the terminal), then writes it to the Transaction Log. Pass <code>--dry-run</code> to
+      preview without writing. Full walkthrough: <code>docs/agents/statement-export-pipeline.md</code>.</td>
+    </tr>
+    <tr>
+      <td><code>generate_budget_suggestion.bat</code></td>
+      <td>Regenerates the standing Budget Suggestion write-up shown on the Budget tab, from recent
+      spending history. Replaces whatever write-up was there before — one standing document, not a
+      history. Refresh the Dashboard's Budget tab afterwards to see it.</td>
+    </tr>
+    <tr>
+      <td><code>setup.bat</code></td>
+      <td>The guided installer. Safe to re-run any time — e.g. to add the AI-categorisation path to
+      a Dashboard-only install. See <code>docs/setup-guide.html</code>.</td>
+    </tr>
+    <tr>
+      <td><code>update.bat</code></td>
+      <td>Pulls the latest Release and re-syncs dependencies, after showing you what's changed and
+      asking you to confirm. Run this when <code>open_dashboard.bat</code>'s notice says an update
+      is available.</td>
+    </tr>
+  </table>
+  <p>
+    <code>tests/dev/open_dashboard_dev.bat</code> and <code>close_dashboard_dev.bat</code> are a
+    separate pair, for people working on the frontend's source code itself (hot-reloading Vite dev
+    server rather than the built static page) — not needed for normal day-to-day use.
+  </p>
+
+  <h2>The four tabs</h2>
+
+  <div class="cards">
+    <div class="card">
+      <span class="tag">Overview</span>
+      <h4>Where your money went this month — or this year</h4>
+      <p>Pick a month with the Jul–Jun pills, or Full year for the whole Financial Year. Shows the
+      Income/Expenses/Net Balance/Transferred/Debt stat tiles, Income Allocation, Spending by
+      Category, Budgeted vs Actual, your top 5 expenses, and expenses over time (Full year instead
+      shows Income vs Expenses and Month by Month). Read-only — nothing here is edited directly.</p>
+    </div>
+    <div class="card">
+      <span class="tag">Transactions</span>
+      <h4>The full list, searchable and editable</h4>
+      <p><strong>Add transaction</strong> enters one by hand — this is how a Dashboard-only install
+      (no AI subscription) records spending, instead of running
+      <code>process_statement_export.bat</code>. Every row can be edited or deleted. Search by
+      Notes, sort any column, and export/import via the "More options" menu.</p>
+    </div>
+    <div class="card">
+      <span class="tag">Budget</span>
+      <h4>Per-category monthly budgets, plus the AI write-up</h4>
+      <p>Set a budget amount per Category per month in the grid — this is what Overview's Budgeted
+      vs Actual compares against. The Budget Suggestion card shows the standing write-up from
+      <code>generate_budget_suggestion.bat</code>, editable in place.</p>
+    </div>
+    <div class="card">
+      <span class="tag">Settings</span>
+      <h4>Categories and Recurring Transactions</h4>
+      <p><strong>Category Management</strong> adds, renames, or deletes the Categories offered
+      everywhere else in the Dashboard (a locked Category, like Beem Adjustment, can't be renamed
+      or deleted). <strong>Recurring Transactions</strong> adds, edits, or deletes standing rules
+      (salary, rent, subscriptions) — each rule's Day follows its Start Date, and expands
+      automatically alongside any Statement Export you process.</p>
+    </div>
+  </div>
+
+  <h2>A typical week</h2>
+  <ol>
+    <li>Download a new Statement Export into your Transactions Inbox, then run
+    <code>process_statement_export.bat</code> — or, on the Dashboard-only path, add anything new
+    by hand on the <strong>Transactions</strong> tab.</li>
+    <li>Double-click <code>open_dashboard.bat</code> and check the <strong>Overview</strong> tab
+    for the current month.</li>
+    <li>Adjust category budgets on the <strong>Budget</strong> tab if anything's drifted, or run
+    <code>generate_budget_suggestion.bat</code> for a fresh AI write-up.</li>
+    <li>Add or edit a Recurring rule on <strong>Settings</strong> whenever a standing item
+    changes (a subscription price rise, a new one starting).</li>
+  </ol>
+
+  <footer>
+    Full reference docs live in this repo's <code>README.md</code> and <code>CONTEXT.md</code>
+    (domain glossary). Installing or updating? See <code>docs/setup-guide.html</code>.
+  </footer>
+
+</div>
+</body>
+</html>

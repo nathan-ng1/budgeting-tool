@@ -8,10 +8,17 @@ REM browser immediately.
 REM
 REM Opens two windows, one per server. Closing either stops that server; use
 REM close_dashboard_dev.bat to stop both at once from elsewhere.
+REM
+REM Lives under tests/dev/, not the repo root - this is a manual frontend-dev
+REM convenience script, not part of the guided end-user path (see
+REM docs/dashboard-guide.html for that). REPO_ROOT below resolves two levels
+REM up from this file's own location so it still works from wherever it's
+REM double-clicked.
 
 setlocal
 
-cd /d "%~dp0"
+set "REPO_ROOT=%~dp0..\.."
+cd /d "%REPO_ROOT%"
 
 REM Re-entry: the browser is opened by a second copy of this script, once the
 REM frontend dev server is actually accepting connections (same trick
@@ -70,11 +77,11 @@ if not errorlevel 1 (
     echo Dashboard backend and leaving it running.
 ) else (
     echo Starting the Dashboard backend on port %BACKEND_PORT%...
-    start "Budgeting Tool - backend (dev)" cmd /k "cd /d "%~dp0" && uv run python -m dashboard"
+    start "Budgeting Tool - backend (dev)" cmd /k "cd /d "%REPO_ROOT%" && uv run python -m dashboard"
 )
 
 echo Starting the frontend dev server on port %FRONTEND_PORT%...
-start "Budgeting Tool - frontend (dev)" cmd /k "cd /d "%~dp0frontend" && npm run dev"
+start "Budgeting Tool - frontend (dev)" cmd /k "cd /d "%REPO_ROOT%\frontend" && npm run dev"
 
 start "" /b cmd /c ""%~f0" --open-when-ready %FRONTEND_PORT%"
 
