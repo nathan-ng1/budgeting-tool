@@ -141,18 +141,22 @@ function routeTo(bodies) {
 }
 
 // Routes every endpoint an Overview-tab load touches, with sensible defaults -
-// most tests only care about overriding one of them.
+// most tests only care about overriding one of them. `extra` layers in
+// endpoints beyond Overview's own, for tests that also need another tab
+// wired (e.g. Budget's - see respondWithBudget below).
 function respondWith({
   annual = annualWithSpending(),
   month = monthWithSpending(2026, 8),
   latestTransactionDate = "2026-08-03",
   transactionDateRange = { earliest: "2025-12-17", latest: "2026-08-03" },
+  extra = {},
 } = {}) {
   routeTo({
     "/api/annual-overview": annual,
     "/api/overview": month,
     "/api/latest-transaction-date": { date: latestTransactionDate },
     "/api/transaction-date-range": transactionDateRange,
+    ...extra,
   });
 }
 
@@ -442,6 +446,28 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Budget" })).toHaveAttribute("aria-current", "page");
   });
 
+  it("keeps Budget's own pill selection across a tab switch, the same way Overview's persists", async () => {
+    routeTo({
+      "/api/annual-overview": annualWithSpending(),
+      "/api/budget-editor": { Income: [{ category: "Salary", amount: null }], Expense: [], Debt: [] },
+      "/api/budget-grid": { Income: [], Expense: [], Debt: [] },
+      "/api/budget-suggestion": { write_up: null, generated_at: null },
+      "/api/categories": [],
+      "/api/recurring-rules": [],
+    });
+    render(<App />);
+    expect(await screen.findByText("$8,000")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Budget" }));
+    await screen.findByText("Salary");
+    await userEvent.click(screen.getByRole("button", { name: "Full year" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Full year" })).toHaveAttribute("aria-pressed", "true"));
+
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+    await userEvent.click(screen.getByRole("button", { name: "Budget" }));
+
+    expect(await screen.findByRole("button", { name: "Full year" })).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("opens the Transactions tab and lists that Financial Year's Transactions newest-first", async () => {
     routeTo({
       "/api/annual-overview": annualWithSpending(),
@@ -631,6 +657,110 @@ describe("App", () => {
       render(<App />);
 
       expect(await screen.findByText("Calendar Year 2026")).toBeInTheDocument();
+    });
+  });
+
+  describe("Financial Year/Calendar Year switcher on the Budget tab", () => {
+    // Layers Budget's own endpoints (its Category Budget editor, Full year
+    // grid, write-up, and Category list) onto respondWith's Overview
+    // defaults, since App always mounts on the Overview tab first.
+    function respondWithBudget({
+      grid = { Income: [], Expense: [], Debt: [] },
+      editor = { Income: [{ category: "Salary", amount: null }], Expense: [], Debt: [] },
+    } = {}) {
+      respondWith({
+        extra: {
+          "/api/budget-editor": editor,
+          "/api/budget-grid": grid,
+          "/api/budget-suggestion": { write_up: null, generated_at: null },
+          "/api/categories": [],
+        },
+      });
+    }
+
+    it("reorders Budget's month pills Jan→Dec when Calendar Year is active, matching Overview", async () => {
+      respondWithBudget();
+      render(<App />);
+      await screen.findByText("$8,000");
+      await userEvent.click(screen.getByRole("button", { name: "Budget" }));
+      await screen.findByText("Salary");
+
+      await userEvent.click(screen.getByRole("button", { name: "Calendar Year" }));
+
+      await screen.findByText("Calendar Year 2026");
+      const pills = screen.getByRole("group", { name: "Select month" });
+      const labels = within(pills)
+        .getAllByRole("button")
+        .map((pill) => pill.textContent);
+      expect(labels).toEqual(["Full year", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]);
+    });
+
+    it("requests Budget's Full year grid for the shared referenceYear and period", async () => {
+      respondWithBudget();
+      render(<App />);
+      await screen.findByText("$8,000");
+      await userEvent.click(screen.getByRole("button", { name: "Budget" }));
+      await screen.findByText("Salary");
+
+      await userEvent.click(screen.getByRole("button", { name: "Full year" }));
+
+      await waitFor(() =>
+        expect(fetchMock).toHaveBeenCalledWith("/api/budget-grid?year=2026&period=financial", expect.anything()),
+      );
+    });
+
+    it("steps back a year with the Previous arrow while on the Budget tab, resetting to Full year and refetching its grid", async () => {
+      respondWithBudget();
+      render(<App />);
+      await screen.findByText("$8,000");
+      await userEvent.click(screen.getByRole("button", { name: "Budget" }));
+      await screen.findByText("Salary");
+
+      await userEvent.click(screen.getByRole("button", { name: "Previous year" }));
+
+      expect(await screen.findByText("2025-2026 Financial Year")).toBeInTheDocument();
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: "Full year" })).toHaveAttribute("aria-pressed", "true"),
+      );
+      await waitFor(() =>
+        expect(fetchMock).toHaveBeenCalledWith("/api/budget-grid?year=2025&period=financial", expect.anything()),
+      );
+    });
+
+    it("keeps Budget's selected month anchored when the toggle is flipped while on the Budget tab", async () => {
+      respondWithBudget();
+      render(<App />);
+      await screen.findByText("$8,000");
+      await userEvent.click(screen.getByRole("button", { name: "Budget" }));
+      await screen.findByText("Salary");
+      expect(screen.getByRole("button", { name: "Aug" })).toHaveAttribute("aria-pressed", "true");
+
+      await userEvent.click(screen.getByRole("button", { name: "Calendar Year" }));
+
+      expect(await screen.findByText("Calendar Year 2026")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Aug" })).toHaveAttribute("aria-pressed", "true");
+      expect(screen.getByText("Salary")).toBeInTheDocument();
+    });
+
+    it("does not disturb Overview's own selected month when the year arrow is used on the Budget tab", async () => {
+      respondWithBudget();
+      render(<App />);
+      await screen.findByText("$8,000");
+      await userEvent.click(screen.getByRole("button", { name: "Aug" }));
+      await screen.findByText("$5,240");
+
+      await userEvent.click(screen.getByRole("button", { name: "Budget" }));
+      await screen.findByText("Salary");
+      await userEvent.click(screen.getByRole("button", { name: "Previous year" }));
+      await screen.findByText("2025-2026 Financial Year");
+
+      await userEvent.click(screen.getByRole("button", { name: "Overview" }));
+
+      // Overview's own selected month is untouched by a year-arrow click made
+      // while Budget was the active tab (ADR-0021: each tab's own
+      // month/Full-year selection is independent) - it still shows Aug's own
+      // figures, not Full year's.
+      expect(await screen.findByText("$5,240")).toBeInTheDocument();
     });
   });
 });

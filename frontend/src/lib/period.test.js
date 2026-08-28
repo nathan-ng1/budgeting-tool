@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
+  currentMonth,
   currentReferenceYear,
   getStoredPeriodType,
   monthsOfPeriod,
@@ -66,6 +67,12 @@ describe("currentReferenceYear", () => {
 
   it("names the Calendar Year containing today", () => {
     expect(currentReferenceYear("calendar", new Date(2026, 7, 21))).toBe(2026);
+  });
+});
+
+describe("currentMonth", () => {
+  it("names today's real calendar month, regardless of periodType", () => {
+    expect(currentMonth(new Date(2026, 7, 21))).toEqual({ year: 2026, month: 8 });
   });
 });
 

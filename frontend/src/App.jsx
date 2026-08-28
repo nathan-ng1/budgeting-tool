@@ -19,7 +19,7 @@ import Transactions from "./components/Transactions.jsx";
 import { fetchAnnualOverview, fetchLatestTransactionDate, fetchMonthOverview, fetchTransactionDateRange } from "./lib/api.js";
 import { fetchCategories } from "./lib/categoriesApi.js";
 import { dayMonthLong } from "./lib/format.js";
-import { currentReferenceYear, getStoredPeriodType, remapReferenceYear } from "./lib/period.js";
+import { currentMonth, currentReferenceYear, getStoredPeriodType, remapReferenceYear } from "./lib/period.js";
 
 // Settings holds the Recurring Transactions Config editor (Issue #29);
 // Transactions holds the read-only Transaction list (Issue #33); Budget holds
@@ -33,6 +33,16 @@ export default function App() {
   // null = Full year, the Overview tab's default on every load - no
   // persistence of a prior selection (ADR-0011).
   const [selected, setSelected] = useState(null);
+  // Budget's own independent pill selection (ADR-0021) - defaults to the
+  // current month rather than Full year, unchanged from before Budget was
+  // wired to the shared switcher. Lifted here rather than kept as Budget's
+  // own local state, for two reasons: a year/framing change made while on
+  // the Budget tab needs to anchor or reset it the same way Overview's
+  // `selected` above is (see changePeriodType/changeReferenceYear below),
+  // and it now survives a tab switch the same way `selected` already does,
+  // rather than resetting on every visit as it did when Budget.jsx owned it
+  // as local state (Budget.jsx used to unmount on every tab change).
+  const [budgetSelected, setBudgetSelected] = useState(currentMonth);
   const [overview, setOverview] = useState(null);
   const [error, setError] = useState(null);
   // Feeds Spending by Category's legend and Budgeted vs Actual's table
@@ -42,10 +52,10 @@ export default function App() {
   const [categories, setCategories] = useState([]);
 
   // The Financial Year/Calendar Year switcher's shared state (ADR-0021),
-  // consumed today only by the Overview tab below - Budget and Transactions
-  // pick it up in later tickets. periodType persists across reloads;
-  // referenceYear never does, always starting at the period containing today
-  // (ADR-0011's existing no-persistence rule for navigation state).
+  // consumed by the Overview and Budget tabs below - Transactions picks it up
+  // in a later ticket. periodType persists across reloads; referenceYear
+  // never does, always starting at the period containing today (ADR-0011's
+  // existing no-persistence rule for navigation state).
   const [periodType, setPeriodType] = useState(getStoredPeriodType);
   const [referenceYear, setReferenceYear] = useState(() => currentReferenceYear(getStoredPeriodType()));
   // Bounds the switcher's Previous arrow - null (unbounded) until the fetch
@@ -133,17 +143,26 @@ export default function App() {
   // Flipping periodType keeps a selected real month anchored (only its
   // displayed referenceYear/label changes) and falls back Full year to the
   // period containing today (ADR-0021) - see period.js's remapReferenceYear.
+  // referenceYear/periodType are shared across tabs, but each tab's own
+  // month/Full-year selection isn't (ADR-0021), so the anchor is computed
+  // from whichever tab is actually on screen, not always Overview's.
   function changePeriodType(nextPeriodType) {
     setPeriodType(nextPeriodType);
-    setReferenceYear(remapReferenceYear(selected, nextPeriodType));
+    setReferenceYear(remapReferenceYear(tab === "Budget" ? budgetSelected : selected, nextPeriodType));
   }
 
   // Paging to a different year has no "same real month" to preserve the way
   // a periodType flip does - the selected month pill may not even exist in
   // the newly-browsed year's list, so browsing to it lands on Full year
   // instead, the same safe landing spot a periodType flip falls back to.
+  // Only the active tab's own selection resets - the other tab's is
+  // untouched, since it isn't on screen to need re-anchoring right now.
   function changeReferenceYear(nextReferenceYear) {
-    selectPill(null);
+    if (tab === "Budget") {
+      setBudgetSelected(null);
+    } else {
+      selectPill(null);
+    }
     setReferenceYear(nextReferenceYear);
   }
 
@@ -195,7 +214,14 @@ export default function App() {
 
         {tab === "Transactions" && <Transactions />}
 
-        {tab === "Budget" && <Budget />}
+        {tab === "Budget" && (
+          <Budget
+            periodType={periodType}
+            referenceYear={referenceYear}
+            selected={budgetSelected}
+            onSelect={setBudgetSelected}
+          />
+        )}
 
         {tab === "Overview" && (
           <>

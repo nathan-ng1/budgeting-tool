@@ -11,7 +11,6 @@ import {
   saveCategoryBudget,
 } from "../lib/budgetsApi.js";
 import { totalsByType } from "../lib/budgetTotals.js";
-import { financialYearFor } from "../lib/financialYear.js";
 import { UNSET, money, signedPct } from "../lib/format.js";
 import BudgetGrid from "./BudgetGrid.jsx";
 import BudgetSuggestion from "./BudgetSuggestion.jsx";
@@ -21,17 +20,16 @@ import MonthSelector from "./MonthSelector.jsx";
 // dashboard.queries.TRAILING_WINDOWS.
 const TRAILING_WINDOWS = [3, 6, 12];
 
-function currentMonth() {
-  const today = new Date();
-  return { year: today.getFullYear(), month: today.getMonth() + 1 };
-}
-
-export default function Budget() {
-  // `selected` is null for Full year (the read-only grid, Issue #64) or
-  // `{ year, month }` for the editable per-month editor - it defaults to the
-  // current month, unlike Overview's Full year default (ADR-0011), since the
-  // Budget tab's primary job is editing one month at a time.
-  const [selected, setSelected] = useState(currentMonth);
+// `periodType`/`referenceYear` are the shared Financial Year/Calendar Year
+// switcher state (ADR-0021), lifted to App.jsx alongside Overview's own -
+// Budget keeps its own independent `selected`/`onSelect` (null for Full year,
+// the read-only grid from Issue #64, or `{ year, month }` for the editable
+// per-month editor), also owned by App.jsx so a year/framing change made
+// while on the Budget tab can anchor or reset it the same way Overview's is
+// (see App.jsx's changePeriodType/changeReferenceYear). Its default of the
+// current month, rather than Overview's Full year default, is unchanged from
+// before this tab was wired to the switcher.
+export default function Budget({ periodType, referenceYear, selected, onSelect }) {
   // 3 matches dashboard.budgets.DEFAULT_TRAILING_WINDOW - kept in sync by
   // hand since the two live either side of the HTTP boundary.
   const [trailingWindow, setTrailingWindow] = useState(3);
@@ -53,12 +51,6 @@ export default function Budget() {
   // or error the editor if it fails.
   const [categories, setCategories] = useState([]);
 
-  // The Budget tab isn't wired to the shared Financial Year/Calendar Year
-  // switcher yet (ADR-0021) - that's a later ticket. Every pill (Full year
-  // included) always belongs to the FY containing today, same as before.
-  const today = currentMonth();
-  const financialYear = financialYearFor(today.year, today.month);
-
   // The Amount a Category is Budgeted this month doesn't depend on the
   // trailing window - only the grey historical columns do. `load` always
   // refreshes what's on screen, but only resets the Amount editing state
@@ -74,8 +66,8 @@ export default function Budget() {
     }
   }, []);
 
-  const loadGrid = useCallback(async (year, signal) => {
-    setGrid(await fetchBudgetGrid(year, { signal }));
+  const loadGrid = useCallback(async (year, periodType, signal) => {
+    setGrid(await fetchBudgetGrid({ year, periodType }, { signal }));
   }, []);
 
   const previousMonthKey = useRef(null);
@@ -89,7 +81,7 @@ export default function Budget() {
     // keep in sync here - just the grid.
     if (selected === null) {
       setEditor(null);
-      loadGrid(financialYear, controller.signal).catch((cause) => {
+      loadGrid(referenceYear, periodType, controller.signal).catch((cause) => {
         if (cause.name !== "AbortError") {
           setError(cause.message);
         }
@@ -112,9 +104,9 @@ export default function Budget() {
     });
 
     return () => controller.abort();
-  }, [selected, trailingWindow, financialYear, load, loadGrid]);
+  }, [selected, trailingWindow, referenceYear, periodType, load, loadGrid]);
 
-  // Fetched once, independent of `selected`/`trailingWindow`/`financialYear` -
+  // Fetched once, independent of `selected`/`trailingWindow`/`referenceYear` -
   // the write-up displays identically no matter which month pill (or Full
   // year) is selected (Issue #66).
   useEffect(() => {
@@ -250,7 +242,7 @@ export default function Budget() {
           )}
         </div>
 
-        <MonthSelector referenceYear={financialYear} periodType="financial" selected={selected} onSelect={setSelected} />
+        <MonthSelector referenceYear={referenceYear} periodType={periodType} selected={selected} onSelect={onSelect} />
 
         {selected !== null && (
           <div className="filters">
@@ -346,7 +338,7 @@ export default function Budget() {
           </div>
         )}
 
-        {selected === null && grid !== null && <BudgetGrid financialYear={financialYear} grid={grid} />}
+        {selected === null && grid !== null && <BudgetGrid referenceYear={referenceYear} periodType={periodType} grid={grid} />}
       </section>
     </>
   );

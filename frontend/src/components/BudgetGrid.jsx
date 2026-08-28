@@ -1,13 +1,14 @@
 import { gridTotalsByType } from "../lib/budgetTotals.js";
-import { monthsOfFinancialYear } from "../lib/financialYear.js";
+import { monthsOfPeriod } from "../lib/period.js";
 import { money } from "../lib/format.js";
 
 // The Budget tab's Full year read-only grid (Issue #64) - every Category's
-// Category Budget across the Financial Year's 12 months, grouped by Type.
-// Deliberately plain <td> cells, not inputs: this view has no editing
-// surface at all, unlike Budget.jsx's per-month editor table it sits
-// alongside.
-export default function BudgetGrid({ financialYear, grid }) {
+// Category Budget across the shared referenceYear's 12 months, in the shared
+// periodType's framing (ADR-0021: Jul-Jun for Financial Year, Jan-Dec for
+// Calendar Year), grouped by Type. Deliberately plain <td> cells, not inputs:
+// this view has no editing surface at all, unlike Budget.jsx's per-month
+// editor table it sits alongside.
+export default function BudgetGrid({ referenceYear, periodType, grid }) {
   const totals = gridTotalsByType(grid);
 
   return (
@@ -16,7 +17,7 @@ export default function BudgetGrid({ financialYear, grid }) {
         <thead>
           <tr>
             <th scope="col">Category</th>
-            {monthsOfFinancialYear(financialYear).map(({ year, month, label }) => (
+            {monthsOfPeriod(referenceYear, periodType).map(({ year, month, label }) => (
               <th key={`${year}-${month}`} scope="col" className="table__num">
                 {label}
               </th>
