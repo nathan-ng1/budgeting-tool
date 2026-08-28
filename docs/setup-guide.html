@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Budgeting Tool — Installation Guide</title>
+<style>
+  /* Terracotta palette, lifted from frontend/src/styles.css's :root block so
+     this guide reads as the same product as the Dashboard - system fonts
+     only, no vendored webfonts, so this renders correctly with no internet
+     connection (issue #116 story 15). */
+  :root {
+    --color-text: #201e1d;
+    --color-accent: #c67139;
+    --color-neutral-100: #f9f4ed;
+    --color-neutral-200: #eee7db;
+    --color-neutral-300: #dcd3c4;
+    --color-neutral-400: #c0b6a5;
+    --color-neutral-600: #82796a;
+    --color-neutral-700: #645c50;
+    --color-accent-600: #b2622d;
+    --color-accent-700: #8c491a;
+    --color-card: #fffdf9;
+    --color-on-accent: #fff;
+    --color-background: var(--color-neutral-100);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--color-background);
+    color: var(--color-text);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+  }
+
+  .wrap {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 24px 64px;
+  }
+
+  header.hero {
+    background: linear-gradient(135deg, var(--color-accent), var(--color-accent-700));
+    color: var(--color-on-accent);
+    padding: 48px 24px;
+    margin-bottom: 32px;
+  }
+
+  header.hero .wrap { padding: 0 24px; }
+
+  header.hero h1 {
+    margin: 0 0 8px;
+    font-size: 2rem;
+  }
+
+  header.hero p {
+    margin: 0;
+    max-width: 640px;
+    opacity: 0.95;
+  }
+
+  .notice {
+    background: var(--color-neutral-200);
+    border-left: 4px solid var(--color-accent);
+    border-radius: 6px;
+    padding: 16px 20px;
+    margin: 24px 0;
+  }
+
+  .notice strong { color: var(--color-accent-700); }
+
+  h2 {
+    color: var(--color-accent-700);
+    border-bottom: 2px solid var(--color-neutral-300);
+    padding-bottom: 8px;
+    margin-top: 48px;
+  }
+
+  h3 { color: var(--color-text); }
+
+  .paths {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin: 24px 0;
+  }
+
+  .card {
+    background: var(--color-card);
+    border: 1px solid var(--color-neutral-300);
+    border-radius: 10px;
+    padding: 20px 24px;
+  }
+
+  .card h3 {
+    margin-top: 0;
+    color: var(--color-accent-700);
+  }
+
+  .card .tag {
+    display: inline-block;
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 999px;
+    margin-bottom: 12px;
+  }
+
+  .card.dashboard-only .tag { background: var(--color-neutral-600); }
+
+  ul, ol { padding-left: 1.3em; }
+  li { margin-bottom: 6px; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    background: var(--color-card);
+    border: 1px solid var(--color-neutral-300);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  th, td {
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--color-neutral-200);
+  }
+
+  th {
+    background: var(--color-neutral-200);
+    color: var(--color-accent-700);
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  code, pre {
+    font-family: "Cascadia Code", Consolas, "Courier New", monospace;
+    background: var(--color-neutral-200);
+    border-radius: 4px;
+  }
+
+  code { padding: 2px 6px; }
+
+  pre {
+    padding: 14px 16px;
+    overflow-x: auto;
+    border: 1px solid var(--color-neutral-300);
+  }
+
+  pre code { background: none; padding: 0; }
+
+  a { color: var(--color-accent-700); }
+
+  .step {
+    display: flex;
+    gap: 16px;
+    margin: 20px 0;
+  }
+
+  .step .num {
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+  }
+
+  .step .body { flex: 1 1 auto; }
+  .step .body h4 { margin: 4px 0 6px; }
+
+  footer {
+    margin-top: 48px;
+    padding-top: 16px;
+    border-top: 1px solid var(--color-neutral-300);
+    color: var(--color-neutral-600);
+    font-size: 0.9rem;
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <h1>Budgeting Tool</h1>
+    <p>A guided install for turning credit card statement exports into a categorised, local budget
+    database — plus a Dashboard to see where your money went.</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="notice">
+    <strong>Before you start:</strong> this is a private repository. Everything below only works once
+    <code>nathan-ng1</code> has added you as a <strong>collaborator</strong> on
+    <a href="https://github.com/nathan-ng1/budgeting-tool">github.com/nathan-ng1/budgeting-tool</a> —
+    this isn't a public release, just a guided install for people personally invited to use it. If
+    you haven't been invited yet, ask before downloading anything from its Releases page.
+  </div>
+
+  <h2>Choose your path</h2>
+  <p>
+    <code>setup.bat</code> asks one question up front — do you already hold an AI subscription
+    (Claude Code or Codex CLI)? — and configures everything else around your answer.
+  </p>
+
+  <div class="paths">
+    <div class="card ai-path">
+      <span class="tag">Full pipeline</span>
+      <h3>I have a Claude Code or Codex CLI subscription</h3>
+      <p>Statement Exports get categorised automatically. You'll still be asked to resolve anything
+      the model isn't confident about, right in the terminal.</p>
+      <ul>
+        <li>Automated Statement Export processing</li>
+        <li>Recurring transactions expanded automatically</li>
+        <li>The Dashboard, same as the other path</li>
+      </ul>
+    </div>
+    <div class="card dashboard-only">
+      <span class="tag">Dashboard only</span>
+      <h3>I don't have either subscription</h3>
+      <p>You skip the Statement Export pipeline entirely — no AI setup, no extra installs beyond the
+      core tools. You still get the Dashboard, and you add transactions by hand.</p>
+      <ul>
+        <li>View/edit transactions, Budget tab, Recurring Transactions Config</li>
+        <li>Add transactions manually via the Dashboard's <strong>Transactions</strong> tab</li>
+        <li>Got a subscription later? Re-run <code>setup.bat</code> and switch paths any time</li>
+      </ul>
+    </div>
+  </div>
+
+  <p>
+    (An OpenAI-compatible endpoint — e.g. a local Ollama install — is also supported by the
+    underlying pipeline, but it's a manual, README-documented option rather than something
+    <code>setup.bat</code> walks you through.)
+  </p>
+
+  <h2>Prerequisites</h2>
+  <p>These are common to both paths — <code>setup.bat</code> checks for each and offers to install
+  anything missing via <a href="https://learn.microsoft.com/windows/package-manager/winget/">winget</a>,
+  confirming before every install:</p>
+  <table>
+    <tr><th>Tool</th><th>Why</th></tr>
+    <tr><td>Windows</td><td>The Installation Pack and day-to-day scripts are all <code>.bat</code> files.</td></tr>
+    <tr><td>Git</td><td>Clones the repo, and pulls updates later via <code>update.bat</code>.</td></tr>
+    <tr><td><a href="https://docs.astral.sh/uv/">uv</a> + Python 3.12+</td><td>Runs the pipeline and the Dashboard server.</td></tr>
+    <tr><td>Node.js 20+</td><td>Builds the Dashboard frontend — always built, on either path.</td></tr>
+    <tr><td><a href="https://cli.github.com/">GitHub CLI (<code>gh</code>)</a></td><td>This repo is private — <code>gh</code>, logged in, is how the clone and update checks authenticate.</td></tr>
+  </table>
+  <p>On the AI path, <code>setup.bat</code> also installs whichever of
+  <a href="https://docs.claude.com/en/docs/claude-code">Claude Code</a> or
+  <a href="https://developers.openai.com/codex/cli">Codex CLI</a> you choose (via <code>npm</code>),
+  and checks you're actually logged in before continuing — not just installed.</p>
+
+  <h2>Installing</h2>
+
+  <div class="step">
+    <div class="num">1</div>
+    <div class="body">
+      <h4>Download <code>setup.bat</code></h4>
+      <p>From the <a href="https://github.com/nathan-ng1/budgeting-tool/releases">latest Release</a>
+      on this repo, save <code>setup.bat</code> anywhere — your Downloads folder is fine. It doesn't
+      need Git or a clone to already exist; it bootstraps both.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="num">2</div>
+    <div class="body">
+      <h4>Double-click it</h4>
+      <p>It checks each prerequisite above, asking before installing anything, then clones the repo
+      and hands off to per-person setup: the AI-path question, then your Transactions Inbox folder
+      and database file location (both suggested with sensible defaults — press Enter to accept
+      them, or type your own path).</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="num">3</div>
+    <div class="body">
+      <h4>Wait for the frontend build</h4>
+      <p>The Dashboard frontend is built automatically at the end, on both paths — it's the
+      headline feature of this tool, so it's never left as an optional extra step.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="num">4</div>
+    <div class="body">
+      <h4>Open the Dashboard</h4>
+      <p>Double-click <code>open_dashboard.bat</code> in the cloned folder. It starts the local
+      server and opens the Dashboard in Chrome — nothing about your transaction data ever leaves
+      your machine.</p>
+    </div>
+  </div>
+
+  <h2>Staying up to date</h2>
+  <p><code>open_dashboard.bat</code> checks, at most once a day, whether a newer version has been
+  released, and prints a one-line notice if so — it never applies anything on its own, and if
+  you're offline or not logged into <code>gh</code>, it just says nothing rather than erroring.
+  When you see the notice, run:</p>
+  <pre><code>update.bat</code></pre>
+  <p>It shows you what's changed since your installed version, asks you to confirm, then pulls the
+  update and re-syncs dependencies. If you've made local edits it can't safely combine with the
+  update, it tells you rather than discarding them.</p>
+
+  <h2>Re-running setup.bat</h2>
+  <p><code>setup.bat</code> is safe to run again at any time — it detects what's already installed
+  and configured and skips or offers to reconfigure it, rather than starting over. This is also
+  how a Dashboard-only install adds the AI path later: run it again and answer differently to the
+  subscription question. Your existing Transactions Inbox and database path are kept unless you
+  choose to change them.</p>
+
+  <footer>
+    Full manual setup instructions, troubleshooting, and non-Windows notes live in this repo's
+    <code>README.md</code>. This guide only covers the guided Windows install.
+  </footer>
+
+</div>
+</body>
+</html>

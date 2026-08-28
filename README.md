@@ -3,6 +3,11 @@
 A personal, manually-triggered process that turns credit card statement exports into
 categorised entries in a local budget database.
 
+> **Windows, and already a collaborator on this private repo?** Skip straight to a guided install:
+> download `setup.bat` from the [latest Release](https://github.com/nathan-ng1/budgeting-tool/releases)
+> and double-click it — see `docs/setup-guide.html` for the full walkthrough (ADR-0017). The
+> manual steps below stay here for advanced use, troubleshooting, and non-Windows setups.
+
 See `CONTEXT.md` for the full glossary of terms used below (Statement Export, Sanitising,
 Transaction Log, Needs Review, Recurring Transaction, etc).
 
@@ -45,9 +50,11 @@ real database or archiving anything.
 - **Git**, to clone this repo.
 - Optional: **[Node.js](https://nodejs.org/) 20+**, only needed to build the Dashboard's frontend
   (step 4 of "One-time setup"). The Statement Export pipeline doesn't need it.
-- Optional: **[GitHub CLI (`gh`)](https://cli.github.com/)**, only needed if you also want
-  Claude's issue-tracker agent skill (`docs/agents/issue-tracker.md`) to file/read GitHub issues
-  against your own fork/clone.
+- Optional (for this manual walkthrough): **[GitHub CLI (`gh`)](https://cli.github.com/)**, logged
+  in — needed for Claude's issue-tracker agent skill (`docs/agents/issue-tracker.md`), and for
+  `open_dashboard.bat`'s best-effort "update available" notice and `update.bat` (ADR-0019); both
+  degrade to doing nothing if `gh` isn't set up. It's a *required*, guided step in `setup.bat`
+  (`docs/setup-guide.html`), since that path also needs it to clone this private repo.
 - Optional: a **Google account** with access to Google Cloud Console and your own budget
   spreadsheet, only if you want the historical/reference Google Sheets MCP connection for ad hoc
   chat queries or a one-off export — see `docs/agents/google-sheets-mcp.md` for setup (install
@@ -217,8 +224,12 @@ both together.
 CONTEXT.md                 Domain glossary
 docs/adr/                  Architecture decisions
 docs/agents/                Agent-facing runbooks (issue tracker, MCP, pipeline)
+docs/setup-guide.html       Installation Pack guide (self-contained, terracotta-themed)
 .env.example               Template for your .env (TRANSACTIONS_INBOX, DATABASE_PATH, etc.)
 .data/                     Sanitised exports awaiting processing; .data/processed/ once written
+setup.bat / update.bat      Installation Pack bootstrapper/updater (see docs/setup-guide.html)
+src/setup/                 .env-merging + update-availability logic setup.bat/update.bat/
+                            open_dashboard.bat shell out to
 src/sanitising/            Sanitising script (run manually)
 src/statement_export/      Statement Export parsing, categorisation orchestration, entry point
 src/beem/                  Beem Report parsing + deterministic Income categorisation
