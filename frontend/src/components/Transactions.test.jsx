@@ -88,7 +88,7 @@ describe("Transactions", () => {
       transaction({ id: 2, date: "2027-02-01", notes: "Employer", amount: 4000, type: "Income", category: "Salary" }),
       transaction({ id: 1, date: "2026-08-01", notes: "Woolworths" }),
     ]);
-    render(<Transactions />);
+    render(<Transactions periodType="financial" referenceYear={2026} />);
 
     expect(fetchMock).toHaveBeenCalledWith("/api/transactions?year=2026&month=7", expect.anything());
 
@@ -99,7 +99,7 @@ describe("Transactions", () => {
 
   it("renders the Date, Amount, Type, Category, Notes columns in that order", async () => {
     respondWith([transaction()]);
-    render(<Transactions />);
+    render(<Transactions periodType="financial" referenceYear={2026} />);
 
     const headers = (await screen.findAllByRole("columnheader")).map((header) => header.textContent);
     expect(headers).toEqual(["Date", "Amount", "Type", "Category", "Notes", ""]);
@@ -107,7 +107,7 @@ describe("Transactions", () => {
 
   it("renders Amount plain, with no colour or sign", async () => {
     respondWith([transaction({ amount: 42.5 })]);
-    render(<Transactions />);
+    render(<Transactions periodType="financial" referenceYear={2026} />);
 
     expect(await screen.findByText("$42.50")).toBeInTheDocument();
   });
@@ -119,7 +119,7 @@ describe("Transactions", () => {
       { id: 3, type: "Income", name: "Salary", emoji: null, locked: false },
     ]);
     vi.stubGlobal("fetch", fetchMock);
-    render(<Transactions />);
+    render(<Transactions periodType="financial" referenceYear={2026} />);
     await screen.findAllByRole("row");
 
     const [firstDataRow] = screen.getAllByRole("row").slice(1);
@@ -136,14 +136,14 @@ describe("Transactions", () => {
 
   it("says so plainly when the current Financial Year has no Transactions", async () => {
     respondWith([]);
-    render(<Transactions />);
+    render(<Transactions periodType="financial" referenceYear={2026} />);
 
     expect(await screen.findByText(/No Transactions yet/i)).toBeInTheDocument();
   });
 
   it("surfaces a failure to load rather than showing an empty list", async () => {
     fetchMock.mockResolvedValue({ ok: false, status: 500, json: async () => ({}) });
-    render(<Transactions />);
+    render(<Transactions periodType="financial" referenceYear={2026} />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/500/);
   });
@@ -158,7 +158,7 @@ describe("Transactions", () => {
     });
 
     it("filters by Category", async () => {
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
       await screen.findAllByRole("row");
 
       await userEvent.selectOptions(screen.getByLabelText(/category/i), "Groceries");
@@ -168,7 +168,7 @@ describe("Transactions", () => {
     });
 
     it("filters by Month, offering only months in the current Financial Year", async () => {
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
       await screen.findAllByRole("row");
 
       const monthSelect = screen.getByLabelText(/month/i);
@@ -183,7 +183,7 @@ describe("Transactions", () => {
     });
 
     it("filters by Type", async () => {
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
       await screen.findAllByRole("row");
 
       await userEvent.selectOptions(screen.getByLabelText(/type/i), "Income");
@@ -193,7 +193,7 @@ describe("Transactions", () => {
     });
 
     it("combines Category, Month, and Type filters", async () => {
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
       await screen.findAllByRole("row");
 
       await userEvent.selectOptions(screen.getByLabelText(/type/i), "Expense");
@@ -204,7 +204,7 @@ describe("Transactions", () => {
     });
 
     it("searches Notes case-insensitively, combined with active filters", async () => {
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
       await screen.findAllByRole("row");
 
       await userEvent.type(screen.getByLabelText(/search/i), "EMPLOYER");
@@ -214,7 +214,7 @@ describe("Transactions", () => {
     });
 
     it("shows a distinct message when filters produce zero rows", async () => {
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
       await screen.findAllByRole("row");
 
       await userEvent.type(screen.getByLabelText(/search/i), "nonexistent merchant");
@@ -223,7 +223,7 @@ describe("Transactions", () => {
     });
 
     it("sorts by Date descending by default", async () => {
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
       await screen.findAllByRole("row");
 
       expect(rowTexts()[0]).toContain("Fuel stop"); // 2026-09-10, newest
@@ -231,7 +231,7 @@ describe("Transactions", () => {
     });
 
     it("toggles Date sort direction on repeated header clicks", async () => {
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
       await screen.findAllByRole("row");
 
       await userEvent.click(screen.getByRole("button", { name: /date/i }));
@@ -240,7 +240,7 @@ describe("Transactions", () => {
     });
 
     it("sorts by Amount when its header is clicked, without a network refetch", async () => {
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
       await screen.findAllByRole("row");
 
       const callsBeforeSort = fetchMock.mock.calls.length;
@@ -252,7 +252,7 @@ describe("Transactions", () => {
     });
 
     it("flips Amount sort direction on a second click of its header", async () => {
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
       await screen.findAllByRole("row");
 
       await userEvent.click(screen.getByRole("button", { name: /amount/i }));
@@ -276,7 +276,7 @@ describe("Transactions", () => {
 
     it("defaults to 20 rows per page and offers a Next control once there's more than one page", async () => {
       respondWith(transactionsList(25));
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
       await screen.findAllByRole("row");
 
       expect(rowTexts()).toHaveLength(20);
@@ -288,7 +288,7 @@ describe("Transactions", () => {
 
     it("does not show pagination controls when everything fits on one page", async () => {
       respondWith(transactionsList(5));
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
       await screen.findAllByRole("row");
 
       expect(screen.queryByText(/Page \d+ of \d+/)).not.toBeInTheDocument();
@@ -297,7 +297,7 @@ describe("Transactions", () => {
 
     it("moves to the next and previous page", async () => {
       respondWith(transactionsList(25));
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
       await screen.findAllByRole("row");
 
       await userEvent.click(screen.getByRole("button", { name: "Next" }));
@@ -314,7 +314,7 @@ describe("Transactions", () => {
 
     it("changes how many rows are shown via the Rows per page dropdown", async () => {
       respondWith(transactionsList(25));
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
       await screen.findAllByRole("row");
 
       await userEvent.selectOptions(screen.getByLabelText(/rows per page/i), "10");
@@ -327,7 +327,7 @@ describe("Transactions", () => {
       const transactions = transactionsList(25);
       transactions[0] = { ...transactions[0], category: "Groceries" };
       respondWith(transactions);
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
       await screen.findAllByRole("row");
 
       await userEvent.click(screen.getByRole("button", { name: "Next" }));
@@ -343,7 +343,7 @@ describe("Transactions", () => {
   describe("adding, editing, and deleting", () => {
     it("adds a transaction and shows it in the list without a reload", async () => {
       useBackend([]);
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
       await userEvent.click(await screen.findByRole("button", { name: "Add transaction" }));
 
       await userEvent.clear(screen.getByLabelText("Date"));
@@ -367,7 +367,7 @@ describe("Transactions", () => {
 
     it("offers only the Categories that belong to the chosen Type when adding", async () => {
       useBackend([]);
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
       await userEvent.click(await screen.findByRole("button", { name: "Add transaction" }));
 
       const category = screen.getByLabelText("Category");
@@ -381,7 +381,7 @@ describe("Transactions", () => {
 
     it("shows the store's own rejection and keeps the add form open to fix it", async () => {
       useBackend([]);
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
       await userEvent.click(await screen.findByRole("button", { name: "Add transaction" }));
       fetchMock.mockResolvedValueOnce({
         ok: false,
@@ -402,7 +402,7 @@ describe("Transactions", () => {
 
     it("cancelling the add form discards it without saving", async () => {
       useBackend([]);
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
       await userEvent.click(await screen.findByRole("button", { name: "Add transaction" }));
       await userEvent.type(screen.getByLabelText("Notes"), "Discard me");
 
@@ -414,7 +414,7 @@ describe("Transactions", () => {
 
     it("edits an existing transaction in place", async () => {
       useBackend([transaction()]);
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
 
       await userEvent.click(await screen.findByRole("button", { name: "Edit Woolworths" }));
 
@@ -437,7 +437,7 @@ describe("Transactions", () => {
 
     it("cancelling an edit discards it and keeps the original row", async () => {
       useBackend([transaction()]);
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
 
       await userEvent.click(await screen.findByRole("button", { name: "Edit Woolworths" }));
       await userEvent.clear(screen.getByLabelText("Amount"));
@@ -451,7 +451,7 @@ describe("Transactions", () => {
 
     it("shows the store's own rejection on an edit and leaves the row editable", async () => {
       useBackend([transaction()]);
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
       await userEvent.click(await screen.findByRole("button", { name: "Edit Woolworths" }));
       fetchMock.mockResolvedValueOnce({
         ok: false,
@@ -467,7 +467,7 @@ describe("Transactions", () => {
 
     it("requires an inline confirm before deleting a transaction", async () => {
       useBackend([transaction()]);
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
 
       await userEvent.click(await screen.findByRole("button", { name: "Delete Woolworths" }));
 
@@ -478,7 +478,7 @@ describe("Transactions", () => {
 
     it("cancelling a delete confirmation leaves the row in place", async () => {
       useBackend([transaction()]);
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
       await userEvent.click(await screen.findByRole("button", { name: "Delete Woolworths" }));
 
       await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
@@ -489,7 +489,7 @@ describe("Transactions", () => {
 
     it("deletes a transaction only after the confirm step, dropping it from the list", async () => {
       useBackend([transaction()]);
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
       await userEvent.click(await screen.findByRole("button", { name: "Delete Woolworths" }));
 
       await userEvent.click(screen.getByRole("button", { name: "Confirm delete?" }));
@@ -504,7 +504,7 @@ describe("Transactions", () => {
   describe("the more-options menu and Export", () => {
     it("shows the … button by default, hiding it while Add is open", async () => {
       useBackend([]);
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
 
       expect(await screen.findByRole("button", { name: "More options" })).toBeInTheDocument();
 
@@ -515,7 +515,7 @@ describe("Transactions", () => {
 
     it("hides the … button while editing a row", async () => {
       useBackend([transaction()]);
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
       await userEvent.click(await screen.findByRole("button", { name: "Edit Woolworths" }));
 
       expect(screen.queryByRole("button", { name: "More options" })).not.toBeInTheDocument();
@@ -523,7 +523,7 @@ describe("Transactions", () => {
 
     it("reveals Import and Export options when clicked, and closes on a second click", async () => {
       useBackend([]);
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
 
       await userEvent.click(await screen.findByRole("button", { name: "More options" }));
 
@@ -537,7 +537,7 @@ describe("Transactions", () => {
 
     it("closes the menu when clicking elsewhere", async () => {
       useBackend([]);
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
       await userEvent.click(await screen.findByRole("button", { name: "More options" }));
 
       await userEvent.click(document.body);
@@ -547,7 +547,7 @@ describe("Transactions", () => {
 
     it("opens an inline Import panel with a Download template link", async () => {
       useBackend([]);
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
       await userEvent.click(await screen.findByRole("button", { name: "More options" }));
 
       await userEvent.click(screen.getByRole("menuitem", { name: "Import transactions" }));
@@ -559,7 +559,7 @@ describe("Transactions", () => {
 
     it("cancelling the Import panel closes it and brings back the … button", async () => {
       useBackend([]);
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
       await userEvent.click(await screen.findByRole("button", { name: "More options" }));
       await userEvent.click(screen.getByRole("menuitem", { name: "Import transactions" }));
 
@@ -596,7 +596,7 @@ describe("Transactions", () => {
       }
 
       async function openImportPanel() {
-        render(<Transactions />);
+        render(<Transactions periodType="financial" referenceYear={2026} />);
         await userEvent.click(await screen.findByRole("button", { name: "More options" }));
         await userEvent.click(screen.getByRole("menuitem", { name: "Import transactions" }));
       }
@@ -682,7 +682,27 @@ describe("Transactions", () => {
 
         await userEvent.click(screen.getByRole("button", { name: "Confirm import" }));
 
-        expect(await screen.findByText(/1 is outside the Financial Year currently on screen/)).toBeInTheDocument();
+        expect(await screen.findByText(/1 is outside the 2026-2027 Financial Year currently on screen/)).toBeInTheDocument();
+      });
+
+      it("names the Calendar Year, not the Financial Year, when Calendar Year is the active framing", async () => {
+        // System time is 21 August 2026 (Calendar Year 2026, Jan-Dec).
+        const candidates = [{ date: "2025-12-31", amount: 55, type: "Expense", category: "Groceries", notes: "Old row" }];
+        fetchMock = importBackend({
+          preview: { rows: [{ row: 2, outcome: "write" }], candidates },
+          commitWritten: candidates,
+        });
+        vi.stubGlobal("fetch", fetchMock);
+        render(<Transactions periodType="calendar" referenceYear={2026} />);
+        await userEvent.click(await screen.findByRole("button", { name: "More options" }));
+        await userEvent.click(screen.getByRole("menuitem", { name: "Import transactions" }));
+        await userEvent.upload(screen.getByLabelText(/import file/i), xlsxFile());
+        await userEvent.click(screen.getByRole("button", { name: "Upload" }));
+        await screen.findByRole("button", { name: "Confirm import" });
+
+        await userEvent.click(screen.getByRole("button", { name: "Confirm import" }));
+
+        expect(await screen.findByText(/1 is outside the Calendar Year 2026 currently on screen/)).toBeInTheDocument();
       });
 
       it("shows the backend's top-level error for a structurally invalid upload", async () => {
@@ -708,7 +728,7 @@ describe("Transactions", () => {
 
     it("opens an inline Export panel defaulting to the current Financial Year", async () => {
       useBackend([]);
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
       await userEvent.click(await screen.findByRole("button", { name: "More options" }));
 
       await userEvent.click(screen.getByRole("menuitem", { name: "Export transactions" }));
@@ -721,7 +741,7 @@ describe("Transactions", () => {
 
     it("the download link's href reflects the chosen date range", async () => {
       useBackend([]);
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
       await userEvent.click(await screen.findByRole("button", { name: "More options" }));
       await userEvent.click(screen.getByRole("menuitem", { name: "Export transactions" }));
 
@@ -740,7 +760,7 @@ describe("Transactions", () => {
 
     it("cancelling the Export panel closes it and brings back the … button", async () => {
       useBackend([]);
-      render(<Transactions />);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
       await userEvent.click(await screen.findByRole("button", { name: "More options" }));
       await userEvent.click(screen.getByRole("menuitem", { name: "Export transactions" }));
 
@@ -749,5 +769,101 @@ describe("Transactions", () => {
       expect(screen.queryByLabelText("Start date")).not.toBeInTheDocument();
       expect(await screen.findByRole("button", { name: "More options" })).toBeInTheDocument();
     });
+  });
+});
+
+// Transactions' periodType/referenceYear come from App.jsx as props, sourced
+// from the shared Financial Year/Calendar Year switcher (ADR-0021) - Issue
+// #125.
+describe("Transactions period awareness", () => {
+  it("orders the month filter Jan→Dec when Calendar Year is active, matching Overview/Budget", async () => {
+    respondWith([transaction()]);
+    render(<Transactions periodType="calendar" referenceYear={2026} />);
+    await screen.findByText("Woolworths");
+
+    const options = within(screen.getByLabelText("Month"))
+      .getAllByRole("option")
+      .map((option) => option.textContent);
+    expect(options).toEqual([
+      "All months",
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ]);
+  });
+
+  it("requests the shared referenceYear with month=1 for Calendar Year, month=7 for Financial Year", async () => {
+    respondWith([]);
+    render(<Transactions periodType="calendar" referenceYear={2025} />);
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/transactions?year=2025&month=1", expect.anything()),
+    );
+  });
+
+  it("refetches Transactions when periodType or referenceYear changes while the tab is on screen", async () => {
+    respondWith([]);
+    const { rerender } = render(<Transactions periodType="financial" referenceYear={2026} />);
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/transactions?year=2026&month=7", expect.anything()),
+    );
+
+    rerender(<Transactions periodType="calendar" referenceYear={2026} />);
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/transactions?year=2026&month=1", expect.anything()),
+    );
+  });
+
+  it("resets the month filter back to All months when the shared referenceYear or periodType changes", async () => {
+    respondWith([transaction({ date: "2026-08-05" })]);
+    const { rerender } = render(<Transactions periodType="financial" referenceYear={2026} />);
+    await screen.findByText("Woolworths");
+    await userEvent.selectOptions(screen.getByLabelText("Month"), "2026-08");
+    expect(screen.getByLabelText("Month")).toHaveValue("2026-08");
+
+    respondWith([transaction({ date: "2025-08-05" })]);
+    rerender(<Transactions periodType="financial" referenceYear={2025} />);
+
+    await waitFor(() => expect(screen.getByLabelText("Month")).toHaveValue("All months"));
+  });
+
+  it("keeps the Category, Type, and Search filters when the shared referenceYear or periodType changes - only Month is year-scoped", async () => {
+    respondWith([transaction({ category: "Groceries", type: "Expense", notes: "Woolworths" })]);
+    const { rerender } = render(<Transactions periodType="financial" referenceYear={2026} />);
+    await screen.findByText("Woolworths");
+    await userEvent.selectOptions(screen.getByLabelText("Category"), "Groceries");
+    await userEvent.selectOptions(screen.getByLabelText("Type"), "Expense");
+    await userEvent.type(screen.getByLabelText("Search Notes"), "Wool");
+
+    respondWith([transaction({ category: "Groceries", type: "Expense", notes: "Woolworths" })]);
+    rerender(<Transactions periodType="financial" referenceYear={2025} />);
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/transactions?year=2025&month=7", expect.anything()),
+    );
+
+    expect(screen.getByLabelText("Category")).toHaveValue("Groceries");
+    expect(screen.getByLabelText("Type")).toHaveValue("Expense");
+    expect(screen.getByLabelText("Search Notes")).toHaveValue("Wool");
+  });
+
+  it("the Export panel defaults to the Calendar Year's Jan 1 - Dec 31 when Calendar Year is active", async () => {
+    useBackend([]);
+    render(<Transactions periodType="calendar" referenceYear={2026} />);
+    await userEvent.click(await screen.findByRole("button", { name: "More options" }));
+
+    await userEvent.click(screen.getByRole("menuitem", { name: "Export transactions" }));
+
+    expect(screen.getByLabelText("Start date")).toHaveValue("2026-01-01");
+    expect(screen.getByLabelText("End date")).toHaveValue("2026-12-31");
   });
 });

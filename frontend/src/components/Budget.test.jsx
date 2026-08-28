@@ -69,7 +69,7 @@ function updateCategory(state, category, amount) {
   }
 }
 
-// Full year's July-to-June column order (see financialYear.js) - the fake
+// Full year's July-to-June column order (see period.js's monthsOfPeriod) - the fake
 // backend derives /api/budget-grid from the same byMonth state PUT/DELETE
 // write to, so a value saved via a month pill is provably the same data the
 // grid reads back, not two independently-maintained fakes.

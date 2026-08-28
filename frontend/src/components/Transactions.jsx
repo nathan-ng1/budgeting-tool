@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { categoryLabel, emojiLookup, groupByType } from "../lib/categories.js";
-import { FINANCIAL_YEAR_START_MONTH, financialYearFor } from "../lib/financialYear.js";
 import { preciseMoney } from "../lib/format.js";
+import { periodDateRange, periodFor, periodLabel, startMonthFor } from "../lib/period.js";
 import { blankValues, toPayload, valuesFrom, withType } from "../lib/transactionForm.js";
 import {
   ALL_CATEGORIES,
@@ -28,17 +28,6 @@ import {
   updateTransaction,
 } from "../lib/transactionsApi.js";
 
-function currentFinancialYear() {
-  const today = new Date();
-  return financialYearFor(today.getFullYear(), today.getMonth() + 1);
-}
-
-// The Financial Year's own bounds - July 1 through June 30 (see
-// lib/financialYear.js) - the Export panel's default date range (Issue #96).
-function defaultExportRange(financialYear) {
-  return { start: `${financialYear}-07-01`, end: `${financialYear + 1}-06-30` };
-}
-
 const DEFAULT_FILTERS = { category: ALL_CATEGORIES, month: ALL_MONTHS, type: ALL_TYPES, search: "" };
 const DEFAULT_SORT = { sortKey: "date", sortDirection: "desc" };
 
@@ -58,7 +47,12 @@ function ariaSortFor(sort, key) {
   return sort.sortDirection === "asc" ? "ascending" : "descending";
 }
 
-export default function Transactions() {
+// `periodType`/`referenceYear` are the shared Financial Year/Calendar Year
+// switcher state (ADR-0021), owned by App.jsx - Transactions has no
+// month/Full-year pill of its own to lift alongside them (unlike Budget's
+// `selected`), just a local month filter that's reset below whenever the
+// active year/framing changes.
+export default function Transactions({ periodType, referenceYear }) {
   const [transactions, setTransactions] = useState(null);
   const [categories, setCategories] = useState({});
   const [categoryList, setCategoryList] = useState([]);
@@ -82,8 +76,6 @@ export default function Transactions() {
   const [importMessage, setImportMessage] = useState(null);
   const menuRef = useRef(null);
 
-  const financialYear = currentFinancialYear();
-
   // Clicking anywhere outside the "…" menu closes it, same as clicking the
   // button again - Issue #96.
   useEffect(() => {
@@ -103,24 +95,31 @@ export default function Transactions() {
 
   const load = useCallback(async (signal) => {
     const [loadedTransactions, loadedCategories] = await Promise.all([
-      fetchTransactions({ year: currentFinancialYear(), month: FINANCIAL_YEAR_START_MONTH }, { signal }),
+      fetchTransactions({ year: referenceYear, month: startMonthFor(periodType) }, { signal }),
       fetchCategories({ signal }),
     ]);
     setTransactions(loadedTransactions);
     setCategories(groupByType(loadedCategories));
     setCategoryList(loadedCategories);
-  }, []);
+  }, [periodType, referenceYear]);
 
   // The same flat list `categories` above was grouped from, kept around
   // separately so the table/filter/form can show a Category's emoji (Issue
   // #92) without the grouped Type->names shape changing.
   const emoji = useMemo(() => emojiLookup(categoryList), [categoryList]);
 
+  // Re-runs whenever `load` changes identity, i.e. on mount and on every
+  // periodType/referenceYear change (ADR-0021) - only the month filter is
+  // reset alongside the refetch, since its "YYYY-MM" options belong to
+  // whichever year/framing was previously on screen and may not exist in the
+  // new one; Category/Type/Search aren't year-scoped, so they carry over.
   useEffect(() => {
     const controller = new AbortController();
 
     setError(null);
     setTransactions(null);
+    setFilters((current) => ({ ...current, month: ALL_MONTHS }));
+    setPage(1);
     load(controller.signal).catch((cause) => {
       if (cause.name !== "AbortError") {
         setError(cause.message);
@@ -131,7 +130,7 @@ export default function Transactions() {
   }, [load]);
 
   const categoryFilterOptions = useMemo(() => categoryOptions(transactions ?? []), [transactions]);
-  const months = useMemo(() => monthOptions(financialYear), [financialYear]);
+  const months = useMemo(() => monthOptions(referenceYear, periodType), [referenceYear, periodType]);
   // Everything below derives from the already-fetched array - no filter,
   // search, or sort change ever triggers another fetchTransactions call.
   const visible = useMemo(
@@ -190,15 +189,15 @@ export default function Transactions() {
     setPanel(null);
   }
 
-  // Flags a written row whose Date falls outside the Financial Year on
-  // screen, since the `load()` refresh below won't surface it (Issue #98).
+  // Flags a written row whose Date falls outside the year/framing on screen,
+  // since the `load()` refresh below won't surface it (Issue #98; ADR-0021).
   async function handleImportComplete(written) {
     setPanel(null);
     const outsideCount = written.filter((row) => {
       const [year, month] = row.date.split("-").map(Number);
-      return financialYearFor(year, month) !== financialYear;
+      return periodFor(year, month, periodType) !== referenceYear;
     }).length;
-    setImportMessage(importSummary(written.length, outsideCount));
+    setImportMessage(importSummary(written.length, outsideCount, periodLabel(referenceYear, periodType)));
     await load();
   }
 
@@ -289,7 +288,7 @@ export default function Transactions() {
       )}
 
       {panel === "export" && (
-        <ExportPanel initial={defaultExportRange(financialYear)} onCancel={closePanel} />
+        <ExportPanel initial={periodDateRange(referenceYear, periodType)} onCancel={closePanel} />
       )}
 
       {panel === "import" && <ImportPanel onCancel={closePanel} onImported={handleImportComplete} />}
@@ -651,12 +650,12 @@ function summariseRows(rows) {
   };
 }
 
-function importSummary(writtenCount, outsideCount) {
+function importSummary(writtenCount, outsideCount, activePeriodLabel) {
   const base = `Imported ${writtenCount} transaction${writtenCount === 1 ? "" : "s"}.`;
   if (outsideCount === 0) {
     return base;
   }
-  return `${base} ${outsideCount} ${outsideCount === 1 ? "is" : "are"} outside the Financial Year currently on screen and won't appear in the table above.`;
+  return `${base} ${outsideCount} ${outsideCount === 1 ? "is" : "are"} outside the ${activePeriodLabel} currently on screen and won't appear in the table above.`;
 }
 
 // Upload -> preview -> confirm (Issue #98). The preview writes nothing; only

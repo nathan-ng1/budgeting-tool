@@ -52,10 +52,10 @@ export default function App() {
   const [categories, setCategories] = useState([]);
 
   // The Financial Year/Calendar Year switcher's shared state (ADR-0021),
-  // consumed by the Overview and Budget tabs below - Transactions picks it up
-  // in a later ticket. periodType persists across reloads; referenceYear
-  // never does, always starting at the period containing today (ADR-0011's
-  // existing no-persistence rule for navigation state).
+  // consumed by the Overview, Budget, and Transactions tabs below.
+  // periodType persists across reloads; referenceYear never does, always
+  // starting at the period containing today (ADR-0011's existing
+  // no-persistence rule for navigation state).
   const [periodType, setPeriodType] = useState(getStoredPeriodType);
   const [referenceYear, setReferenceYear] = useState(() => currentReferenceYear(getStoredPeriodType()));
   // Bounds the switcher's Previous arrow - null (unbounded) until the fetch
@@ -140,6 +140,19 @@ export default function App() {
     setSelected(next);
   }
 
+  // Transactions has no month/Full-year pill of its own (unlike Overview's
+  // `selected`/Budget's `budgetSelected`) - it always anchors like Full year,
+  // falling back to the period containing today (ADR-0021).
+  function periodAnchorFor(activeTab) {
+    if (activeTab === "Budget") {
+      return budgetSelected;
+    }
+    if (activeTab === "Overview") {
+      return selected;
+    }
+    return null;
+  }
+
   // Flipping periodType keeps a selected real month anchored (only its
   // displayed referenceYear/label changes) and falls back Full year to the
   // period containing today (ADR-0021) - see period.js's remapReferenceYear.
@@ -148,7 +161,7 @@ export default function App() {
   // from whichever tab is actually on screen, not always Overview's.
   function changePeriodType(nextPeriodType) {
     setPeriodType(nextPeriodType);
-    setReferenceYear(remapReferenceYear(tab === "Budget" ? budgetSelected : selected, nextPeriodType));
+    setReferenceYear(remapReferenceYear(periodAnchorFor(tab), nextPeriodType));
   }
 
   // Paging to a different year has no "same real month" to preserve the way
@@ -157,10 +170,11 @@ export default function App() {
   // instead, the same safe landing spot a periodType flip falls back to.
   // Only the active tab's own selection resets - the other tab's is
   // untouched, since it isn't on screen to need re-anchoring right now.
+  // Transactions owns no such selection, so neither branch runs for it.
   function changeReferenceYear(nextReferenceYear) {
     if (tab === "Budget") {
       setBudgetSelected(null);
-    } else {
+    } else if (tab === "Overview") {
       selectPill(null);
     }
     setReferenceYear(nextReferenceYear);
@@ -212,7 +226,7 @@ export default function App() {
           </>
         )}
 
-        {tab === "Transactions" && <Transactions />}
+        {tab === "Transactions" && <Transactions periodType={periodType} referenceYear={referenceYear} />}
 
         {tab === "Budget" && (
           <Budget

@@ -1,10 +1,10 @@
 // Pure filter/search/sort logic for the Transactions tab (Issue #34) - mirrors
-// financialYear.js/charts.js in staying a plain-array module with no fetching
-// or component state of its own. Everything here operates on the array the
+// period.js/charts.js in staying a plain-array module with no fetching or
+// component state of its own. Everything here operates on the array the
 // tab's fetch (Issue #33) already loaded; no result here ever triggers a
 // refetch.
 
-import { monthsOfFinancialYear } from "./financialYear.js";
+import { monthsOfPeriod } from "./period.js";
 
 export const ALL_CATEGORIES = "All categories";
 export const ALL_MONTHS = "All months";
@@ -21,8 +21,8 @@ export function categoryOptions(transactions) {
   return [...new Set(transactions.map((transaction) => transaction.category))].sort();
 }
 
-export function monthOptions(financialYear) {
-  return monthsOfFinancialYear(financialYear).map(({ year, month, label }) => ({
+export function monthOptions(referenceYear, periodType) {
+  return monthsOfPeriod(referenceYear, periodType).map(({ year, month, label }) => ({
     value: monthValue(year, month),
     label,
   }));
