@@ -63,7 +63,9 @@ describe("BudgetSuggestion", () => {
     render(<BudgetSuggestion suggestion={null} editor={null} />);
 
     expect(screen.getByText(/No Budget Suggestion yet/)).toBeInTheDocument();
-    expect(screen.getByText("uv run python -m budget_suggestions")).toBeInTheDocument();
+    expect(screen.getByText("generate_budget_suggestion.bat")).toBeInTheDocument();
+    expect(screen.getByText("generate_budget_suggestion.command")).toBeInTheDocument();
+    expect(screen.getByText(/Requires an AI subscription/)).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });

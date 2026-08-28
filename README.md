@@ -3,12 +3,9 @@
 A personal, manually-triggered process that turns credit card statement exports into
 categorised entries in a local budget database.
 
-> **Already a collaborator on this private repo?** Skip straight to a guided install: download
-> `setup.bat` (Windows) or `setup.command` (macOS) from the
-> [latest Release](https://github.com/nathan-ng1/budgeting-tool/releases) and double-click it —
-> see `docs/setup-guide.html` (Windows) or `docs/setup-guide-mac.html` (macOS) for the full
-> walkthrough (ADR-0017, issue #117). The manual steps below stay here for advanced use,
-> troubleshooting, and Linux setups (untested).
+> **Already a collaborator on this private repo?** Skip straight to a guided install — see
+> "One-time setup" below, or jump directly to `docs/setup-guide.html` (Windows) /
+> `docs/setup-guide-mac.html` (macOS) (ADR-0017, issue #117).
 
 See `CONTEXT.md` for the full glossary of terms used below (Statement Export, Sanitising,
 Transaction Log, Needs Review, Recurring Transaction, etc).
@@ -27,6 +24,10 @@ Transaction Log, Needs Review, Recurring Transaction, etc).
    to the **Transaction Log** in your local SQLite database and archives the source file.
 4. Recurring items (salary, rent, mortgage, subscriptions, etc.) are expanded from the database's
    Recurring Transactions Config and written the same way, with or without a new export present.
+5. Throughout, the **Dashboard** (`open_dashboard`) is how you actually use this day to day —
+   reviewing spending and budgets, managing Categories and the Recurring Transactions Config, and,
+   on the Dashboard-only path with no AI subscription, entering transactions by hand instead of
+   step 3. It's built as part of setup, not an optional extra — see "Viewing the Dashboard" below.
 
 Pass `--dry-run` to preview a run — including your Needs Review answers — without writing to your
 real database or archiving anything.
@@ -38,7 +39,7 @@ real database or archiving anything.
   `uv run python -m ...` commands. Linux should work with the `mac/` scripts adapted, but that's
   untested.
 - **One of the following, to categorise transactions** (set via `CATEGORISER_BACKEND` in `.env`,
-  step 3 below):
+  step 2 below):
   - **[Claude Code](https://docs.claude.com/en/docs/claude-code)**, installed and logged in —
     categorisation shells out to its non-interactive `claude -p` mode, using whatever auth
     Claude Code is already configured with (subscription or pay-as-you-go API billing through the
@@ -52,8 +53,11 @@ real database or archiving anything.
     key, and model name.
 - **[`uv`](https://docs.astral.sh/uv/)** and **Python 3.12+**.
 - **Git**, to clone this repo.
-- Optional: **[Node.js](https://nodejs.org/) 20+**, only needed to build the Dashboard's frontend
-  (step 4 of "One-time setup"). The Statement Export pipeline doesn't need it.
+- **[Node.js](https://nodejs.org/) 20+**, to build the Dashboard's frontend (step 3 of "One-time
+  setup"). The Dashboard is the primary way you use this tool day to day — viewing spending,
+  editing budgets, entering transactions by hand on the Dashboard-only path, managing Recurring
+  Transactions and Categories — so this isn't optional, even if the Statement Export pipeline
+  itself doesn't need it.
 - Optional (for this manual walkthrough): **[GitHub CLI (`gh`)](https://cli.github.com/)**, logged
   in — needed for Claude's issue-tracker agent skill (`docs/agents/issue-tracker.md`), and for
   `open_dashboard`'s best-effort "update available" notice and `update` (ADR-0019); both degrade
@@ -69,13 +73,36 @@ real database or archiving anything.
 ## Setting this up for someone else
 
 Nothing personal is hardcoded in source — every per-person setting (`TRANSACTIONS_INBOX`,
-`DATABASE_PATH`, `BEEM_USERNAME`, `CATEGORISER_BACKEND` and its backend-specific settings) lives
-in a gitignored `.env`, copied from `.env.example` (step 2 below). To hand this repo to someone
-else, they clone the repo and copy their own `.env` from `.env.example` — nothing from your
-`.env` or your local database file should be shared, since those hold real financial figures. They
-then run through "One-time setup" below as-is, using their own paths.
+`DATABASE_PATH`, `BEEM_USERNAME`, `CATEGORISER_BACKEND`/`ADVISOR_BACKEND` and their backend-specific
+settings) lives in a gitignored `.env`, copied from `.env.example` (step 2 below). Nothing from
+your `.env` or your local database file should be shared, since those hold real financial figures.
+
+The easiest way to hand this repo to someone else is to point them at the guided installer
+(`docs/setup-guide.html` / `docs/setup-guide-mac.html`) — it clones the repo and writes their own
+`.env` from scratch, using their own paths and their own AI-subscription choice. Otherwise, they
+can clone the repo and copy their own `.env` from `.env.example`, then run through "One-time
+setup" below as-is.
 
 ## One-time setup
+
+**The guided installer is the intended path for everyone** — download `setup.bat` (Windows) or
+`setup.command` (macOS) from the
+[latest Release](https://github.com/nathan-ng1/budgeting-tool/releases) and double-click it. In one
+run it installs every prerequisite above (via winget or Homebrew), clones this repo, asks whether
+you have a Claude Code or Codex CLI subscription and branches accordingly (ADR-0018), writes your
+`.env` — including `CATEGORISER_BACKEND`/`ADVISOR_BACKEND` on the AI path, so nothing below needs
+editing by hand — and builds the Dashboard frontend. It's also safe to re-run any time, e.g. to add
+the AI path to an existing Dashboard-only install, or to rebuild the frontend after pulling
+updates. Full walkthrough: `docs/setup-guide.html` (Windows) or `docs/setup-guide-mac.html`
+(macOS).
+
+Every script the installer sets you up with follows the same split: `windows/*.bat` on Windows,
+`mac/*.command` on macOS, matching base names (`open_dashboard`, `process_statement_export`,
+`generate_budget_suggestion`, `update`) — the rest of this README names the shared base name only
+where the distinction doesn't matter.
+
+The steps below are the **manual equivalent** of what the installer automates — for advanced use,
+troubleshooting a guided install, or Linux (untested; adapt the `mac/` scripts).
 
 ### 1. Clone the repo and install dependencies
 
@@ -103,6 +130,7 @@ cp .env.example .env
 | `DATABASE_PATH` | yes | Path to your local SQLite database file — the live Transaction Log and Recurring Transactions Config. Created automatically on first run if it doesn't exist yet. |
 | `BEEM_USERNAME` | only for Beem reports | Which side of each row (`Payer`/`Recipient`) is you, so the Beem sanitising handler can derive a signed amount. |
 | `CATEGORISER_BACKEND` | yes | Which categorisation backend to use: `claude`, `codex`, or `openai-compatible`. Read by `uv run python -m statement_export`. |
+| `ADVISOR_BACKEND` | only for Budget Suggestion | Which backend `generate_budget_suggestion` uses: `claude`, `codex`, or `openai-compatible` — a separate setting from `CATEGORISER_BACKEND` (ADR-0014), though the guided installer sets both to the same value on the AI path. Read by `uv run python -m budget_suggestions`. |
 | `OPENAI_COMPATIBLE_BASE_URL` | only for the `openai-compatible` backend | Base URL of the OpenAI-compatible chat-completions endpoint (e.g. `http://localhost:11434/v1` for a local Ollama). |
 | `OPENAI_COMPATIBLE_API_KEY` | only if your endpoint requires one | API key sent as a Bearer token. Most local Ollama installs don't need a real one. |
 | `OPENAI_COMPATIBLE_MODEL` | only for the `openai-compatible` backend | Model name to request (e.g. `llama3`). |
@@ -115,18 +143,11 @@ Any of these also work as a real environment variable set in your shell for the 
 `$env:BEEM_USERNAME = "your_beem_username"` in PowerShell) — `.env` just saves you from setting
 them every session.
 
-### 3. Set up the recurring transactions config (optional)
+### 3. Build the Dashboard frontend
 
-If you have predictable recurring items (salary, rent, mortgage, subscriptions), add one rule per
-item on the Dashboard's **Settings** tab (amount, type, category, notes, frequency/interval/day,
-start/end date) — see "Editing the Recurring Transactions Config" below. That needs the frontend built
-(step 4); if you'd rather not build it, you can insert rows into your database's `recurring_rules`
-table directly via `sqlite3 <DATABASE_PATH>`.
-
-### 4. Build the Dashboard frontend (optional)
-
-Only needed if you want the Dashboard (below). It's a React app built with Vite, so it needs
-[Node.js](https://nodejs.org/) 20+ alongside `uv`:
+The Dashboard is the primary way you use this tool day to day (see "How it works" above and
+"Viewing the Dashboard" below), so this step isn't optional. It's a React app built with Vite, so
+it needs [Node.js](https://nodejs.org/) 20+ alongside `uv`:
 
 ```
 cd frontend
@@ -136,6 +157,12 @@ npm run build
 
 That writes the built page into `src/dashboard/static/`, which the Dashboard's own server serves.
 Both the built output and `node_modules/` are gitignored — rebuild after pulling frontend changes.
+
+### 4. Set up the recurring transactions config (optional)
+
+If you have predictable recurring items (salary, rent, mortgage, subscriptions), add one rule per
+item on the Dashboard's **Settings** tab (amount, type, category, notes, frequency/interval/day,
+start/end date) — see "Editing the Recurring Transactions Config" below.
 
 ## Day-to-day usage
 
@@ -210,8 +237,9 @@ for a full walkthrough of every tab and script.
 It runs entirely on your machine and reads the local database directly; no transaction data
 leaves the machine ([ADR-0008](docs/adr/0008-dashboard-is-a-local-web-app-not-a-hosted-artifact.md)),
 and the page loads no fonts, scripts, or styles from the network. Set `DASHBOARD_PORT` in `.env`
-to serve on a different port - `open_dashboard` reads it too. If the page tells you the
-frontend hasn't been built, run step 4 of the one-time setup above.
+to serve on a different port - `open_dashboard` reads it too. If the page tells you the frontend
+hasn't been built, run step 3 of the one-time setup above (or re-run `setup`, which always offers
+to rebuild it).
 
 ### Editing the Recurring Transactions Config
 

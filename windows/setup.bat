@@ -76,6 +76,7 @@ echo.
 echo Double-click windows\open_dashboard.bat to view the Dashboard.
 if defined AI_BACKEND (
     echo Run windows\process_statement_export.bat whenever you have a new Statement Export to categorise.
+    echo Run windows\generate_budget_suggestion.bat any time for a fresh Budget Suggestion write-up.
 ) else (
     echo You're on the Dashboard-only path - add transactions by hand via the Dashboard's
     echo Transactions tab. Re-run setup.bat any time to add the AI-categorisation path.
@@ -292,11 +293,23 @@ exit /b 0
 
 REM =============================================================================
 :ensure_clone
-REM Three cases: already inside a clone (re-run, or the maintainer's pre-existing
-REM checkout - story 30); a partial clone sitting next to this script; or a
-REM clean bootstrap that needs to clone from scratch.
+REM Four cases: already inside a clone (re-run, or the maintainer's pre-existing
+REM checkout - story 30); inside an existing checkout's windows\ folder itself
+REM (re-running windows\setup.bat from inside a clone, rather than a
+REM standalone download - .git now lives one level up from this script, not
+REM next to it, since the windows/mac split moved this script out of the repo
+REM root; missing this case used to silently clone a redundant nested copy
+REM and write .env/build the frontend there instead of the real repo root);
+REM a partial clone sitting next to this script; or a clean bootstrap that
+REM needs to clone from scratch.
 if exist ".git" (
     echo [ok] Already inside a clone of this repo.
+    exit /b 0
+)
+
+if exist "..\.git" (
+    echo [ok] Already inside a clone of this repo ^(running from windows\^).
+    cd /d ".."
     exit /b 0
 )
 
@@ -507,8 +520,13 @@ REM own tokenising split one path into several argv entries.
 set "VALUES="TRANSACTIONS_INBOX=%TRANSACTIONS_INBOX%" "DATABASE_PATH=%DATABASE_PATH%""
 set "REQUIRED=TRANSACTIONS_INBOX DATABASE_PATH"
 if defined AI_BACKEND (
-    set "VALUES=%VALUES% "CATEGORISER_BACKEND=%AI_BACKEND%""
-    set "REQUIRED=%REQUIRED% CATEGORISER_BACKEND"
+    REM ADVISOR_BACKEND (budget_suggestions) is a separate setting from
+    REM CATEGORISER_BACKEND (statement_export) per ADR-0014, but there's no
+    REM reason to make someone who just answered "yes, I have Claude Code/
+    REM Codex" go edit .env by hand a second time to get Budget Suggestion
+    REM working - mirror the same choice into both.
+    set "VALUES=%VALUES% "CATEGORISER_BACKEND=%AI_BACKEND%" "ADVISOR_BACKEND=%AI_BACKEND%""
+    set "REQUIRED=%REQUIRED% CATEGORISER_BACKEND ADVISOR_BACKEND"
 )
 
 uv run python -m setup write-env --values %VALUES% --required %REQUIRED%
