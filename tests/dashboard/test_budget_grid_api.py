@@ -89,3 +89,36 @@ def test_the_grid_read_requires_year(running_server):
         call(server, "GET", "/api/budget-grid")
 
     assert exc_info.value.code == 400
+
+
+def test_period_calendar_orders_the_grid_january_to_december(running_server):
+    _store, server = running_server
+
+    call(server, "PUT", "/api/budget-editor/Groceries?year=2026&month=3", {"amount": 400.0})
+
+    _status, body = call(server, "GET", "/api/budget-grid?year=2026&period=calendar")
+    amounts = _row(body["Expense"], "Groceries")["amounts"]
+
+    assert amounts[2] == 400.0  # March is index 2 in Jan-Dec order
+    assert amounts[:2] == [None, None]
+    assert amounts[3:] == [None] * 9
+
+
+def test_period_omitted_defaults_to_financial_year_ordering(running_server):
+    _store, server = running_server
+
+    call(server, "PUT", "/api/budget-editor/Groceries?year=2026&month=8", {"amount": 650.0})
+
+    _status, body = call(server, "GET", "/api/budget-grid?year=2026")
+    amounts = _row(body["Expense"], "Groceries")["amounts"]
+
+    assert amounts[1] == 650.0  # August is index 1 in Jul-Jun order
+
+
+def test_the_grid_read_rejects_an_invalid_period(running_server):
+    _store, server = running_server
+
+    with pytest.raises(HTTPError) as exc_info:
+        call(server, "GET", "/api/budget-grid?year=2026&period=nonsense")
+
+    assert exc_info.value.code == 400

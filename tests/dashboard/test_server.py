@@ -85,6 +85,45 @@ def test_annual_overview_endpoint_missing_year_returns_400(running_server):
     assert exc_info.value.code == 400
 
 
+def test_annual_overview_endpoint_period_calendar_reaches_the_query_function_as_start_month_1(
+    running_server, make_candidate
+):
+    store, server = running_server
+    today = date.today()
+    store.append_rows(
+        [make_candidate(date=date(today.year, 1, 5), amount=100.0, type="Income", category="Salary", notes="Employer")]
+    )
+    expected = asdict(get_annual_overview(store, year=today.year, start_month=1))
+
+    with urlopen(
+        f"http://127.0.0.1:{server.server_port}/api/annual-overview?year={today.year}&period=calendar"
+    ) as response:
+        body = json.loads(response.read())
+
+    assert body == expected
+
+
+def test_annual_overview_endpoint_period_omitted_defaults_to_financial_year(running_server):
+    store, server = running_server
+    today = date.today()
+    financial_year = today.year if today.month >= 7 else today.year - 1
+    expected = asdict(get_annual_overview(store, year=financial_year))
+
+    with urlopen(f"http://127.0.0.1:{server.server_port}/api/annual-overview?year={financial_year}") as response:
+        body = json.loads(response.read())
+
+    assert body == expected
+
+
+def test_annual_overview_endpoint_invalid_period_returns_400(running_server):
+    _store, server = running_server
+
+    with pytest.raises(HTTPError) as exc_info:
+        urlopen(f"http://127.0.0.1:{server.server_port}/api/annual-overview?year=2026&period=nonsense")
+
+    assert exc_info.value.code == 400
+
+
 def test_unknown_path_returns_404(running_server):
     _store, server = running_server
 
@@ -124,3 +163,20 @@ def test_latest_transaction_date_endpoint_on_an_empty_log_reports_no_date(runnin
 
     with urlopen(f"http://127.0.0.1:{server.server_port}/api/latest-transaction-date") as response:
         assert json.loads(response.read()) == {"date": None}
+
+
+def test_transaction_date_range_endpoint_reports_the_earliest_and_latest_dates(running_server, make_candidate):
+    store, server = running_server
+    store.append_rows(
+        [make_candidate(date=date(2026, 7, 1)), make_candidate(date=date(2026, 8, 3)), make_candidate(date=date(2026, 6, 15))]
+    )
+
+    with urlopen(f"http://127.0.0.1:{server.server_port}/api/transaction-date-range") as response:
+        assert json.loads(response.read()) == {"earliest": "2026-06-15", "latest": "2026-08-03"}
+
+
+def test_transaction_date_range_endpoint_on_an_empty_log_reports_both_null(running_server):
+    _store, server = running_server
+
+    with urlopen(f"http://127.0.0.1:{server.server_port}/api/transaction-date-range") as response:
+        assert json.loads(response.read()) == {"earliest": None, "latest": None}

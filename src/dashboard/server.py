@@ -98,6 +98,18 @@ def _make_handler(store, static_root: Path):
                 # line - which is why it isn't part of the per-month Overview.
                 latest = queries.get_latest_transaction_date(store)
                 self._send_json(200, {"date": latest.isoformat() if latest is not None else None})
+            elif parsed.path == "/api/transaction-date-range":
+                # Bounds which years the Financial Year switcher offers
+                # (ADR-0021) - the Transaction Log's actual span, not a
+                # hardcoded lookback.
+                earliest, latest = queries.get_transaction_date_range(store)
+                self._send_json(
+                    200,
+                    {
+                        "earliest": earliest.isoformat() if earliest is not None else None,
+                        "latest": latest.isoformat() if latest is not None else None,
+                    },
+                )
             elif parsed.path == RECURRING_RULES_PATH:
                 self._send_json(200, [recurring.as_payload(r) for r in store.read_stored_recurring_rules()])
             elif parsed.path == TRANSACTIONS_EXPORT_PATH:
@@ -403,8 +415,11 @@ def _make_handler(store, static_root: Path):
             year = self._year(params)
             if year is None:
                 return
+            start_month = self._period_start_month(params)
+            if start_month is None:
+                return
 
-            overview = queries.get_annual_overview(store, year=year)
+            overview = queries.get_annual_overview(store, year=year, start_month=start_month)
             self._send_json(200, asdict(overview))
 
         def _serve_transactions(self, params) -> None:
@@ -454,8 +469,11 @@ def _make_handler(store, static_root: Path):
             year = self._year(params)
             if year is None:
                 return
+            start_month = self._period_start_month(params)
+            if start_month is None:
+                return
 
-            rows = queries.get_full_year_budget_grid(store, year=year)
+            rows = queries.get_full_year_budget_grid(store, year=year, start_month=start_month)
             self._send_json(200, budgets.as_grid_payload(rows))
 
         def _query_int(self, params, key: str) -> int | None:
@@ -483,6 +501,20 @@ def _make_handler(store, static_root: Path):
                 self._send_json(400, {"error": "year query parameter is required and must be an integer"})
                 return None
             return year
+
+        def _period_start_month(self, params) -> int | None:
+            """The `period` query param translated to a start month (7 for
+            `financial`, 1 for `calendar`) - defaulting to `financial` when
+            omitted, matching today's unchanged behaviour (ADR-0021). None -
+            with a 400 already sent - if `period` is present but neither
+            value."""
+            period = params.get("period", ["financial"])[0]
+            if period == "financial":
+                return 7
+            if period == "calendar":
+                return 1
+            self._send_json(400, {"error": "period query parameter must be 'financial' or 'calendar'"})
+            return None
 
         def _date_range(self, params) -> tuple[date, date] | None:
             """The (start, end) query params as dates, or None - with a 400
