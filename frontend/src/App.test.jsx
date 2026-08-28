@@ -124,11 +124,13 @@ beforeEach(() => {
   vi.setSystemTime(new Date(2026, 7, 21)); // 21 August 2026 - Financial Year 2026
   fetchMock = vi.fn();
   vi.stubGlobal("fetch", fetchMock);
+  localStorage.clear();
 });
 
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
+  localStorage.clear();
 });
 
 function routeTo(bodies) {
@@ -144,11 +146,13 @@ function respondWith({
   annual = annualWithSpending(),
   month = monthWithSpending(2026, 8),
   latestTransactionDate = "2026-08-03",
+  transactionDateRange = { earliest: "2025-12-17", latest: "2026-08-03" },
 } = {}) {
   routeTo({
     "/api/annual-overview": annual,
     "/api/overview": month,
     "/api/latest-transaction-date": { date: latestTransactionDate },
+    "/api/transaction-date-range": transactionDateRange,
   });
 }
 
@@ -158,7 +162,7 @@ describe("App", () => {
     render(<App />);
 
     await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith("/api/annual-overview?year=2026", expect.anything()),
+      expect(fetchMock).toHaveBeenCalledWith("/api/annual-overview?year=2026&period=financial", expect.anything()),
     );
 
     expect(screen.getByText("2026-2027 Financial Year")).toBeInTheDocument();
@@ -499,5 +503,134 @@ describe("App", () => {
     expect(within(nav).getByText("Budget")).toBeInTheDocument();
     expect(within(nav).getByText("Settings")).toBeInTheDocument();
     expect(within(nav).getByText("Overview")).toHaveAttribute("aria-current", "page");
+  });
+
+  describe("Financial Year/Calendar Year switcher", () => {
+    it("renders above the nav, and hides on the Settings tab", async () => {
+      routeTo({
+        "/api/annual-overview": annualWithSpending(),
+        "/api/transaction-date-range": { earliest: "2025-12-17", latest: "2026-08-03" },
+        "/api/recurring-rules": [],
+        "/api/categories": [],
+      });
+      render(<App />);
+      await screen.findByText("$8,000");
+
+      expect(screen.getByRole("group", { name: "Select year" })).toBeInTheDocument();
+      expect(screen.getByRole("group", { name: "Financial Year or Calendar Year" })).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+
+      expect(screen.queryByRole("group", { name: "Select year" })).not.toBeInTheDocument();
+    });
+
+    it("disables the Next arrow at the Financial Year containing today", async () => {
+      respondWith();
+      render(<App />);
+      await screen.findByText("$8,000");
+
+      expect(screen.getByRole("button", { name: "Next year" })).toBeDisabled();
+    });
+
+    it("disables the Previous arrow at the Financial Year containing the earliest Transaction", async () => {
+      respondWith();
+      render(<App />);
+      await screen.findByText("$8,000");
+
+      await userEvent.click(screen.getByRole("button", { name: "Previous year" }));
+      await screen.findByText("2025-2026 Financial Year");
+
+      expect(screen.getByRole("button", { name: "Previous year" })).toBeDisabled();
+    });
+
+    it("steps back a Financial Year with the Previous arrow, refetching Full year for it", async () => {
+      respondWith();
+      render(<App />);
+      await screen.findByText("$8,000");
+
+      await userEvent.click(screen.getByRole("button", { name: "Previous year" }));
+
+      await waitFor(() =>
+        expect(fetchMock).toHaveBeenCalledWith("/api/annual-overview?year=2025&period=financial", expect.anything()),
+      );
+      expect(await screen.findByText("2025-2026 Financial Year")).toBeInTheDocument();
+    });
+
+    it("resets to Full year when a year arrow is used while a month is selected", async () => {
+      respondWith();
+      render(<App />);
+      await screen.findByText("$8,000");
+      await userEvent.click(screen.getByRole("button", { name: "Aug" }));
+      await screen.findByText("$5,240");
+
+      await userEvent.click(screen.getByRole("button", { name: "Previous year" }));
+
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: "Full year" })).toHaveAttribute("aria-pressed", "true"),
+      );
+      // Full year's own sections show, not Aug's per-month-only ones.
+      expect(await screen.findByRole("heading", { name: "Month by month" })).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Expenses over time" })).not.toBeInTheDocument();
+    });
+
+    it("switches to Calendar Year framing, relabelling the header and reordering the month pills", async () => {
+      respondWith();
+      render(<App />);
+      await screen.findByText("$8,000");
+
+      await userEvent.click(screen.getByRole("button", { name: "Calendar Year" }));
+
+      expect(await screen.findByText("Calendar Year 2026")).toBeInTheDocument();
+      await waitFor(() =>
+        expect(fetchMock).toHaveBeenCalledWith("/api/annual-overview?year=2026&period=calendar", expect.anything()),
+      );
+      const pills = screen.getByRole("group", { name: "Select month" });
+      const labels = within(pills)
+        .getAllByRole("button")
+        .map((pill) => pill.textContent);
+      expect(labels).toEqual(["Full year", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]);
+    });
+
+    it("keeps a selected month anchored to the same real month when framing is toggled", async () => {
+      respondWith();
+      render(<App />);
+      await screen.findByText("$8,000");
+      await userEvent.click(screen.getByRole("button", { name: "Aug" }));
+      await screen.findByText("$5,240");
+
+      await userEvent.click(screen.getByRole("button", { name: "Calendar Year" }));
+
+      expect(await screen.findByText("Calendar Year 2026")).toBeInTheDocument();
+      expect(await screen.findByText("$5,240")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Aug" })).toHaveAttribute("aria-pressed", "true");
+    });
+
+    it("falls back to the period containing today when the toggle is flipped while Full year is selected", async () => {
+      respondWith();
+      render(<App />);
+      await screen.findByText("$8,000");
+      await userEvent.click(screen.getByRole("button", { name: "Previous year" }));
+      await screen.findByText("2025-2026 Financial Year");
+
+      await userEvent.click(screen.getByRole("button", { name: "Calendar Year" }));
+
+      expect(await screen.findByText("Calendar Year 2026")).toBeInTheDocument();
+    });
+
+    it("persists periodType across a reload, but resets referenceYear to the current period", async () => {
+      respondWith();
+      const { unmount } = render(<App />);
+      await screen.findByText("$8,000");
+
+      await userEvent.click(screen.getByRole("button", { name: "Calendar Year" }));
+      await screen.findByText("Calendar Year 2026");
+      await userEvent.click(screen.getByRole("button", { name: "Previous year" }));
+      await screen.findByText("Calendar Year 2025");
+
+      unmount();
+      render(<App />);
+
+      expect(await screen.findByText("Calendar Year 2026")).toBeInTheDocument();
+    });
   });
 });
