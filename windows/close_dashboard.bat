@@ -7,9 +7,12 @@ REM
 REM This is a hard stop (Stop-Process -Force), not a graceful shutdown - fine
 REM for local dev use, since every write already commits immediately (see
 REM database.store).
+REM
+REM Lives under windows/, alongside the other Windows scripts - see mac/ for
+REM the macOS equivalents (issue #117).
 
 setlocal
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
 REM --- Which port? DASHBOARD_PORT in .env wins, else the server's own default -
 REM     same lookup open_dashboard.bat uses, so this always targets the same

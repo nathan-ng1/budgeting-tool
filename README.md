@@ -3,10 +3,12 @@
 A personal, manually-triggered process that turns credit card statement exports into
 categorised entries in a local budget database.
 
-> **Windows, and already a collaborator on this private repo?** Skip straight to a guided install:
-> download `setup.bat` from the [latest Release](https://github.com/nathan-ng1/budgeting-tool/releases)
-> and double-click it — see `docs/setup-guide.html` for the full walkthrough (ADR-0017). The
-> manual steps below stay here for advanced use, troubleshooting, and non-Windows setups.
+> **Already a collaborator on this private repo?** Skip straight to a guided install: download
+> `setup.bat` (Windows) or `setup.command` (macOS) from the
+> [latest Release](https://github.com/nathan-ng1/budgeting-tool/releases) and double-click it —
+> see `docs/setup-guide.html` (Windows) or `docs/setup-guide-mac.html` (macOS) for the full
+> walkthrough (ADR-0017, issue #117). The manual steps below stay here for advanced use,
+> troubleshooting, and Linux setups (untested).
 
 See `CONTEXT.md` for the full glossary of terms used below (Statement Export, Sanitising,
 Transaction Log, Needs Review, Recurring Transaction, etc).
@@ -16,7 +18,8 @@ Transaction Log, Needs Review, Recurring Transaction, etc).
 1. You download a **Statement Export** (a raw CSV) from your card issuer's online banking into
    a local Transactions Inbox.
 2. A script **sanitises** it — strips personal identifiers — and moves it into `.data/`.
-3. You run `process_statement_export.bat` (or `uv run python -m statement_export`) to process it.
+3. You run `windows/process_statement_export.bat` / `mac/process_statement_export.command` (or
+   `uv run python -m statement_export`) to process it.
    The script parses the export, assigns a Type/Category to each transaction via
    whichever **categorisation backend** you've configured (Claude Code, Codex CLI, or an
    OpenAI-compatible endpoint like a local Ollama), prompts you in the terminal to resolve
@@ -30,9 +33,10 @@ real database or archiving anything.
 
 ## Prerequisites
 
-- **Windows** — the day-to-day flow uses a `.bat` script and Windows-style paths by convention.
-  It should work on macOS/Linux with small tweaks (a shell script instead of `.bat`,
-  forward-slash paths in your `.env`), but that's untested.
+- **Windows or macOS** — the day-to-day flow uses a `windows/*.bat` script (Windows-style paths in
+  `.env`) or a `mac/*.command` script (forward-slash paths), both wrapping the same underlying
+  `uv run python -m ...` commands. Linux should work with the `mac/` scripts adapted, but that's
+  untested.
 - **One of the following, to categorise transactions** (set via `CATEGORISER_BACKEND` in `.env`,
   step 3 below):
   - **[Claude Code](https://docs.claude.com/en/docs/claude-code)**, installed and logged in —
@@ -52,9 +56,10 @@ real database or archiving anything.
   (step 4 of "One-time setup"). The Statement Export pipeline doesn't need it.
 - Optional (for this manual walkthrough): **[GitHub CLI (`gh`)](https://cli.github.com/)**, logged
   in — needed for Claude's issue-tracker agent skill (`docs/agents/issue-tracker.md`), and for
-  `open_dashboard.bat`'s best-effort "update available" notice and `update.bat` (ADR-0019); both
-  degrade to doing nothing if `gh` isn't set up. It's a *required*, guided step in `setup.bat`
-  (`docs/setup-guide.html`), since that path also needs it to clone this private repo.
+  `open_dashboard`'s best-effort "update available" notice and `update` (ADR-0019); both degrade
+  to doing nothing if `gh` isn't set up. It's a *required*, guided step in `setup.bat`/
+  `setup.command` (`docs/setup-guide.html`/`docs/setup-guide-mac.html`), since that path also
+  needs it to clone this private repo.
 - Optional: a **Google account** with access to Google Cloud Console and your own budget
   spreadsheet, only if you want the historical/reference Google Sheets MCP connection for ad hoc
   chat queries or a one-off export — see `docs/agents/google-sheets-mcp.md` for setup (install
@@ -142,9 +147,9 @@ Both the built output and `node_modules/` are gitignored — rebuild after pulli
    `{Issuer}_{yyyymmdd}.csv` (e.g. `ANZ_20260830.csv`) — the issuer prefix must match a handler
    registered in `src/sanitising/sanitise.py` (currently `ANZ`, `Beem`, and `NAB`).
 
-2. **Run `process_statement_export.bat`** (or the two steps it wraps, below, if you're not on
-   Windows). This sanitises anything new in the Transactions Inbox, then categorises and writes
-   it:
+2. **Run `windows/process_statement_export.bat`** (Windows) or
+   **`mac/process_statement_export.command`** (macOS) — or the two steps either one wraps, below.
+   This sanitises anything new in the Transactions Inbox, then categorises and writes it:
 
    ```
    uv run python -m sanitising
@@ -179,12 +184,12 @@ Full walkthrough: `docs/agents/statement-export-pipeline.md`.
 
 ### Viewing the Dashboard
 
-Double-click **`open_dashboard.bat`**. It starts the local server and opens the
-Dashboard in Chrome once the server is actually accepting connections (falling back
-to your default browser if Chrome isn't installed). Leave the window it opens
-running while you use the Dashboard - closing it stops the server. Running it again
-while the Dashboard is already up just opens the page rather than starting a second
-server.
+Double-click **`windows/open_dashboard.bat`** (Windows) or **`mac/open_dashboard.command`**
+(macOS — right-click → Open the first time, see `docs/setup-guide-mac.html`). It starts the local
+server and opens the Dashboard in Chrome once the server is actually accepting connections
+(falling back to your default browser if Chrome isn't installed). Leave the window it opens
+running while you use the Dashboard - closing it stops the server. Running it again while the
+Dashboard is already up just opens the page rather than starting a second server.
 
 Or, equivalently, by hand:
 
@@ -198,14 +203,14 @@ Budgeted vs Actual, your top 5 expenses, and expenses over the month. Pick a mon
 Jul–Jun pills — it opens on the current month of the current Financial Year. The **Transactions**
 tab lists, adds, edits, and deletes individual transactions by hand, with search/sort/export. The
 **Budget** tab edits each Category's per-month budget and shows the standing Budget Suggestion
-write-up (see `generate_budget_suggestion.bat` below). The **Settings** tab edits Category
+write-up (see `generate_budget_suggestion` below). The **Settings** tab edits Category
 Management (below) and your Recurring Transactions Config (below). See `docs/dashboard-guide.html`
 for a full walkthrough of every tab and script.
 
 It runs entirely on your machine and reads the local database directly; no transaction data
 leaves the machine ([ADR-0008](docs/adr/0008-dashboard-is-a-local-web-app-not-a-hosted-artifact.md)),
 and the page loads no fonts, scripts, or styles from the network. Set `DASHBOARD_PORT` in `.env`
-to serve on a different port - `open_dashboard.bat` reads it too. If the page tells you the
+to serve on a different port - `open_dashboard` reads it too. If the page tells you the
 frontend hasn't been built, run step 4 of the one-time setup above.
 
 ### Editing the Recurring Transactions Config
@@ -231,13 +236,15 @@ both together.
 CONTEXT.md                 Domain glossary
 docs/adr/                  Architecture decisions
 docs/agents/                Agent-facing runbooks (issue tracker, MCP, pipeline)
-docs/setup-guide.html       Installation Pack guide (self-contained, terracotta-themed)
-docs/dashboard-guide.html   Dashboard usage guide - the four tabs, and what each .bat script does
+docs/setup-guide.html       Windows Installation Pack guide (self-contained, terracotta-themed)
+docs/setup-guide-mac.html   macOS Installation Pack guide (same, for mac/*.command)
+docs/dashboard-guide.html   Dashboard usage guide - the four tabs, and what each script does
 .env.example               Template for your .env (TRANSACTIONS_INBOX, DATABASE_PATH, etc.)
 .data/                     Sanitised exports awaiting processing; .data/processed/ once written
-setup.bat / update.bat      Installation Pack bootstrapper/updater (see docs/setup-guide.html)
-src/setup/                 .env-merging + update-availability logic setup.bat/update.bat/
-                            open_dashboard.bat shell out to
+windows/                   Windows Installation Pack + day-to-day .bat scripts (see docs/setup-guide.html)
+mac/                       macOS equivalents, one .command file per windows/*.bat (issue #117)
+src/setup/                 .env-merging + update-availability logic every setup/update/
+                            open_dashboard script (either OS) shells out to
 src/sanitising/            Sanitising script (run manually)
 src/statement_export/      Statement Export parsing, categorisation orchestration, entry point
 src/beem/                  Beem Report parsing + deterministic Income categorisation
@@ -249,7 +256,8 @@ src/dashboard/             Dashboard server + Month Overview query; serves the b
 frontend/                  Dashboard frontend (React + Vite), built into src/dashboard/static/
 docs/mockups/              Approved Claude Design mockup the Overview tab is built to
 tests/                     pytest suite
-tests/dev/                 Frontend-dev-only convenience scripts (Vite hot reload), not day-to-day
+tests/dev/windows/         Frontend-dev-only .bat scripts (Vite hot reload), not day-to-day
+tests/dev/mac/             Same, as .command scripts for macOS
 ```
 
 ## Running tests

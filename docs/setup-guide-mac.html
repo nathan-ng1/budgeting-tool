@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Budgeting Tool — Windows Installation Guide</title>
+<title>Budgeting Tool — macOS Installation Guide</title>
 <style>
   /* Terracotta palette, lifted from frontend/src/styles.css's :root block so
      this guide reads as the same product as the Dashboard - system fonts
      only, no vendored webfonts, so this renders correctly with no internet
-     connection (issue #116 story 15). */
+     connection (mirrors issue #116 story 15, for macOS via issue #117). */
   :root {
     --color-text: #201e1d;
     --color-accent: #c67139;
@@ -195,8 +195,8 @@
   <div class="wrap">
     <h1>Budgeting Tool</h1>
     <p>A guided install for turning credit card statement exports into a categorised, local budget
-    database — plus a Dashboard to see where your money went. This guide covers <strong>Windows</strong>
-    — on a Mac? See <a href="setup-guide-mac.html" style="color:#fff;text-decoration:underline;">the macOS setup guide</a> instead.</p>
+    database — plus a Dashboard to see where your money went. This guide covers <strong>macOS</strong>
+    — on Windows? See <a href="setup-guide.html" style="color:#fff;text-decoration:underline;">the Windows setup guide</a> instead.</p>
   </div>
 </header>
 
@@ -212,7 +212,7 @@
 
   <h2>Choose your path</h2>
   <p>
-    <code>setup.bat</code> asks one question up front — do you already hold an AI subscription
+    <code>setup.command</code> asks one question up front — do you already hold an AI subscription
     (Claude Code or Codex CLI)? — and configures everything else around your answer.
   </p>
 
@@ -236,7 +236,7 @@
       <ul>
         <li>View/edit transactions, Budget tab, Recurring Transactions Config</li>
         <li>Add transactions manually via the Dashboard's <strong>Transactions</strong> tab</li>
-        <li>Got a subscription later? Re-run <code>setup.bat</code> and switch paths any time</li>
+        <li>Got a subscription later? Re-run <code>setup.command</code> and switch paths any time</li>
       </ul>
     </div>
   </div>
@@ -244,22 +244,23 @@
   <p>
     (An OpenAI-compatible endpoint — e.g. a local Ollama install — is also supported by the
     underlying pipeline, but it's a manual, README-documented option rather than something
-    <code>setup.bat</code> walks you through.)
+    <code>setup.command</code> walks you through.)
   </p>
 
   <h2>Prerequisites</h2>
-  <p>These are common to both paths — <code>setup.bat</code> checks for each and offers to install
-  anything missing via <a href="https://learn.microsoft.com/windows/package-manager/winget/">winget</a>,
-  confirming before every install:</p>
+  <p>These are common to both paths — <code>setup.command</code> checks for each and offers to
+  install anything missing via <a href="https://brew.sh">Homebrew</a> (installing Homebrew itself
+  first, if it isn't already on your machine), confirming before every install:</p>
   <table>
     <tr><th>Tool</th><th>Why</th></tr>
-    <tr><td>Windows</td><td>The Installation Pack and day-to-day scripts are all <code>.bat</code> files.</td></tr>
-    <tr><td>Git</td><td>Clones the repo, and pulls updates later via <code>update.bat</code>.</td></tr>
-    <tr><td><a href="https://docs.astral.sh/uv/">uv</a> + Python 3.12+</td><td>Runs the pipeline and the Dashboard server.</td></tr>
+    <tr><td>macOS</td><td>The Installation Pack's day-to-day scripts are all <code>.command</code> files, run via Terminal.</td></tr>
+    <tr><td><a href="https://brew.sh">Homebrew</a></td><td>The package manager <code>setup.command</code> uses to install everything else.</td></tr>
+    <tr><td>Git</td><td>Clones the repo, and pulls updates later via <code>update.command</code>.</td></tr>
+    <tr><td><a href="https://docs.astral.sh/uv/">uv</a> + Python 3.12+</td><td>Runs the pipeline and the Dashboard server. <code>uv</code> provisions a matching Python itself — no separate Python install needed.</td></tr>
     <tr><td>Node.js 20+</td><td>Builds the Dashboard frontend — always built, on either path.</td></tr>
     <tr><td><a href="https://cli.github.com/">GitHub CLI (<code>gh</code>)</a></td><td>This repo is private — <code>gh</code>, logged in, is how the clone and update checks authenticate.</td></tr>
   </table>
-  <p>On the AI path, <code>setup.bat</code> also installs whichever of
+  <p>On the AI path, <code>setup.command</code> also installs whichever of
   <a href="https://docs.claude.com/en/docs/claude-code">Claude Code</a> or
   <a href="https://developers.openai.com/codex/cli">Codex CLI</a> you choose (via <code>npm</code>),
   and checks you're actually logged in before continuing — not just installed.</p>
@@ -269,26 +270,38 @@
   <div class="step">
     <div class="num">1</div>
     <div class="body">
-      <h4>Download <code>setup.bat</code></h4>
+      <h4>Download <code>setup.command</code></h4>
       <p>From the <a href="https://github.com/nathan-ng1/budgeting-tool/releases">latest Release</a>
-      on this repo, save <code>setup.bat</code> anywhere — your Downloads folder is fine. It doesn't
-      need Git or a clone to already exist; it bootstraps both.</p>
+      on this repo, save <code>setup.command</code> anywhere — your Downloads folder is fine. It
+      doesn't need Git, Homebrew, or a clone to already exist; it bootstraps all of them.</p>
     </div>
   </div>
 
   <div class="step">
     <div class="num">2</div>
     <div class="body">
-      <h4>Double-click it</h4>
-      <p>It checks each prerequisite above, asking before installing anything, then clones the repo
-      and hands off to per-person setup: the AI-path question, then your Transactions Inbox folder
-      and database file location (both suggested with sensible defaults — press Enter to accept
-      them, or type your own path).</p>
+      <h4>The first time only: right-click to open</h4>
+      <p>macOS blocks a freshly-downloaded script from running on a plain double-click
+      (Gatekeeper). <strong>Right-click <code>setup.command</code> in Finder, choose
+      <em>Open</em>, then confirm</strong> in the dialog that appears. After this first run,
+      double-clicking works normally. If you'd rather use Terminal, this is equivalent:</p>
+      <pre><code>xattr -d com.apple.quarantine setup.command</code></pre>
     </div>
   </div>
 
   <div class="step">
     <div class="num">3</div>
+    <div class="body">
+      <h4>Follow the prompts</h4>
+      <p>It checks each prerequisite above, asking before installing anything, then clones the repo
+      and hands off to per-person setup: the AI-path question, then your Transactions Inbox folder
+      and database file location (both suggested with sensible defaults under your home folder —
+      press Enter to accept them, or type your own path).</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="num">4</div>
     <div class="body">
       <h4>Wait for the frontend build</h4>
       <p>The Dashboard frontend is built automatically at the end, on both paths — it's the
@@ -297,36 +310,37 @@
   </div>
 
   <div class="step">
-    <div class="num">4</div>
+    <div class="num">5</div>
     <div class="body">
       <h4>Open the Dashboard</h4>
-      <p>Double-click <code>windows\open_dashboard.bat</code> in the cloned folder. It starts the
-      local server and opens the Dashboard in Chrome — nothing about your transaction data ever
-      leaves your machine. For a tour of what's on each tab, see <code>docs/dashboard-guide.html</code>.</p>
+      <p>Double-click <code>mac/open_dashboard.command</code> in the cloned folder (right-click →
+      Open the first time, same as step 2). It starts the local server and opens the Dashboard in
+      Chrome — nothing about your transaction data ever leaves your machine. For a tour of what's
+      on each tab, see <code>docs/dashboard-guide.html</code>.</p>
     </div>
   </div>
 
   <h2>Staying up to date</h2>
-  <p><code>open_dashboard.bat</code> checks, at most once a day, whether a newer version has been
-  released, and prints a one-line notice if so — it never applies anything on its own, and if
+  <p><code>open_dashboard.command</code> checks, at most once a day, whether a newer version has
+  been released, and prints a one-line notice if so — it never applies anything on its own, and if
   you're offline or not logged into <code>gh</code>, it just says nothing rather than erroring.
   When you see the notice, run:</p>
-  <pre><code>windows\update.bat</code></pre>
+  <pre><code>mac/update.command</code></pre>
   <p>It shows you what's changed since your installed version, asks you to confirm, then pulls the
   update and re-syncs dependencies. If you've made local edits it can't safely combine with the
   update, it tells you rather than discarding them.</p>
 
-  <h2>Re-running setup.bat</h2>
-  <p><code>setup.bat</code> is safe to run again at any time — it detects what's already installed
-  and configured and skips or offers to reconfigure it, rather than starting over. This is also
-  how a Dashboard-only install adds the AI path later: run it again and answer differently to the
-  subscription question. Your existing Transactions Inbox and database path are kept unless you
-  choose to change them.</p>
+  <h2>Re-running setup.command</h2>
+  <p><code>setup.command</code> is safe to run again at any time — it detects what's already
+  installed and configured and skips or offers to reconfigure it, rather than starting over. This
+  is also how a Dashboard-only install adds the AI path later: run it again and answer differently
+  to the subscription question. Your existing Transactions Inbox and database path are kept unless
+  you choose to change them.</p>
 
   <footer>
     Full manual setup instructions and troubleshooting live in this repo's <code>README.md</code>.
-    This guide only covers the guided Windows install — on a Mac, see
-    <a href="setup-guide-mac.html">setup-guide-mac.html</a> instead.
+    This guide only covers the guided macOS install — on Windows, see
+    <a href="setup-guide.html">setup-guide.html</a> instead.
   </footer>
 
 </div>
