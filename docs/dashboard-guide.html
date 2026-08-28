@@ -196,7 +196,11 @@
       <td><code>generate_budget_suggestion</code></td>
       <td>Regenerates the standing Budget Suggestion write-up shown on the Budget tab, from recent
       spending history. Replaces whatever write-up was there before — one standing document, not a
-      history. Refresh the Dashboard's Budget tab afterwards to see it.</td>
+      history. Refresh the Dashboard's Budget tab afterwards to see it.
+      <strong>Requires an AI subscription</strong> (Claude Code or Codex CLI) — <code>setup</code>
+      configures this automatically (as <code>ADVISOR_BACKEND</code> in <code>.env</code>) when you
+      answer yes to the AI subscription prompt. Not available on the Dashboard-only path; re-run
+      <code>setup</code> to add it later.</td>
     </tr>
     <tr>
       <td><code>setup</code></td>
@@ -242,7 +246,9 @@
       <h4>Per-category monthly budgets, plus the AI write-up</h4>
       <p>Set a budget amount per Category per month in the grid — this is what Overview's Budgeted
       vs Actual compares against. The Budget Suggestion card shows the standing write-up from
-      <code>generate_budget_suggestion.bat</code>, editable in place.</p>
+      <code>generate_budget_suggestion.bat</code>, editable in place. That script needs an AI
+      subscription configured first (see the table below) — until then, the card just explains how
+      to set one up.</p>
     </div>
     <div class="card">
       <span class="tag">Settings</span>

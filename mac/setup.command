@@ -196,11 +196,23 @@ ensure_gh_auth() {
 }
 
 ensure_clone() {
-    # Three cases: already inside a clone (re-run, or a pre-existing checkout
-    # - mirrors issue #116 story 30); a partial clone sitting next to this
-    # script; or a clean bootstrap that needs to clone from scratch.
+    # Four cases: already inside a clone (re-run, or a pre-existing checkout -
+    # mirrors issue #116 story 30); inside an existing checkout's mac/ folder
+    # itself (re-running mac/setup.command from inside a clone, rather than a
+    # standalone download - .git now lives one level up from this script, not
+    # next to it, since the windows/mac split moved this script out of the
+    # repo root; missing this case used to silently clone a redundant nested
+    # copy and write .env/build the frontend there instead of the real repo
+    # root); a partial clone sitting next to this script; or a clean
+    # bootstrap that needs to clone from scratch.
     if [[ -d ".git" ]]; then
         echo "[ok] Already inside a clone of this repo."
+        return 0
+    fi
+
+    if [[ -d "../.git" ]]; then
+        echo "[ok] Already inside a clone of this repo (running from mac/)."
+        cd ..
         return 0
     fi
 
@@ -386,8 +398,13 @@ configure_env() {
     local values=("TRANSACTIONS_INBOX=$transactions_inbox" "DATABASE_PATH=$database_path")
     local required=("TRANSACTIONS_INBOX" "DATABASE_PATH")
     if [[ -n "$AI_BACKEND" ]]; then
-        values+=("CATEGORISER_BACKEND=$AI_BACKEND")
-        required+=("CATEGORISER_BACKEND")
+        # ADVISOR_BACKEND (budget_suggestions) is a separate setting from
+        # CATEGORISER_BACKEND (statement_export) per ADR-0014, but there's no
+        # reason to make someone who just answered "yes, I have Claude Code/
+        # Codex" go edit .env by hand a second time to get Budget Suggestion
+        # working - mirror the same choice into both.
+        values+=("CATEGORISER_BACKEND=$AI_BACKEND" "ADVISOR_BACKEND=$AI_BACKEND")
+        required+=("CATEGORISER_BACKEND" "ADVISOR_BACKEND")
     fi
 
     uv run python -m setup write-env --values "${values[@]}" --required "${required[@]}"
@@ -457,6 +474,7 @@ echo
 echo "Double-click mac/open_dashboard.command to view the Dashboard."
 if [[ -n "$AI_BACKEND" ]]; then
     echo "Run mac/process_statement_export.command whenever you have a new Statement Export to categorise."
+    echo "Run mac/generate_budget_suggestion.command any time for a fresh Budget Suggestion write-up."
 else
     echo "You're on the Dashboard-only path - add transactions by hand via the Dashboard's"
     echo "Transactions tab. Re-run setup.command any time to add the AI-categorisation path."

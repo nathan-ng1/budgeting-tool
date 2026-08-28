@@ -1893,6 +1893,11 @@ tbody:first-of-type .table th.table__section {
   color: var(--color-neutral-600);
 }
 
+.budget-suggestion .state .card__note {
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .budget-suggestion__list {
   margin: 0;
   padding-left: 18px;

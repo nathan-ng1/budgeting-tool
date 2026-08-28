@@ -39,9 +39,16 @@ export default function BudgetSuggestion({ suggestion, editor }) {
     return (
       <section className="card budget-suggestion">
         <h3>Budget Suggestion</h3>
-        <p className="state">
-          No Budget Suggestion yet — run <code>uv run python -m budget_suggestions</code> to generate one.
-        </p>
+        <div className="state">
+          <p>
+            No Budget Suggestion yet — run <code>generate_budget_suggestion.bat</code> (Windows) or{" "}
+            <code>generate_budget_suggestion.command</code> (macOS) to generate one.
+          </p>
+          <p className="card__note">
+            Requires an AI subscription (Claude Code or Codex CLI) to already be configured — see the
+            Dashboard Guide's Budget Suggestion section.
+          </p>
+        </div>
       </section>
     );
   }
