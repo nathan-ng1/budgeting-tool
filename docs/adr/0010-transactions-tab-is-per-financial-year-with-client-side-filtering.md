@@ -9,8 +9,10 @@ session) breaks from that pattern on two points:
 1. **Scope: one Financial Year at a time**, not the Transaction Log's full history. `GET
    /api/transactions` returns only the current Financial Year's rows, defaulting the same way Overview's
    month selector defaults — the Financial Year containing today's date. No Financial Year switcher
-   exists yet, matching Overview's current lack of one. Showing multiple Financial Years at once was
-   considered and explicitly deferred, not ruled out.
+   exists yet, matching Overview's current lack of one (**resolved by
+   [ADR-0021](./0021-financial-year-switcher-and-calendar-year-toggle.md)**, which also extends this tab
+   to Calendar Year framing). Showing multiple Financial Years at once was considered and explicitly
+   deferred, not ruled out, and remains out of scope.
 2. **Client-side filtering, search, and sort.** The endpoint returns that Financial Year's transactions
    as one flat, newest-first list; Category/Month/Type filtering, Notes search, and Date/Amount sorting
    all happen in the browser instead of as query parameters. A transaction list is raw rows, not an
