@@ -3,9 +3,7 @@ env/
 .env
 # Real transaction data — never commit actual financial data
 .data/
-
-# Recurring transactions config — contains real salary/rent/mortgage figures
-config/recurring-transactions.xlsx
+config/
 
 # Python
 __pycache__/

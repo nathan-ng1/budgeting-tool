@@ -10,9 +10,10 @@ Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/do
 
 ### Google Sheets
 
-Read/write access to the Transaction Log goes through an MCP connection (service account, not
-OAuth). See `docs/agents/google-sheets-mcp.md` for config, reproduction steps, and the verified
-column layout.
+Historical/reference-only access via an MCP connection (service account, not OAuth) — for ad hoc
+chat queries or a one-off export against the old Google Sheet, never the live Transaction Log
+(that's a local SQLite database; see ADR-0005). See `docs/agents/google-sheets-mcp.md` for config,
+reproduction steps, and the verified column layout.
 
 ### Statement Export pipeline
 
