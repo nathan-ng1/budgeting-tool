@@ -969,6 +969,308 @@ def test_annual_overview_month_by_month_zero_fills_months_not_yet_elapsed_for_ca
     assert len(overview.month_by_month) == 12
 
 
+def test_annual_overview_monthly_average_divides_totals_by_elapsed_months_not_twelve_for_calendar_year(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 1, 5), amount=1000.0, type="Income", category="Salary", notes="Employer"),
+            make_transaction(date=date(2026, 2, 5), amount=1000.0, type="Income", category="Salary", notes="Employer"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 2, 21), start_month=1)
+
+    assert overview.elapsed_months == 2
+    assert overview.stat_tiles.income == 2000.0
+    assert overview.monthly_average.income == 1000.0
+
+
+def test_annual_overview_stat_tiles_and_monthly_average_include_debt_for_calendar_year(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 1, 1), amount=800.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+            make_transaction(date=date(2026, 2, 1), amount=800.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 2, 21), start_month=1)
+
+    assert overview.stat_tiles.debt == 1600.0
+    assert overview.monthly_average.debt == 800.0
+
+
+def test_annual_overview_income_allocation_is_computed_over_elapsed_months_for_calendar_year(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 1, 1), amount=1000.0, type="Income", category="Salary", notes="Employer"),
+            make_transaction(date=date(2026, 1, 2), amount=400.0, type="Expense", category="Groceries", notes="Woolworths"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 1, 15), start_month=1)
+
+    assert overview.income_allocation.expenses_amount == 400.0
+    assert overview.income_allocation.expenses_pct == 40.0
+
+
+def test_annual_overview_spending_by_category_sums_actual_expenses_over_elapsed_months_for_calendar_year(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 1, 1), amount=300.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 2, 1), amount=100.0, type="Expense", category="Groceries", notes="Coles"),
+            make_transaction(date=date(2026, 2, 2), amount=100.0, type="Expense", category="Transport", notes="Fuel"),
+            make_transaction(date=date(2026, 3, 1), amount=999.0, type="Expense", category="Groceries", notes="Not yet elapsed"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 2, 21), start_month=1)
+
+    assert overview.spending_by_category == [
+        CategorySpend(category="Groceries", amount=400.0, pct_of_expenses=80.0),
+        CategorySpend(category="Transport", amount=100.0, pct_of_expenses=20.0),
+    ]
+
+
+def test_annual_overview_spending_by_category_excludes_debt_for_calendar_year(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 1, 1), amount=300.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 1, 2), amount=875.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 1, 15), start_month=1)
+
+    assert overview.spending_by_category == [
+        CategorySpend(category="Groceries", amount=300.0, pct_of_expenses=100.0),
+    ]
+
+
+def test_annual_overview_debt_summary_sums_by_notes_over_elapsed_months_for_calendar_year(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 1, 1), amount=800.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+            make_transaction(date=date(2026, 2, 1), amount=800.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+            make_transaction(date=date(2026, 3, 1), amount=999.0, type="Debt", category="Mortgage Repayment", notes="Not yet elapsed"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 2, 21), start_month=1)
+
+    assert overview.debt_summary == [
+        DebtByNotes(notes="Werribee", amount=1600.0, pct_of_debt=100.0),
+    ]
+
+
+def test_annual_overview_debt_summary_total_matches_stat_tiles_debt_for_calendar_year(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 1, 1), amount=800.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+            make_transaction(date=date(2026, 2, 1), amount=500.0, type="Debt", category="Mortgage Repayment", notes="Investment property"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 2, 21), start_month=1)
+
+    assert sum(row.amount for row in overview.debt_summary) == overview.stat_tiles.debt
+
+
+def test_annual_overview_debt_summary_excludes_non_debt_types_for_calendar_year(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 1, 1), amount=300.0, type="Expense", category="Groceries", notes="Woolworths"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 2, 21), start_month=1)
+
+    assert overview.debt_summary == []
+
+
+def test_annual_overview_debt_summary_is_empty_with_no_debt_transactions_for_calendar_year(fake_store):
+    store = fake_store(transactions=[])
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 2, 21), start_month=1)
+
+    assert overview.debt_summary == []
+
+
+def test_annual_overview_budgeted_vs_actual_treats_a_month_with_no_budget_as_zero_not_unset_for_calendar_year(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 1, 1), amount=450.0, type="Expense", category="Groceries", notes="Woolworths"),
+        ],
+        category_budgets={("Groceries", 2026, 1): 500.0, ("Groceries", 2026, 3): 500.0},
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 3, 10), start_month=1)
+    by_category = {row.category: row for row in overview.budgeted_vs_actual}
+
+    assert by_category["Groceries"].budgeted == 1000.0
+
+
+def test_annual_overview_budgeted_vs_actual_excludes_a_budget_set_for_a_future_month_for_calendar_year(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 1, 1), amount=450.0, type="Expense", category="Groceries", notes="Woolworths"),
+        ],
+        category_budgets={("Groceries", 2026, 1): 500.0, ("Groceries", 2026, 12): 999.0},
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 1, 15), start_month=1)
+    by_category = {row.category: row for row in overview.budgeted_vs_actual}
+
+    assert by_category["Groceries"].budgeted == 500.0
+
+
+def test_annual_overview_budgeted_vs_actual_is_unset_for_a_category_never_budgeted_for_calendar_year(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 1, 1), amount=80.0, type="Expense", category="Transport", notes="Fuel"),
+        ],
+        category_budgets={("Groceries", 2026, 1): 500.0},
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 1, 15), start_month=1)
+    by_category = {row.category: row for row in overview.budgeted_vs_actual}
+
+    assert by_category["Transport"].budgeted is None
+    assert by_category["Transport"].diff is None
+    assert "Entertainment & Leisure" not in by_category
+
+
+def test_annual_overview_budgeted_vs_actual_includes_income_and_debt_categories_for_calendar_year(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 1, 1), amount=4200.0, type="Income", category="Salary", notes="Employer"),
+            make_transaction(date=date(2026, 1, 2), amount=900.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+        ],
+        category_budgets={("Salary", 2026, 1): 4000.0, ("Mortgage Repayment", 2026, 1): 850.0},
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 1, 15), start_month=1)
+    by_category = {row.category: row for row in overview.budgeted_vs_actual}
+
+    assert by_category["Salary"].type == "Income"
+    assert by_category["Salary"].budgeted == 4000.0
+    assert by_category["Mortgage Repayment"].type == "Debt"
+    assert by_category["Mortgage Repayment"].budgeted == 850.0
+
+
+def test_annual_overview_top_expenses_are_the_ten_largest_across_elapsed_months_for_calendar_year(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 1, d), amount=amount, type="Expense", category="Groceries", notes=str(amount))
+            for d, amount in enumerate([10.0, 90.0, 50.0, 70.0, 60.0, 40.0, 30.0, 20.0, 80.0, 100.0, 110.0], start=1)
+        ]
+        + [make_transaction(date=date(2026, 2, 1), amount=1000.0, type="Income", category="Salary", notes="Employer")]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 2, 21), start_month=1)
+
+    assert len(overview.top_expenses) == 10
+    assert [row.amount for row in overview.top_expenses] == [110.0, 100.0, 90.0, 80.0, 70.0, 60.0, 50.0, 40.0, 30.0, 20.0]
+
+
+def test_annual_overview_top_expenses_excludes_debt_for_calendar_year(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 1, 1), amount=10.0, type="Expense", category="Groceries", notes="A"),
+            make_transaction(date=date(2026, 1, 2), amount=875.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 1, 15), start_month=1)
+
+    assert [row.notes for row in overview.top_expenses] == ["A"]
+
+
+def test_annual_overview_top_expenses_excludes_transactions_from_months_not_yet_elapsed_for_calendar_year(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 2, 5), amount=500.0, type="Expense", category="Groceries", notes="Elapsed"),
+            make_transaction(date=date(2026, 3, 1), amount=999.0, type="Expense", category="Groceries", notes="Not yet elapsed"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 2, 21), start_month=1)
+
+    assert [row.notes for row in overview.top_expenses] == ["Elapsed"]
+
+
+def test_annual_overview_top_expenses_tiebreaks_by_date_then_notes_for_calendar_year(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 1, 5), amount=50.0, type="Expense", category="Groceries", notes="Zebra"),
+            make_transaction(date=date(2026, 1, 1), amount=50.0, type="Expense", category="Groceries", notes="Apple"),
+            make_transaction(date=date(2026, 1, 1), amount=50.0, type="Expense", category="Groceries", notes="Banana"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 1, 15), start_month=1)
+
+    assert [row.notes for row in overview.top_expenses] == ["Apple", "Banana", "Zebra"]
+
+
+def test_annual_overview_month_by_month_sums_each_month_independently_for_calendar_year(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 1, 1), amount=1000.0, type="Income", category="Salary", notes="Employer"),
+            make_transaction(date=date(2026, 1, 2), amount=400.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 1, 2), amount=150.0, type="Debt", category="Mortgage Repayment", notes="Repayment"),
+            make_transaction(date=date(2026, 1, 3), amount=100.0, type="Transfer", category="Savings", notes="To savings"),
+            make_transaction(date=date(2026, 2, 5), amount=500.0, type="Income", category="Salary", notes="Employer"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 2, 21), start_month=1)
+    by_month = {(row.year, row.month): row for row in overview.month_by_month}
+
+    january = by_month[(2026, 1)]
+    assert january.income == 1000.0
+    assert january.expenses == 400.0
+    assert january.debt == 150.0
+    assert january.net_balance == 450.0
+    assert january.transferred == 100.0
+
+    february = by_month[(2026, 2)]
+    assert february.income == 500.0
+    assert february.expenses == 0.0
+    assert february.net_balance == 500.0
+    assert february.transferred == 0.0
+
+
+def test_annual_overview_income_vs_expenses_by_month_matches_month_by_month_for_calendar_year(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 1, 1), amount=1000.0, type="Income", category="Salary", notes="Employer"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 2, 21), start_month=1)
+
+    assert overview.income_vs_expenses_by_month == overview.month_by_month
+
+
 def test_financial_year_transactions_with_month_1_does_not_span_two_calendar_years(tmp_path: Path, make_candidate):
     store = connect(tmp_path / "budget.db")
     store.append_rows(
