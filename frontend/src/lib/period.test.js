@@ -5,6 +5,7 @@ import {
   currentReferenceYear,
   getStoredPeriodType,
   monthsOfPeriod,
+  periodDateRange,
   periodFor,
   periodLabel,
   referenceYearContaining,
@@ -56,6 +57,16 @@ describe("periodLabel", () => {
 
   it("names a Calendar Year by its one calendar year", () => {
     expect(periodLabel(2026, "calendar")).toBe("Calendar Year 2026");
+  });
+});
+
+describe("periodDateRange", () => {
+  it("spans the two calendar years a Financial Year covers, Jul 1 - Jun 30", () => {
+    expect(periodDateRange(2026, "financial")).toEqual({ start: "2026-07-01", end: "2027-06-30" });
+  });
+
+  it("spans one calendar year for a Calendar Year, Jan 1 - Dec 31", () => {
+    expect(periodDateRange(2026, "calendar")).toEqual({ start: "2026-01-01", end: "2026-12-31" });
   });
 });
 

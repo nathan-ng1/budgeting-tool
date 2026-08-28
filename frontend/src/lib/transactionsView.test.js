@@ -50,11 +50,19 @@ describe("categoryOptions", () => {
 
 describe("monthOptions", () => {
   it("returns the 12 months of the given Financial Year, independent of any Transaction data", () => {
-    const months = monthOptions(2026);
+    const months = monthOptions(2026, "financial");
 
     expect(months).toHaveLength(12);
     expect(months[0]).toEqual({ value: "2026-07", label: "Jul" });
     expect(months[11]).toEqual({ value: "2027-06", label: "Jun" });
+  });
+
+  it("returns the 12 months of the given Calendar Year, Jan→Dec", () => {
+    const months = monthOptions(2026, "calendar");
+
+    expect(months).toHaveLength(12);
+    expect(months[0]).toEqual({ value: "2026-01", label: "Jan" });
+    expect(months[11]).toEqual({ value: "2026-12", label: "Dec" });
   });
 });
 

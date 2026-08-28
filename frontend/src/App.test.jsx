@@ -763,4 +763,123 @@ describe("App", () => {
       expect(await screen.findByText("$5,240")).toBeInTheDocument();
     });
   });
+
+  describe("Financial Year/Calendar Year switcher on the Transactions tab", () => {
+    // Layers Transactions' own endpoints onto respondWith's Overview
+    // defaults, since App always mounts on the Overview tab first.
+    function respondWithTransactions({
+      transactions = [
+        { id: 1, date: "2026-08-01", amount: 42.5, type: "Expense", category: "Groceries", notes: "Woolworths" },
+      ],
+    } = {}) {
+      respondWith({
+        extra: {
+          "/api/transactions": transactions,
+          "/api/categories": [],
+        },
+      });
+    }
+
+    it("requests Transactions for the shared referenceYear and start month - Jul for Financial Year, Jan for Calendar Year", async () => {
+      respondWithTransactions();
+      render(<App />);
+      await screen.findByText("$8,000");
+      await userEvent.click(screen.getByRole("button", { name: "Transactions" }));
+      await waitFor(() =>
+        expect(fetchMock).toHaveBeenCalledWith("/api/transactions?year=2026&month=7", expect.anything()),
+      );
+
+      await userEvent.click(screen.getByRole("button", { name: "Calendar Year" }));
+
+      await screen.findByText("Calendar Year 2026");
+      await waitFor(() =>
+        expect(fetchMock).toHaveBeenCalledWith("/api/transactions?year=2026&month=1", expect.anything()),
+      );
+    });
+
+    it("reorders Transactions' month filter Jan→Dec when Calendar Year is active, matching Overview/Budget", async () => {
+      respondWithTransactions();
+      render(<App />);
+      await screen.findByText("$8,000");
+      await userEvent.click(screen.getByRole("button", { name: "Transactions" }));
+      await screen.findByText("Woolworths");
+
+      await userEvent.click(screen.getByRole("button", { name: "Calendar Year" }));
+      await screen.findByText("Calendar Year 2026");
+
+      const options = within(screen.getByLabelText("Month"))
+        .getAllByRole("option")
+        .map((option) => option.textContent);
+      expect(options).toEqual([
+        "All months",
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+      ]);
+    });
+
+    it("steps back a year with the Previous arrow while on the Transactions tab, refetching for that year", async () => {
+      respondWithTransactions();
+      render(<App />);
+      await screen.findByText("$8,000");
+      await userEvent.click(screen.getByRole("button", { name: "Transactions" }));
+      await screen.findByText("Woolworths");
+
+      await userEvent.click(screen.getByRole("button", { name: "Previous year" }));
+
+      expect(await screen.findByText("2025-2026 Financial Year")).toBeInTheDocument();
+      await waitFor(() =>
+        expect(fetchMock).toHaveBeenCalledWith("/api/transactions?year=2025&month=7", expect.anything()),
+      );
+    });
+
+    it("the Export panel's default date range follows the shared switcher on the Transactions tab", async () => {
+      respondWithTransactions();
+      render(<App />);
+      await screen.findByText("$8,000");
+      await userEvent.click(screen.getByRole("button", { name: "Transactions" }));
+      await screen.findByText("Woolworths");
+      await userEvent.click(screen.getByRole("button", { name: "Calendar Year" }));
+      await screen.findByText("Calendar Year 2026");
+
+      await userEvent.click(screen.getByRole("button", { name: "More options" }));
+      await userEvent.click(screen.getByRole("menuitem", { name: "Export transactions" }));
+
+      expect(screen.getByLabelText("Start date")).toHaveValue("2026-01-01");
+      expect(screen.getByLabelText("End date")).toHaveValue("2026-12-31");
+    });
+
+    it("does not disturb Overview's own selected month when the toggle or year arrow is used on the Transactions tab", async () => {
+      respondWithTransactions();
+      render(<App />);
+      await screen.findByText("$8,000");
+      await userEvent.click(screen.getByRole("button", { name: "Aug" }));
+      await screen.findByText("$5,240");
+
+      await userEvent.click(screen.getByRole("button", { name: "Transactions" }));
+      await screen.findByText("Woolworths");
+      await userEvent.click(screen.getByRole("button", { name: "Previous year" }));
+      await screen.findByText("2025-2026 Financial Year");
+      await userEvent.click(screen.getByRole("button", { name: "Calendar Year" }));
+      await screen.findByText("Calendar Year 2026");
+
+      await userEvent.click(screen.getByRole("button", { name: "Overview" }));
+
+      // Overview's own selected month is untouched by a toggle/year-arrow
+      // click made while Transactions was the active tab (ADR-0021: each
+      // tab's own month/Full-year selection is independent, and
+      // Transactions owns none of its own to reset) - it still shows Aug's
+      // own figures, not Full year's.
+      expect(await screen.findByText("$5,240")).toBeInTheDocument();
+    });
+  });
 });

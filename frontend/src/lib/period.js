@@ -1,8 +1,8 @@
 // The switcher shared by Overview, Budget, and Transactions (ADR-0021) offers
 // two framings for "a year": a Financial Year (July 1 - June 30, named by the
-// calendar year it starts in - see financialYear.js) or a Calendar Year
-// (January 1 - December 31, named by the calendar year it is). This module
-// generalises financialYear.js's pure logic to either framing via a
+// calendar year it starts in) or a Calendar Year (January 1 - December 31,
+// named by the calendar year it is). This module generalises what used to be
+// financialYear.js's Financial-Year-only logic to either framing via a
 // caller-supplied start month, so the two read the same rather than existing
 // as two parallel, subtly different implementations.
 
@@ -42,6 +42,15 @@ export function periodLabel(referenceYear, periodType) {
   return periodType === "calendar"
     ? `Calendar Year ${referenceYear}`
     : `${referenceYear}-${referenceYear + 1} Financial Year`;
+}
+
+// The Financial Year's or Calendar Year's own bounds as bare ISO dates - the
+// Transactions tab's Export panel default date range (ADR-0021; was
+// Financial-Year-only until Issue #125).
+export function periodDateRange(referenceYear, periodType) {
+  return periodType === "calendar"
+    ? { start: `${referenceYear}-01-01`, end: `${referenceYear}-12-31` }
+    : { start: `${referenceYear}-07-01`, end: `${referenceYear + 1}-06-30` };
 }
 
 // The Financial Year or Calendar Year containing `today` - the switcher's
