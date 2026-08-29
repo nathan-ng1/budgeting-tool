@@ -420,6 +420,19 @@ describe("Budget", () => {
     expect(expenseTotalRow).toHaveTextContent("$700");
   });
 
+  it("shows a Savings Type Total row when Savings Category Budgets are present (Issue #136)", async () => {
+    // Budget.jsx renders whichever Type keys the payload contains, so a
+    // Savings section is a fixture-data addition, not a new code path.
+    useBackend(editor({ Savings: [row({ category: "Investments", amount: 400 })] }));
+    render(<ControlledBudget />);
+    await screen.findByText("Groceries");
+
+    expect(screen.getByText("Investments")).toBeInTheDocument();
+    // Income, Expense, Debt, Savings - Savings' Total row is the 4th.
+    const savingsTotalRow = screen.getAllByText("Total")[3].closest("tr");
+    expect(savingsTotalRow).toHaveTextContent("$400");
+  });
+
   it("offers an Auto-populate control next to Save budgets, closed by default", async () => {
     render(<ControlledBudget />);
     await screen.findByText("Salary");
@@ -578,6 +591,38 @@ describe("Budget Full year", () => {
     expect(within(expenseTotalRow).getAllByRole("cell")[2]).toHaveTextContent("$650");
     const incomeTotalRow = screen.getAllByText("Total")[0].closest("tr");
     expect(within(incomeTotalRow).getAllByRole("cell")[2]).toHaveTextContent("$5,000");
+  });
+
+  it("shows a Savings Type Total row when Savings Category Budgets are present (Issue #136)", async () => {
+    // BudgetGrid.jsx renders whichever Type keys the payload contains, so a
+    // Savings section is a fixture-data addition, not a new code path.
+    const grid = {
+      Income: [{ category: "Salary", amounts: Array(12).fill(null) }],
+      Expense: [{ category: "Groceries", amounts: Array(12).fill(null) }],
+      Debt: [{ category: "Mortgage Repayment", amounts: Array(12).fill(null) }],
+      Savings: [{ category: "Investments", amounts: [400, ...Array(11).fill(null)] }],
+    };
+    fetchMock = vi.fn(async (url) => {
+      const parsed = new URL(url, "http://localhost");
+      if (parsed.pathname === "/api/categories") {
+        return { ok: true, status: 200, json: async () => [] };
+      }
+      if (parsed.pathname === "/api/budget-suggestion") {
+        return { ok: true, status: 200, json: async () => ({ write_up: null, generated_at: null }) };
+      }
+      if (parsed.pathname === "/api/budget-grid") {
+        return { ok: true, status: 200, json: async () => grid };
+      }
+      return { ok: true, status: 200, json: async () => blankEditor() };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Budget periodType="financial" referenceYear={2026} selected={null} onSelect={vi.fn()} />);
+    await screen.findByText("Investments");
+
+    // Income, Expense, Debt, Savings - Savings' Total row is the 4th.
+    const savingsTotalRow = screen.getAllByText("Total")[3].closest("tr");
+    expect(within(savingsTotalRow).getAllByRole("cell")[1]).toHaveTextContent("$400");
   });
 });
 

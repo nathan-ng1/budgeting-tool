@@ -40,12 +40,12 @@ def test_a_fresh_month_returns_every_category_grouped_by_type_all_unset(running_
     status, body = call(server, "GET", "/api/budget-editor?year=2026&month=8")
 
     assert status == 200
-    assert list(body.keys()) == ["Income", "Expense", "Debt"]
+    assert list(body.keys()) == ["Income", "Expense", "Debt", "Savings"]
     assert _row(body["Income"], "Salary")["amount"] is None
     assert _row(body["Expense"], "Groceries")["amount"] is None
     assert _row(body["Debt"], "Mortgage Repayment")["amount"] is None
-    # Savings has no Category Budget to set (CONTEXT.md).
-    assert "Savings" not in body
+    # Savings is budgetable too (ADR-0023).
+    assert _row(body["Savings"], "Savings")["amount"] is None
     # A fresh store has no Transaction history at all, so the windowed
     # historical columns are unset - not a misleadingly small average.
     salary = _row(body["Income"], "Salary")
@@ -65,6 +65,20 @@ def test_saving_a_category_budget_then_appears_in_the_editor_read(running_server
 
     _status, body = call(server, "GET", "/api/budget-editor?year=2026&month=8")
     assert _row(body["Expense"], "Groceries")["amount"] == 650.0
+
+
+def test_saving_a_savings_category_budget_then_appears_in_the_editor_read(running_server):
+    # Issue #136 - Savings Categories can be budgeted exactly like
+    # Income/Expense/Debt ones.
+    _store, server = running_server
+
+    status, saved = call(server, "PUT", "/api/budget-editor/Savings?year=2026&month=8", {"amount": 500.0})
+
+    assert status == 200
+    assert saved == {"category": "Savings", "amount": 500.0}
+
+    _status, body = call(server, "GET", "/api/budget-editor?year=2026&month=8")
+    assert _row(body["Savings"], "Savings")["amount"] == 500.0
 
 
 def test_month_actual_reflects_the_selected_months_known_transactions(running_server):

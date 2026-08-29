@@ -40,12 +40,12 @@ def test_a_fresh_financial_year_returns_every_category_grouped_by_type_all_unset
     status, body = call(server, "GET", "/api/budget-grid?year=2026")
 
     assert status == 200
-    assert list(body.keys()) == ["Income", "Expense", "Debt"]
+    assert list(body.keys()) == ["Income", "Expense", "Debt", "Savings"]
     assert _row(body["Income"], "Salary")["amounts"] == [None] * 12
     assert _row(body["Expense"], "Groceries")["amounts"] == [None] * 12
     assert _row(body["Debt"], "Mortgage Repayment")["amounts"] == [None] * 12
-    # Savings has no Category Budget to show (CONTEXT.md).
-    assert "Savings" not in body
+    # Savings is budgetable too (ADR-0023).
+    assert _row(body["Savings"], "Savings")["amounts"] == [None] * 12
 
 
 def test_a_category_budget_saved_via_the_month_editor_appears_in_its_july_to_june_slot(running_server):
@@ -59,6 +59,19 @@ def test_a_category_budget_saved_via_the_month_editor_appears_in_its_july_to_jun
     assert amounts[1] == 650.0  # August is index 1 (July is index 0)
     assert amounts[:1] == [None]
     assert amounts[2:] == [None] * 10
+
+
+def test_a_savings_category_budget_appears_in_its_july_to_june_slot(running_server):
+    # Issue #136 - Savings Categories round-trip through the grid exactly
+    # like Income/Expense/Debt.
+    _store, server = running_server
+
+    call(server, "PUT", "/api/budget-editor/Savings?year=2026&month=8", {"amount": 500.0})
+
+    _status, body = call(server, "GET", "/api/budget-grid?year=2026")
+    amounts = _row(body["Savings"], "Savings")["amounts"]
+
+    assert amounts[1] == 500.0  # August is index 1 (July is index 0)
 
 
 def test_a_category_budget_outside_the_financial_year_does_not_appear(running_server):

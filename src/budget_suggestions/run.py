@@ -15,8 +15,10 @@ def generate_budget_suggestion(
     Reuses dashboard.queries.get_budget_editor - the same historical/trailing-
     window helper the Budget tab's editor uses (Issue #63) - anchored on
     `today`'s month, rather than duplicating that windowing logic here.
-    Income rows are dropped before the Advisor ever sees them (CONTEXT.md's
-    Budget Suggestion entry: under/over-earning isn't advised on).
+    Income and Savings rows are dropped before the Advisor ever sees them
+    (CONTEXT.md's Budget Suggestion entry: under/over-earning isn't advised
+    on, and ADR-0023 explicitly kept Savings out of this write-up when it
+    extended Category Budget to cover it).
     """
     today = today if today is not None else date.today()
     rows = get_budget_editor(store, today.year, today.month, trailing_months)
@@ -30,7 +32,7 @@ def generate_budget_suggestion(
             average_variance_pct=row.average_variance_pct,
         )
         for row in rows
-        if row.type != "Income"
+        if row.type not in ("Income", "Savings")
     ]
 
     result = advisor.advise(history)
