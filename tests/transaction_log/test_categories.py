@@ -1,6 +1,7 @@
 import pytest
 
 from transaction_log.categories import (
+    AI_EXCLUDED_TYPES,
     CATEGORIES_BY_TYPE,
     TYPE_ORDER,
     Category,
@@ -11,20 +12,29 @@ from transaction_log.categories import (
 )
 
 
-def test_the_four_types_are_income_expense_debt_and_transfer():
-    assert set(CATEGORIES_BY_TYPE) == {"Income", "Expense", "Debt", "Transfer"}
+def test_the_four_types_are_income_expense_debt_and_savings():
+    assert set(CATEGORIES_BY_TYPE) == {"Income", "Expense", "Debt", "Savings"}
 
 
-def test_type_order_is_income_expense_debt_transfer():
+def test_type_order_is_income_expense_debt_savings():
     # CONTEXT.md's own definition order - what the Types filter and the
     # Transaction/Recurring Rule forms' Type selects display, as opposed to
     # types_with_categories()'s alphabetical order below.
-    assert TYPE_ORDER == ("Income", "Expense", "Debt", "Transfer")
+    assert TYPE_ORDER == ("Income", "Expense", "Debt", "Savings")
 
 
-def test_transfer_has_no_categories_yet():
-    # Transfer Categories are added lazily, only for real cases (CONTEXT.md).
-    assert CATEGORIES_BY_TYPE["Transfer"] == set()
+def test_savings_has_predefined_savings_and_investments_categories():
+    # ADR-0022 - the one Type given predefined Categories rather than lazy
+    # population.
+    assert CATEGORIES_BY_TYPE["Savings"] == {"Savings", "Investments"}
+
+
+def test_types_with_categories_excludes_savings_even_though_it_has_categories():
+    # ADR-0022 - Savings is manual-entry only: it must stay out of the
+    # categorisation prompt and Needs Review despite having real Categories,
+    # via AI_EXCLUDED_TYPES rather than "has no categories yet".
+    assert "Savings" not in types_with_categories()
+    assert "Savings" in AI_EXCLUDED_TYPES
 
 
 @pytest.mark.parametrize(
@@ -48,7 +58,7 @@ def test_a_category_validates_under_its_own_type(transaction_type, category):
     [
         ("Income", "Groceries"),  # Groceries is an Expense
         ("Expense", "Salary"),  # Salary is Income
-        ("Transfer", "Groceries"),  # Transfer has no Categories at all
+        ("Transfer", "Groceries"),  # Transfer is retired - not a valid Type at all now
         ("Expense", "Mortgage Repayment"),  # Mortgage Repayment moved to Debt
         ("Income", "Beem Adjustment"),  # ADR-0015 - moved to Expense
         ("Income", "Refund"),  # ADR-0016 - retired entirely
@@ -86,8 +96,8 @@ def test_assignable_categories_by_type_excludes_locked_categories():
 
 
 def test_assignable_categories_by_type_keeps_a_type_with_only_locked_categories():
-    # A locked-only Type still appears (empty), just like Transfer does today
-    # for types_with_categories - it isn't dropped outright.
+    # A locked-only Type still appears (empty) - it isn't dropped outright,
+    # just left with nothing assignable.
     categories = [Category(id=1, type="Expense", name="Beem Adjustment", emoji=None, locked=True)]
 
     assignable = assignable_categories_by_type(categories)
@@ -105,7 +115,10 @@ def test_assignable_categories_by_type_excludes_any_locked_category_generically(
     assert assignable == {"Debt": set()}
 
 
-def test_types_with_categories_omits_a_type_that_has_none_yet():
+def test_types_with_categories_omits_savings_from_the_default_mapping():
+    # Savings has predefined Categories in CATEGORIES_BY_TYPE but is
+    # AI-excluded (ADR-0022), so it's left out even though Debt/Expense/
+    # Income - which all have real Categories too - are included.
     assert types_with_categories() == ["Debt", "Expense", "Income"]
 
 

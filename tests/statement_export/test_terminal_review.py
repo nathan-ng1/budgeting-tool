@@ -64,12 +64,12 @@ def test_invalid_category_number_is_reprompted():
 
 
 def test_a_type_with_no_categories_is_not_offered():
-    # Transfer has no Categories yet — offering it would drop the user into a
+    # A Type with no Categories yet — offering it would drop the user into a
     # Category prompt with nothing valid to pick.
     printed = []
     fake_input = FakeInput(["2", "1"])
     reviewer = TerminalReviewer(
-        categories_by_type={**CATEGORIES_BY_TYPE, "Transfer": set()},
+        categories_by_type={**CATEGORIES_BY_TYPE, "Debt": set()},
         input_fn=fake_input,
         print_fn=printed.append,
     )
@@ -78,7 +78,26 @@ def test_a_type_with_no_categories_is_not_offered():
 
     assert transaction_type == "Income"
     assert category == "Salary"
-    assert "Transfer" not in "\n".join(printed)
+    assert "Debt" not in "\n".join(printed)
+
+
+def test_savings_stays_out_of_type_options_even_with_real_categories():
+    # ADR-0022 - TerminalReviewer offers whatever types_with_categories()
+    # returns, which now excludes Savings outright (AI_EXCLUDED_TYPES), not
+    # just Types with an empty Category set.
+    printed = []
+    fake_input = FakeInput(["2", "1"])
+    reviewer = TerminalReviewer(
+        categories_by_type={**CATEGORIES_BY_TYPE, "Savings": {"Savings", "Investments"}},
+        input_fn=fake_input,
+        print_fn=printed.append,
+    )
+
+    transaction_type, category = reviewer(make_transaction(), reason=None)
+
+    assert transaction_type == "Income"
+    assert category == "Salary"
+    assert "Savings" not in "\n".join(printed)
 
 
 def test_drop_transaction_option_is_offered_for_a_positive_amount_transaction():

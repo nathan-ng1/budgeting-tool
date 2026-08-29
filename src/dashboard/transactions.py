@@ -32,7 +32,7 @@ DATE_NUMBER_FORMAT = "YYYY-MM-DD"
 _COLUMN_INSTRUCTIONS = (
     ("Date", "The Transaction's date.", "An Excel date, or unambiguous YYYY-MM-DD text."),
     ("Amount", "The Transaction's amount.", "A positive number."),
-    ("Type", "Income, Expense, Debt, or Transfer.", "Choose from the dropdown."),
+    ("Type", "Income, Expense, Debt, or Savings.", "Choose from the dropdown."),
     (
         "Category",
         "The specific budget label for the Transaction.",

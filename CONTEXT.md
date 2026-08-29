@@ -26,15 +26,15 @@ An issuer-specific step that strips personal information from a Statement Export
 _Avoid_: Cleaning, scrubbing
 
 **Type**:
-The top-level classification of a Transaction: Income, Expense, Debt, or Transfer. Every Category has exactly one fixed Type. Replaces what was previously called "Category" — see [ADR-0006](./docs/adr/0006-simplify-to-three-types-with-a-flat-category-list.md).
+The top-level classification of a Transaction: Income, Expense, Debt, or Savings. Every Category has exactly one fixed Type. Replaces what was previously called "Category" — see [ADR-0006](./docs/adr/0006-simplify-to-three-types-with-a-flat-category-list.md).
 _Avoid_: Category (retired for this meaning), Group, Real Income (Dashboard tile copy for the Income Type — no distinct concept, just "Income")
 
 **Category**:
 The specific budget label for a Transaction — e.g. Groceries, Subscriptions, Salary. Flat: there's no grouping layer between Category and Type (the old Bills & Subscriptions / Expenses / Debt / Savings / Investments split is gone). Each Category has one fixed Type, never determined per-Transaction:
 - **Income**: Salary, Rental
 - **Expense**: Groceries, Dining & Takeaway, Transport, Shopping & Retail, Holidays & Travel, Entertainment & Leisure, Health & Medical, Donations & Giving, Subscriptions, Insurance & Bills, Rental Expense, Beem Adjustment
-- **Debt**: Mortgage Repayment — populated lazily like Transfer below; the first real non-mortgage Debt (e.g. a car or personal loan) adds its own Category rather than one being speculatively predefined.
-- **Transfer**: none yet — Categories here are only added for real cases as they occur (e.g. a transfer to a specific savings or investment account), the same lazy-population policy Rental and Rental Expense already followed.
+- **Debt**: Mortgage Repayment — populated lazily like Rental and Rental Expense above; the first real non-mortgage Debt (e.g. a car or personal loan) adds its own Category rather than one being speculatively predefined. Unlike Savings below, no further Categories are predefined ahead of a real case.
+- **Savings**: Savings, Investments — predefined for every install rather than populated lazily, the only Type given this exception; see [ADR-0022](./docs/adr/0022-rename-transfer-to-savings-with-predefined-categories.md).
 
 Every categorised Transaction gets exactly one Category, which determines its Type. Replaces what was previously called "Sub-category" — see [ADR-0006](./docs/adr/0006-simplify-to-three-types-with-a-flat-category-list.md).
 _Avoid_: Sub-category (retired), Label, tag
@@ -44,12 +44,12 @@ Means the Transaction *itself* is a recurring charge (same merchant, regular cad
 _Avoid_: Label, tag, Bill (a Bill is a Transaction whose Category maps to a bill-like Expense, not a Category name itself)
 
 **Debt**:
-A Transaction that services a borrowing you owe to a lender — reducing the outstanding balance of a loan, including any interest bundled into the same repayment (the Statement Export carries no principal/interest split, so the whole repayment is Debt). One of the four Types, alongside Income, Expense, and Transfer. Distinct from an Expense (money consumed) and from a Transfer (money moved to an account you own): a Debt repayment converts cash into equity you hold in an asset, but unlike a Transfer it is non-discretionary and its counterparty is external. Previously folded into Expense — see [ADR-0006](./docs/adr/0006-simplify-to-three-types-with-a-flat-category-list.md) — split back out by [ADR-0012](./docs/adr/0012-split-debt-back-out-of-expense.md).
+A Transaction that services a borrowing you owe to a lender — reducing the outstanding balance of a loan, including any interest bundled into the same repayment (the Statement Export carries no principal/interest split, so the whole repayment is Debt). One of the four Types, alongside Income, Expense, and Savings. Distinct from an Expense (money consumed) and from Savings (money moved to an account you own): a Debt repayment converts cash into equity you hold in an asset, but unlike Savings it is non-discretionary and its counterparty is external. Previously folded into Expense — see [ADR-0006](./docs/adr/0006-simplify-to-three-types-with-a-flat-category-list.md) — split back out by [ADR-0012](./docs/adr/0012-split-debt-back-out-of-expense.md).
 _Avoid_: Liability, Loan repayment
 
-**Transfer**:
-A Transaction that moves money to an account you own and control (a savings or investment account) rather than to a third party. Looks identical to an Expense in a bank export — a debit leaving the account — but is economically distinct: not consumption. One of the four Types, alongside Income, Expense, and Debt; replaces the old Savings and Investments Categories.
-_Avoid_: Savings, Investment (retired as top-level Categories — Transfer is the umbrella now)
+**Savings**:
+A Transaction that moves money to an account you own and control (a savings or investment account) rather than to a third party. Looks identical to an Expense in a bank export — a debit leaving the account — but is economically distinct: not consumption. One of the four Types, alongside Income, Expense, and Debt. Its Category list starts predefined with two defaults, Savings and Investments — the Savings Category shares its name with the Savings Type, a deliberate overlap rather than a naming mistake — the only Type given predefined Categories rather than lazy population, since (unlike Debt, which varies person to person) every user has some form of savings or investment account. Never assigned by the categorisation backend or offered in Needs Review: a Savings Transaction is always entered by hand, via the Dashboard's Transactions tab or Recurring Transactions Config, never from a Statement Export. See [ADR-0022](./docs/adr/0022-rename-transfer-to-savings-with-predefined-categories.md), which renames this Type from Transfer and supersedes ADR-0006's lazy-population policy for it.
+_Avoid_: Transfer (this Type's retired name — see ADR-0022)
 
 **Transactions Inbox**:
 The external folder (path set via `TRANSACTIONS_INBOX` in `.env`) where unsanitised Statement Exports are saved directly from a card issuer's site. Claude never reads this location — only the Sanitising script does.
@@ -92,11 +92,11 @@ The Overview tab's other selector state, alongside a specific month: aggregates 
 _Avoid_: Annual Overview, Year view, Yearly
 
 **Net Balance**:
-A Dashboard stat tile: `Income − Expenses − Debt` for the period shown. Deliberately excludes Transfers — a Transfer neither adds to nor subtracts from Net Balance, since it's money moved, not spent or earned. See [ADR-0009](./docs/adr/0009-overview-tab-scope-follows-the-approved-mockup.md) and [ADR-0012](./docs/adr/0012-split-debt-back-out-of-expense.md) (which added the `− Debt` term when Debt split out of Expense).
+A Dashboard stat tile: `Income − Expenses − Debt` for the period shown. Money moved to Savings is never subtracted, so it still counts toward this figure — Net Balance includes what's been saved, not just what's left in spendable cash, since a Savings Transaction is money moved to an account you still own, not spent or earned. See [ADR-0009](./docs/adr/0009-overview-tab-scope-follows-the-approved-mockup.md) and [ADR-0012](./docs/adr/0012-split-debt-back-out-of-expense.md) (which added the `− Debt` term when Debt split out of Expense), and [ADR-0022](./docs/adr/0022-rename-transfer-to-savings-with-predefined-categories.md) (renamed Transfer to Savings and corrected the Dashboard's subtext from "excludes transfers" to "includes savings" to match this, unchanged, formula).
 _Avoid_: Net income, Surplus, Cash flow
 
 **Category Budget**:
-A user-set target Amount for one Category in one specific month — every month stands alone, edited and kept independently of every other month, with no averaging or carry-forward between them. Applies to any Income, Expense, or Debt Category (Transfer has none to budget). A Category with no Category Budget set for a given month is unbudgeted for that month, not budgeted at $0. Compared against that Category's actual for the same month on the Dashboard's Budgeted vs Actual table, which partitions its rows by Type. See [ADR-0009](./docs/adr/0009-overview-tab-scope-follows-the-approved-mockup.md) (introduced the concept, originally Expense-only and month-invariant) and [ADR-0013](./docs/adr/0013-category-budget-is-per-month-across-income-expense-and-debt.md) (made it per-month and extended it to Income/Debt).
+A user-set target Amount for one Category in one specific month — every month stands alone, edited and kept independently of every other month, with no averaging or carry-forward between them. Applies to any Income, Expense, or Debt Category (Savings has none to budget). A Category with no Category Budget set for a given month is unbudgeted for that month, not budgeted at $0. Compared against that Category's actual for the same month on the Dashboard's Budgeted vs Actual table, which partitions its rows by Type. See [ADR-0009](./docs/adr/0009-overview-tab-scope-follows-the-approved-mockup.md) (introduced the concept, originally Expense-only and month-invariant) and [ADR-0013](./docs/adr/0013-category-budget-is-per-month-across-income-expense-and-debt.md) (made it per-month and extended it to Income/Debt).
 _Avoid_: Budget (too vague — always means Category Budget in this project), Target, Limit, Expected (the Dashboard's original column label for this value, retired in favour of Budgeted once the label and the concept's name matched)
 
 **Budget tab**:

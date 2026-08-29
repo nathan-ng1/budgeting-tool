@@ -15,7 +15,7 @@ export const DEFAULT_PAGE_SIZE = PAGE_SIZE_OPTIONS[1];
 
 // Fixed per ADR-0006/ADR-0012, not derived from loaded data - Type is a closed
 // set regardless of which Types happen to appear in the current Financial Year.
-export const TYPES = ["Income", "Expense", "Debt", "Transfer"];
+export const TYPES = ["Income", "Expense", "Debt", "Savings"];
 
 export function categoryOptions(transactions) {
   return [...new Set(transactions.map((transaction) => transaction.category))].sort();

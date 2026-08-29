@@ -17,8 +17,11 @@ class Category:
     locked: bool
 
 
-# Every Category has exactly one fixed Type — see CONTEXT.md and ADR-0006. Transfer
-# starts empty on purpose: its Categories are added lazily, only for real cases.
+# Every Category has exactly one fixed Type — see CONTEXT.md and ADR-0006. Debt
+# starts empty on purpose: its Categories are added lazily, only for real
+# cases. Savings is the one exception (ADR-0022): predefined from the start,
+# since (unlike Debt) every user has some form of savings or investment
+# account.
 CATEGORIES_BY_TYPE = {
     "Income": {
         "Salary",
@@ -41,14 +44,25 @@ CATEGORIES_BY_TYPE = {
     "Debt": {
         "Mortgage Repayment",
     },
-    "Transfer": set(),
+    "Savings": {
+        "Savings",
+        "Investments",
+    },
 }
 
 # The Type order presented to a user - CONTEXT.md's own definition order, not
 # the alphabetical order types_with_categories() returns below (that order is
 # only for internal iteration - the categorisation prompt and terminal review -
 # where display order doesn't matter).
-TYPE_ORDER = ("Income", "Expense", "Debt", "Transfer")
+TYPE_ORDER = ("Income", "Expense", "Debt", "Savings")
+
+# Types the categorisation backend and Needs Review must never offer, even
+# though they have Categories - kept separate from Category.locked (ADR-0022),
+# since that flag also blocks rename/delete in Category Management and
+# Savings/Investments must stay freely editable there. Savings is manual-entry
+# only: a Savings Transaction is always entered by hand via the Dashboard, not
+# assigned by the AI pipeline or offered in the terminal Needs Review flow.
+AI_EXCLUDED_TYPES = {"Savings"}
 
 
 def is_valid_type_category_pair(transaction_type: str, category: str) -> bool:
@@ -81,11 +95,13 @@ def type_for_category(category: str) -> str | None:
 def types_with_categories(categories_by_type: dict[str, set[str]] = CATEGORIES_BY_TYPE) -> list[str]:
     """The Types that can actually be assigned, sorted.
 
-    A Type with no Categories yet (Transfer) is left out: nothing downstream
-    can produce a valid (Type, Category) pair for it, so neither the
-    categorisation prompt nor the Needs Review prompt should offer it.
+    A Type with no Categories yet (Debt, until its first real case) is left
+    out: nothing downstream can produce a valid (Type, Category) pair for it,
+    so neither the categorisation prompt nor the Needs Review prompt should
+    offer it. A Type in AI_EXCLUDED_TYPES (Savings) is left out too, even
+    once it has Categories - it's manual-entry only (ADR-0022).
     """
-    return sorted(t for t, categories in categories_by_type.items() if categories)
+    return sorted(t for t, categories in categories_by_type.items() if categories and t not in AI_EXCLUDED_TYPES)
 
 
 def categories_by_type(categories: list[Category]) -> dict[str, set[str]]:

@@ -44,8 +44,8 @@ def test_a_fresh_financial_year_returns_every_category_grouped_by_type_all_unset
     assert _row(body["Income"], "Salary")["amounts"] == [None] * 12
     assert _row(body["Expense"], "Groceries")["amounts"] == [None] * 12
     assert _row(body["Debt"], "Mortgage Repayment")["amounts"] == [None] * 12
-    # Transfer has no Category Budget to show (CONTEXT.md).
-    assert "Transfer" not in body
+    # Savings has no Category Budget to show (CONTEXT.md).
+    assert "Savings" not in body
 
 
 def test_a_category_budget_saved_via_the_month_editor_appears_in_its_july_to_june_slot(running_server):

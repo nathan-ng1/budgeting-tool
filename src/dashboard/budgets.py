@@ -10,9 +10,9 @@ from budget_suggestions.suggestion import BudgetSuggestion
 from dashboard.queries import BudgetEditorRow, BudgetGridRow
 from transaction_log.categories import TYPE_ORDER
 
-# Transfer has no Category Budget to set (CONTEXT.md's Category Budget entry),
+# Savings has no Category Budget to set (CONTEXT.md's Category Budget entry),
 # so it never appears as a section here.
-BUDGETABLE_TYPES = tuple(t for t in TYPE_ORDER if t != "Transfer")
+BUDGETABLE_TYPES = tuple(t for t in TYPE_ORDER if t != "Savings")
 
 # The trailing window the Budget tab editor requests when its dropdown query
 # param is absent - see dashboard.queries.TRAILING_WINDOWS.

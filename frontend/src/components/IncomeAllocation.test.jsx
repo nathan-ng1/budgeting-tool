@@ -9,8 +9,8 @@ function allocation(overrides = {}) {
     expenses_pct: 0,
     debt_amount: 0,
     debt_pct: 0,
-    transferred_amount: 0,
-    transferred_pct: 0,
+    saved_amount: 0,
+    saved_pct: 0,
     remaining_amount: 0,
     remaining_pct: 0,
     over_income_amount: 0,
@@ -20,15 +20,15 @@ function allocation(overrides = {}) {
 }
 
 describe("IncomeAllocation", () => {
-  it("splits income across what was spent, transferred and left over", () => {
+  it("splits income across what was spent, saved and left over", () => {
     render(
       <IncomeAllocation
         income={5240}
         allocation={allocation({
           expenses_amount: 3667,
           expenses_pct: 70,
-          transferred_amount: 900,
-          transferred_pct: 17.2,
+          saved_amount: 900,
+          saved_pct: 17.2,
           remaining_amount: 673,
           remaining_pct: 12.8,
         })}
@@ -40,7 +40,7 @@ describe("IncomeAllocation", () => {
     expect(screen.getByText("Remaining")).toBeInTheDocument();
   });
 
-  it("renders a Debt segment ordered between Expenses and Transferred", () => {
+  it("renders a Debt segment ordered between Expenses and Saved", () => {
     render(
       <IncomeAllocation
         income={5240}
@@ -49,8 +49,8 @@ describe("IncomeAllocation", () => {
           expenses_pct: 38.2,
           debt_amount: 800,
           debt_pct: 15.3,
-          transferred_amount: 900,
-          transferred_pct: 17.2,
+          saved_amount: 900,
+          saved_pct: 17.2,
           remaining_amount: 1540,
           remaining_pct: 29.4,
         })}
@@ -61,9 +61,9 @@ describe("IncomeAllocation", () => {
     // lives in a nested span - so matching on direct text (not full textContent,
     // which would also pick up the nested percentage) gives the label order.
     const legendLabels = screen
-      .getAllByText(/^(Expenses|Debt|Transferred|Remaining)$/)
+      .getAllByText(/^(Expenses|Debt|Saved|Remaining)$/)
       .map((el) => el.textContent.trim().split(" ")[0]);
-    expect(legendLabels).toEqual(["Expenses", "Debt", "Transferred", "Remaining"]);
+    expect(legendLabels).toEqual(["Expenses", "Debt", "Saved", "Remaining"]);
     expect(screen.getByText("15.3%")).toBeInTheDocument();
   });
 

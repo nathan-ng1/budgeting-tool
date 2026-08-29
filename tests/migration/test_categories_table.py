@@ -53,7 +53,7 @@ def test_migrate_seeds_categories_matching_categories_by_type():
     migrate(connection)
 
     rows = connection.execute("SELECT type, name FROM categories").fetchall()
-    by_type: dict[str, set[str]] = {"Transfer": set()}
+    by_type: dict[str, set[str]] = {}
     for transaction_type, name in rows:
         by_type.setdefault(transaction_type, set()).add(name)
     assert by_type == CATEGORIES_BY_TYPE

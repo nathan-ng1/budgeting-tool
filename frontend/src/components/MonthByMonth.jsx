@@ -16,7 +16,7 @@ export default function MonthByMonth({ months }) {
   const totalExpenses = months.reduce((sum, m) => sum + m.expenses, 0);
   const totalDebt = months.reduce((sum, m) => sum + m.debt, 0);
   const totalNet = months.reduce((sum, m) => sum + m.net_balance, 0);
-  const totalTransferred = months.reduce((sum, m) => sum + m.transferred, 0);
+  const totalSaved = months.reduce((sum, m) => sum + m.saved, 0);
 
   return (
     <section className="card card--chart">
@@ -45,7 +45,7 @@ export default function MonthByMonth({ months }) {
               Net
             </th>
             <th scope="col" className="mbm__num">
-              Transfers
+              Saved
             </th>
           </tr>
         </thead>
@@ -57,7 +57,7 @@ export default function MonthByMonth({ months }) {
               <td className="mbm__num numeric">{money(m.expenses)}</td>
               <td className="mbm__num numeric">{money(m.debt)}</td>
               <NetCell value={m.net_balance} />
-              <td className="mbm__num numeric muted">{money(m.transferred)}</td>
+              <td className="mbm__num numeric muted">{money(m.saved)}</td>
             </tr>
           ))}
         </tbody>
@@ -68,7 +68,7 @@ export default function MonthByMonth({ months }) {
             <td className="mbm__num numeric">{money(totalExpenses)}</td>
             <td className="mbm__num numeric">{money(totalDebt)}</td>
             <NetCell value={totalNet} />
-            <td className="mbm__num numeric muted">{money(totalTransferred)}</td>
+            <td className="mbm__num numeric muted">{money(totalSaved)}</td>
           </tr>
         </tfoot>
       </table>

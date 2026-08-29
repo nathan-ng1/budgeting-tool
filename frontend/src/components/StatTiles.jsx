@@ -24,9 +24,9 @@ export default function StatTiles({ tiles, average }) {
         value={netBalance === 0 ? money(0) : signedMoney(netBalance)}
         tone={toneFor(-netBalance)}
         average={average && money(average.net_balance)}
-        averageNote={average && "excludes transfers"}
+        averageNote={average && "includes savings"}
       />
-      <Tile label="Transferred" value={money(tiles.transferred)} average={average && money(average.transferred)} />
+      <Tile label="Saved" value={money(tiles.saved)} average={average && money(average.saved)} />
     </div>
   );
 }

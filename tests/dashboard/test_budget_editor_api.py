@@ -44,8 +44,8 @@ def test_a_fresh_month_returns_every_category_grouped_by_type_all_unset(running_
     assert _row(body["Income"], "Salary")["amount"] is None
     assert _row(body["Expense"], "Groceries")["amount"] is None
     assert _row(body["Debt"], "Mortgage Repayment")["amount"] is None
-    # Transfer has no Category Budget to set (CONTEXT.md).
-    assert "Transfer" not in body
+    # Savings has no Category Budget to set (CONTEXT.md).
+    assert "Savings" not in body
     # A fresh store has no Transaction history at all, so the windowed
     # historical columns are unset - not a misleadingly small average.
     salary = _row(body["Income"], "Salary")

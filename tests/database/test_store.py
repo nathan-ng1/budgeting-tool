@@ -476,8 +476,9 @@ def test_create_category_rejects_a_name_that_collides_across_types(tmp_path: Pat
 def test_create_category_rejects_a_type_outside_the_four_fixed_ones(tmp_path: Path):
     store = connect(tmp_path / "budget.db")
 
-    with pytest.raises(ValueError, match="Savings"):
-        store.create_category("Savings", "Piggy Bank", None)
+    # Transfer is ADR-0022's retired name for this Type - no longer valid.
+    with pytest.raises(ValueError, match="Transfer"):
+        store.create_category("Transfer", "Piggy Bank", None)
 
 
 def test_create_category_immediately_usable_by_a_new_transaction(tmp_path: Path, make_candidate):
