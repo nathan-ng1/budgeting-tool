@@ -130,7 +130,7 @@ class MonthlyTotals:
     expenses: float
     debt: float
     net_balance: float
-    transferred: float
+    saved: float
 
 
 @dataclass(frozen=True)
@@ -619,7 +619,7 @@ def _monthly_totals(transactions: list[Transaction], start: date) -> list[Monthl
                 expenses=tiles.expenses,
                 debt=tiles.debt,
                 net_balance=tiles.net_balance,
-                transferred=tiles.saved,
+                saved=tiles.saved,
             )
         )
     return rows

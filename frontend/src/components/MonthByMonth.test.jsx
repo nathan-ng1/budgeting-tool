@@ -8,15 +8,15 @@ function row(name) {
 }
 
 function month(overrides) {
-  return { year: 2026, month: 7, income: 0, expenses: 0, debt: 0, net_balance: 0, transferred: 0, ...overrides };
+  return { year: 2026, month: 7, income: 0, expenses: 0, debt: 0, net_balance: 0, saved: 0, ...overrides };
 }
 
 describe("MonthByMonth", () => {
-  it("renders a row per month, with Income, Expenses, Debt, Net, and Transfers", () => {
+  it("renders a row per month, with Income, Expenses, Debt, Net, and Saved", () => {
     render(
       <MonthByMonth
         months={[
-          month({ month: 7, income: 5240, expenses: 3810, debt: 200, net_balance: 1230, transferred: 900 }),
+          month({ month: 7, income: 5240, expenses: 3810, debt: 200, net_balance: 1230, saved: 900 }),
         ]}
       />,
     );
@@ -42,8 +42,8 @@ describe("MonthByMonth", () => {
     render(
       <MonthByMonth
         months={[
-          month({ month: 7, income: 5240, expenses: 3810, debt: 200, net_balance: 1230, transferred: 900 }),
-          month({ month: 8, income: 5240, expenses: 3402, debt: 150, net_balance: 1688, transferred: 900 }),
+          month({ month: 7, income: 5240, expenses: 3810, debt: 200, net_balance: 1230, saved: 900 }),
+          month({ month: 8, income: 5240, expenses: 3402, debt: 150, net_balance: 1688, saved: 900 }),
         ]}
       />,
     );

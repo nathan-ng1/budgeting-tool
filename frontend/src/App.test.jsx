@@ -5,10 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App.jsx";
 
 const ZERO_STAT_TILES = { income: 0, expenses: 0, debt: 0, net_balance: 0, saved: 0 };
-// MonthlyTotals keeps its own `transferred` field name (unlike StatTiles'
-// `saved` above) - dashboard.queries's Field/identifier renames were scoped
-// to the StatTiles/IncomeAllocation dataclasses only (ADR-0022).
-const ZERO_MONTH_TOTALS = { income: 0, expenses: 0, debt: 0, net_balance: 0, transferred: 0 };
+const ZERO_MONTH_TOTALS = { income: 0, expenses: 0, debt: 0, net_balance: 0, saved: 0 };
 const ZERO_ALLOCATION = {
   expenses_amount: 0,
   expenses_pct: 0,
@@ -93,7 +90,7 @@ function annualOverview(overrides = {}) {
 
 function annualWithSpending(overrides = {}) {
   const months = ZERO_MONTHS.map((m, index) =>
-    index === 0 ? { ...m, income: 5240, expenses: 3810, debt: 0, net_balance: 1430, transferred: 900 } : m,
+    index === 0 ? { ...m, income: 5240, expenses: 3810, debt: 0, net_balance: 1430, saved: 900 } : m,
   );
 
   return annualOverview({

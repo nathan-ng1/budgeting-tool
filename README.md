@@ -225,7 +225,7 @@ uv run python -m dashboard
 ```
 
 Then open <http://127.0.0.1:8765>. The Dashboard's Overview tab shows one month at a time: the
-Income/Expenses/Net Balance/Transferred tiles, where your income went, spending by Category,
+Income/Expenses/Net Balance/Saved tiles, where your income went, spending by Category,
 Budgeted vs Actual, your top 5 expenses, and expenses over the month. Pick a month with the
 Jul–Jun pills — it opens on the current month of the current Financial Year. The **Transactions**
 tab lists, adds, edits, and deletes individual transactions by hand, with search/sort/export. The

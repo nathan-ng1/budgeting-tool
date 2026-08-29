@@ -831,13 +831,13 @@ def test_annual_overview_month_by_month_sums_each_month_independently(fake_store
     assert july.expenses == 400.0
     assert july.debt == 150.0
     assert july.net_balance == 450.0
-    assert july.transferred == 100.0
+    assert july.saved == 100.0
 
     august = by_month[(2026, 8)]
     assert august.income == 500.0
     assert august.expenses == 0.0
     assert august.net_balance == 500.0
-    assert august.transferred == 0.0
+    assert august.saved == 0.0
 
 
 def test_annual_overview_month_by_month_zero_fills_months_not_yet_elapsed(fake_store, make_transaction):
@@ -853,7 +853,7 @@ def test_annual_overview_month_by_month_zero_fills_months_not_yet_elapsed(fake_s
     # September hasn't elapsed as of 21 Aug, so it's a zeroed row, not omitted
     # or carrying September's not-yet-counted spend.
     assert by_month[(2026, 9)] == MonthlyTotals(
-        year=2026, month=9, income=0.0, expenses=0.0, debt=0.0, net_balance=0.0, transferred=0.0
+        year=2026, month=9, income=0.0, expenses=0.0, debt=0.0, net_balance=0.0, saved=0.0
     )
     assert len(overview.month_by_month) == 12
 
@@ -966,7 +966,7 @@ def test_annual_overview_month_by_month_zero_fills_months_not_yet_elapsed_for_ca
     by_month = {(row.year, row.month): row for row in overview.month_by_month}
 
     assert by_month[(2026, 3)] == MonthlyTotals(
-        year=2026, month=3, income=0.0, expenses=0.0, debt=0.0, net_balance=0.0, transferred=0.0
+        year=2026, month=3, income=0.0, expenses=0.0, debt=0.0, net_balance=0.0, saved=0.0
     )
     assert len(overview.month_by_month) == 12
 
@@ -1250,13 +1250,13 @@ def test_annual_overview_month_by_month_sums_each_month_independently_for_calend
     assert january.expenses == 400.0
     assert january.debt == 150.0
     assert january.net_balance == 450.0
-    assert january.transferred == 100.0
+    assert january.saved == 100.0
 
     february = by_month[(2026, 2)]
     assert february.income == 500.0
     assert february.expenses == 0.0
     assert february.net_balance == 500.0
-    assert february.transferred == 0.0
+    assert february.saved == 0.0
 
 
 def test_annual_overview_income_vs_expenses_by_month_matches_month_by_month_for_calendar_year(

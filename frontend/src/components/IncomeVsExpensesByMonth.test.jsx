@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import IncomeVsExpensesByMonth from "./IncomeVsExpensesByMonth.jsx";
 
 function month(overrides) {
-  return { year: 2026, month: 7, income: 0, expenses: 0, debt: 0, net_balance: 0, transferred: 0, ...overrides };
+  return { year: 2026, month: 7, income: 0, expenses: 0, debt: 0, net_balance: 0, saved: 0, ...overrides };
 }
 
 function twelveMonths(overrides = {}) {
