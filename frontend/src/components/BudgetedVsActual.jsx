@@ -6,7 +6,7 @@ import { toneFor } from "../lib/tone.js";
 // The budgetable Types, in CONTEXT.md's order - the table's section order,
 // top to bottom. Deliberately its own list rather than transactionsView.js's
 // TYPES (that module is scoped to the Transactions tab, and its list
-// includes Transfer, which has no Category Budget to show here).
+// includes Savings, which has no Category Budget to show here).
 const SECTIONS = ["Income", "Expense", "Debt"];
 
 // The endpoint reports `diff` as budget remaining (budgeted - actual) and

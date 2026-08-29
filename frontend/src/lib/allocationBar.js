@@ -10,24 +10,24 @@ const TICK_STEP = 25;
 const SEGMENT_ORDER = [
   { key: "expenses", label: "Expenses", amountField: "expenses_amount", pctField: "expenses_pct" },
   { key: "debt", label: "Debt", amountField: "debt_amount", pctField: "debt_pct" },
-  { key: "transferred", label: "Transferred", amountField: "transferred_amount", pctField: "transferred_pct" },
+  { key: "saved", label: "Saved", amountField: "saved_amount", pctField: "saved_pct" },
   { key: "remaining", label: "Remaining", amountField: "remaining_amount", pctField: "remaining_pct" },
   { key: "over_income", label: "Over income", amountField: "over_income_amount", pctField: "over_income_pct" },
 ];
 
 export function allocationBar(incomeAllocation) {
-  const outflowPct = incomeAllocation.expenses_pct + incomeAllocation.debt_pct + incomeAllocation.transferred_pct;
+  const outflowPct = incomeAllocation.expenses_pct + incomeAllocation.debt_pct + incomeAllocation.saved_pct;
   const axisMax = Math.max(100, Math.ceil(outflowPct / 10) * 10);
 
   // over_income_pct is the tail of the outflow that runs past 100% of income -
-  // it's already counted inside expenses_pct/debt_pct/transferred_pct, not
+  // it's already counted inside expenses_pct/debt_pct/saved_pct, not
   // stacked on top of them. Trim it back out of whichever segment(s) carry it -
-  // Transferred's slice first, since it's drawn immediately before Over income,
+  // Saved's slice first, since it's drawn immediately before Over income,
   // then Debt, then Expenses - so the segment widths sum to the real outflow
   // instead of double-counting the overage in the bar.
   let trim = incomeAllocation.over_income_pct;
   const displayPct = {};
-  for (const key of ["transferred", "debt", "expenses"]) {
+  for (const key of ["saved", "debt", "expenses"]) {
     const raw = incomeAllocation[SEGMENT_ORDER.find((s) => s.key === key).pctField];
     displayPct[key] = Math.max(raw - trim, 0);
     trim = Math.max(trim - raw, 0);

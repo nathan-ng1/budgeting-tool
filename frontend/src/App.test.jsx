@@ -4,14 +4,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App.jsx";
 
-const ZERO_STAT_TILES = { income: 0, expenses: 0, debt: 0, net_balance: 0, transferred: 0 };
+const ZERO_STAT_TILES = { income: 0, expenses: 0, debt: 0, net_balance: 0, saved: 0 };
+// MonthlyTotals keeps its own `transferred` field name (unlike StatTiles'
+// `saved` above) - dashboard.queries's Field/identifier renames were scoped
+// to the StatTiles/IncomeAllocation dataclasses only (ADR-0022).
+const ZERO_MONTH_TOTALS = { income: 0, expenses: 0, debt: 0, net_balance: 0, transferred: 0 };
 const ZERO_ALLOCATION = {
   expenses_amount: 0,
   expenses_pct: 0,
   debt_amount: 0,
   debt_pct: 0,
-  transferred_amount: 0,
-  transferred_pct: 0,
+  saved_amount: 0,
+  saved_pct: 0,
   remaining_amount: 0,
   remaining_pct: 0,
   over_income_amount: 0,
@@ -37,14 +41,14 @@ function monthWithSpending(year, month, overrides = {}) {
   return monthOverview({
     year,
     month,
-    stat_tiles: { income: 5240, expenses: 3667, debt: 0, net_balance: 1573, transferred: 900 },
+    stat_tiles: { income: 5240, expenses: 3667, debt: 0, net_balance: 1573, saved: 900 },
     income_allocation: {
       expenses_amount: 3667,
       expenses_pct: 70,
       debt_amount: 0,
       debt_pct: 0,
-      transferred_amount: 900,
-      transferred_pct: 17.2,
+      saved_amount: 900,
+      saved_pct: 17.2,
       remaining_amount: 673,
       remaining_pct: 12.8,
       over_income_amount: 0,
@@ -67,7 +71,7 @@ function monthWithSpending(year, month, overrides = {}) {
 
 const ZERO_MONTHS = Array.from({ length: 12 }, (_, index) => {
   const month = ((7 - 1 + index) % 12) + 1;
-  return { year: month >= 7 ? 2026 : 2027, month, ...ZERO_STAT_TILES };
+  return { year: month >= 7 ? 2026 : 2027, month, ...ZERO_MONTH_TOTALS };
 });
 
 function annualOverview(overrides = {}) {
@@ -93,15 +97,15 @@ function annualWithSpending(overrides = {}) {
   );
 
   return annualOverview({
-    stat_tiles: { income: 8000, expenses: 6000, debt: 0, net_balance: 2000, transferred: 1000 },
-    monthly_average: { income: 4000, expenses: 3000, debt: 0, net_balance: 1000, transferred: 500 },
+    stat_tiles: { income: 8000, expenses: 6000, debt: 0, net_balance: 2000, saved: 1000 },
+    monthly_average: { income: 4000, expenses: 3000, debt: 0, net_balance: 1000, saved: 500 },
     income_allocation: {
       expenses_amount: 6000,
       expenses_pct: 75,
       debt_amount: 0,
       debt_pct: 0,
-      transferred_amount: 1000,
-      transferred_pct: 12.5,
+      saved_amount: 1000,
+      saved_pct: 12.5,
       remaining_amount: 1000,
       remaining_pct: 12.5,
       over_income_amount: 0,
@@ -179,7 +183,7 @@ describe("App", () => {
 
     expect(await screen.findByText("$8,000")).toBeInTheDocument(); // Real Income tile
     expect(screen.getByText("$4,000 / month average")).toBeInTheDocument();
-    expect(screen.getByText("$1,000 / month · excludes transfers")).toBeInTheDocument(); // Net Balance average
+    expect(screen.getByText("$1,000 / month · includes savings")).toBeInTheDocument(); // Net Balance average
     expect(screen.getByRole("heading", { name: "Where did my income go?" })).toBeInTheDocument();
   });
 
@@ -302,7 +306,7 @@ describe("App", () => {
   it("renders the Debt card between Spending by Category/Budgeted vs Actual and Top 5/Expenses over time, for a month with Debt", async () => {
     respondWith({
       month: monthWithSpending(2026, 8, {
-        stat_tiles: { income: 5240, expenses: 3667, debt: 875, net_balance: 698, transferred: 900 },
+        stat_tiles: { income: 5240, expenses: 3667, debt: 875, net_balance: 698, saved: 900 },
         debt_summary: [{ notes: "Werribee", amount: 875, pct_of_debt: 100 }],
       }),
     });
@@ -323,7 +327,7 @@ describe("App", () => {
   it("groups Spending by Category, Budgeted vs Actual, and Debt into the wide-pair layout, for a month", async () => {
     respondWith({
       month: monthWithSpending(2026, 8, {
-        stat_tiles: { income: 5240, expenses: 3667, debt: 875, net_balance: 698, transferred: 900 },
+        stat_tiles: { income: 5240, expenses: 3667, debt: 875, net_balance: 698, saved: 900 },
         debt_summary: [{ notes: "Werribee", amount: 875, pct_of_debt: 100 }],
       }),
     });
@@ -341,8 +345,8 @@ describe("App", () => {
   it("renders the Debt card with a $/month average, for Full year", async () => {
     respondWith({
       annual: annualWithSpending({
-        stat_tiles: { income: 8000, expenses: 6000, debt: 1600, net_balance: 400, transferred: 1000 },
-        monthly_average: { income: 4000, expenses: 3000, debt: 800, net_balance: 200, transferred: 500 },
+        stat_tiles: { income: 8000, expenses: 6000, debt: 1600, net_balance: 400, saved: 1000 },
+        monthly_average: { income: 4000, expenses: 3000, debt: 800, net_balance: 200, saved: 500 },
         debt_summary: [{ notes: "Werribee", amount: 1600, pct_of_debt: 100 }],
       }),
     });
@@ -361,8 +365,8 @@ describe("App", () => {
   it("groups Month by month, Budgeted vs Actual, and Debt into the wide-pair layout, and pairs Spending by Category with Top expenses, for Full year", async () => {
     respondWith({
       annual: annualWithSpending({
-        stat_tiles: { income: 8000, expenses: 6000, debt: 1600, net_balance: 400, transferred: 1000 },
-        monthly_average: { income: 4000, expenses: 3000, debt: 800, net_balance: 200, transferred: 500 },
+        stat_tiles: { income: 8000, expenses: 6000, debt: 1600, net_balance: 400, saved: 1000 },
+        monthly_average: { income: 4000, expenses: 3000, debt: 800, net_balance: 200, saved: 500 },
         debt_summary: [{ notes: "Werribee", amount: 1600, pct_of_debt: 100 }],
       }),
     });

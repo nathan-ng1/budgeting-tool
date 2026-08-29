@@ -5,7 +5,7 @@
 
 // CONTEXT.md's own Type order, not alphabetical - so a Type select built from
 // this matches the Types filter dropdown's order.
-export const TYPE_ORDER = ["Income", "Expense", "Debt", "Transfer"];
+export const TYPE_ORDER = ["Income", "Expense", "Debt", "Savings"];
 
 // A curated quick-pick set for Category Management's emoji picker (Issue
 // #91) - free text still works alongside it, this is just a shortcut for
@@ -23,8 +23,8 @@ export function groupByType(categories) {
 
   const result = {};
   for (const type of TYPE_ORDER) {
-    // A Type with no Categories yet (Transfer) is omitted - offering it would
-    // let a form build a rule/transaction the store then rejects.
+    // A Type with no Categories yet is omitted - offering it would let a
+    // form build a rule/transaction the store then rejects.
     if (names[type]?.length) {
       result[type] = [...names[type]].sort();
     }

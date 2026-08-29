@@ -96,11 +96,12 @@ def test_creating_a_category_rejects_a_name_that_collides_across_types(running_s
 def test_creating_a_category_rejects_a_type_outside_the_four_fixed_ones(running_server):
     _store, server = running_server
 
+    # Transfer is ADR-0022's retired name for this Type - no longer valid.
     with pytest.raises(HTTPError) as exc_info:
-        call(server, "POST", "/api/categories", {"type": "Savings", "name": "Piggy Bank"})
+        call(server, "POST", "/api/categories", {"type": "Transfer", "name": "Piggy Bank"})
 
     assert exc_info.value.code == 400
-    assert "Savings" in json.loads(exc_info.value.read())["error"]
+    assert "Transfer" in json.loads(exc_info.value.read())["error"]
 
 
 def test_a_payload_missing_a_name_is_rejected_with_a_clear_error(running_server):

@@ -30,7 +30,7 @@ def test_a_month_with_no_transactions_returns_a_zeroed_result(tmp_path: Path):
     assert overview.stat_tiles.income == 0
     assert overview.stat_tiles.expenses == 0
     assert overview.stat_tiles.net_balance == 0
-    assert overview.stat_tiles.transferred == 0
+    assert overview.stat_tiles.saved == 0
     assert overview.spending_by_category == []
     assert overview.budgeted_vs_actual == []
     assert overview.debt_summary == []
@@ -52,17 +52,19 @@ def test_stat_tiles_sum_by_type_for_the_selected_month(tmp_path: Path, make_cand
             make_candidate(date=date(2026, 8, 5), amount=875.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
         ]
     )
-    _insert_transaction(database_path, date="2026-08-06", amount=500.0, type="Transfer", category="Savings", notes="To savings")
+    _insert_transaction(database_path, date="2026-08-06", amount=500.0, type="Savings", category="Savings", notes="To savings")
 
     overview = get_month_overview(store, year=2026, month=8)
 
     assert overview.stat_tiles.income == 4100.0
     assert overview.stat_tiles.expenses == 250.0
     assert overview.stat_tiles.debt == 875.0
-    assert overview.stat_tiles.transferred == 500.0
+    assert overview.stat_tiles.saved == 500.0
 
 
-def test_net_balance_excludes_transfers(tmp_path: Path, make_candidate):
+def test_net_balance_includes_savings(tmp_path: Path, make_candidate):
+    # ADR-0022 - the formula stays Income - Expenses - Debt: money moved to
+    # Savings is never subtracted, so it still counts toward this figure.
     database_path = tmp_path / "budget.db"
     store = connect(database_path)
     store.append_rows(
@@ -71,7 +73,7 @@ def test_net_balance_excludes_transfers(tmp_path: Path, make_candidate):
             make_candidate(date=date(2026, 8, 2), amount=300.0, type="Expense", category="Groceries", notes="Woolworths"),
         ]
     )
-    _insert_transaction(database_path, date="2026-08-03", amount=5000.0, type="Transfer", category="Savings", notes="To savings")
+    _insert_transaction(database_path, date="2026-08-03", amount=5000.0, type="Savings", category="Savings", notes="To savings")
 
     overview = get_month_overview(store, year=2026, month=8)
 
@@ -110,12 +112,12 @@ def test_transactions_outside_the_selected_month_are_excluded(tmp_path: Path, ma
     assert overview.stat_tiles.expenses == 42.0
 
 
-def test_income_allocation_splits_expenses_transferred_and_remaining_as_pct_of_income(fake_store, make_transaction):
+def test_income_allocation_splits_expenses_saved_and_remaining_as_pct_of_income(fake_store, make_transaction):
     store = fake_store(
         transactions=[
             make_transaction(date=date(2026, 8, 1), amount=1000.0, type="Income", category="Salary", notes="Employer"),
             make_transaction(date=date(2026, 8, 2), amount=400.0, type="Expense", category="Groceries", notes="Woolworths"),
-            make_transaction(date=date(2026, 8, 3), amount=100.0, type="Transfer", category="Savings", notes="To savings"),
+            make_transaction(date=date(2026, 8, 3), amount=100.0, type="Savings", category="Savings", notes="To savings"),
         ]
     )
 
@@ -124,8 +126,8 @@ def test_income_allocation_splits_expenses_transferred_and_remaining_as_pct_of_i
 
     assert allocation.expenses_amount == 400.0
     assert allocation.expenses_pct == 40.0
-    assert allocation.transferred_amount == 100.0
-    assert allocation.transferred_pct == 10.0
+    assert allocation.saved_amount == 100.0
+    assert allocation.saved_pct == 10.0
     assert allocation.remaining_amount == 500.0
     assert allocation.remaining_pct == 50.0
     assert allocation.over_income_amount == 0.0
@@ -138,7 +140,7 @@ def test_income_allocation_includes_a_debt_share_of_income(fake_store, make_tran
             make_transaction(date=date(2026, 8, 1), amount=1000.0, type="Income", category="Salary", notes="Employer"),
             make_transaction(date=date(2026, 8, 2), amount=400.0, type="Expense", category="Groceries", notes="Woolworths"),
             make_transaction(date=date(2026, 8, 3), amount=200.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
-            make_transaction(date=date(2026, 8, 4), amount=100.0, type="Transfer", category="Savings", notes="To savings"),
+            make_transaction(date=date(2026, 8, 4), amount=100.0, type="Savings", category="Savings", notes="To savings"),
         ]
     )
 
@@ -156,7 +158,7 @@ def test_income_allocation_reports_over_income_excess_when_outflows_exceed_incom
         transactions=[
             make_transaction(date=date(2026, 8, 1), amount=1000.0, type="Income", category="Salary", notes="Employer"),
             make_transaction(date=date(2026, 8, 2), amount=900.0, type="Expense", category="Groceries", notes="Woolworths"),
-            make_transaction(date=date(2026, 8, 3), amount=300.0, type="Transfer", category="Savings", notes="To savings"),
+            make_transaction(date=date(2026, 8, 3), amount=300.0, type="Savings", category="Savings", notes="To savings"),
         ]
     )
 
@@ -180,7 +182,7 @@ def test_income_allocation_with_zero_income_reports_zero_pct_rather_than_dividin
     allocation = overview.income_allocation
 
     assert allocation.expenses_pct == 0.0
-    assert allocation.transferred_pct == 0.0
+    assert allocation.saved_pct == 0.0
     assert allocation.remaining_pct == 0.0
     assert allocation.over_income_pct == 0.0
 
@@ -816,7 +818,7 @@ def test_annual_overview_month_by_month_sums_each_month_independently(fake_store
             make_transaction(date=date(2026, 7, 1), amount=1000.0, type="Income", category="Salary", notes="Employer"),
             make_transaction(date=date(2026, 7, 2), amount=400.0, type="Expense", category="Groceries", notes="Woolworths"),
             make_transaction(date=date(2026, 7, 2), amount=150.0, type="Debt", category="Mortgage Repayment", notes="Repayment"),
-            make_transaction(date=date(2026, 7, 3), amount=100.0, type="Transfer", category="Savings", notes="To savings"),
+            make_transaction(date=date(2026, 7, 3), amount=100.0, type="Savings", category="Savings", notes="To savings"),
             make_transaction(date=date(2026, 8, 5), amount=500.0, type="Income", category="Salary", notes="Employer"),
         ]
     )
@@ -1235,7 +1237,7 @@ def test_annual_overview_month_by_month_sums_each_month_independently_for_calend
             make_transaction(date=date(2026, 1, 1), amount=1000.0, type="Income", category="Salary", notes="Employer"),
             make_transaction(date=date(2026, 1, 2), amount=400.0, type="Expense", category="Groceries", notes="Woolworths"),
             make_transaction(date=date(2026, 1, 2), amount=150.0, type="Debt", category="Mortgage Repayment", notes="Repayment"),
-            make_transaction(date=date(2026, 1, 3), amount=100.0, type="Transfer", category="Savings", notes="To savings"),
+            make_transaction(date=date(2026, 1, 3), amount=100.0, type="Savings", category="Savings", notes="To savings"),
             make_transaction(date=date(2026, 2, 5), amount=500.0, type="Income", category="Salary", notes="Employer"),
         ]
     )
@@ -1335,9 +1337,9 @@ def test_transaction_date_range_is_the_earliest_and_latest_transaction_dates(tmp
 
 
 def _insert_transaction(database_path: Path, **fields) -> None:
-    # Transfer has no seeded Category (CONTEXT.md - added lazily, only for
-    # real cases), so this also seeds whichever ad hoc Category the test
-    # names (e.g. "Savings") the way a user would via Category Management.
+    # INSERT OR IGNORE so this also seeds whichever ad hoc Category the test
+    # names, the way a user would via Category Management - a no-op for a
+    # Category already seeded (e.g. Savings' own predefined Categories).
     connection = sqlite3.connect(database_path)
     connection.execute(
         "INSERT OR IGNORE INTO categories (type, name) VALUES (:type, :category)", fields
@@ -1471,7 +1473,7 @@ def test_transactions_in_range_are_sorted_newest_first(tmp_path: Path, make_cand
 
 
 def test_latest_transaction_date_counts_every_type_not_just_expenses(tmp_path: Path, make_candidate):
-    # The "As at" line says how current the Transaction Log is, so a Transfer
+    # The "As at" line says how current the Transaction Log is, so a Savings
     # or an Income row dates it just as well as an Expense does.
     store = connect(tmp_path / "budget.db")
     store.append_rows(

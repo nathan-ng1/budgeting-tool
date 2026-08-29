@@ -8,8 +8,8 @@ function allocation(overrides = {}) {
     expenses_pct: 0,
     debt_amount: 0,
     debt_pct: 0,
-    transferred_amount: 0,
-    transferred_pct: 0,
+    saved_amount: 0,
+    saved_pct: 0,
     remaining_amount: 0,
     remaining_pct: 0,
     over_income_amount: 0,
@@ -20,7 +20,7 @@ function allocation(overrides = {}) {
 
 describe("allocationBar", () => {
   it("scales to 100% of income when the month stayed within income", () => {
-    const bar = allocationBar(allocation({ expenses_pct: 70, transferred_pct: 17.2, remaining_pct: 12.8 }));
+    const bar = allocationBar(allocation({ expenses_pct: 70, saved_pct: 17.2, remaining_pct: 12.8 }));
 
     expect(bar.axisMax).toBe(100);
     expect(bar.incomeMarkerLeft).toBe("100%");
@@ -28,16 +28,16 @@ describe("allocationBar", () => {
   });
 
   it("widths are shares of the axis, so they read straight off the tick scale", () => {
-    const bar = allocationBar(allocation({ expenses_pct: 70, transferred_pct: 17.2, remaining_pct: 12.8 }));
+    const bar = allocationBar(allocation({ expenses_pct: 70, saved_pct: 17.2, remaining_pct: 12.8 }));
     const widths = Object.fromEntries(bar.segments.map((segment) => [segment.key, segment.width]));
 
     expect(widths.expenses).toBe("70%");
-    expect(widths.transferred).toBe("17.2%");
+    expect(widths.saved).toBe("17.2%");
     expect(widths.remaining).toBe("12.8%");
   });
 
   it("stretches the axis past 100% when outflows exceeded income, moving the income marker in", () => {
-    const bar = allocationBar(allocation({ expenses_pct: 106.9, transferred_pct: 17.2, over_income_pct: 24.1 }));
+    const bar = allocationBar(allocation({ expenses_pct: 106.9, saved_pct: 17.2, over_income_pct: 24.1 }));
 
     // Outflows are 124.1% of income, so the axis runs to the next 10%.
     expect(bar.axisMax).toBe(130);
@@ -55,22 +55,22 @@ describe("allocationBar", () => {
     expect(widths.over_income).toBe(`${(3.1 / 110) * 100}%`);
   });
 
-  it("draws a Debt segment ordered between Expenses and Transferred", () => {
-    const bar = allocationBar(allocation({ expenses_pct: 40, debt_pct: 15, transferred_pct: 10, remaining_pct: 35 }));
+  it("draws a Debt segment ordered between Expenses and Saved", () => {
+    const bar = allocationBar(allocation({ expenses_pct: 40, debt_pct: 15, saved_pct: 10, remaining_pct: 35 }));
     const keys = bar.segments.map((segment) => segment.key);
 
-    expect(keys).toEqual(["expenses", "debt", "transferred", "remaining"]);
+    expect(keys).toEqual(["expenses", "debt", "saved", "remaining"]);
     expect(Object.fromEntries(bar.segments.map((s) => [s.key, s.width])).debt).toBe("15%");
   });
 
-  it("trims Over income out of Transferred then Debt then Expenses in that order", () => {
-    // Outflows are 100% expenses + 20% debt + 10% transferred = 130%, so
-    // over_income_pct (30%) must come back out of Transferred (10) then Debt
-    // (20 remaining after Transferred's 10) before touching Expenses at all.
-    const bar = allocationBar(allocation({ expenses_pct: 100, debt_pct: 20, transferred_pct: 10, over_income_pct: 30 }));
+  it("trims Over income out of Saved then Debt then Expenses in that order", () => {
+    // Outflows are 100% expenses + 20% debt + 10% saved = 130%, so
+    // over_income_pct (30%) must come back out of Saved (10) then Debt
+    // (20 remaining after Saved's 10) before touching Expenses at all.
+    const bar = allocationBar(allocation({ expenses_pct: 100, debt_pct: 20, saved_pct: 10, over_income_pct: 30 }));
     const widths = Object.fromEntries(bar.segments.map((segment) => [segment.key, segment.width]));
 
-    expect(widths.transferred).toBe("0%");
+    expect(widths.saved).toBe("0%");
     expect(widths.debt).toBe("0%");
     expect(widths.expenses).toBe(`${(100 / 130) * 100}%`);
     expect(widths.over_income).toBe(`${(30 / 130) * 100}%`);

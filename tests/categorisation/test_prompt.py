@@ -39,13 +39,30 @@ def test_prompt_never_lists_beem_adjustment_as_an_assignable_category():
 
 
 def test_prompt_omits_a_type_that_has_no_categories_yet():
-    # A locked-only Type (Transfer here) ends up with an empty assignable set,
-    # same as a Type with no Categories at all - both are omitted.
-    categories = [*CATEGORIES, Category(id=5, type="Transfer", name="Savings", emoji=None, locked=True)]
+    # A locked-only Type (Debt here, absent elsewhere in CATEGORIES) ends up
+    # with an empty assignable set, same as a Type with no Categories at all
+    # - both are omitted.
+    categories = [*CATEGORIES, Category(id=5, type="Debt", name="Some Locked Debt", emoji=None, locked=True)]
 
     prompt = build_prompt([make_transaction()], categories)
 
-    assert "Transfer" not in prompt
+    assert "Debt" not in prompt
+
+
+def test_prompt_omits_savings_even_with_real_non_locked_categories():
+    # ADR-0022 - Savings must stay out of the categorisation prompt for a
+    # reason separate from "locked" or "has no categories yet": it's
+    # AI-excluded outright, even with real, unlocked Categories to offer.
+    categories = [
+        *CATEGORIES,
+        Category(id=5, type="Savings", name="Savings", emoji=None, locked=False),
+        Category(id=6, type="Savings", name="Investments", emoji=None, locked=False),
+    ]
+
+    prompt = build_prompt([make_transaction()], categories)
+
+    assert "Savings" not in prompt
+    assert "Investments" not in prompt
 
 
 def test_prompt_lists_every_transaction_with_date_amount_and_notes():
