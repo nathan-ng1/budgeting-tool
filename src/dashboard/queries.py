@@ -255,20 +255,20 @@ def get_budget_editor(store, year: int, month: int, trailing_months: int = 3) ->
     transactions = store.read_transactions()
     earliest_month_by_category = _earliest_month_by_category(transactions)
 
+    # selected_start is folded into the same per-month totals computation as
+    # window_months (rather than a second, separately-filtered pass) so
+    # month_actual reuses exactly the shape last_month_actual already relies
+    # on for its own month.
     actuals_by_month = {
         month_start: _totals_by_category(
             [t for t in transactions if t.date.year == month_start.year and t.date.month == month_start.month],
             BUDGETABLE_TYPES,
         )
-        for month_start in window_months
+        for month_start in [*window_months, selected_start]
     }
     current_budgets = store.read_category_budgets(year, month)
     last_month = window_months[0]
     last_month_budgets = store.read_category_budgets(last_month.year, last_month.month)
-    selected_month_actuals = _totals_by_category(
-        [t for t in transactions if t.date.year == year and t.date.month == month],
-        BUDGETABLE_TYPES,
-    )
 
     rows = []
     for transaction_type, category in _budgetable_type_category_pairs(categories):
@@ -286,7 +286,7 @@ def get_budget_editor(store, year: int, month: int, trailing_months: int = 3) ->
                 last_month_budgeted=last_month_budgets.get(category),
                 trailing_average_actual=trailing_average_actual,
                 average_variance_pct=average_variance_pct,
-                month_actual=_round(selected_month_actuals.get(category, 0.0)),
+                month_actual=_round(actuals_by_month[selected_start].get(category, 0.0)),
             )
         )
     return rows
