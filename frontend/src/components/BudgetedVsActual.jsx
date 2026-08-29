@@ -4,10 +4,8 @@ import { UNSET, money, signedMoney, signedPct } from "../lib/format.js";
 import { toneFor } from "../lib/tone.js";
 
 // The budgetable Types, in CONTEXT.md's order - the table's section order,
-// top to bottom. Deliberately its own list rather than transactionsView.js's
-// TYPES (that module is scoped to the Transactions tab, and its list
-// includes Savings, which has no Category Budget to show here).
-const SECTIONS = ["Income", "Expense", "Debt"];
+// top to bottom. Every Type is budgetable (ADR-0023).
+const SECTIONS = ["Income", "Expense", "Debt", "Savings"];
 
 // The endpoint reports `diff` as budget remaining (budgeted - actual) and
 // `pct` as actual as a share of budgeted. The table reads the other way
@@ -27,16 +25,17 @@ function overspend(row) {
   return { diff: -row.diff, pct: row.pct - 100 };
 }
 
-// For Income, coming in above budgeted is good news, not overspend - the
-// opposite of Expense/Debt. The figure itself keeps the same sign either way
-// (a positive Diff always means "actual above budgeted"); only which colour
-// that reads as flips, the same way MonthByMonth/StatTiles flip tone by
-// negating the value they feed toneFor rather than editing toneFor itself.
+// For Income and Savings, coming in above budgeted is good news, not
+// overspend - the opposite of Expense/Debt. The figure itself keeps the same
+// sign either way (a positive Diff always means "actual above budgeted");
+// only which colour that reads as flips, the same way MonthByMonth/StatTiles
+// flip tone by negating the value they feed toneFor rather than editing
+// toneFor itself.
 function toneForType(type, diff) {
   if (diff === null) {
     return "";
   }
-  return toneFor(type === "Income" ? -diff : diff);
+  return toneFor(type === "Income" || type === "Savings" ? -diff : diff);
 }
 
 function SignedCells({ type, diff, pct }) {

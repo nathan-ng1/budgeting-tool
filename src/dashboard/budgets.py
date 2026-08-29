@@ -10,9 +10,10 @@ from budget_suggestions.suggestion import BudgetSuggestion
 from dashboard.queries import BudgetEditorRow, BudgetGridRow
 from transaction_log.categories import TYPE_ORDER
 
-# Savings has no Category Budget to set (CONTEXT.md's Category Budget entry),
-# so it never appears as a section here.
-BUDGETABLE_TYPES = tuple(t for t in TYPE_ORDER if t != "Savings")
+# Every Type is budgetable (ADR-0023), so this is just TYPE_ORDER - kept as
+# its own name since it's the wire-shape grouping this module builds, not a
+# re-export of TYPE_ORDER's own meaning.
+BUDGETABLE_TYPES = TYPE_ORDER
 
 # The trailing window the Budget tab editor requests when its dropdown query
 # param is absent - see dashboard.queries.TRAILING_WINDOWS.
@@ -20,7 +21,8 @@ DEFAULT_TRAILING_WINDOW = 3
 
 
 def as_editor_payload(rows: list[BudgetEditorRow]) -> dict[str, list[dict]]:
-    """Every Income/Expense/Debt Category grouped by Type, each carrying its
+    """Every budgetable Category (Income, Expense, Debt, and Savings -
+    ADR-0023) grouped by Type, each carrying its
     current month's Category Budget (None if unset - unset != $0) alongside
     the grey historical context columns the editor shows beside it: last
     month's actual, last month's own Category Budget (None if it was unset),

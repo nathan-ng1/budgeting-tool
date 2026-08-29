@@ -68,13 +68,14 @@ describe("BudgetedVsActual", () => {
     expect(cells[5]).not.toHaveTextContent("-100%");
   });
 
-  it("partitions rows into Income, Expense, and Debt sections, each with its own subtotal", () => {
+  it("partitions rows into Income, Expense, Debt, and Savings sections, each with its own subtotal", () => {
     render(
       <BudgetedVsActual
         rows={[
           { type: "Expense", category: "Groceries", budgeted: 650, actual: 612, diff: 38, pct: 94.2 },
           { type: "Income", category: "Salary", budgeted: 4000, actual: 4200, diff: -200, pct: 105.0 },
           { type: "Debt", category: "Mortgage Repayment", budgeted: 850, actual: 900, diff: -50, pct: 105.9 },
+          { type: "Savings", category: "Savings", budgeted: 500, actual: 600, diff: -100, pct: 120.0 },
         ]}
       />,
     );
@@ -82,10 +83,12 @@ describe("BudgetedVsActual", () => {
     expect(sectionHeading("Income")).toBeInTheDocument();
     expect(sectionHeading("Expense")).toBeInTheDocument();
     expect(sectionHeading("Debt")).toBeInTheDocument();
+    expect(sectionHeading("Savings")).toBeInTheDocument();
 
     expect(within(row("Income total")).getAllByRole("cell")[2]).toHaveTextContent("$4,000");
     expect(within(row("Expense total")).getAllByRole("cell")[2]).toHaveTextContent("$650");
     expect(within(row("Debt total")).getAllByRole("cell")[2]).toHaveTextContent("$850");
+    expect(within(row("Savings total")).getAllByRole("cell")[2]).toHaveTextContent("$500");
 
     // No grand total across Types.
     expect(screen.queryByText(/^Total$/)).not.toBeInTheDocument();
@@ -119,6 +122,28 @@ describe("BudgetedVsActual", () => {
     // favourable for Income and adverse for Expense.
     expect(incomeDiffCell).toHaveTextContent("+$200");
     expect(incomeDiffCell.className).toContain("favourable");
+    expect(expenseDiffCell).toHaveTextContent("+$50");
+    expect(expenseDiffCell.className).toContain("adverse");
+  });
+
+  it("reads a Savings Category over its Budgeted as favourable, the same direction as Income", () => {
+    render(
+      <BudgetedVsActual
+        rows={[
+          { type: "Savings", category: "Emergency Fund", budgeted: 500, actual: 600, diff: -100, pct: 120.0 },
+          { type: "Expense", category: "Groceries", budgeted: 650, actual: 700, diff: -50, pct: 107.7 },
+        ]}
+      />,
+    );
+
+    const savingsDiffCell = within(row("Emergency Fund")).getAllByRole("cell")[4];
+    const expenseDiffCell = within(row("Groceries")).getAllByRole("cell")[4];
+
+    // Both actuals landed above Budgeted (a positive Diff), but that reads as
+    // favourable for Savings (saving more than planned is good news) and
+    // adverse for Expense.
+    expect(savingsDiffCell).toHaveTextContent("+$100");
+    expect(savingsDiffCell.className).toContain("favourable");
     expect(expenseDiffCell).toHaveTextContent("+$50");
     expect(expenseDiffCell.className).toContain("adverse");
   });

@@ -384,6 +384,25 @@ def test_budgeted_vs_actual_includes_income_and_debt_categories(fake_store, make
     assert by_category["Mortgage Repayment"].diff == -50.0
 
 
+def test_budgeted_vs_actual_includes_savings_categories(fake_store, make_transaction):
+    # Issue #136 - Category Budget extends to Savings, the same round-trip
+    # already proven for Income/Expense/Debt above.
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 8, 3), amount=600.0, type="Savings", category="Savings", notes="To savings"),
+        ],
+        category_budgets={("Savings", 2026, 8): 500.0},
+    )
+
+    overview = get_month_overview(store, year=2026, month=8)
+    by_category = {row.category: row for row in overview.budgeted_vs_actual}
+
+    assert by_category["Savings"].type == "Savings"
+    assert by_category["Savings"].budgeted == 500.0
+    assert by_category["Savings"].actual == 600.0
+    assert by_category["Savings"].diff == -100.0
+
+
 def test_top_5_expenses_are_the_five_largest_that_month_descending(fake_store, make_transaction):
     store = fake_store(
         transactions=[
@@ -743,6 +762,27 @@ def test_annual_overview_budgeted_vs_actual_includes_income_and_debt_categories(
     assert by_category["Salary"].budgeted == 4000.0
     assert by_category["Mortgage Repayment"].type == "Debt"
     assert by_category["Mortgage Repayment"].budgeted == 850.0
+
+
+def test_annual_overview_budgeted_vs_actual_includes_savings_categories_summed_across_elapsed_months(
+    fake_store, make_transaction
+):
+    # Issue #136 - the annual sum-over-elapsed-months behaviour already
+    # proven for Income/Expense/Debt applies to Savings too.
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, 3), amount=500.0, type="Savings", category="Savings", notes="To savings"),
+            make_transaction(date=date(2026, 8, 3), amount=600.0, type="Savings", category="Savings", notes="To savings"),
+        ],
+        category_budgets={("Savings", 2026, 7): 400.0, ("Savings", 2026, 8): 400.0},
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 8, 15))
+    by_category = {row.category: row for row in overview.budgeted_vs_actual}
+
+    assert by_category["Savings"].type == "Savings"
+    assert by_category["Savings"].budgeted == 800.0
+    assert by_category["Savings"].actual == 1100.0
 
 
 def test_annual_overview_top_expenses_are_the_ten_largest_across_elapsed_months(fake_store, make_transaction):
@@ -1494,9 +1534,10 @@ def test_budget_editor_includes_every_budgetable_category_grouped_by_type_not_tr
 
     rows = get_budget_editor(store, year=2026, month=8)
 
-    assert {row.type for row in rows} == {"Income", "Expense", "Debt"}
+    assert {row.type for row in rows} == {"Income", "Expense", "Debt", "Savings"}
     assert "Salary" in {row.category for row in rows}
     assert "Mortgage Repayment" in {row.category for row in rows}
+    assert "Savings" in {row.category for row in rows}
 
 
 def test_budget_editor_includes_a_category_added_through_category_management(fake_store):
@@ -1519,6 +1560,24 @@ def test_budget_editor_reports_this_months_budgeted_amount_or_none_if_unset(fake
 
     assert by_category["Groceries"].budgeted == 320.0
     assert by_category["Transport"].budgeted is None
+
+
+def test_budget_editor_reports_a_savings_category_budgeted_amount(fake_store, make_transaction):
+    # Issue #136 - a Savings Category Budget round-trips through
+    # get_budget_editor exactly like Income/Expense/Debt.
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 8, 5), amount=600.0, type="Savings", category="Savings", notes="To savings"),
+        ],
+        category_budgets={("Savings", 2026, 8): 500.0},
+    )
+
+    rows = get_budget_editor(store, year=2026, month=8)
+    by_category = {row.category: row for row in rows}
+
+    assert by_category["Savings"].type == "Savings"
+    assert by_category["Savings"].budgeted == 500.0
+    assert by_category["Savings"].month_actual == 600.0
 
 
 def test_budget_editor_last_month_actual_is_last_calendar_months_total_for_the_category(fake_store, make_transaction):
@@ -1696,9 +1755,10 @@ def test_full_year_grid_includes_every_budgetable_category_grouped_by_type_not_t
 
     rows = get_full_year_budget_grid(store, year=2026)
 
-    assert {row.type for row in rows} == {"Income", "Expense", "Debt"}
+    assert {row.type for row in rows} == {"Income", "Expense", "Debt", "Savings"}
     assert "Salary" in {row.category for row in rows}
     assert "Mortgage Repayment" in {row.category for row in rows}
+    assert "Savings" in {row.category for row in rows}
 
 
 def test_full_year_grid_has_twelve_amounts_per_row_in_july_to_june_order(fake_store):
@@ -1716,6 +1776,18 @@ def test_full_year_grid_has_twelve_amounts_per_row_in_july_to_june_order(fake_st
     assert groceries.amounts[0] == 300.0  # July
     assert groceries.amounts[11] == 350.0  # June
     assert groceries.amounts[1:11] == [None] * 10
+
+
+def test_full_year_grid_reports_a_savings_category_budget(fake_store):
+    # Issue #136 - a Savings Category Budget round-trips through
+    # get_full_year_budget_grid exactly like Income/Expense/Debt.
+    store = fake_store(category_budgets={("Savings", 2026, 7): 500.0})
+
+    rows = get_full_year_budget_grid(store, year=2026)
+    savings = next(row for row in rows if row.category == "Savings")
+
+    assert savings.type == "Savings"
+    assert savings.amounts[0] == 500.0  # July
 
 
 def test_full_year_grid_a_category_budget_outside_the_financial_year_is_not_included(fake_store):

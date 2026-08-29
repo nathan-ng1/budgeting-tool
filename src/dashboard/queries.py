@@ -12,9 +12,9 @@ from datetime import date
 from transaction_log.categories import TYPE_ORDER, Category, categories_by_type, type_lookup
 from transaction_log.entries import Transaction
 
-# The Types a Category Budget can apply to - Savings has none to budget
-# (CONTEXT.md's Category Budget entry).
-BUDGETABLE_TYPES = {"Income", "Expense", "Debt"}
+# The Types a Category Budget can apply to - every Type, including Savings
+# (ADR-0023 extended it from Income/Expense/Debt).
+BUDGETABLE_TYPES = {"Income", "Expense", "Debt", "Savings"}
 
 # The trailing window sizes the Budget tab's editor dropdown offers - Issue #63.
 TRAILING_WINDOWS = (3, 6, 12)
@@ -225,8 +225,9 @@ def _budgetable_type_category_pairs(categories: list[Category]):
 
 
 def get_budget_editor(store, year: int, month: int, trailing_months: int = 3) -> list[BudgetEditorRow]:
-    """The Budget tab's per-month editor rows - every Income/Expense/Debt
-    Category with its current month's Category Budget (None if unset)
+    """The Budget tab's per-month editor rows - every budgetable Category
+    (Income, Expense, Debt, and Savings - ADR-0023) with its current month's
+    Category Budget (None if unset)
     alongside grey historical context: last month's actual, last month's own
     Category Budget (None if it was unset - unset != $0), a trailing average
     actual, an average variance % (how far actual has tended to run from
@@ -294,7 +295,8 @@ def get_budget_editor(store, year: int, month: int, trailing_months: int = 3) ->
 
 def get_full_year_budget_grid(store, year: int, start_month: int = 7) -> list[BudgetGridRow]:
     """The Budget tab's Full year read-only grid rows (Issue #64) - every
-    Income/Expense/Debt Category (grouped by Type, alphabetical within it -
+    budgetable Category (Income, Expense, Debt, and Savings - ADR-0023)
+    grouped by Type, alphabetical within it -
     same ordering as get_budget_editor) against its Category Budget for each
     of the 12 months of the year-shaped period starting `year`-`start_month`
     (7 for Financial Year, 1 for Calendar Year - ADR-0021), in that order.
