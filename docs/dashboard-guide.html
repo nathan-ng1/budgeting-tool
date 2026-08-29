@@ -160,6 +160,58 @@
     <code>mac/open_dashboard.command</code>. The tables use the shared base name only.
   </div>
 
+    <h2>How to use?</h2>
+  <ol>
+    <li>Download a new Statement Export into your Transactions Inbox, then run
+    <code>process_statement_export.bat</code> — or, on the Dashboard-only path, add anything new
+    by hand on the <strong>Transactions</strong> tab.</li>
+    <li>Double-click <code>open_dashboard.bat</code> and check the <strong>Overview</strong> tab
+    for the current month.</li>
+    <li>Adjust category budgets on the <strong>Budget</strong> tab if anything's drifted, or run
+    <code>generate_budget_suggestion.bat</code> for a fresh AI write-up.</li>
+    <li>Add or edit a Recurring rule on <strong>Settings</strong> whenever a standing item
+    changes (a subscription price rise, a new one starting).</li>
+  </ol>
+
+  <h2>The Dashboard Tabs</h2>
+
+  <div class="cards">
+    <div class="card">
+      <span class="tag">Overview</span>
+      <h4>Where your money went this month — or this year</h4>
+      <p>Pick a month with the Jul–Jun pills, or Full year for the whole Financial Year. Shows the
+      Income/Expenses/Net Balance/Transferred/Debt stat tiles, Income Allocation, Spending by
+      Category, Budgeted vs Actual, your top 5 expenses, and expenses over time (Full year instead
+      shows Income vs Expenses and Month by Month). Read-only — nothing here is edited directly.</p>
+    </div>
+    <div class="card">
+      <span class="tag">Transactions</span>
+      <h4>The full list, searchable and editable</h4>
+      <p><strong>Add transaction</strong> enters one by hand — this is how a Dashboard-only install
+      (no AI subscription) records spending, instead of running
+      <code>process_statement_export.bat</code>. Every row can be edited or deleted. Search by
+      Notes, sort any column, and export/import via the "More options" menu.</p>
+    </div>
+    <div class="card">
+      <span class="tag">Budget</span>
+      <h4>Per-category monthly budgets, plus the AI write-up</h4>
+      <p>Set a budget amount per Category per month in the grid — this is what Overview's Budgeted
+      vs Actual compares against. The Budget Suggestion card shows the standing write-up from
+      <code>generate_budget_suggestion.bat</code>, editable in place. That script needs an AI
+      subscription configured first (see the table below) — until then, the card just explains how
+      to set one up.</p>
+    </div>
+    <div class="card">
+      <span class="tag">Settings</span>
+      <h4>Categories and Recurring Transactions</h4>
+      <p><strong>Category Management</strong> adds, renames, or deletes the Categories offered
+      everywhere else in the Dashboard (a locked Category, like Beem Adjustment, can't be renamed
+      or deleted). <strong>Recurring Transactions</strong> adds, edits, or deletes standing rules
+      (salary, rent, subscriptions) — each rule's Day follows its Start Date, and expands
+      automatically alongside any Statement Export you process.</p>
+    </div>
+  </div>
+
   <h2>Opening and closing the Dashboard</h2>
   <p>Everything runs locally — the Dashboard is a small web server on your own machine, reading
   your local database directly. No transaction data ever leaves it
@@ -221,58 +273,6 @@
     the frontend's source code itself (hot-reloading Vite dev server rather than the built static
     page) — not needed for normal day-to-day use.
   </p>
-
-  <h2>The four tabs</h2>
-
-  <div class="cards">
-    <div class="card">
-      <span class="tag">Overview</span>
-      <h4>Where your money went this month — or this year</h4>
-      <p>Pick a month with the Jul–Jun pills, or Full year for the whole Financial Year. Shows the
-      Income/Expenses/Net Balance/Transferred/Debt stat tiles, Income Allocation, Spending by
-      Category, Budgeted vs Actual, your top 5 expenses, and expenses over time (Full year instead
-      shows Income vs Expenses and Month by Month). Read-only — nothing here is edited directly.</p>
-    </div>
-    <div class="card">
-      <span class="tag">Transactions</span>
-      <h4>The full list, searchable and editable</h4>
-      <p><strong>Add transaction</strong> enters one by hand — this is how a Dashboard-only install
-      (no AI subscription) records spending, instead of running
-      <code>process_statement_export.bat</code>. Every row can be edited or deleted. Search by
-      Notes, sort any column, and export/import via the "More options" menu.</p>
-    </div>
-    <div class="card">
-      <span class="tag">Budget</span>
-      <h4>Per-category monthly budgets, plus the AI write-up</h4>
-      <p>Set a budget amount per Category per month in the grid — this is what Overview's Budgeted
-      vs Actual compares against. The Budget Suggestion card shows the standing write-up from
-      <code>generate_budget_suggestion.bat</code>, editable in place. That script needs an AI
-      subscription configured first (see the table below) — until then, the card just explains how
-      to set one up.</p>
-    </div>
-    <div class="card">
-      <span class="tag">Settings</span>
-      <h4>Categories and Recurring Transactions</h4>
-      <p><strong>Category Management</strong> adds, renames, or deletes the Categories offered
-      everywhere else in the Dashboard (a locked Category, like Beem Adjustment, can't be renamed
-      or deleted). <strong>Recurring Transactions</strong> adds, edits, or deletes standing rules
-      (salary, rent, subscriptions) — each rule's Day follows its Start Date, and expands
-      automatically alongside any Statement Export you process.</p>
-    </div>
-  </div>
-
-  <h2>A typical week</h2>
-  <ol>
-    <li>Download a new Statement Export into your Transactions Inbox, then run
-    <code>process_statement_export.bat</code> — or, on the Dashboard-only path, add anything new
-    by hand on the <strong>Transactions</strong> tab.</li>
-    <li>Double-click <code>open_dashboard.bat</code> and check the <strong>Overview</strong> tab
-    for the current month.</li>
-    <li>Adjust category budgets on the <strong>Budget</strong> tab if anything's drifted, or run
-    <code>generate_budget_suggestion.bat</code> for a fresh AI write-up.</li>
-    <li>Add or edit a Recurring rule on <strong>Settings</strong> whenever a standing item
-    changes (a subscription price rise, a new one starting).</li>
-  </ol>
 
   <footer>
     Full reference docs live in this repo's <code>README.md</code> and <code>CONTEXT.md</code>
