@@ -13,6 +13,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from dashboard import budgets, categories, queries, recurring, transactions
 from database.store import CategoryNotFound, RecurringRuleNotFound, TransactionNotFound
+from statement_export import pipeline
 from transaction_log.categories import type_lookup
 
 # Where `npm run build` puts the frontend (see frontend/vite.config.js). The
@@ -31,6 +32,7 @@ CONTENT_TYPES = {
 }
 
 RECURRING_RULES_PATH = "/api/recurring-rules"
+RECURRING_RULES_RUN_PATH = f"{RECURRING_RULES_PATH}/run"
 TRANSACTIONS_PATH = "/api/transactions"
 TRANSACTIONS_EXPORT_PATH = "/api/transactions/export"
 TRANSACTIONS_IMPORT_TEMPLATE_PATH = "/api/transactions/import-template"
@@ -141,7 +143,9 @@ def _make_handler(store, static_root: Path):
         @serialised
         def do_POST(self):
             path = urlparse(self.path).path
-            if path == RECURRING_RULES_PATH:
+            if path == RECURRING_RULES_RUN_PATH:
+                self._run_recurring_rules()
+            elif path == RECURRING_RULES_PATH:
                 self._write_rule(lambda rule: (201, store.create_recurring_rule(rule)))
             elif path == TRANSACTIONS_PATH:
                 self._write_transaction(lambda candidate: (201, store.create_transaction(candidate)))
@@ -272,6 +276,14 @@ def _make_handler(store, static_root: Path):
                 return
 
             self._send_json(status, recurring.as_payload(stored))
+
+        def _run_recurring_rules(self) -> None:
+            """Manually expand every Recurring Transactions Config rule
+            through today - the same expansion/dedupe path a Statement
+            Export run already applies to its own rows, just with no
+            candidates of its own (Issue #131)."""
+            result = pipeline.run(candidates=[], store=store, through=date.today())
+            self._send_json(200, {"written": len(result.to_write)})
 
         def _write_transaction(self, write) -> None:
             """Parse a Candidate from the request body, hand it to `write`, and

@@ -39,6 +39,9 @@ function backend(rules = [], categories = CATEGORIES) {
     if (url === "/api/categories") {
       return { ok: true, status: 200, json: async () => categories };
     }
+    if (url === "/api/recurring-rules/run") {
+      return { ok: true, status: 200, json: async () => ({ written: 0 }) };
+    }
     if (method === "GET") {
       return { ok: true, status: 200, json: async () => stored };
     }
@@ -232,5 +235,86 @@ describe("RecurringRules", () => {
     render(<RecurringRules />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/500/);
+  });
+
+  it("describes both ways Recurring Transactions get expanded", async () => {
+    render(<RecurringRules />);
+
+    expect(
+      await screen.findByText(
+        "Predictable items expanded into the Transaction Log via an automated Statement Export or manual run.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("disables Run now until there is at least one rule", async () => {
+    render(<RecurringRules />);
+
+    expect(await screen.findByText(/No rules in the Recurring Transactions Config/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Run now" })).toBeDisabled();
+  });
+
+  it("enables Run now once a rule exists", async () => {
+    useBackend([rule()]);
+    render(<RecurringRules />);
+
+    expect(await screen.findByRole("button", { name: "Run now" })).toBeEnabled();
+  });
+
+  it("runs the rules and reports how many transactions were added", async () => {
+    useBackend([rule()]);
+    render(<RecurringRules />);
+    await screen.findByText("Streaming service");
+
+    fetchMock.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ written: 3 }) });
+    await userEvent.click(screen.getByRole("button", { name: "Run now" }));
+
+    expect(await screen.findByText("3 transactions added.")).toBeInTheDocument();
+    const posted = fetchMock.mock.calls.find(([url]) => url === "/api/recurring-rules/run");
+    expect(posted[1]).toMatchObject({ method: "POST" });
+  });
+
+  it("uses singular phrasing for exactly one transaction added", async () => {
+    useBackend([rule()]);
+    render(<RecurringRules />);
+    await screen.findByText("Streaming service");
+
+    fetchMock.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ written: 1 }) });
+    await userEvent.click(screen.getByRole("button", { name: "Run now" }));
+
+    expect(await screen.findByText("1 transaction added.")).toBeInTheDocument();
+  });
+
+  it("says there's nothing new to add when the run writes zero rows", async () => {
+    useBackend([rule()]);
+    render(<RecurringRules />);
+    await screen.findByText("Streaming service");
+
+    fetchMock.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ written: 0 }) });
+    await userEvent.click(screen.getByRole("button", { name: "Run now" }));
+
+    expect(await screen.findByText("Nothing new to add.")).toBeInTheDocument();
+  });
+
+  it("disables Run now and shows it's running while the request is in flight", async () => {
+    useBackend([rule()]);
+    render(<RecurringRules />);
+    await screen.findByText("Streaming service");
+
+    let resolveRun;
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveRun = resolve;
+        }),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Run now" }));
+
+    expect(await screen.findByRole("button", { name: "Running…" })).toBeDisabled();
+
+    resolveRun({ ok: true, status: 200, json: async () => ({ written: 1 }) });
+
+    expect(await screen.findByRole("button", { name: "Run now" })).toBeEnabled();
   });
 });
