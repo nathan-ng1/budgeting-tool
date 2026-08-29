@@ -298,6 +298,9 @@ export default function Budget({ periodType, referenceYear, selected, onSelect }
                     Avg Variance %
                   </th>
                   <th scope="col" className="table__num">
+                    Month Actual
+                  </th>
+                  <th scope="col" className="table__num">
                     Budgeted Amount
                   </th>
                 </tr>
@@ -305,16 +308,17 @@ export default function Budget({ periodType, referenceYear, selected, onSelect }
               {Object.entries(editor).map(([type, rows]) => (
                 <tbody key={type}>
                   <tr>
-                    <th scope="colgroup" colSpan={5} className="table__section">
+                    <th scope="colgroup" colSpan={6} className="table__section">
                       {type}
                     </th>
                   </tr>
-                  {rows.map(({ category, last_month_actual, trailing_average_actual, average_variance_pct }) => (
+                  {rows.map(({ category, last_month_actual, trailing_average_actual, average_variance_pct, month_actual }) => (
                     <tr key={category}>
                       <td>{categoryLabel(category, emoji)}</td>
                       <td className="table__num muted">{money(last_month_actual)}</td>
                       <td className="table__num muted">{trailing_average_actual === null ? UNSET : money(trailing_average_actual)}</td>
                       <td className="table__num muted">{average_variance_pct === null ? UNSET : signedPct(average_variance_pct)}</td>
+                      <td className="table__num muted">{money(month_actual)}</td>
                       <td className="table__num">
                         <input
                           type="number"
@@ -329,7 +333,7 @@ export default function Budget({ periodType, referenceYear, selected, onSelect }
                     </tr>
                   ))}
                   <tr className="budget__total-row">
-                    <td colSpan={4}>Total</td>
+                    <td colSpan={5}>Total</td>
                     <td className="table__num">{money(totals[type])}</td>
                   </tr>
                 </tbody>

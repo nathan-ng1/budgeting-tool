@@ -24,9 +24,10 @@ def as_editor_payload(rows: list[BudgetEditorRow]) -> dict[str, list[dict]]:
     current month's Category Budget (None if unset - unset != $0) alongside
     the grey historical context columns the editor shows beside it: last
     month's actual, last month's own Category Budget (None if it was unset),
-    a trailing average actual, and an average variance % (None when there
-    isn't enough history to compute either - see
-    dashboard.queries.get_budget_editor).
+    a trailing average actual, an average variance % (None when there isn't
+    enough history to compute either), and month_actual - the selected
+    (year, month)'s own actual so far, always a real figure, never unset
+    (Issue #135) - see dashboard.queries.get_budget_editor.
     """
     grouped: dict[str, list[dict]] = {transaction_type: [] for transaction_type in BUDGETABLE_TYPES}
     for row in rows:
@@ -38,6 +39,7 @@ def as_editor_payload(rows: list[BudgetEditorRow]) -> dict[str, list[dict]]:
                 "last_month_budgeted": row.last_month_budgeted,
                 "trailing_average_actual": row.trailing_average_actual,
                 "average_variance_pct": row.average_variance_pct,
+                "month_actual": row.month_actual,
             }
         )
     return grouped

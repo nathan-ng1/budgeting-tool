@@ -52,6 +52,7 @@ def test_a_fresh_month_returns_every_category_grouped_by_type_all_unset(running_
     assert salary["last_month_actual"] == 0.0
     assert salary["trailing_average_actual"] is None
     assert salary["average_variance_pct"] is None
+    assert salary["month_actual"] == 0.0
 
 
 def test_saving_a_category_budget_then_appears_in_the_editor_read(running_server):
@@ -64,6 +65,30 @@ def test_saving_a_category_budget_then_appears_in_the_editor_read(running_server
 
     _status, body = call(server, "GET", "/api/budget-editor?year=2026&month=8")
     assert _row(body["Expense"], "Groceries")["amount"] == 650.0
+
+
+def test_month_actual_reflects_the_selected_months_known_transactions(running_server):
+    _store, server = running_server
+    call(
+        server,
+        "POST",
+        "/api/transactions",
+        {
+            "date": "2026-08-05",
+            "amount": 310.0,
+            "type": "Expense",
+            "category": "Groceries",
+            "notes": "Woolworths",
+        },
+    )
+
+    _status, body = call(server, "GET", "/api/budget-editor?year=2026&month=8")
+
+    # A separate, necessary seam from the query-layer test: as_editor_payload's
+    # field mapping is manual, so a value computed correctly by
+    # get_budget_editor could still be silently omitted from the wire
+    # contract if the key isn't added there too.
+    assert _row(body["Expense"], "Groceries")["month_actual"] == 310.0
 
 
 def test_last_months_own_category_budget_appears_as_last_month_budgeted(running_server):

@@ -29,6 +29,7 @@ function row(overrides = {}) {
     last_month_budgeted: null,
     trailing_average_actual: null,
     average_variance_pct: null,
+    month_actual: 0,
     ...overrides,
   };
 }
@@ -44,6 +45,7 @@ function editor(overrides = {}) {
         last_month_budgeted: 600,
         trailing_average_actual: 590.25,
         average_variance_pct: 12.3,
+        month_actual: 305.75,
       }),
       row({ category: "Dining & Takeaway" }),
     ],
@@ -209,7 +211,27 @@ describe("Budget", () => {
     expect(cells[2]).toHaveClass("muted");
     expect(cells[3]).toHaveTextContent("+12%"); // average variance %
     expect(cells[3]).toHaveClass("muted");
-    expect(cells[4]).not.toHaveClass("muted"); // the editable Budgeted cell
+    expect(cells[4]).toHaveTextContent("$306"); // month actual
+    expect(cells[4]).toHaveClass("muted");
+    expect(cells[5]).not.toHaveClass("muted"); // the editable Budgeted cell
+  });
+
+  it("positions Month Actual immediately before Budgeted Amount, after Avg Variance %", async () => {
+    render(<ControlledBudget />);
+    await screen.findByText("Groceries");
+
+    const headerRow = screen.getAllByRole("columnheader")[0].closest("tr");
+    const headers = within(headerRow)
+      .getAllByRole("columnheader")
+      .map((header) => header.textContent);
+    expect(headers).toEqual([
+      "Category",
+      "Last Month Actual",
+      "3-Month Avg Actual",
+      "Avg Variance %",
+      "Month Actual",
+      "Budgeted Amount",
+    ]);
   });
 
   it("shows an unset historical column as a dash, not $0", async () => {
