@@ -6,6 +6,7 @@ import {
   deleteRecurringRule,
   fetchCategories,
   fetchRecurringRules,
+  runRecurringRules,
   updateRecurringRule,
 } from "../lib/recurringApi.js";
 import { preciseMoney } from "../lib/format.js";
@@ -29,12 +30,21 @@ function schedule(rule) {
   return rule.frequency === "Weekly" ? `${every} on ${rule.day}` : `${every} on day ${rule.day}`;
 }
 
+function describeRun(written) {
+  if (written === 0) {
+    return "Nothing new to add.";
+  }
+  return `${written} transaction${written === 1 ? "" : "s"} added.`;
+}
+
 export default function RecurringRules() {
   const [rules, setRules] = useState(null);
   const [categories, setCategories] = useState({});
   const [categoryList, setCategoryList] = useState([]);
   const [editing, setEditing] = useState(null);
   const [error, setError] = useState(null);
+  const [running, setRunning] = useState(false);
+  const [runResult, setRunResult] = useState(null);
 
   const load = useCallback(async (signal) => {
     const [loadedRules, loadedCategories] = await Promise.all([
@@ -75,6 +85,20 @@ export default function RecurringRules() {
     setEditing(null);
   }
 
+  async function runRules() {
+    setError(null);
+    setRunResult(null);
+    setRunning(true);
+    try {
+      const { written } = await runRecurringRules();
+      setRunResult(describeRun(written));
+    } catch (cause) {
+      setError(cause.message);
+    } finally {
+      setRunning(false);
+    }
+  }
+
   async function remove(rule) {
     setError(null);
     try {
@@ -102,15 +126,31 @@ export default function RecurringRules() {
         <div>
           <h3>Recurring Transactions</h3>
           <p className="card__note">
-            Predictable items expanded into the Transaction Log on the next Statement Export run.
+            Predictable items expanded into the Transaction Log via an automated Statement Export or manual run.
           </p>
         </div>
         {editing === null && (
-          <button type="button" className="button" onClick={() => setEditing({ id: null, values: blankValues() })}>
-            Add rule
-          </button>
+          <div className="card__actions">
+            <button
+              type="button"
+              className="button"
+              disabled={rules === null || rules.length === 0 || running}
+              onClick={runRules}
+            >
+              {running ? "Running…" : "Run now"}
+            </button>
+            <button type="button" className="button" onClick={() => setEditing({ id: null, values: blankValues() })}>
+              Add rule
+            </button>
+          </div>
         )}
       </div>
+
+      {runResult !== null && (
+        <p className="state" role="status">
+          {runResult}
+        </p>
+      )}
 
       {error !== null && (
         <p className="state state--error" role="alert">

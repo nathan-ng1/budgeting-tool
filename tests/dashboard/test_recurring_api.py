@@ -5,13 +5,13 @@ means the Dashboard's Settings screen would fail the same way.
 """
 
 import json
-from datetime import date
+from datetime import date, timedelta
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 import pytest
 
-from recurring.rules import RecurringRule
+from recurring.rules import WEEKDAY_NAMES, RecurringRule
 
 WEEKLY_PAYLOAD = {
     "amount": 100.0,
@@ -269,3 +269,103 @@ def test_deleting_a_rule_in_the_dashboard_stops_the_next_run_expanding_it(runnin
     call(server, "DELETE", f"/api/recurring-rules/{created['id']}")
 
     assert expanded_notes_and_amounts(store, date(2026, 8, 12)) == []
+
+
+def weekly_rule_payload_starting(start: date, **overrides) -> dict:
+    """A Weekly rule whose Day matches `start`'s own weekday, so it's due
+    exactly once as of `start` itself and validates against RecurringRule's
+    own Start Date/Day consistency check."""
+    payload = {
+        "amount": 60.0,
+        "type": "Expense",
+        "category": "Subscriptions",
+        "notes": "Streaming service",
+        "frequency": "Weekly",
+        "interval": 1,
+        "day": WEEKDAY_NAMES[start.weekday()],
+        "start_date": start.isoformat(),
+        "end_date": None,
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_run_endpoint_writes_the_occurrences_due_today_and_reports_the_count(running_server):
+    store, server = running_server
+    today = date.today()
+    call(server, "POST", "/api/recurring-rules", weekly_rule_payload_starting(today))
+
+    status, body = call(server, "POST", "/api/recurring-rules/run")
+
+    assert status == 200
+    assert body == {"written": 1}
+    assert [(row.date, row.notes) for row in store.read_existing_rows()] == [(today, "Streaming service")]
+
+
+def test_running_the_endpoint_twice_only_writes_the_occurrence_once(running_server):
+    store, server = running_server
+    today = date.today()
+    call(server, "POST", "/api/recurring-rules", weekly_rule_payload_starting(today))
+    call(server, "POST", "/api/recurring-rules/run")
+
+    status, body = call(server, "POST", "/api/recurring-rules/run")
+
+    assert status == 200
+    assert body == {"written": 0}
+    assert len(store.read_existing_rows()) == 1
+
+
+def test_run_endpoint_skips_an_occurrence_already_in_the_transaction_log_from_elsewhere(
+    running_server, make_candidate
+):
+    store, server = running_server
+    today = date.today()
+    # Mimics a row already logged via a Statement Export or by hand on the
+    # Transactions tab - not by a prior manual run of this same endpoint.
+    store.append_rows([make_candidate(date=today, amount=60.0, type="Expense", category="Subscriptions", notes="Streaming service")])
+    call(server, "POST", "/api/recurring-rules", weekly_rule_payload_starting(today))
+
+    status, body = call(server, "POST", "/api/recurring-rules/run")
+
+    assert status == 200
+    assert body == {"written": 0}
+    assert len(store.read_existing_rows()) == 1
+
+
+def test_run_endpoint_does_not_write_occurrences_due_after_today(running_server):
+    store, server = running_server
+    next_week = date.today() + timedelta(weeks=1)
+    call(server, "POST", "/api/recurring-rules", weekly_rule_payload_starting(next_week))
+
+    status, body = call(server, "POST", "/api/recurring-rules/run")
+
+    assert status == 200
+    assert body == {"written": 0}
+    assert store.read_existing_rows() == []
+
+
+def test_run_endpoint_sums_the_written_count_across_multiple_rules(running_server):
+    store, server = running_server
+    today = date.today()
+    call(server, "POST", "/api/recurring-rules", weekly_rule_payload_starting(today))
+    call(
+        server,
+        "POST",
+        "/api/recurring-rules",
+        weekly_rule_payload_starting(today, notes="Employer Pty Ltd", type="Income", category="Salary", amount=4200.0),
+    )
+
+    status, body = call(server, "POST", "/api/recurring-rules/run")
+
+    assert status == 200
+    assert body == {"written": 2}
+    assert {row.notes for row in store.read_existing_rows()} == {"Streaming service", "Employer Pty Ltd"}
+
+
+def test_run_endpoint_with_no_rules_configured_writes_nothing(running_server):
+    _store, server = running_server
+
+    status, body = call(server, "POST", "/api/recurring-rules/run")
+
+    assert status == 200
+    assert body == {"written": 0}
