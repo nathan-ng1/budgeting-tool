@@ -1535,6 +1535,34 @@ def test_budget_editor_last_month_actual_is_last_calendar_months_total_for_the_c
     assert by_category["Groceries"].last_month_actual == 270.0
 
 
+def test_budget_editor_month_actual_is_the_selected_months_own_total_for_the_category(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 8, 10), amount=310.0, type="Expense", category="Groceries", notes="Woolies"),
+            make_transaction(date=date(2026, 7, 15), amount=270.0, type="Expense", category="Groceries", notes="Coles"),
+        ],
+    )
+
+    rows = get_budget_editor(store, year=2026, month=8, trailing_months=3)
+    by_category = {row.category: row for row in rows}
+
+    # month_actual reflects the selected (year, month), distinct from
+    # last_month_actual which always reflects the prior calendar month.
+    assert by_category["Groceries"].month_actual == 310.0
+    assert by_category["Groceries"].last_month_actual == 270.0
+
+
+def test_budget_editor_month_actual_is_zero_for_a_month_with_no_transactions(fake_store):
+    store = fake_store()
+
+    rows = get_budget_editor(store, year=2026, month=8, trailing_months=3)
+    by_category = {row.category: row for row in rows}
+
+    # Always a real, computable figure - $0, never unset (unlike the
+    # windowed trailing columns, which can read as insufficient history).
+    assert by_category["Groceries"].month_actual == 0.0
+
+
 def test_budget_editor_last_month_budgeted_is_last_calendar_months_category_budget_or_none_if_unset(fake_store):
     store = fake_store(category_budgets={("Groceries", 2026, 7): 300.0})
 
@@ -1650,6 +1678,7 @@ def test_budget_editor_a_month_with_no_transactions_or_budgets_is_a_coherent_emp
     assert all(row.last_month_actual == 0.0 for row in rows)
     assert all(row.trailing_average_actual is None for row in rows)
     assert all(row.average_variance_pct is None for row in rows)
+    assert all(row.month_actual == 0.0 for row in rows)
 
 
 def test_budget_editor_rejects_a_trailing_window_outside_3_6_12(fake_store):

@@ -69,6 +69,7 @@ class BudgetEditorRow:
     last_month_budgeted: float | None
     trailing_average_actual: float | None
     average_variance_pct: float | None
+    month_actual: float
 
 
 @dataclass(frozen=True)
@@ -228,8 +229,9 @@ def get_budget_editor(store, year: int, month: int, trailing_months: int = 3) ->
     Category with its current month's Category Budget (None if unset)
     alongside grey historical context: last month's actual, last month's own
     Category Budget (None if it was unset - unset != $0), a trailing average
-    actual, and an average variance % (how far actual has tended to run from
-    Budgeted) over `trailing_months`. See Issue #63.
+    actual, an average variance % (how far actual has tended to run from
+    Budgeted) over `trailing_months`, and the selected (year, month)'s own
+    actual so far (month_actual - Issue #135). See Issue #63.
 
     The two windowed columns come back None - not a misleadingly small
     average - for a Category with fewer than `trailing_months` prior
@@ -253,12 +255,16 @@ def get_budget_editor(store, year: int, month: int, trailing_months: int = 3) ->
     transactions = store.read_transactions()
     earliest_month_by_category = _earliest_month_by_category(transactions)
 
+    # selected_start is folded into the same per-month totals computation as
+    # window_months (rather than a second, separately-filtered pass) so
+    # month_actual reuses exactly the shape last_month_actual already relies
+    # on for its own month.
     actuals_by_month = {
         month_start: _totals_by_category(
             [t for t in transactions if t.date.year == month_start.year and t.date.month == month_start.month],
             BUDGETABLE_TYPES,
         )
-        for month_start in window_months
+        for month_start in [*window_months, selected_start]
     }
     current_budgets = store.read_category_budgets(year, month)
     last_month = window_months[0]
@@ -280,6 +286,7 @@ def get_budget_editor(store, year: int, month: int, trailing_months: int = 3) ->
                 last_month_budgeted=last_month_budgets.get(category),
                 trailing_average_actual=trailing_average_actual,
                 average_variance_pct=average_variance_pct,
+                month_actual=_round(actuals_by_month[selected_start].get(category, 0.0)),
             )
         )
     return rows
