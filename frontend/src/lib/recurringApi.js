@@ -54,3 +54,7 @@ export function updateRecurringRule(id, rule) {
 export function deleteRecurringRule(id) {
   return request(`${BASE}/${id}`, { method: "DELETE" });
 }
+
+export function runRecurringRules() {
+  return request(`${BASE}/run`, { method: "POST" });
+}
