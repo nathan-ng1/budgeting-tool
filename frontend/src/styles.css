@@ -577,6 +577,22 @@
   color: var(--color-text);
 }
 
+/* Issue #139 - .category-chip reads var(--color-neutral-100) like every
+   other theme, but Orchid pinned that token to literal white across several
+   /prototype passes (see the block above) for .rule-form's background and
+   .months__pill's hover fill specifically - .category-chip just rode along
+   unflagged, standing out white against Orchid's pink page/card rather than
+   blending in the way Terracotta/Midnight's chips do (there,
+   --color-background *is* --color-neutral-100, so no divergence exists to
+   paper over). Scoped to .category-chip alone, reusing --color-background
+   rather than a new literal, so chips regain the "same colour as the page"
+   relationship every other theme already has - .rule-form and
+   .months__pill's hover fill are untouched, since white there is still the
+   deliberate, several-times-confirmed choice. */
+[data-theme="orchid"] .category-chip {
+  background: var(--color-background);
+}
+
 /* Midnight (Issue #106) is the first genuinely dark theme - card/text invert
    the tonal relationship every other theme uses (card near-white, text
    near-black). Palette is a 4-colour set the user supplied (#1B262C, #0F4C75,
