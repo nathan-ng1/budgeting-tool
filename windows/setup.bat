@@ -508,7 +508,7 @@ REM A trailing backslash right before the closing quote we add above would be
 REM read as an escaped quote by the called process's argv parser - strip it.
 if "%TRANSACTIONS_INBOX:~-1%"=="\" set "TRANSACTIONS_INBOX=%TRANSACTIONS_INBOX:~0,-1%"
 
-set "SUGGESTED_DB=%CD%\budget.db"
+set "SUGGESTED_DB=%CD%\.data\budget.db"
 if defined EXISTING_DB set "SUGGESTED_DB=%EXISTING_DB%"
 set /p "DATABASE_PATH=Database file path [%SUGGESTED_DB%]: "
 if "%DATABASE_PATH%"=="" set "DATABASE_PATH=%SUGGESTED_DB%"

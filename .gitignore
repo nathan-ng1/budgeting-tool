@@ -5,6 +5,11 @@ env/
 .data/
 config/
 
+# Safety net for installs that accepted setup's old suggested DATABASE_PATH
+# (repo root, before it was fixed to suggest .data/budget.db) - real
+# financial data, and untracked, so it shouldn't block update.bat either
+/budget.db*
+
 # Installation Pack update-check throttle state (issue #116, ADR-0019)
 .setup/
 
