@@ -390,7 +390,7 @@ configure_env() {
         read -r -p "Transactions Inbox folder [$suggested_inbox]: " transactions_inbox
         transactions_inbox="${transactions_inbox:-$suggested_inbox}"
 
-        local suggested_db="${existing_db:-$PWD/budget.db}"
+        local suggested_db="${existing_db:-$PWD/.data/budget.db}"
         read -r -p "Database file path [$suggested_db]: " database_path
         database_path="${database_path:-$suggested_db}"
     fi
