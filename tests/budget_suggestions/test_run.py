@@ -19,15 +19,17 @@ class FakeAdvisor:
         return SuggestionResult(write_up=self._write_up)
 
 
-def test_passes_expense_and_debt_history_but_excludes_income_and_savings(fake_store, make_transaction):
+def test_passes_spending_history_but_excludes_income_and_savings(fake_store, make_transaction):
     # Issue #136 - Category Budget now covers Savings too, but the Budget
-    # Suggestion write-up stays scoped to Expense/Debt, unchanged.
+    # Suggestion write-up stays scoped to spending: Expense/Debt, plus Bills &
+    # Subscriptions since Issue #147 (ADR-0024).
     store = fake_store(
         transactions=[
             make_transaction(id=1, date=date(2026, 7, 5), type="Expense", category="Groceries", amount=450.0),
             make_transaction(id=2, date=date(2026, 7, 6), type="Debt", category="Mortgage Repayment", amount=2000.0),
             make_transaction(id=3, date=date(2026, 7, 7), type="Income", category="Salary", amount=5000.0),
             make_transaction(id=4, date=date(2026, 7, 8), type="Savings", category="Savings", amount=600.0),
+            make_transaction(id=5, date=date(2026, 7, 9), type="Bills & Subscriptions", category="Internet", amount=90.0),
         ]
     )
     advisor = FakeAdvisor()
@@ -36,7 +38,7 @@ def test_passes_expense_and_debt_history_but_excludes_income_and_savings(fake_st
 
     [history] = advisor.calls
     types = {row.type for row in history}
-    assert types == {"Expense", "Debt"}
+    assert types == {"Expense", "Bills & Subscriptions", "Debt"}
     assert "Income" not in types
     assert "Savings" not in types
 

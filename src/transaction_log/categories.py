@@ -4,7 +4,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class Category:
     """A row of the `categories` table (Issue #90) - the DB-backed source for
-    what CATEGORIES_BY_TYPE used to hardcode. `type` is one of the four fixed
+    what CATEGORIES_BY_TYPE used to hardcode. `type` is one of the five fixed
     Types; `locked` marks a Category (Beem Adjustment today) that the
     categorisation backend must never assign and Category Management (#91)
     must never let a user rename or delete.
@@ -19,9 +19,11 @@ class Category:
 
 # Every Category has exactly one fixed Type — see CONTEXT.md and ADR-0006. Debt
 # starts empty on purpose: its Categories are added lazily, only for real
-# cases. Savings is the one exception (ADR-0022): predefined from the start,
-# since (unlike Debt) every user has some form of savings or investment
-# account.
+# cases. Savings (ADR-0022) and Bills & Subscriptions (ADR-0024) are the
+# exceptions: predefined from the start, since (unlike Debt) every user has
+# some form of savings account and some recurring bills. A new predefined
+# Category reaches an existing install via its own one-off migration under
+# src/migration/, never by database.store reseeding a non-empty table.
 CATEGORIES_BY_TYPE = {
     "Income": {
         "Salary",
@@ -41,6 +43,12 @@ CATEGORIES_BY_TYPE = {
         "Rental Expense",
         "Beem Adjustment",
     },
+    "Bills & Subscriptions": {
+        "Insurance",
+        "Car Registration",
+        "Phone Plan",
+        "Internet",
+    },
     "Debt": {
         "Mortgage Repayment",
     },
@@ -54,7 +62,7 @@ CATEGORIES_BY_TYPE = {
 # the alphabetical order types_with_categories() returns below (that order is
 # only for internal iteration - the categorisation prompt and terminal review -
 # where display order doesn't matter).
-TYPE_ORDER = ("Income", "Expense", "Debt", "Savings")
+TYPE_ORDER = ("Income", "Expense", "Bills & Subscriptions", "Debt", "Savings")
 
 # Types the categorisation backend and Needs Review must never offer, even
 # though they have Categories - kept separate from Category.locked (ADR-0022),

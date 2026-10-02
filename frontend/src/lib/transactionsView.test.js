@@ -67,8 +67,8 @@ describe("monthOptions", () => {
 });
 
 describe("TYPES", () => {
-  it("always offers Income, Expense, Debt, Savings regardless of what Transactions are loaded", () => {
-    expect(TYPES).toEqual(["Income", "Expense", "Debt", "Savings"]);
+  it("always offers Income, Expense, Bills & Subscriptions, Debt, Savings regardless of what Transactions are loaded", () => {
+    expect(TYPES).toEqual(["Income", "Expense", "Bills & Subscriptions", "Debt", "Savings"]);
   });
 });
 

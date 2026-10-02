@@ -417,6 +417,15 @@ def test_read_categories_on_a_fresh_database_is_seeded_from_categories_by_type(t
     assert names_by_type["Debt"] == {"Mortgage Repayment"}
 
 
+def test_read_categories_on_a_fresh_database_seeds_bills_and_subscriptions_unlocked(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    bills = [c for c in store.read_categories() if c.type == "Bills & Subscriptions"]
+
+    assert {c.name for c in bills} == {"Insurance", "Car Registration", "Phone Plan", "Internet"}
+    assert all(not c.locked for c in bills)
+
+
 def test_read_categories_seeds_beem_adjustment_as_locked(tmp_path: Path):
     store = connect(tmp_path / "budget.db")
 
@@ -519,6 +528,27 @@ def test_update_category_renames_it_in_place(tmp_path: Path):
     assert [c for c in store.read_categories() if c.id == created.id] == [updated]
 
 
+def test_create_category_under_bills_and_subscriptions(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    created = store.create_category("Bills & Subscriptions", "Streaming", "📺")
+
+    assert created.type == "Bills & Subscriptions"
+    assert created.locked is False
+    assert created in store.read_categories()
+
+
+def test_update_category_renames_a_predefined_bills_and_subscriptions_category(tmp_path: Path):
+    # Unlocked, unlike Beem Adjustment - so no CategoryLocked here.
+    store = connect(tmp_path / "budget.db")
+    [internet] = [c for c in store.read_categories() if c.name == "Internet"]
+
+    updated = store.update_category(internet.id, "Home Internet", None)
+
+    assert updated.type == "Bills & Subscriptions"
+    assert updated.name == "Home Internet"
+
+
 def test_update_category_can_change_only_the_emoji(tmp_path: Path):
     store = connect(tmp_path / "budget.db")
     created = store.create_category("Expense", "Pets", None)
@@ -560,6 +590,15 @@ def test_delete_category_removes_an_unused_category(tmp_path: Path):
     store.delete_category(created.id)
 
     assert created not in store.read_categories()
+
+
+def test_delete_category_removes_a_predefined_bills_and_subscriptions_category(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+    [car_registration] = [c for c in store.read_categories() if c.name == "Car Registration"]
+
+    store.delete_category(car_registration.id)
+
+    assert car_registration not in store.read_categories()
 
 
 def test_delete_category_on_an_unknown_id_raises(tmp_path: Path):

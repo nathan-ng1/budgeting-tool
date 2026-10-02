@@ -4,6 +4,7 @@
 // tab's fetch (Issue #33) already loaded; no result here ever triggers a
 // refetch.
 
+import { TYPE_ORDER } from "./categories.js";
 import { monthsOfPeriod } from "./period.js";
 
 export const ALL_CATEGORIES = "All categories";
@@ -13,9 +14,11 @@ export const ALL_TYPES = "All types";
 export const PAGE_SIZE_OPTIONS = [10, 20, 50];
 export const DEFAULT_PAGE_SIZE = PAGE_SIZE_OPTIONS[1];
 
-// Fixed per ADR-0006/ADR-0012, not derived from loaded data - Type is a closed
-// set regardless of which Types happen to appear in the current Financial Year.
-export const TYPES = ["Income", "Expense", "Debt", "Savings"];
+// Fixed, not derived from loaded data - Type is a closed set regardless of
+// which Types happen to appear in the current Financial Year. Reuses
+// TYPE_ORDER so a new Type (e.g. Bills & Subscriptions, Issue #147) can't be
+// left out of this filter.
+export const TYPES = TYPE_ORDER;
 
 export function categoryOptions(transactions) {
   return [...new Set(transactions.map((transaction) => transaction.category))].sort();

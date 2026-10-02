@@ -5,7 +5,7 @@
 
 // CONTEXT.md's own Type order, not alphabetical - so a Type select built from
 // this matches the Types filter dropdown's order.
-export const TYPE_ORDER = ["Income", "Expense", "Debt", "Savings"];
+export const TYPE_ORDER = ["Income", "Expense", "Bills & Subscriptions", "Debt", "Savings"];
 
 // A curated quick-pick set for Category Management's emoji picker (Issue
 // #91) - free text still works alongside it, this is just a shortcut for

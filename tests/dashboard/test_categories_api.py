@@ -55,6 +55,47 @@ def test_beem_adjustment_is_listed_as_locked(running_server):
     assert by_name(body, "Beem Adjustment")["locked"] is True
 
 
+def test_bills_and_subscriptions_categories_are_listed_unlocked(running_server):
+    _store, server = running_server
+
+    _status, body = call(server, "GET", "/api/categories")
+
+    bills = [category for category in body if category["type"] == "Bills & Subscriptions"]
+    assert {category["name"] for category in bills} == {"Insurance", "Car Registration", "Phone Plan", "Internet"}
+    assert all(category["locked"] is False for category in bills)
+
+
+def test_a_bills_and_subscriptions_category_can_be_created_renamed_and_deleted(running_server):
+    _store, server = running_server
+
+    status, created = call(server, "POST", "/api/categories", {"type": "Bills & Subscriptions", "name": "Streaming"})
+    assert status == 201
+    assert created["type"] == "Bills & Subscriptions"
+
+    status, updated = call(server, "PUT", f"/api/categories/{created['id']}", {"name": "Streaming Services"})
+    assert status == 200
+    assert updated["name"] == "Streaming Services"
+
+    status, _body = call(server, "DELETE", f"/api/categories/{created['id']}")
+    assert status == 204
+    _status, listed = call(server, "GET", "/api/categories")
+    assert all(category["id"] != created["id"] for category in listed)
+
+
+def test_a_predefined_bills_and_subscriptions_category_can_be_renamed_and_deleted(running_server):
+    _store, server = running_server
+    _status, body = call(server, "GET", "/api/categories")
+    insurance = by_name(body, "Insurance")
+    phone_plan = by_name(body, "Phone Plan")
+
+    status, updated = call(server, "PUT", f"/api/categories/{insurance['id']}", {"name": "Car Insurance"})
+    assert status == 200
+    assert updated["name"] == "Car Insurance"
+
+    status, _body = call(server, "DELETE", f"/api/categories/{phone_plan['id']}")
+    assert status == 204
+
+
 def test_creating_a_category_without_an_emoji_returns_it_with_the_id_the_store_gave_it(running_server):
     _store, server = running_server
 
