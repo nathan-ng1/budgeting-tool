@@ -6,15 +6,19 @@ No HTTP or browser dependency here - callable directly against any store
 """
 
 from calendar import monthrange
+from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import date
 
 from transaction_log.categories import TYPE_ORDER, Category, categories_by_type, type_lookup
 from transaction_log.entries import Transaction
 
-# The Types a Category Budget can apply to - every Type, including Savings
-# (ADR-0023 extended it from Income/Expense/Debt).
-BUDGETABLE_TYPES = {"Income", "Expense", "Debt", "Savings"}
+# The Types a Category Budget can apply to - every Type (ADR-0023 extended it
+# from Income/Expense/Debt to Savings), so this is just TYPE_ORDER: a new Type
+# is budgetable here the moment it joins TYPE_ORDER, with no second list to
+# keep in step. dashboard.budgets reuses this same value for its wire-shape
+# grouping.
+BUDGETABLE_TYPES = TYPE_ORDER
 
 # The trailing window sizes the Budget tab's editor dropdown offers - Issue #63.
 TRAILING_WINDOWS = (3, 6, 12)
@@ -442,7 +446,7 @@ def _income_allocation(income: float, expenses: float, debt: float, saved: float
     )
 
 
-def _totals_by_category(transactions: list[Transaction], types: set[str]) -> dict[str, float]:
+def _totals_by_category(transactions: list[Transaction], types: Collection[str]) -> dict[str, float]:
     totals: dict[str, float] = {}
     for t in transactions:
         if t.type not in types:

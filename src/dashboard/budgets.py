@@ -7,13 +7,7 @@ HTTP - mirrors dashboard.recurring.
 """
 
 from budget_suggestions.suggestion import BudgetSuggestion
-from dashboard.queries import BudgetEditorRow, BudgetGridRow
-from transaction_log.categories import TYPE_ORDER
-
-# Every Type is budgetable (ADR-0023), so this is just TYPE_ORDER - kept as
-# its own name since it's the wire-shape grouping this module builds, not a
-# re-export of TYPE_ORDER's own meaning.
-BUDGETABLE_TYPES = TYPE_ORDER
+from dashboard.queries import BUDGETABLE_TYPES, BudgetEditorRow, BudgetGridRow
 
 # The trailing window the Budget tab editor requests when its dropdown query
 # param is absent - see dashboard.queries.TRAILING_WINDOWS.
