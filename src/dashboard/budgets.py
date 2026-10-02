@@ -15,9 +15,8 @@ DEFAULT_TRAILING_WINDOW = 3
 
 
 def as_editor_payload(rows: list[BudgetEditorRow]) -> dict[str, list[dict]]:
-    """Every budgetable Category (Income, Expense, Debt, and Savings -
-    ADR-0023) grouped by Type, each carrying its
-    current month's Category Budget (None if unset - unset != $0) alongside
+    """Every budgetable Category (every Type - ADR-0023) grouped by Type,
+    each carrying its current month's Category Budget (None if unset - unset != $0) alongside
     the grey historical context columns the editor shows beside it: last
     month's actual, last month's own Category Budget (None if it was unset),
     a trailing average actual, an average variance % (None when there isn't

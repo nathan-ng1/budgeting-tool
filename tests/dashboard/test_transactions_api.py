@@ -385,14 +385,14 @@ def test_import_template_date_column_is_formatted_as_a_real_date_column(running_
     assert sheet.cell(row=50, column=1).number_format == "YYYY-MM-DD"
 
 
-def test_import_template_type_dropdown_offers_the_four_fixed_types(running_server):
+def test_import_template_type_dropdown_offers_the_five_fixed_types(running_server):
     _store, server = running_server
 
     _status, _headers, workbook = get_workbook(server, IMPORT_TEMPLATE_PATH)
 
     lists_sheet = workbook["Lists"]
     assert lists_sheet.sheet_state == "hidden"
-    type_values = [lists_sheet.cell(row=row, column=1).value for row in range(1, 5)]
+    type_values = [lists_sheet.cell(row=row, column=1).value for row in range(1, len(TYPE_ORDER) + 1)]
     assert type_values == list(TYPE_ORDER)
 
 

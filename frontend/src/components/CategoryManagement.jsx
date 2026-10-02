@@ -4,7 +4,7 @@ import EmojiPicker from "./EmojiPicker.jsx";
 import { TYPE_ORDER } from "../lib/categories.js";
 import { createCategory, deleteCategory, fetchCategories, updateCategory } from "../lib/categoriesApi.js";
 
-// Category Management (Issue #91) - one card spanning all four fixed Types,
+// Category Management (Issue #91) - one card spanning all five fixed Types,
 // each holding a chip per Category. Add/edit happen inline in the chip grid;
 // delete goes through an inline "Delete 'X'?" confirm step rather than a
 // native confirm() dialog. Beem Adjustment (or any other locked Category)

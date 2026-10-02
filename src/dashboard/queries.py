@@ -230,7 +230,7 @@ def _budgetable_type_category_pairs(categories: list[Category]):
 
 def get_budget_editor(store, year: int, month: int, trailing_months: int = 3) -> list[BudgetEditorRow]:
     """The Budget tab's per-month editor rows - every budgetable Category
-    (Income, Expense, Debt, and Savings - ADR-0023) with its current month's
+    (every Type - ADR-0023) with its current month's
     Category Budget (None if unset)
     alongside grey historical context: last month's actual, last month's own
     Category Budget (None if it was unset - unset != $0), a trailing average
@@ -299,7 +299,7 @@ def get_budget_editor(store, year: int, month: int, trailing_months: int = 3) ->
 
 def get_full_year_budget_grid(store, year: int, start_month: int = 7) -> list[BudgetGridRow]:
     """The Budget tab's Full year read-only grid rows (Issue #64) - every
-    budgetable Category (Income, Expense, Debt, and Savings - ADR-0023)
+    budgetable Category (every Type - ADR-0023)
     grouped by Type, alphabetical within it -
     same ordering as get_budget_editor) against its Category Budget for each
     of the 12 months of the year-shaped period starting `year`-`start_month`

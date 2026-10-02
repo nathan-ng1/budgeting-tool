@@ -1534,7 +1534,7 @@ def test_budget_editor_includes_every_budgetable_category_grouped_by_type_not_tr
 
     rows = get_budget_editor(store, year=2026, month=8)
 
-    assert {row.type for row in rows} == {"Income", "Expense", "Debt", "Savings"}
+    assert {row.type for row in rows} == {"Income", "Expense", "Bills & Subscriptions", "Debt", "Savings"}
     assert "Salary" in {row.category for row in rows}
     assert "Mortgage Repayment" in {row.category for row in rows}
     assert "Savings" in {row.category for row in rows}
@@ -1755,7 +1755,7 @@ def test_full_year_grid_includes_every_budgetable_category_grouped_by_type_not_t
 
     rows = get_full_year_budget_grid(store, year=2026)
 
-    assert {row.type for row in rows} == {"Income", "Expense", "Debt", "Savings"}
+    assert {row.type for row in rows} == {"Income", "Expense", "Bills & Subscriptions", "Debt", "Savings"}
     assert "Salary" in {row.category for row in rows}
     assert "Mortgage Repayment" in {row.category for row in rows}
     assert "Savings" in {row.category for row in rows}

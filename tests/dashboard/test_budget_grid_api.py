@@ -40,12 +40,14 @@ def test_a_fresh_financial_year_returns_every_category_grouped_by_type_all_unset
     status, body = call(server, "GET", "/api/budget-grid?year=2026")
 
     assert status == 200
-    assert list(body.keys()) == ["Income", "Expense", "Debt", "Savings"]
+    assert list(body.keys()) == ["Income", "Expense", "Bills & Subscriptions", "Debt", "Savings"]
     assert _row(body["Income"], "Salary")["amounts"] == [None] * 12
     assert _row(body["Expense"], "Groceries")["amounts"] == [None] * 12
     assert _row(body["Debt"], "Mortgage Repayment")["amounts"] == [None] * 12
     # Savings is budgetable too (ADR-0023).
     assert _row(body["Savings"], "Savings")["amounts"] == [None] * 12
+    # So is Bills & Subscriptions (Issue #147).
+    assert _row(body["Bills & Subscriptions"], "Insurance")["amounts"] == [None] * 12
 
 
 def test_a_category_budget_saved_via_the_month_editor_appears_in_its_july_to_june_slot(running_server):

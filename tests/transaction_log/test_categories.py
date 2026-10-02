@@ -12,21 +12,33 @@ from transaction_log.categories import (
 )
 
 
-def test_the_four_types_are_income_expense_debt_and_savings():
-    assert set(CATEGORIES_BY_TYPE) == {"Income", "Expense", "Debt", "Savings"}
+def test_the_five_types_are_income_expense_bills_and_subscriptions_debt_and_savings():
+    assert set(CATEGORIES_BY_TYPE) == {"Income", "Expense", "Bills & Subscriptions", "Debt", "Savings"}
 
 
-def test_type_order_is_income_expense_debt_savings():
+def test_type_order_is_income_expense_bills_and_subscriptions_debt_savings():
     # CONTEXT.md's own definition order - what the Types filter and the
     # Transaction/Recurring Rule forms' Type selects display, as opposed to
     # types_with_categories()'s alphabetical order below.
-    assert TYPE_ORDER == ("Income", "Expense", "Debt", "Savings")
+    assert TYPE_ORDER == ("Income", "Expense", "Bills & Subscriptions", "Debt", "Savings")
 
 
 def test_savings_has_predefined_savings_and_investments_categories():
     # ADR-0022 - the one Type given predefined Categories rather than lazy
     # population.
     assert CATEGORIES_BY_TYPE["Savings"] == {"Savings", "Investments"}
+
+
+def test_bills_and_subscriptions_has_four_predefined_categories():
+    # Issue #147 - predefined like Savings (ADR-0022), not lazily populated.
+    assert CATEGORIES_BY_TYPE["Bills & Subscriptions"] == {"Insurance", "Car Registration", "Phone Plan", "Internet"}
+
+
+def test_types_with_categories_offers_bills_and_subscriptions():
+    # Unlike Savings, Bills & Subscriptions stays assignable by the
+    # categorisation backend and offered in Needs Review.
+    assert "Bills & Subscriptions" in types_with_categories()
+    assert "Bills & Subscriptions" not in AI_EXCLUDED_TYPES
 
 
 def test_types_with_categories_excludes_savings_even_though_it_has_categories():
@@ -47,6 +59,7 @@ def test_types_with_categories_excludes_savings_even_though_it_has_categories():
         ("Expense", "Rental Expense"),
         ("Expense", "Beem Adjustment"),
         ("Debt", "Mortgage Repayment"),
+        ("Bills & Subscriptions", "Internet"),
     ],
 )
 def test_a_category_validates_under_its_own_type(transaction_type, category):
@@ -117,9 +130,10 @@ def test_assignable_categories_by_type_excludes_any_locked_category_generically(
 
 def test_types_with_categories_omits_savings_from_the_default_mapping():
     # Savings has predefined Categories in CATEGORIES_BY_TYPE but is
-    # AI-excluded (ADR-0022), so it's left out even though Debt/Expense/
-    # Income - which all have real Categories too - are included.
-    assert types_with_categories() == ["Debt", "Expense", "Income"]
+    # AI-excluded (ADR-0022), so it's left out even though Bills &
+    # Subscriptions/Debt/Expense/Income - which all have real Categories too -
+    # are included.
+    assert types_with_categories() == ["Bills & Subscriptions", "Debt", "Expense", "Income"]
 
 
 def test_types_with_categories_accepts_an_explicit_mapping():

@@ -62,6 +62,15 @@ describe("CategoryManagement", () => {
     expect(screen.getByText("Salary")).toBeInTheDocument();
   });
 
+  it("shows a Bills & Subscriptions section, between Expense and Debt, with its Categories", async () => {
+    useBackend([category({ name: "Internet", type: "Bills & Subscriptions" })]);
+    render(<CategoryManagement />);
+
+    expect(await screen.findByText("Internet")).toBeInTheDocument();
+    const headings = screen.getAllByRole("heading", { level: 4 }).map((heading) => heading.textContent);
+    expect(headings).toEqual(["Income", "Expense", "Bills & Subscriptions", "Debt", "Savings"]);
+  });
+
   it("shows a Category's emoji next to its name, and shows nothing extra when it has none", async () => {
     useBackend([category({ name: "Groceries", emoji: "🛒" }), category({ id: 2, name: "Transport", emoji: null })]);
     render(<CategoryManagement />);
