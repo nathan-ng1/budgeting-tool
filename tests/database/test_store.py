@@ -444,6 +444,23 @@ def test_reconnecting_does_not_duplicate_seeded_categories(tmp_path: Path):
     assert len(names) == len(set(names))
 
 
+def test_deleting_a_predefined_category_then_reconnecting_keeps_it_deleted(tmp_path: Path):
+    """Regression test: connect() used to reseed every CATEGORIES_BY_TYPE name
+    on every call (INSERT OR IGNORE), undoing a deliberate delete_category()
+    the moment the Dashboard was restarted - e.g. deleting the predefined
+    Savings Category reappeared after closing and reopening the Dashboard.
+    """
+    database_path = tmp_path / "budget.db"
+    store = connect(database_path)
+    [savings] = [c for c in store.read_categories() if c.name == "Savings"]
+
+    store.delete_category(savings.id)
+    store = connect(database_path)
+
+    names = [c.name for c in store.read_categories()]
+    assert "Savings" not in names
+
+
 def test_create_category_without_an_emoji_returns_it_with_the_id_it_was_given(tmp_path: Path):
     store = connect(tmp_path / "budget.db")
 

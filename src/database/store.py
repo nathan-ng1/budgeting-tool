@@ -479,18 +479,29 @@ def _as_rule(columns) -> RecurringRule:
 
 
 def _seed_default_categories(connection: sqlite3.Connection) -> None:
-    """Idempotent bootstrap of `categories` from CATEGORIES_BY_TYPE - safe to
-    run on every connect() (INSERT OR IGNORE against `name`'s UNIQUE
-    constraint), same as SCHEMA's own CREATE TABLE IF NOT EXISTS. This is what
-    makes a fresh database (every test, every new install) immediately have a
-    working `categories` table with no separate setup step - Beem Adjustment
-    seeded locked (ADR-0015). A pre-#90 database that already has real
-    Transaction/Recurring Rule/Category Budget rows still needs
-    `migration.categories_table.migrate` run once to backfill their
-    `category_id` from the old TEXT `category` column.
+    """One-off bootstrap of `categories` from CATEGORIES_BY_TYPE - only runs
+    while the table is still empty (a brand new database: every test, every
+    new install), so it needs no separate setup step - Beem Adjustment seeded
+    locked (ADR-0015). Deliberately *not* run on every connect(): a Category
+    a user deletes via Category Management must stay deleted across Dashboard
+    restarts, and this is the only thing that distinguishes "never created"
+    from "deliberately deleted" - there's no tombstone, so re-running this
+    once the table already has rows would silently undo a delete by name. A
+    pre-#90 database that already has real Transaction/Recurring Rule/Category
+    Budget rows still needs `migration.categories_table.migrate` run once to
+    backfill their `category_id` from the old TEXT `category` column - that
+    call also lands here with an empty, freshly-created `categories` table, so
+    it still seeds normally. A future addition to CATEGORIES_BY_TYPE for
+    existing installs is delivered via its own one-off migration script
+    instead (see ADR-0022's rollout of Savings/Investments), not by this
+    function running again.
     """
+    [(count,)] = connection.execute("SELECT COUNT(*) FROM categories")
+    if count > 0:
+        return
+
     connection.executemany(
-        "INSERT OR IGNORE INTO categories (type, name, locked) VALUES (?, ?, ?)",
+        "INSERT INTO categories (type, name, locked) VALUES (?, ?, ?)",
         [
             (transaction_type, name, 1 if name == "Beem Adjustment" else 0)
             for transaction_type, names in CATEGORIES_BY_TYPE.items()
