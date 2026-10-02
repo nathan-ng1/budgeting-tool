@@ -42,7 +42,7 @@ _Avoid_: Sub-category (retired), Label, tag
 
 **Subscriptions** (Category):
 Means the Transaction *itself* is a recurring charge (same merchant, regular cadence — e.g. the Anthropic Claude charge), not "sold by a platform that also offers subscriptions." A one-off purchase from a subscription-style platform (e.g. a single Steam game purchase) goes by what was bought, landing in Entertainment & Leisure instead.
-_Avoid_: Label, tag, Bill (a Bill is a Transaction whose Category maps to a bill-like Expense, not a Category name itself)
+_Avoid_: Label, tag, Bill (not a Category name — a recurring bill belongs under the Bills & Subscriptions Type)
 
 **Bills & Subscriptions**:
 A Transaction paying a recurring bill or subscription — an insurance premium, car registration, a phone plan, an internet plan — including irregular ones that land annually or quarterly rather than monthly. One of the five Types, alongside Income, Expense, Debt, and Savings. Distinct from an Expense (ordinary day-to-day spending): a committed, recurring cost rather than discretionary consumption. Starts with four predefined, unlocked Categories. Assignable by the categorisation backend and offered in Needs Review, the same as Income, Expense, and Debt. The Expense Categories Subscriptions and Insurance & Bills overlap in meaning and are deliberately left under Expense for now. See [ADR-0024](./docs/adr/0024-reintroduce-bills-and-subscriptions-as-a-fifth-type.md), which reverses ADR-0006's folding of this name into Expense.
