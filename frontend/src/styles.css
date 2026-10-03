@@ -1560,19 +1560,70 @@ tbody:first-of-type .bva__section {
   grid-column: span 2;
 }
 
-/* A toggle sits beside its label and aligns with the inputs' baseline, rather
-   than stacking a full-width checkbox under the label like a text field. */
-.field--check {
-  flex-direction: row;
-  align-items: center;
-  align-self: end;
-  gap: 8px;
-  padding-bottom: 10px;
+/* The add/edit form's own controls - the Total Amount switch (Issue #148) -
+   sit above the fields, top right, out of the grid's flow. */
+.rule-form__head {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
 }
 
-.field--check input {
-  padding: 0;
-  accent-color: var(--color-accent);
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-neutral-700);
+  cursor: pointer;
+}
+
+.switch input {
+  appearance: none;
+  position: relative;
+  width: 34px;
+  height: 20px;
+  margin: 0;
+  border-radius: 999px;
+  background: var(--color-neutral-300);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.switch input::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-card);
+  transition: transform 0.15s ease;
+}
+
+.switch input:checked {
+  background: var(--color-accent);
+}
+
+.switch input:checked::before {
+  transform: translateX(14px);
+}
+
+.switch input:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* A short note under an input - for Total Amount, what's still needed or
+   what the Total works out to per occurrence. */
+.field__hint {
+  font-size: 12px;
+  color: var(--color-neutral-600);
+}
+
+.field__hint--error {
+  color: var(--color-danger);
 }
 
 .field__label {

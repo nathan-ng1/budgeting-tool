@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 
 import { categoryLabel, emojiLookup, groupByType } from "../lib/categories.js";
 import {
@@ -32,12 +32,14 @@ function schedule(rule) {
   return rule.frequency === "Weekly" ? `${every} on ${rule.day}` : `${every} on day ${rule.day}`;
 }
 
+// The hint under Total Amount: what's still needed, or what the Total works out
+// to per occurrence once the schedule has an end to count up to.
 function describeSplit(split, endDate) {
   if (endDate === "") {
     return "Enter an End Date to split the Total across.";
   }
   if (split === null) {
-    return "—";
+    return "Split evenly across every occurrence up to the End Date.";
   }
   if (split.error) {
     return split.error;
@@ -247,6 +249,8 @@ function RuleForm({ initial, categories, emoji, onCancel, onSave }) {
   const [splitting, setSplitting] = useState(false);
   const [total, setTotal] = useState("");
   const [split, setSplit] = useState(null);
+  const totalId = useId();
+  const splitHintId = useId();
 
   const splitReady = splitting && total !== "" && values.end_date !== "" && values.start_date !== "";
   const splitKey = splitReady ? JSON.stringify(toSplitPayload(values, total)) : null;
@@ -298,6 +302,18 @@ function RuleForm({ initial, categories, emoji, onCancel, onSave }) {
 
   return (
     <form className="rule-form" onSubmit={submit}>
+      <div className="rule-form__head">
+        <label className="switch">
+          <input
+            type="checkbox"
+            role="switch"
+            checked={splitting}
+            onChange={(event) => setSplitting(event.target.checked)}
+          />
+          <span>Enter a Total Amount instead</span>
+        </label>
+      </div>
+
       {error !== null && (
         <p className="state state--error" role="alert">
           {error}
@@ -306,28 +322,26 @@ function RuleForm({ initial, categories, emoji, onCancel, onSave }) {
 
       <div className="rule-form__grid">
         {splitting ? (
-          <>
-            <label className="field">
-              <span className="field__label">Total Amount</span>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                required
-                value={total}
-                onChange={(event) => setTotal(event.target.value)}
-              />
+          // A <div>, not a wrapping <label>, so the hint below isn't read as
+          // part of the input's name.
+          <div className="field">
+            <label className="field__label" htmlFor={totalId}>
+              Total Amount
             </label>
-
-            <div className="field">
-              <span className="field__label" id="split-label">
-                Amount
-              </span>
-              <output className="field__derived" aria-labelledby="split-label">
-                {describeSplit(split, values.end_date)}
-              </output>
-            </div>
-          </>
+            <input
+              id={totalId}
+              type="number"
+              step="0.01"
+              min="0"
+              required
+              aria-describedby={splitHintId}
+              value={total}
+              onChange={(event) => setTotal(event.target.value)}
+            />
+            <span id={splitHintId} className={`field__hint${split?.error ? " field__hint--error" : ""}`}>
+              {describeSplit(split, values.end_date)}
+            </span>
+          </div>
         ) : (
           <label className="field">
             <span className="field__label">Amount</span>
@@ -341,11 +355,6 @@ function RuleForm({ initial, categories, emoji, onCancel, onSave }) {
             />
           </label>
         )}
-
-        <label className="field field--check">
-          <input type="checkbox" checked={splitting} onChange={(event) => setSplitting(event.target.checked)} />
-          <span className="field__label">Enter a Total Amount instead</span>
-        </label>
 
         <label className="field">
           <span className="field__label">Type</span>
