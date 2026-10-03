@@ -5,6 +5,7 @@ import {
   deleteRecurringRule,
   fetchCategories,
   fetchRecurringRules,
+  previewSplit,
   updateRecurringRule,
 } from "./recurringApi.js";
 
@@ -70,6 +71,18 @@ describe("recurringApi", () => {
     const [url, options] = fetchMock.mock.calls[0];
     expect(url).toBe("/api/recurring-rules/7");
     expect(options.method).toBe("DELETE");
+  });
+
+  it("asks the backend what a Total Amount splits into, without saving a rule", async () => {
+    ok({ amount: 100, occurrences: 12 });
+    const split = { ...RULE, total_amount: 1200 };
+
+    expect(await previewSplit(split)).toEqual({ amount: 100, occurrences: 12 });
+
+    const [url, options] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/recurring-rules/split");
+    expect(options.method).toBe("POST");
+    expect(JSON.parse(options.body)).toEqual(split);
   });
 
   it("surfaces the backend's own message when a write is rejected", async () => {

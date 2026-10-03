@@ -369,3 +369,125 @@ def test_run_endpoint_with_no_rules_configured_writes_nothing(running_server):
 
     assert status == 200
     assert body == {"written": 0}
+
+
+# Splitting a Total Amount across the schedule (Issue #148). The rule that
+# gets stored is an ordinary one - only its per-occurrence Amount was
+# derived from the Total, nothing about the split is kept.
+
+
+def split_payload(total, **overrides) -> dict:
+    payload = {key: value for key, value in MONTHLY_PAYLOAD.items() if key != "amount"}
+    payload.update(
+        type="Expense",
+        category="Subscriptions",
+        notes="Annual software licence",
+        total_amount=total,
+    )
+    payload.update(overrides)
+    return payload
+
+
+def test_a_total_amount_is_split_evenly_across_the_schedule(running_server):
+    store, server = running_server
+
+    # Monthly on the 15th, Jan-Dec 2026: twelve occurrences.
+    status, created = call(server, "POST", "/api/recurring-rules", split_payload(1200.0))
+
+    assert status == 201
+    assert created["amount"] == 100.0
+    assert "total_amount" not in created
+    assert [rule.amount for rule in store.read_recurring_rules()] == [100.0]
+
+
+def test_a_split_counts_occurrences_from_the_rules_own_schedule(running_server):
+    _store, server = running_server
+
+    # Every 3 months from 15 Jan through 31 Dec: Jan, Apr, Jul, Oct.
+    _status, created = call(server, "POST", "/api/recurring-rules", split_payload(1000.0, interval=3))
+
+    assert created["amount"] == 250.0
+
+
+def test_a_split_amount_is_rounded_to_the_nearest_cent(running_server):
+    _store, server = running_server
+
+    # 100 / 12 = 8.333...; 100.06 / 12 = 8.33833... rounds up.
+    _status, down = call(server, "POST", "/api/recurring-rules", split_payload(100.0))
+    _status, up = call(server, "POST", "/api/recurring-rules", split_payload(100.06))
+
+    assert down["amount"] == 8.33
+    assert up["amount"] == 8.34
+
+
+def test_a_split_rule_is_expanded_like_any_other(running_server):
+    store, server = running_server
+
+    call(server, "POST", "/api/recurring-rules", split_payload(1200.0))
+
+    assert expanded_notes_and_amounts(store, date(2026, 2, 15)) == [
+        ("Annual software licence", 100.0),
+        ("Annual software licence", 100.0),
+    ]
+
+
+def test_a_total_amount_without_an_end_date_is_rejected(running_server):
+    store, server = running_server
+
+    with pytest.raises(HTTPError) as exc_info:
+        call(server, "POST", "/api/recurring-rules", split_payload(1200.0, end_date=None))
+
+    assert exc_info.value.code == 400
+    assert "end_date" in json.loads(exc_info.value.read())["error"]
+    assert store.read_recurring_rules() == []
+
+
+def test_a_payload_with_both_amount_and_total_amount_is_rejected(running_server):
+    _store, server = running_server
+
+    with pytest.raises(HTTPError) as exc_info:
+        call(server, "POST", "/api/recurring-rules", split_payload(1200.0, amount=100.0))
+
+    assert exc_info.value.code == 400
+    assert "total_amount" in json.loads(exc_info.value.read())["error"]
+
+
+def test_a_payload_with_neither_amount_nor_total_amount_is_rejected(running_server):
+    _store, server = running_server
+    payload = {key: value for key, value in split_payload(1200.0).items() if key != "total_amount"}
+
+    with pytest.raises(HTTPError) as exc_info:
+        call(server, "POST", "/api/recurring-rules", payload)
+
+    assert exc_info.value.code == 400
+    assert "amount" in json.loads(exc_info.value.read())["error"]
+
+
+def test_a_total_amount_that_is_not_finite_is_rejected_not_a_server_error(running_server):
+    _store, server = running_server
+
+    with pytest.raises(HTTPError) as exc_info:
+        call(server, "POST", "/api/recurring-rules", split_payload("inf"))
+
+    assert exc_info.value.code == 400
+    assert "total_amount" in json.loads(exc_info.value.read())["error"]
+
+
+def test_previewing_a_split_returns_the_computed_amount_without_storing_anything(running_server):
+    store, server = running_server
+
+    status, preview = call(server, "POST", "/api/recurring-rules/split", split_payload(1200.0))
+
+    assert status == 200
+    assert preview == {"amount": 100.0, "occurrences": 12}
+    assert store.read_recurring_rules() == []
+
+
+def test_previewing_a_split_without_an_end_date_is_rejected(running_server):
+    _store, server = running_server
+
+    with pytest.raises(HTTPError) as exc_info:
+        call(server, "POST", "/api/recurring-rules/split", split_payload(1200.0, end_date=None))
+
+    assert exc_info.value.code == 400
+    assert "end_date" in json.loads(exc_info.value.read())["error"]

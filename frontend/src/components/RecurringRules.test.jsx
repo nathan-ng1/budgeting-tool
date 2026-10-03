@@ -42,11 +42,18 @@ function backend(rules = [], categories = CATEGORIES) {
     if (url === "/api/recurring-rules/run") {
       return { ok: true, status: 200, json: async () => ({ written: 0 }) };
     }
+    if (url === "/api/recurring-rules/split") {
+      // Stands in for the backend's own occurrence count: every split in
+      // these tests runs monthly across a 12-month schedule.
+      const { total_amount: total } = JSON.parse(options.body);
+      return { ok: true, status: 200, json: async () => ({ amount: total / 12, occurrences: 12 }) };
+    }
     if (method === "GET") {
       return { ok: true, status: 200, json: async () => stored };
     }
     if (method === "POST") {
-      const created = { id: (nextId += 1), ...JSON.parse(options.body) };
+      const { total_amount: total, ...body } = JSON.parse(options.body);
+      const created = { id: (nextId += 1), ...body, ...(total === undefined ? {} : { amount: total / 12 }) };
       stored = [...stored, created];
       return { ok: true, status: 201, json: async () => created };
     }
@@ -78,6 +85,19 @@ function useBackend(rules) {
 
 async function openForm(name) {
   await userEvent.click(await screen.findByRole("button", { name }));
+}
+
+async function fillMonthlyYear() {
+  await userEvent.type(screen.getByLabelText("Notes"), "Annual software licence");
+  await userEvent.selectOptions(screen.getByLabelText("Category"), "Subscriptions");
+  await userEvent.selectOptions(screen.getByLabelText("Frequency"), "Monthly");
+  await userEvent.clear(screen.getByLabelText("Start Date"));
+  await userEvent.type(screen.getByLabelText("Start Date"), "2026-01-15");
+  await userEvent.type(screen.getByLabelText("End Date"), "2026-12-31");
+}
+
+function splitCalls() {
+  return fetchMock.mock.calls.filter(([url]) => url === "/api/recurring-rules/split");
 }
 
 describe("RecurringRules", () => {
@@ -316,5 +336,76 @@ describe("RecurringRules", () => {
     resolveRun({ ok: true, status: 200, json: async () => ({ written: 1 }) });
 
     expect(await screen.findByRole("button", { name: "Run now" })).toBeEnabled();
+  });
+
+  it("splits a Total Amount across the schedule and shows the per-occurrence Amount", async () => {
+    render(<RecurringRules />);
+    await openForm("Add rule");
+    await fillMonthlyYear();
+
+    await userEvent.click(screen.getByLabelText("Enter a Total Amount instead"));
+    await userEvent.type(screen.getByLabelText("Total Amount"), "1200");
+
+    expect(await screen.findByText("$100.00 × 12 occurrences")).toBeInTheDocument();
+    expect(JSON.parse(splitCalls().at(-1)[1].body)).toMatchObject({
+      total_amount: 1200,
+      frequency: "Monthly",
+      interval: 1,
+      day: 15,
+      start_date: "2026-01-15",
+      end_date: "2026-12-31",
+    });
+  });
+
+  it("saves a split rule as an ordinary rule with the computed Amount", async () => {
+    render(<RecurringRules />);
+    await openForm("Add rule");
+    await fillMonthlyYear();
+    await userEvent.click(screen.getByLabelText("Enter a Total Amount instead"));
+    await userEvent.type(screen.getByLabelText("Total Amount"), "1200");
+    await screen.findByText("$100.00 × 12 occurrences");
+
+    await userEvent.click(screen.getByRole("button", { name: "Save rule" }));
+
+    expect(await screen.findByText("Annual software licence")).toBeInTheDocument();
+    expect(screen.getByText("$100.00")).toBeInTheDocument();
+    const posted = fetchMock.mock.calls.find(([url, o]) => url === "/api/recurring-rules" && o?.method === "POST");
+    const body = JSON.parse(posted[1].body);
+    expect(body.total_amount).toBe(1200);
+    expect(body).not.toHaveProperty("amount");
+  });
+
+  it("fills the Amount field with the computed Amount when switched back", async () => {
+    render(<RecurringRules />);
+    await openForm("Add rule");
+    await fillMonthlyYear();
+    await userEvent.click(screen.getByLabelText("Enter a Total Amount instead"));
+    await userEvent.type(screen.getByLabelText("Total Amount"), "1200");
+    await screen.findByText("$100.00 × 12 occurrences");
+
+    await userEvent.click(screen.getByLabelText("Enter a Total Amount instead"));
+
+    expect(screen.getByLabelText("Amount")).toHaveValue(100);
+  });
+
+  it("asks for an End Date before it will split a Total Amount", async () => {
+    render(<RecurringRules />);
+    await openForm("Add rule");
+
+    await userEvent.click(screen.getByLabelText("Enter a Total Amount instead"));
+    await userEvent.type(screen.getByLabelText("Total Amount"), "1200");
+
+    expect(screen.getByText("Enter an End Date to split the Total across.")).toBeInTheDocument();
+    expect(screen.getByLabelText("End Date")).toBeRequired();
+    expect(splitCalls()).toHaveLength(0);
+  });
+
+  it("opens an existing rule with a plain Amount, with no split carried over", async () => {
+    useBackend([rule({ amount: 100, frequency: "Monthly", day: 15, start_date: "2026-01-15", end_date: "2026-12-31" })]);
+    render(<RecurringRules />);
+    await openForm("Edit Streaming service");
+
+    expect(screen.getByLabelText("Amount")).toHaveValue(100);
+    expect(screen.getByLabelText("Enter a Total Amount instead")).not.toBeChecked();
   });
 });

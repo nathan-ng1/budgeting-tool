@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 
 import { categoryLabel, emojiLookup, groupByType } from "../lib/categories.js";
 import {
@@ -6,6 +6,7 @@ import {
   deleteRecurringRule,
   fetchCategories,
   fetchRecurringRules,
+  previewSplit,
   runRecurringRules,
   updateRecurringRule,
 } from "../lib/recurringApi.js";
@@ -14,6 +15,7 @@ import {
   FREQUENCIES,
   blankValues,
   toPayload,
+  toSplitPayload,
   valuesFrom,
   withFrequency,
   withStartDate,
@@ -28,6 +30,22 @@ function schedule(rule) {
   const unit = rule.frequency === "Weekly" ? "week" : "month";
   const every = rule.interval === 1 ? `Every ${unit}` : `Every ${rule.interval} ${unit}s`;
   return rule.frequency === "Weekly" ? `${every} on ${rule.day}` : `${every} on day ${rule.day}`;
+}
+
+// The hint under Total Amount: what's still needed, or what the Total works out
+// to per occurrence once the schedule has an end to count up to.
+function describeSplit(split, endDate) {
+  if (endDate === "") {
+    return "Enter an End Date to split the Total across.";
+  }
+  if (split === null) {
+    return "Split evenly across every occurrence up to the End Date.";
+  }
+  if (split.error) {
+    return split.error;
+  }
+  const times = split.occurrences === 1 ? "occurrence" : "occurrences";
+  return `${preciseMoney(split.amount)} × ${split.occurrences} ${times}`;
 }
 
 function describeRun(written) {
@@ -74,8 +92,7 @@ export default function RecurringRules() {
     return () => controller.abort();
   }, [load]);
 
-  async function save(values) {
-    const payload = toPayload(values);
+  async function save(payload) {
     const saved =
       editing.id === null ? await createRecurringRule(payload) : await updateRecurringRule(editing.id, payload);
 
@@ -227,6 +244,39 @@ function RuleForm({ initial, categories, emoji, onCancel, onSave }) {
   const [values, setValues] = useState(initial);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
+  // Splitting a Total Amount is only a way of entering the Amount (Issue
+  // #148) - it isn't stored, so an existing rule always opens without it.
+  const [splitting, setSplitting] = useState(false);
+  const [total, setTotal] = useState("");
+  const [split, setSplit] = useState(null);
+  const totalId = useId();
+  const splitHintId = useId();
+
+  const splitReady = splitting && total !== "" && values.end_date !== "" && values.start_date !== "";
+  const splitKey = splitReady ? JSON.stringify(toSplitPayload(values, total)) : null;
+
+  useEffect(() => {
+    if (splitKey === null) {
+      setSplit(null);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    previewSplit(JSON.parse(splitKey), { signal: controller.signal })
+      .then(({ amount, occurrences }) => {
+        setSplit({ amount, occurrences });
+        // Fill the Amount in too, so switching back to entering it directly
+        // starts from what the Total worked out to.
+        setValues((current) => ({ ...current, amount: String(amount) }));
+      })
+      .catch((cause) => {
+        if (cause.name !== "AbortError") {
+          setSplit({ error: cause.message });
+        }
+      });
+
+    return () => controller.abort();
+  }, [splitKey]);
 
   const types = Object.keys(categories);
   const allowed = categories[values.type] ?? [];
@@ -240,7 +290,7 @@ function RuleForm({ initial, categories, emoji, onCancel, onSave }) {
     setError(null);
     setSaving(true);
     try {
-      await onSave(values);
+      await onSave(splitting ? toSplitPayload(values, total) : toPayload(values));
     } catch (cause) {
       // The store is the authority on what a valid rule is, so its message is
       // the one worth showing - the form stays open to be corrected.
@@ -252,6 +302,18 @@ function RuleForm({ initial, categories, emoji, onCancel, onSave }) {
 
   return (
     <form className="rule-form" onSubmit={submit}>
+      <div className="rule-form__head">
+        <label className="switch">
+          <input
+            type="checkbox"
+            role="switch"
+            checked={splitting}
+            onChange={(event) => setSplitting(event.target.checked)}
+          />
+          <span>Enter a Total Amount instead</span>
+        </label>
+      </div>
+
       {error !== null && (
         <p className="state state--error" role="alert">
           {error}
@@ -259,17 +321,40 @@ function RuleForm({ initial, categories, emoji, onCancel, onSave }) {
       )}
 
       <div className="rule-form__grid">
-        <label className="field">
-          <span className="field__label">Amount</span>
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            required
-            value={values.amount}
-            onChange={(event) => set("amount", event.target.value)}
-          />
-        </label>
+        {splitting ? (
+          // A <div>, not a wrapping <label>, so the hint below isn't read as
+          // part of the input's name.
+          <div className="field">
+            <label className="field__label" htmlFor={totalId}>
+              Total Amount
+            </label>
+            <input
+              id={totalId}
+              type="number"
+              step="0.01"
+              min="0"
+              required
+              aria-describedby={splitHintId}
+              value={total}
+              onChange={(event) => setTotal(event.target.value)}
+            />
+            <span id={splitHintId} className={`field__hint${split?.error ? " field__hint--error" : ""}`}>
+              {describeSplit(split, values.end_date)}
+            </span>
+          </div>
+        ) : (
+          <label className="field">
+            <span className="field__label">Amount</span>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              required
+              value={values.amount}
+              onChange={(event) => set("amount", event.target.value)}
+            />
+          </label>
+        )}
 
         <label className="field">
           <span className="field__label">Type</span>
@@ -358,7 +443,13 @@ function RuleForm({ initial, categories, emoji, onCancel, onSave }) {
 
         <label className="field">
           <span className="field__label">End Date</span>
-          <input type="date" value={values.end_date} onChange={(event) => set("end_date", event.target.value)} />
+          {/* A Total can only be split across a schedule that ends. */}
+          <input
+            type="date"
+            required={splitting}
+            value={values.end_date}
+            onChange={(event) => set("end_date", event.target.value)}
+          />
         </label>
       </div>
 

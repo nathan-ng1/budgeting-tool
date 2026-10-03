@@ -5,9 +5,13 @@ Kept out of dashboard.server so the HTTP layer stays a router: what a rule
 looks like on the wire is a question about the domain, not about HTTP.
 """
 
+import math
+from dataclasses import replace
 from datetime import date
+from decimal import ROUND_HALF_UP, Decimal
 
 from recurring.rules import RecurringRule, StoredRecurringRule
+from recurring.schedule import expand
 
 FIELDS = (
     "amount",
@@ -43,20 +47,58 @@ def as_payload(stored: StoredRecurringRule) -> dict:
 def from_payload(payload) -> RecurringRule:
     """The RecurringRule a request body describes.
 
+    The body carries either a per-occurrence `amount` or a `total_amount` to
+    split evenly across the schedule (Issue #148) - see split_from_payload.
+    Either way the result is an ordinary rule; nothing about a split is kept.
+
     Raises ValueError - with a message naming what's wrong - for anything the
     caller could fix by sending a different body. RecurringRule's own
     __post_init__ raises the same way for a schedule that contradicts itself,
     so the caller has one kind of error to handle.
     """
+    if isinstance(payload, dict) and "total_amount" in payload:
+        rule, _occurrences = split_from_payload(payload)
+        return rule
+    return _rule(payload, amount_field="amount")
+
+
+def split_from_payload(payload) -> tuple[RecurringRule, int]:
+    """The RecurringRule a body with a `total_amount` describes, plus how many
+    occurrences that Total was split across.
+
+    The per-occurrence Amount is the Total divided by the occurrence count
+    `recurring.schedule.expand` gives for the rule's own schedule, rounded to
+    the nearest cent - any drift between the rounded occurrences and the
+    Total is accepted rather than corrected. An End Date is required, since a
+    rule that recurs indefinitely has no count to divide by.
+    """
+    if isinstance(payload, dict) and "amount" in payload:
+        raise ValueError("Send either 'amount' or 'total_amount', not both")
+
+    rule = _rule(payload, amount_field="total_amount")
+    if not math.isfinite(rule.amount):
+        raise ValueError(f"Field 'total_amount' must be a finite number, got {payload['total_amount']!r}")
+    if rule.end_date is None:
+        raise ValueError("Field 'end_date' is required when splitting a 'total_amount' across the schedule")
+
+    occurrences = len(expand(rule, through=rule.end_date))
+    per_occurrence = (Decimal(str(rule.amount)) / occurrences).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return replace(rule, amount=float(per_occurrence)), occurrences
+
+
+def _rule(payload, amount_field: str) -> RecurringRule:
+    # `amount_field` names whichever field the Amount comes from - for a split
+    # that's the Total, which split_from_payload then divides.
     if not isinstance(payload, dict):
         raise ValueError("Expected a JSON object describing one rule")
 
-    missing = [field for field in FIELDS if field not in payload]
+    required = [amount_field if field == "amount" else field for field in FIELDS]
+    missing = [field for field in required if field not in payload]
     if missing:
         raise ValueError(f"Missing required field(s): {', '.join(missing)}")
 
     return RecurringRule(
-        amount=_number(payload["amount"], "amount"),
+        amount=_number(payload[amount_field], amount_field),
         type=payload["type"],
         category=payload["category"],
         notes=payload["notes"],
