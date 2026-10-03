@@ -6,6 +6,8 @@ function allocation(overrides = {}) {
   return {
     expenses_amount: 0,
     expenses_pct: 0,
+    bills_subscriptions_amount: 0,
+    bills_subscriptions_pct: 0,
     debt_amount: 0,
     debt_pct: 0,
     saved_amount: 0,
@@ -61,6 +63,43 @@ describe("allocationBar", () => {
 
     expect(keys).toEqual(["expenses", "debt", "saved", "remaining"]);
     expect(Object.fromEntries(bar.segments.map((s) => [s.key, s.width])).debt).toBe("15%");
+  });
+
+  it("draws a Bills & Subscriptions segment ordered between Expenses and Debt", () => {
+    const bar = allocationBar(
+      allocation({ expenses_pct: 40, bills_subscriptions_pct: 12, debt_pct: 15, saved_pct: 10, remaining_pct: 23 }),
+    );
+
+    expect(bar.segments.map((segment) => segment.key)).toEqual([
+      "expenses",
+      "bills_subscriptions",
+      "debt",
+      "saved",
+      "remaining",
+    ]);
+    expect(bar.segments.find((s) => s.key === "bills_subscriptions")).toMatchObject({
+      label: "Bills & Subscriptions",
+      width: "12%",
+    });
+  });
+
+  it("counts Bills & Subscriptions toward the outflow that stretches the axis", () => {
+    const bar = allocationBar(allocation({ expenses_pct: 90, bills_subscriptions_pct: 25, over_income_pct: 15 }));
+
+    expect(bar.axisMax).toBe(120);
+  });
+
+  it("trims Over income out of Debt before Bills & Subscriptions, and Bills & Subscriptions before Expenses", () => {
+    // 100% expenses + 20% bills + 10% debt = 130%: the 30% overage comes out
+    // of Debt (10) then Bills & Subscriptions (20), leaving Expenses whole.
+    const bar = allocationBar(
+      allocation({ expenses_pct: 100, bills_subscriptions_pct: 20, debt_pct: 10, over_income_pct: 30 }),
+    );
+    const widths = Object.fromEntries(bar.segments.map((segment) => [segment.key, segment.width]));
+
+    expect(widths.debt).toBe("0%");
+    expect(widths.bills_subscriptions).toBe("0%");
+    expect(widths.expenses).toBe(`${(100 / 130) * 100}%`);
   });
 
   it("trims Over income out of Saved then Debt then Expenses in that order", () => {

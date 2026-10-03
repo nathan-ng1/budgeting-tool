@@ -94,6 +94,35 @@ describe("BudgetedVsActual", () => {
     expect(screen.queryByText(/^Total$/)).not.toBeInTheDocument();
   });
 
+  it("gives Bills & Subscriptions its own section between Expense and Debt, read like Expense", () => {
+    render(
+      <BudgetedVsActual
+        rows={[
+          { type: "Expense", category: "Groceries", budgeted: 650, actual: 612, diff: 38, pct: 94.2 },
+          { type: "Bills & Subscriptions", category: "Phone Plan", budgeted: 80, actual: 95, diff: -15, pct: 118.8 },
+          { type: "Bills & Subscriptions", category: "Internet", budgeted: 90, actual: 90, diff: 0, pct: 100.0 },
+          { type: "Debt", category: "Mortgage Repayment", budgeted: 850, actual: 900, diff: -50, pct: 105.9 },
+        ]}
+      />,
+    );
+
+    const headings = screen
+      .getAllByRole("columnheader")
+      .map((el) => el.textContent)
+      .filter((text) => ["Expense", "Bills & Subscriptions", "Debt"].includes(text));
+    expect(headings).toEqual(["Expense", "Bills & Subscriptions", "Debt"]);
+
+    const totals = within(row("Bills & Subscriptions total")).getAllByRole("cell");
+    expect(totals[2]).toHaveTextContent("$170");
+    expect(totals[3]).toHaveTextContent("$185");
+    expect(totals[4]).toHaveTextContent("+$15");
+
+    // Over budget on a bill is overspend, the same direction as Expense.
+    const phoneDiffCell = within(row("Phone Plan")).getAllByRole("cell")[4];
+    expect(phoneDiffCell).toHaveTextContent("+$15");
+    expect(phoneDiffCell.className).toContain("adverse");
+  });
+
   it("omits a section entirely when it has no rows", () => {
     render(
       <BudgetedVsActual

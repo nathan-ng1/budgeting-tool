@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import IncomeVsExpensesByMonth from "./IncomeVsExpensesByMonth.jsx";
 
 function month(overrides) {
-  return { year: 2026, month: 7, income: 0, expenses: 0, debt: 0, net_balance: 0, saved: 0, ...overrides };
+  return { year: 2026, month: 7, income: 0, expenses: 0, bills_subscriptions: 0, debt: 0, net_balance: 0, saved: 0, ...overrides };
 }
 
 function twelveMonths(overrides = {}) {
@@ -36,6 +36,20 @@ describe("IncomeVsExpensesByMonth", () => {
     expect(debtBars).toHaveLength(12);
   });
 
+  it("draws a Bills & Subscriptions bar for every month, scaled like the others", () => {
+    const { container } = render(
+      <IncomeVsExpensesByMonth
+        months={twelveMonths({ 0: { income: 1000, expenses: 600, bills_subscriptions: 200, debt: 300 } })}
+      />,
+    );
+
+    const billsBars = container.querySelectorAll('g[fill="var(--color-bills-subscriptions)"] rect');
+    expect(billsBars).toHaveLength(12);
+    // $200 against a $1,000 axis over the 240-tall plot.
+    expect(billsBars[0].getAttribute("height")).toBe("48");
+    expect(billsBars[1].getAttribute("height")).toBe("0");
+  });
+
   it("renders a month with no Income, Expenses, or Debt as a zero-height bar, not an omitted one", () => {
     const { container } = render(
       <IncomeVsExpensesByMonth months={twelveMonths({ 0: { income: 5240, expenses: 3810, debt: 200 } })} />,
@@ -54,12 +68,13 @@ describe("IncomeVsExpensesByMonth", () => {
     expect(container.querySelector("path[stroke='var(--color-chart-line)']")).toBeInTheDocument();
   });
 
-  it("titles the card and shows a legend for Income, Expenses, Debt, and Net", () => {
+  it("titles the card and shows a legend for Income, Expenses, Bills & Subscriptions, Debt, and Net", () => {
     render(<IncomeVsExpensesByMonth months={twelveMonths()} />);
 
     expect(screen.getByText("Income, Expenses & Debt by Month")).toBeInTheDocument();
     expect(screen.getByText("Income")).toBeInTheDocument();
     expect(screen.getByText("Expenses")).toBeInTheDocument();
+    expect(screen.getByText("Bills & Subscriptions")).toBeInTheDocument();
     expect(screen.getByText("Debt")).toBeInTheDocument();
     expect(screen.getByText("Net")).toBeInTheDocument();
   });

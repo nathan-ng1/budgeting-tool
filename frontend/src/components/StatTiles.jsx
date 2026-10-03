@@ -14,6 +14,11 @@ export default function StatTiles({ tiles, average }) {
     <div className="tiles">
       <Tile label="Real Income" value={money(tiles.income)} average={average && money(average.income)} />
       <Tile label="Expenses" value={money(tiles.expenses)} average={average && money(average.expenses)} />
+      <Tile
+        label="Bills & Subscriptions"
+        value={money(tiles.bills_subscriptions)}
+        average={average && money(average.bills_subscriptions)}
+      />
       <Tile label="Debt" value={money(tiles.debt)} average={average && money(average.debt)} />
       <Tile
         label="Net Balance"

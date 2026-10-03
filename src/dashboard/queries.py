@@ -28,6 +28,7 @@ TRAILING_WINDOWS = (3, 6, 12)
 class StatTiles:
     income: float
     expenses: float
+    bills_subscriptions: float
     debt: float
     net_balance: float
     saved: float
@@ -37,6 +38,8 @@ class StatTiles:
 class IncomeAllocation:
     expenses_amount: float
     expenses_pct: float
+    bills_subscriptions_amount: float
+    bills_subscriptions_pct: float
     debt_amount: float
     debt_pct: float
     saved_amount: float
@@ -133,6 +136,7 @@ class MonthlyTotals:
     month: int
     income: float
     expenses: float
+    bills_subscriptions: float
     debt: float
     net_balance: float
     saved: float
@@ -161,9 +165,7 @@ def get_month_overview(store, year: int, month: int) -> MonthOverview:
         year=year,
         month=month,
         stat_tiles=stat_tiles,
-        income_allocation=_income_allocation(
-            stat_tiles.income, stat_tiles.expenses, stat_tiles.debt, stat_tiles.saved
-        ),
+        income_allocation=_income_allocation(stat_tiles),
         spending_by_category=_spending_by_category(transactions, stat_tiles.expenses),
         budgeted_vs_actual=_budgeted_vs_actual(
             transactions, store.read_category_budgets(year, month), store.read_categories()
@@ -193,9 +195,7 @@ def get_annual_overview(store, year: int, today: date | None = None, start_month
         elapsed_months=elapsed_months,
         stat_tiles=stat_tiles,
         monthly_average=_monthly_average(stat_tiles, elapsed_months),
-        income_allocation=_income_allocation(
-            stat_tiles.income, stat_tiles.expenses, stat_tiles.debt, stat_tiles.saved
-        ),
+        income_allocation=_income_allocation(stat_tiles),
         spending_by_category=_spending_by_category(transactions, stat_tiles.expenses),
         budgeted_vs_actual=_annual_budgeted_vs_actual(store, transactions, start, elapsed_months),
         debt_summary=_debt_summary(transactions, stat_tiles.debt),
@@ -378,10 +378,20 @@ def get_transaction_date_range(store) -> tuple[date | None, date | None]:
 def _stat_tiles(transactions: list[Transaction]) -> StatTiles:
     income = _round(sum(t.amount for t in transactions if t.type == "Income"))
     expenses = _round(sum(t.amount for t in transactions if t.type == "Expense"))
+    bills_subscriptions = _round(sum(t.amount for t in transactions if t.type == "Bills & Subscriptions"))
     debt = _round(sum(t.amount for t in transactions if t.type == "Debt"))
     saved = _round(sum(t.amount for t in transactions if t.type == "Savings"))
-    net_balance = _round(income - expenses - debt)
-    return StatTiles(income=income, expenses=expenses, debt=debt, net_balance=net_balance, saved=saved)
+    # Savings is never subtracted - see CONTEXT.md's Net Balance entry
+    # (ADR-0022); Bills & Subscriptions is, like Expense/Debt (ADR-0024).
+    net_balance = _round(income - expenses - bills_subscriptions - debt)
+    return StatTiles(
+        income=income,
+        expenses=expenses,
+        bills_subscriptions=bills_subscriptions,
+        debt=debt,
+        net_balance=net_balance,
+        saved=saved,
+    )
 
 
 def _elapsed_months(year: int, today: date, start_month: int = 7) -> int:
@@ -403,21 +413,31 @@ def _add_months(start: date, months: int) -> date:
 
 def _monthly_average(totals: StatTiles, elapsed_months: int) -> StatTiles:
     if elapsed_months == 0:
-        return StatTiles(income=0.0, expenses=0.0, debt=0.0, net_balance=0.0, saved=0.0)
+        return StatTiles(
+            income=0.0, expenses=0.0, bills_subscriptions=0.0, debt=0.0, net_balance=0.0, saved=0.0
+        )
     return StatTiles(
         income=_round(totals.income / elapsed_months),
         expenses=_round(totals.expenses / elapsed_months),
+        bills_subscriptions=_round(totals.bills_subscriptions / elapsed_months),
         debt=_round(totals.debt / elapsed_months),
         net_balance=_round(totals.net_balance / elapsed_months),
         saved=_round(totals.saved / elapsed_months),
     )
 
 
-def _income_allocation(income: float, expenses: float, debt: float, saved: float) -> IncomeAllocation:
+def _income_allocation(tiles: StatTiles) -> IncomeAllocation:
+    income = tiles.income
+    expenses = tiles.expenses
+    bills_subscriptions = tiles.bills_subscriptions
+    debt = tiles.debt
+    saved = tiles.saved
     if income <= 0:
         return IncomeAllocation(
             expenses_amount=expenses,
             expenses_pct=0.0,
+            bills_subscriptions_amount=bills_subscriptions,
+            bills_subscriptions_pct=0.0,
             debt_amount=debt,
             debt_pct=0.0,
             saved_amount=saved,
@@ -428,13 +448,15 @@ def _income_allocation(income: float, expenses: float, debt: float, saved: float
             over_income_pct=0.0,
         )
 
-    remaining = income - expenses - debt - saved
+    remaining = income - expenses - bills_subscriptions - debt - saved
     remaining_amount = max(remaining, 0.0)
     over_income_amount = max(-remaining, 0.0)
 
     return IncomeAllocation(
         expenses_amount=expenses,
         expenses_pct=_pct(expenses, income),
+        bills_subscriptions_amount=bills_subscriptions,
+        bills_subscriptions_pct=_pct(bills_subscriptions, income),
         debt_amount=debt,
         debt_pct=_pct(debt, income),
         saved_amount=saved,
@@ -630,6 +652,7 @@ def _monthly_totals(transactions: list[Transaction], start: date) -> list[Monthl
                 month=month_start.month,
                 income=tiles.income,
                 expenses=tiles.expenses,
+                bills_subscriptions=tiles.bills_subscriptions,
                 debt=tiles.debt,
                 net_balance=tiles.net_balance,
                 saved=tiles.saved,
