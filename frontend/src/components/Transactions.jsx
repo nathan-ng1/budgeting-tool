@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { categoryLabel, emojiLookup, groupByType } from "../lib/categories.js";
 import { preciseMoney } from "../lib/format.js";
@@ -523,12 +523,21 @@ function useTransactionEditor(initial, categories, onSave) {
   return { values, set, setType, types, allowed, error, saving, save };
 }
 
+// Add Transaction only points at Recurring Transactions Config's split-a-total
+// (Issue #148) rather than offering one of its own - Issue #150.
+const BILLS_AND_SUBSCRIPTIONS = "Bills & Subscriptions";
+const BILLS_HINT =
+  "Tip: for an annual or irregular bill, use Recurring Transactions Config instead — it can split the total across the year for you.";
+
 function TransactionForm({ initial, categories, emoji, onCancel, onSave }) {
   const { values, set, setType, types, allowed, error, saving, save } = useTransactionEditor(
     initial,
     categories,
     onSave,
   );
+  const typeId = useId();
+  const billsHintId = useId();
+  const showBillsHint = values.type === BILLS_AND_SUBSCRIPTIONS;
 
   function submit(event) {
     event.preventDefault();
@@ -561,14 +570,28 @@ function TransactionForm({ initial, categories, emoji, onCancel, onSave }) {
           />
         </label>
 
-        <label className="field">
-          <span className="field__label">Type</span>
-          <select value={values.type} onChange={(event) => setType(event.target.value)}>
+        {/* A <div>, not a wrapping <label>, so the hint below isn't read as
+            part of the select's name. */}
+        <div className="field">
+          <label className="field__label" htmlFor={typeId}>
+            Type
+          </label>
+          <select
+            id={typeId}
+            aria-describedby={showBillsHint ? billsHintId : undefined}
+            value={values.type}
+            onChange={(event) => setType(event.target.value)}
+          >
             {types.map((type) => (
               <option key={type}>{type}</option>
             ))}
           </select>
-        </label>
+          {showBillsHint && (
+            <span id={billsHintId} className="field__hint">
+              {BILLS_HINT}
+            </span>
+          )}
+        </div>
 
         <label className="field">
           <span className="field__label">Category</span>

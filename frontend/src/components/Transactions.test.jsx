@@ -379,6 +379,29 @@ describe("Transactions", () => {
       expect(within(category).getByRole("option", { name: "Salary" })).toBeInTheDocument();
     });
 
+    it("points at Recurring Transactions Config's split-a-total only while Bills & Subscriptions is the Type", async () => {
+      fetchMock = backend([], [
+        ...CATEGORIES,
+        { id: 4, type: "Bills & Subscriptions", name: "Insurance", emoji: null, locked: false },
+      ]);
+      vi.stubGlobal("fetch", fetchMock);
+      render(<Transactions periodType="financial" referenceYear={2026} />);
+      await userEvent.click(await screen.findByRole("button", { name: "Add transaction" }));
+      const hint = /use Recurring Transactions Config instead/;
+
+      expect(screen.queryByText(hint)).not.toBeInTheDocument();
+
+      await userEvent.selectOptions(screen.getByLabelText("Type"), "Bills & Subscriptions");
+
+      expect(screen.getByLabelText("Type")).toHaveAccessibleDescription(
+        "Tip: for an annual or irregular bill, use Recurring Transactions Config instead — it can split the total across the year for you.",
+      );
+
+      await userEvent.selectOptions(screen.getByLabelText("Type"), "Income");
+
+      expect(screen.queryByText(hint)).not.toBeInTheDocument();
+    });
+
     it("shows the store's own rejection and keeps the add form open to fix it", async () => {
       useBackend([]);
       render(<Transactions periodType="financial" referenceYear={2026} />);
