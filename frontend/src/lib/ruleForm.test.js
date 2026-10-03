@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { blankValues, toPayload, valuesFrom, weekdayOf, withFrequency, withStartDate, withType } from "./ruleForm.js";
+import {
+  blankValues,
+  toPayload,
+  toSplitPayload,
+  valuesFrom,
+  weekdayOf,
+  withFrequency,
+  withStartDate,
+  withType,
+} from "./ruleForm.js";
 
 const CATEGORIES = { Expense: ["Subscriptions", "Groceries"], Income: ["Salary"] };
 
@@ -102,5 +111,30 @@ describe("valuesFrom / toPayload", () => {
 
     expect(payload.amount).toBe(100.5);
     expect(payload.interval).toBe(2);
+  });
+});
+
+describe("toSplitPayload", () => {
+  const values = {
+    ...blankValues("2026-01-15"),
+    amount: "99",
+    category: "Subscriptions",
+    notes: "Annual software licence",
+    frequency: "Monthly",
+    day: 15,
+    end_date: "2026-12-31",
+  };
+
+  it("sends the Total Amount in place of the per-occurrence Amount", () => {
+    const payload = toSplitPayload(values, "1200");
+
+    expect(payload.total_amount).toBe(1200);
+    expect(payload).not.toHaveProperty("amount");
+  });
+
+  it("carries the rest of the rule across exactly as toPayload would", () => {
+    const { amount, ...rest } = toPayload(values);
+
+    expect(toSplitPayload(values, "1200")).toEqual({ ...rest, total_amount: 1200 });
   });
 });

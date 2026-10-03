@@ -92,6 +92,14 @@ export function toPayload(values) {
   };
 }
 
+// A rule whose Amount is a Total to split across its schedule (Issue #148).
+// The backend works out the per-occurrence Amount and stores an ordinary rule,
+// so the Total is sent in place of the Amount rather than alongside it.
+export function toSplitPayload(values, total) {
+  const { amount, ...rest } = toPayload(values);
+  return { ...rest, total_amount: Number(total) };
+}
+
 function dayFor(frequency, startDate, currentDay) {
   if (!startDate) {
     return "";

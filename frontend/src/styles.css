@@ -1560,6 +1560,21 @@ tbody:first-of-type .bva__section {
   grid-column: span 2;
 }
 
+/* A toggle sits beside its label and aligns with the inputs' baseline, rather
+   than stacking a full-width checkbox under the label like a text field. */
+.field--check {
+  flex-direction: row;
+  align-items: center;
+  align-self: end;
+  gap: 8px;
+  padding-bottom: 10px;
+}
+
+.field--check input {
+  padding: 0;
+  accent-color: var(--color-accent);
+}
+
 .field__label {
   font-size: 12px;
   font-weight: 600;

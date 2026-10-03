@@ -33,6 +33,7 @@ CONTENT_TYPES = {
 
 RECURRING_RULES_PATH = "/api/recurring-rules"
 RECURRING_RULES_RUN_PATH = f"{RECURRING_RULES_PATH}/run"
+RECURRING_RULES_SPLIT_PATH = f"{RECURRING_RULES_PATH}/split"
 TRANSACTIONS_PATH = "/api/transactions"
 TRANSACTIONS_EXPORT_PATH = "/api/transactions/export"
 TRANSACTIONS_IMPORT_TEMPLATE_PATH = "/api/transactions/import-template"
@@ -145,6 +146,8 @@ def _make_handler(store, static_root: Path):
             path = urlparse(self.path).path
             if path == RECURRING_RULES_RUN_PATH:
                 self._run_recurring_rules()
+            elif path == RECURRING_RULES_SPLIT_PATH:
+                self._preview_split()
             elif path == RECURRING_RULES_PATH:
                 self._write_rule(lambda rule: (201, store.create_recurring_rule(rule)))
             elif path == TRANSACTIONS_PATH:
@@ -276,6 +279,17 @@ def _make_handler(store, static_root: Path):
                 return
 
             self._send_json(status, recurring.as_payload(stored))
+
+        def _preview_split(self) -> None:
+            """The per-occurrence Amount a Total Amount would split into across
+            the rule's schedule, without storing anything - so the add/edit
+            form can show it before saving (Issue #148)."""
+            try:
+                rule, occurrences = recurring.split_from_payload(self._read_json())
+            except ValueError as cause:
+                self._send_json(400, {"error": str(cause)})
+                return
+            self._send_json(200, {"amount": rule.amount, "occurrences": occurrences})
 
         def _run_recurring_rules(self) -> None:
             """Manually expand every Recurring Transactions Config rule

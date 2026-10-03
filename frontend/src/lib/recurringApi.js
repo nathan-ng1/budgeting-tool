@@ -58,3 +58,10 @@ export function deleteRecurringRule(id) {
 export function runRecurringRules() {
   return request(`${BASE}/run`, { method: "POST" });
 }
+
+// What a Total Amount splits into per occurrence across the rule's schedule
+// (Issue #148). The backend counts the occurrences with the same expansion the
+// Statement Export run uses, so the form never re-implements the schedule.
+export function previewSplit(rule, { signal } = {}) {
+  return request(`${BASE}/split`, { ...jsonRequest("POST", rule), signal });
+}
