@@ -1,11 +1,12 @@
-import { categoryLabel, emojiLookup } from "../lib/categories.js";
+import { TYPE_ORDER, categoryLabel, emojiLookup } from "../lib/categories.js";
 import { colourForCategory } from "../lib/categoryColours.js";
 import { UNSET, money, signedMoney, signedPct } from "../lib/format.js";
 import { toneFor } from "../lib/tone.js";
 
 // The budgetable Types, in CONTEXT.md's order - the table's section order,
-// top to bottom. Every Type is budgetable (ADR-0023).
-const SECTIONS = ["Income", "Expense", "Debt", "Savings"];
+// top to bottom. Every Type is budgetable (ADR-0023), so this is just the
+// TYPE_ORDER mirror rather than a second list to keep in step.
+const SECTIONS = TYPE_ORDER;
 
 // The endpoint reports `diff` as budget remaining (budgeted - actual) and
 // `pct` as actual as a share of budgeted. The table reads the other way
@@ -26,8 +27,9 @@ function overspend(row) {
 }
 
 // For Income and Savings, coming in above budgeted is good news, not
-// overspend - the opposite of Expense/Debt. The figure itself keeps the same
-// sign either way (a positive Diff always means "actual above budgeted");
+// overspend - the opposite of Expense/Bills & Subscriptions/Debt. The
+// figure itself keeps the same sign either way (a positive Diff always means
+// "actual above budgeted");
 // only which colour that reads as flips, the same way MonthByMonth/StatTiles
 // flip tone by negating the value they feed toneFor rather than editing
 // toneFor itself.

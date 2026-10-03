@@ -7,6 +7,8 @@ function allocation(overrides = {}) {
   return {
     expenses_amount: 0,
     expenses_pct: 0,
+    bills_subscriptions_amount: 0,
+    bills_subscriptions_pct: 0,
     debt_amount: 0,
     debt_pct: 0,
     saved_amount: 0,
@@ -67,6 +69,33 @@ describe("IncomeAllocation", () => {
     expect(screen.getByText("15.3%")).toBeInTheDocument();
   });
 
+  it("renders a Bills & Subscriptions segment ordered between Expenses and Debt, in its own colour", () => {
+    const { container } = render(
+      <IncomeAllocation
+        income={5000}
+        allocation={allocation({
+          expenses_amount: 2000,
+          expenses_pct: 40,
+          bills_subscriptions_amount: 600,
+          bills_subscriptions_pct: 12,
+          debt_amount: 750,
+          debt_pct: 15,
+          remaining_amount: 1650,
+          remaining_pct: 33,
+        })}
+      />,
+    );
+
+    const legendLabels = [...container.querySelectorAll(".allocation__legend-item")].map((el) =>
+      el.textContent.replace(/\s*[\d.]+%$/, ""),
+    );
+    expect(legendLabels).toEqual(["Expenses", "Bills & Subscriptions", "Debt", "Remaining"]);
+    expect(screen.getByText("12.0%")).toBeInTheDocument();
+    expect(
+      container.querySelector('.allocation__segment[style*="var(--color-bills-subscriptions)"]'),
+    ).toBeInTheDocument();
+  });
+
   it("says how far past income the month went when outflows exceeded it", () => {
     render(
       <IncomeAllocation
@@ -99,6 +128,14 @@ describe("IncomeAllocation", () => {
     render(<IncomeAllocation income={0} allocation={allocation({ debt_amount: 800 })} />);
 
     expect(screen.getByText(/No income recorded for this month/i)).toHaveTextContent("$800");
+  });
+
+  it("mentions bills & subscriptions in the no-income message when there was Bills & Subscriptions outflow", () => {
+    render(<IncomeAllocation income={0} allocation={allocation({ bills_subscriptions_amount: 320 })} />);
+
+    expect(screen.getByText(/No income recorded for this month/i)).toHaveTextContent(
+      "$320 of bills & subscriptions",
+    );
   });
 
   it("is plain about a month with neither income nor outflows", () => {

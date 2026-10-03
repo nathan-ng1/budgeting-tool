@@ -63,8 +63,8 @@ def test_stat_tiles_sum_by_type_for_the_selected_month(tmp_path: Path, make_cand
 
 
 def test_net_balance_includes_savings(tmp_path: Path, make_candidate):
-    # ADR-0022 - the formula stays Income - Expenses - Debt: money moved to
-    # Savings is never subtracted, so it still counts toward this figure.
+    # ADR-0022 - money moved to Savings is never subtracted, so it still
+    # counts toward this figure.
     database_path = tmp_path / "budget.db"
     store = connect(database_path)
     store.append_rows(
@@ -94,6 +94,37 @@ def test_net_balance_subtracts_debt(tmp_path: Path, make_candidate):
     overview = get_month_overview(store, year=2026, month=8)
 
     assert overview.stat_tiles.net_balance == 500.0
+
+
+def test_stat_tiles_sum_bills_and_subscriptions(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 8, 1), amount=80.0, type="Bills & Subscriptions", category="Phone Plan", notes="Telstra"),
+            make_transaction(date=date(2026, 8, 2), amount=70.0, type="Bills & Subscriptions", category="Internet", notes="Aussie BB"),
+            make_transaction(date=date(2026, 8, 3), amount=200.0, type="Expense", category="Groceries", notes="Woolworths"),
+        ]
+    )
+
+    overview = get_month_overview(store, year=2026, month=8)
+
+    assert overview.stat_tiles.bills_subscriptions == 150.0
+    assert overview.stat_tiles.expenses == 200.0
+
+
+def test_net_balance_subtracts_bills_and_subscriptions(fake_store, make_transaction):
+    # ADR-0024 - Net Balance is Income - Expenses - Debt - Bills & Subscriptions.
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 8, 1), amount=1000.0, type="Income", category="Salary", notes="Employer"),
+            make_transaction(date=date(2026, 8, 2), amount=300.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 8, 3), amount=200.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+            make_transaction(date=date(2026, 8, 4), amount=150.0, type="Bills & Subscriptions", category="Insurance", notes="NRMA"),
+        ]
+    )
+
+    overview = get_month_overview(store, year=2026, month=8)
+
+    assert overview.stat_tiles.net_balance == 350.0
 
 
 def test_transactions_outside_the_selected_month_are_excluded(tmp_path: Path, make_candidate):
@@ -153,6 +184,40 @@ def test_income_allocation_includes_a_debt_share_of_income(fake_store, make_tran
     assert allocation.remaining_pct == 30.0
 
 
+def test_income_allocation_includes_a_bills_and_subscriptions_share_of_income(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 8, 1), amount=1000.0, type="Income", category="Salary", notes="Employer"),
+            make_transaction(date=date(2026, 8, 2), amount=400.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 8, 3), amount=150.0, type="Bills & Subscriptions", category="Insurance", notes="NRMA"),
+            make_transaction(date=date(2026, 8, 4), amount=100.0, type="Savings", category="Savings", notes="To savings"),
+        ]
+    )
+
+    overview = get_month_overview(store, year=2026, month=8)
+    allocation = overview.income_allocation
+
+    assert allocation.bills_subscriptions_amount == 150.0
+    assert allocation.bills_subscriptions_pct == 15.0
+    assert allocation.remaining_amount == 350.0
+    assert allocation.remaining_pct == 35.0
+
+
+def test_income_allocation_counts_bills_and_subscriptions_toward_over_income(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 8, 1), amount=1000.0, type="Income", category="Salary", notes="Employer"),
+            make_transaction(date=date(2026, 8, 2), amount=900.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 8, 3), amount=300.0, type="Bills & Subscriptions", category="Insurance", notes="NRMA"),
+        ]
+    )
+
+    overview = get_month_overview(store, year=2026, month=8)
+
+    assert overview.income_allocation.over_income_amount == 200.0
+    assert overview.income_allocation.over_income_pct == 20.0
+
+
 def test_income_allocation_reports_over_income_excess_when_outflows_exceed_income(fake_store, make_transaction):
     store = fake_store(
         transactions=[
@@ -182,6 +247,7 @@ def test_income_allocation_with_zero_income_reports_zero_pct_rather_than_dividin
     allocation = overview.income_allocation
 
     assert allocation.expenses_pct == 0.0
+    assert allocation.bills_subscriptions_pct == 0.0
     assert allocation.saved_pct == 0.0
     assert allocation.remaining_pct == 0.0
     assert allocation.over_income_pct == 0.0
@@ -403,6 +469,23 @@ def test_budgeted_vs_actual_includes_savings_categories(fake_store, make_transac
     assert by_category["Savings"].diff == -100.0
 
 
+def test_budgeted_vs_actual_includes_bills_and_subscriptions_categories(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 8, 3), amount=95.0, type="Bills & Subscriptions", category="Phone Plan", notes="Telstra"),
+        ],
+        category_budgets={("Phone Plan", 2026, 8): 80.0},
+    )
+
+    overview = get_month_overview(store, year=2026, month=8)
+    by_category = {row.category: row for row in overview.budgeted_vs_actual}
+
+    assert by_category["Phone Plan"].type == "Bills & Subscriptions"
+    assert by_category["Phone Plan"].budgeted == 80.0
+    assert by_category["Phone Plan"].actual == 95.0
+    assert by_category["Phone Plan"].diff == -15.0
+
+
 def test_top_5_expenses_are_the_five_largest_that_month_descending(fake_store, make_transaction):
     store = fake_store(
         transactions=[
@@ -562,6 +645,24 @@ def test_annual_overview_stat_tiles_and_monthly_average_include_debt(fake_store,
 
     assert overview.stat_tiles.debt == 1600.0
     assert overview.monthly_average.debt == 800.0
+
+
+def test_annual_overview_stat_tiles_and_monthly_average_include_bills_and_subscriptions(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, 1), amount=1000.0, type="Income", category="Salary", notes="Employer"),
+            make_transaction(date=date(2026, 7, 1), amount=120.0, type="Bills & Subscriptions", category="Internet", notes="Aussie BB"),
+            make_transaction(date=date(2026, 8, 1), amount=80.0, type="Bills & Subscriptions", category="Internet", notes="Aussie BB"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21))
+
+    assert overview.stat_tiles.bills_subscriptions == 200.0
+    assert overview.stat_tiles.net_balance == 800.0
+    assert overview.monthly_average.bills_subscriptions == 100.0
+    assert overview.income_allocation.bills_subscriptions_amount == 200.0
+    assert overview.income_allocation.bills_subscriptions_pct == 20.0
 
 
 def test_annual_overview_on_a_completed_financial_year_elapses_all_twelve_months(fake_store):
@@ -880,6 +981,24 @@ def test_annual_overview_month_by_month_sums_each_month_independently(fake_store
     assert august.saved == 0.0
 
 
+def test_annual_overview_month_by_month_includes_bills_and_subscriptions_in_each_months_net(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, 1), amount=1000.0, type="Income", category="Salary", notes="Employer"),
+            make_transaction(date=date(2026, 7, 2), amount=60.0, type="Bills & Subscriptions", category="Phone Plan", notes="Telstra"),
+            make_transaction(date=date(2026, 8, 2), amount=700.0, type="Bills & Subscriptions", category="Car Registration", notes="VicRoads"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21))
+    by_month = {(row.year, row.month): row for row in overview.month_by_month}
+
+    assert by_month[(2026, 7)].bills_subscriptions == 60.0
+    assert by_month[(2026, 7)].net_balance == 940.0
+    assert by_month[(2026, 8)].bills_subscriptions == 700.0
+    assert by_month[(2026, 8)].net_balance == -700.0
+
+
 def test_annual_overview_month_by_month_zero_fills_months_not_yet_elapsed(fake_store, make_transaction):
     store = fake_store(
         transactions=[
@@ -893,7 +1012,7 @@ def test_annual_overview_month_by_month_zero_fills_months_not_yet_elapsed(fake_s
     # September hasn't elapsed as of 21 Aug, so it's a zeroed row, not omitted
     # or carrying September's not-yet-counted spend.
     assert by_month[(2026, 9)] == MonthlyTotals(
-        year=2026, month=9, income=0.0, expenses=0.0, debt=0.0, net_balance=0.0, saved=0.0
+        year=2026, month=9, income=0.0, expenses=0.0, bills_subscriptions=0.0, debt=0.0, net_balance=0.0, saved=0.0
     )
     assert len(overview.month_by_month) == 12
 
@@ -1006,7 +1125,7 @@ def test_annual_overview_month_by_month_zero_fills_months_not_yet_elapsed_for_ca
     by_month = {(row.year, row.month): row for row in overview.month_by_month}
 
     assert by_month[(2026, 3)] == MonthlyTotals(
-        year=2026, month=3, income=0.0, expenses=0.0, debt=0.0, net_balance=0.0, saved=0.0
+        year=2026, month=3, income=0.0, expenses=0.0, bills_subscriptions=0.0, debt=0.0, net_balance=0.0, saved=0.0
     )
     assert len(overview.month_by_month) == 12
 

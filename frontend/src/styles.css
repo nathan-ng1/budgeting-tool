@@ -106,6 +106,14 @@
   --color-danger: #792a31;
   --color-debt: #8d7b5e;
   --color-savings: #c2af8e;
+  /* Issue #149 - swatch/fill-only like --color-debt (the allocation bar,
+     the by-month chart). Unlike debt/savings it can't ride a
+     theme's own ramp - every theme's ramp-derived fills already crowd each
+     other - so each theme gets a hue off its own palette instead, picked by
+     the dataviz skill's validator to clear >=15 dE (normal vision) and >=8
+     dE (protan/deutan) against every Type fill it sits beside, plus
+     --color-danger (Over income). Terracotta's is a dusty indigo (~285deg). */
+  --color-bills-subscriptions: #6a6aa8;
 
   --color-positive: #53653e;
   --color-positive-tint: #dfe8d4;
@@ -556,6 +564,9 @@
   --color-accent-2-500: #7e25b1;
   --color-debt: #df20b6;
   --color-savings: #b22fbc;
+  /* Burnt orange - the one hue family Orchid's pink/purple fills leave free
+     (see :root's --color-bills-subscriptions for the selection method). */
+  --color-bills-subscriptions: #b8440f;
 
   --color-positive: #531d72;
   --color-positive-tint: #e5d0f1;
@@ -629,6 +640,9 @@
   --color-accent-2-500: #dcbd74;
   --color-debt: #627f93;
   --color-savings: #495f6e;
+  /* Lavender (see :root's --color-bills-subscriptions for the selection
+     method). */
+  --color-bills-subscriptions: #b58fd6;
 
   --color-positive: #c4aa6e;
   --color-positive-tint: #453a21;
@@ -933,7 +947,7 @@ button.nav__tab:hover {
 
 .tiles {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 12px;
 }
 
@@ -1041,6 +1055,13 @@ button.nav__tab:hover {
     "top wide"
     "bottom wide";
   gap: 16px;
+}
+
+/* Full year's narrow column holds Month by month, whose seven columns
+   (Bills & Subscriptions added by Issue #149) need an even split to read
+   cleanly - the per-month view's narrow column (the donut) keeps 0.85fr. */
+.row--wide-pair--even {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
 .row--wide-pair__top,
@@ -1235,7 +1256,7 @@ tbody:first-of-type .bva__section {
 
 .mbm__row {
   display: grid;
-  grid-template-columns: 96px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: 96px repeat(6, minmax(0, 1fr));
   align-items: center;
   gap: 8px;
   padding: 9px 0;

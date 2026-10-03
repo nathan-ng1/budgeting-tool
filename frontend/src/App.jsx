@@ -288,7 +288,7 @@ export default function App() {
                   // moves down to pair with Top expenses instead.
                   <>
                     <IncomeVsExpensesByMonth months={overview.income_vs_expenses_by_month} />
-                    <div className="row--wide-pair">
+                    <div className="row--wide-pair row--wide-pair--even">
                       <div className="row--wide-pair__top">
                         <MonthByMonth months={overview.month_by_month} />
                       </div>
