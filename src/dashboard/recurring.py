@@ -5,6 +5,7 @@ Kept out of dashboard.server so the HTTP layer stays a router: what a rule
 looks like on the wire is a question about the domain, not about HTTP.
 """
 
+import math
 from dataclasses import replace
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
@@ -71,7 +72,12 @@ def split_from_payload(payload) -> tuple[RecurringRule, int]:
     Total is accepted rather than corrected. An End Date is required, since a
     rule that recurs indefinitely has no count to divide by.
     """
+    if isinstance(payload, dict) and "amount" in payload:
+        raise ValueError("Send either 'amount' or 'total_amount', not both")
+
     rule = _rule(payload, amount_field="total_amount")
+    if not math.isfinite(rule.amount):
+        raise ValueError(f"Field 'total_amount' must be a finite number, got {payload['total_amount']!r}")
     if rule.end_date is None:
         raise ValueError("Field 'end_date' is required when splitting a 'total_amount' across the schedule")
 
@@ -90,8 +96,6 @@ def _rule(payload, amount_field: str) -> RecurringRule:
     missing = [field for field in required if field not in payload]
     if missing:
         raise ValueError(f"Missing required field(s): {', '.join(missing)}")
-    if amount_field == "total_amount" and "amount" in payload:
-        raise ValueError("Send either 'amount' or 'total_amount', not both")
 
     return RecurringRule(
         amount=_number(payload[amount_field], amount_field),

@@ -463,6 +463,16 @@ def test_a_payload_with_neither_amount_nor_total_amount_is_rejected(running_serv
     assert "amount" in json.loads(exc_info.value.read())["error"]
 
 
+def test_a_total_amount_that_is_not_finite_is_rejected_not_a_server_error(running_server):
+    _store, server = running_server
+
+    with pytest.raises(HTTPError) as exc_info:
+        call(server, "POST", "/api/recurring-rules", split_payload("inf"))
+
+    assert exc_info.value.code == 400
+    assert "total_amount" in json.loads(exc_info.value.read())["error"]
+
+
 def test_previewing_a_split_returns_the_computed_amount_without_storing_anything(running_server):
     store, server = running_server
 
