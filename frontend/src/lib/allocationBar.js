@@ -21,6 +21,14 @@ const SEGMENT_ORDER = [
   { key: "over_income", label: "Over income", amountField: "over_income_amount", pctField: "over_income_pct" },
 ];
 
+// The outflow segments (everything before Remaining), walked back from the
+// one drawn nearest Over income - derived from SEGMENT_ORDER so the two can't
+// drift apart when a Type is added.
+const OUTFLOW_SEGMENTS_LAST_FIRST = SEGMENT_ORDER.slice(
+  0,
+  SEGMENT_ORDER.findIndex((s) => s.key === "remaining"),
+).reverse();
+
 export function allocationBar(incomeAllocation) {
   const outflowPct =
     incomeAllocation.expenses_pct +
@@ -37,8 +45,8 @@ export function allocationBar(incomeAllocation) {
   // sum to the real outflow instead of double-counting the overage in the bar.
   let trim = incomeAllocation.over_income_pct;
   const displayPct = {};
-  for (const key of ["saved", "debt", "bills_subscriptions", "expenses"]) {
-    const raw = incomeAllocation[SEGMENT_ORDER.find((s) => s.key === key).pctField];
+  for (const { key, pctField } of OUTFLOW_SEGMENTS_LAST_FIRST) {
+    const raw = incomeAllocation[pctField];
     displayPct[key] = Math.max(raw - trim, 0);
     trim = Math.max(trim - raw, 0);
   }
