@@ -109,6 +109,28 @@ describe("monthlyComparisonChart", () => {
     expect(chart.debtBars[1].x).toBe(104);
   });
 
+  it("drops the Bills & Subscriptions bar and centres the other three in their pre-#149 layout when no month has any", () => {
+    const chart = monthlyComparisonChart([
+      { income: 1000, expenses: 600, bills_subscriptions: 0, debt: 300, net_balance: 100 },
+      { income: 0, expenses: 0, bills_subscriptions: 0, debt: 0, net_balance: 0 },
+    ]);
+
+    expect(chart.showsBillsSubscriptions).toBe(false);
+    expect(chart.billsSubscriptionsBars).toEqual([]);
+    expect(chart.incomeBars[0]).toEqual({ x: 9, y: 0, width: 12, height: 240 });
+    expect(chart.expenseBars[0]).toEqual({ x: 24, y: 96, width: 12, height: 144 });
+    expect(chart.debtBars[0]).toEqual({ x: 39, y: 168, width: 12, height: 72 });
+    expect(chart.debtBars[1].x).toBe(99);
+    expect(chart.netPoints[0].x).toBe(30);
+  });
+
+  it("keeps the Bills & Subscriptions bar in every month once any single month has some", () => {
+    const chart = monthlyComparisonChart(months);
+
+    expect(chart.showsBillsSubscriptions).toBe(true);
+    expect(chart.billsSubscriptionsBars).toHaveLength(2);
+  });
+
   it("scales the axis to a month whose tallest bar is Bills & Subscriptions", () => {
     const chart = monthlyComparisonChart([
       { income: 100, expenses: 50, bills_subscriptions: 1800, debt: 0, net_balance: -1750 },
@@ -140,6 +162,7 @@ describe("monthlyComparisonChart", () => {
     expect(chart.incomeBars).toEqual([]);
     expect(chart.expenseBars).toEqual([]);
     expect(chart.billsSubscriptionsBars).toEqual([]);
+    expect(chart.showsBillsSubscriptions).toBe(false);
     expect(chart.debtBars).toEqual([]);
     expect(chart.netPoints).toEqual([]);
     expect(chart.netLinePath).toBe("");

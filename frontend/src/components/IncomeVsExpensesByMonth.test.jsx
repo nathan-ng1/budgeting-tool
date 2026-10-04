@@ -68,10 +68,19 @@ describe("IncomeVsExpensesByMonth", () => {
     expect(container.querySelector("path[stroke='var(--color-chart-line)']")).toBeInTheDocument();
   });
 
-  it("titles the card and shows a legend for Income, Expenses, Bills & Subscriptions, Debt, and Net", () => {
-    render(<IncomeVsExpensesByMonth months={twelveMonths()} />);
+  it("leaves Bills & Subscriptions out of the bars and the legend while no month has any", () => {
+    const { container } = render(
+      <IncomeVsExpensesByMonth months={twelveMonths({ 0: { income: 5240, expenses: 3810, debt: 200 } })} />,
+    );
 
-    expect(screen.getByText("Income, Expenses & Debt by Month")).toBeInTheDocument();
+    expect(container.querySelectorAll('g[fill="var(--color-bills-subscriptions)"] rect')).toHaveLength(0);
+    expect(screen.queryByText("Bills & Subscriptions")).not.toBeInTheDocument();
+  });
+
+  it("titles the card Cash Flow by Month and shows a legend for Income, Expenses, Bills & Subscriptions, Debt, and Net", () => {
+    render(<IncomeVsExpensesByMonth months={twelveMonths({ 0: { bills_subscriptions: 50 } })} />);
+
+    expect(screen.getByText("Cash Flow by Month")).toBeInTheDocument();
     expect(screen.getByText("Income")).toBeInTheDocument();
     expect(screen.getByText("Expenses")).toBeInTheDocument();
     expect(screen.getByText("Bills & Subscriptions")).toBeInTheDocument();
