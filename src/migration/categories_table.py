@@ -2,8 +2,8 @@
 
 Run once against a real pre-#90 database - one still holding `category` TEXT
 columns on `transactions`/`recurring_rules`/`category_budgets` and no
-`categories` table - not on every startup (mirrors `migration.run`'s own
-one-off convention). A brand new database never needs this:
+`categories` table - by `python -m migration` during the update process
+(ADR-0025), not on every startup. A brand new database never needs this:
 `database.store.connect()` already builds the target category_id-based schema
 (and seeds `categories`) directly, so `migrate` is a no-op there. Safe to
 re-run: each of the three tables is only rewritten while it still has its old
