@@ -548,16 +548,19 @@ def open_connection(database_path: Path | None = None) -> sqlite3.Connection:
         connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'transactions'").fetchone()
         is None
     )
-    connection.executescript(SCHEMA)
-    connection.commit()
-    _seed_default_categories(connection)
     if is_new:
-        # Imported here, not at module level: the migrations themselves
-        # import from this module.
+        # Recorded before the schema is built, not after: if the process dies
+        # in between, the next open still finds no `transactions` table and
+        # treats the database as new again, rather than as an old install
+        # every migration should run against. Imported here, not at module
+        # level: the migrations themselves import from this module.
         from migration.registry import MIGRATIONS
         from migration.runner import mark_all_applied
 
         mark_all_applied(connection, MIGRATIONS)
+    connection.executescript(SCHEMA)
+    connection.commit()
+    _seed_default_categories(connection)
     return connection
 
 

@@ -20,4 +20,6 @@ the part that actually changes the user's install.
   [ADR-0017](./0017-installation-pack-is-a-bootstrapper-distributed-via-releases.md)) to perform the
   check at all; its absence degrades to no notice, never an error.
 - `update.bat` is scoped purely to pull-latest-and-re-sync — it does not handle reconfiguring an
-  existing install (e.g. switching AI path), which stays `setup.bat`'s job.
+  existing install (e.g. switching AI path), which stays `setup.bat`'s job. (Amended by
+  [ADR-0025](./0025-update-runs-pending-migrations-tracked-in-the-database.md): re-syncing now also
+  runs pending database migrations.)

@@ -260,7 +260,7 @@ both together.
 
 ### Updating
 
-Run `update` (`windows/update.bat` or `mac/update.command`) when `open_dashboard` says an update is
+Run the Installation Pack's `update` script (`windows/update.bat` or `mac/update.command`) when `open_dashboard` says an update is
 available. It shows what's changed and asks you to confirm. Then it pulls, re-syncs dependencies,
 runs any pending database migrations (`uv run python -m migration`, ADR-0025) and rebuilds the
 frontend. Before migrating, it backs your database up next to itself as

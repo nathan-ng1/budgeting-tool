@@ -26,7 +26,9 @@ subtracted from it; the old wording just described that backwards.
   overlap, not a rename target.
 - The live database's one existing Transfer Transaction and its Category are migrated to Savings
   by a one-off script (matching `src/migration/categories_table.py`'s pattern), not an automatic
-  fix-up on every `connect()`.
+  fix-up on every `connect()`. Since
+  [ADR-0025](./0025-update-runs-pending-migrations-tracked-in-the-database.md), the update process
+  runs it rather than a manual step.
 - `types_with_categories()`'s current rule — a Type is offered to the categorisation backend and
   Needs Review only if it has any Categories — stops holding for Savings once it has predefined
   Categories. A new, separate exclusion is needed so Savings stays manual-entry-only without also

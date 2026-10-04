@@ -71,7 +71,13 @@ def mark_all_applied(connection: sqlite3.Connection, migrations: list[Migration]
 
 
 def _applied_names(connection: sqlite3.Connection) -> set[str]:
-    connection.executescript(TRACKING_SCHEMA)
+    # Read-only, so `python -m migration` can check what's pending before it
+    # backs the database up - no tracking table yet just means nothing's run.
+    has_table = connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'schema_migrations'"
+    ).fetchone()
+    if has_table is None:
+        return set()
     return {name for (name,) in connection.execute("SELECT name FROM schema_migrations")}
 
 

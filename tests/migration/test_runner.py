@@ -80,3 +80,10 @@ def test_mark_all_applied_is_safe_to_run_twice():
     mark_all_applied(connection, migrations)
 
     assert pending(connection, migrations) == []
+
+
+def test_pending_does_not_write_to_the_database():
+    connection = sqlite3.connect(":memory:")
+
+    assert [m.name for m in pending(connection, [recording("first", [])])] == ["first"]
+    assert connection.execute("SELECT name FROM sqlite_master").fetchall() == []

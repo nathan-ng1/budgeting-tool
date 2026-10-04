@@ -35,7 +35,8 @@ component changes, because both already iterate `TYPE_ORDER`.
 - An existing install doesn't pick the new Type up on its own: `database.store._seed_default_categories`
   only seeds an empty `categories` table (so a deliberately deleted Category stays deleted). The four
   Categories reach an existing database via the one-off `src/migration/add_bills_and_subscriptions.py`,
-  matching `rename_transfer_to_savings.py`'s pattern. It only seeds while the Type has no Categories at
+  matching `rename_transfer_to_savings.py`'s pattern, which the update process runs since
+  [ADR-0025](./0025-update-runs-pending-migrations-tracked-in-the-database.md). It only seeds while the Type has no Categories at
   all, so a rerun never resurrects a renamed or deleted one, and skips any predefined name a user has
   already created under another Type (Category names are unique across every Type).
 - `dashboard.queries.BUDGETABLE_TYPES` — previously a hardcoded set kept in step with

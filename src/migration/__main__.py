@@ -11,6 +11,7 @@ work. Exits 1 on a failure so the update script can stop with a clear message.
 import sqlite3
 import sys
 import traceback
+from contextlib import closing
 from datetime import datetime
 from pathlib import Path
 
@@ -22,26 +23,32 @@ from migration.runner import MigrationFailed, pending, run_pending
 def backup(connection: sqlite3.Connection, database_path: Path) -> Path:
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     backup_path = database_path.with_name(f"{database_path.stem}.pre-migration-{stamp}{database_path.suffix}")
-    with sqlite3.connect(backup_path) as target:
+    with closing(sqlite3.connect(backup_path)) as target:
         connection.backup(target)
-    target.close()
     return backup_path
 
 
 def main() -> int:
     database_path = resolve_database_path()
+
+    # Checked and backed up through a plain connection, before open_connection
+    # touches the file (it builds missing tables and seeds `categories`), so
+    # the backup really is the database as it was before this run. A database
+    # that doesn't exist yet is brand new: open_connection marks every
+    # migration applied there, so there's nothing to back up or run.
+    if database_path.exists():
+        with closing(sqlite3.connect(database_path)) as original:
+            if not pending(original, MIGRATIONS):
+                print("Database is up to date - no migrations to run.")
+                return 0
+            backup_path = backup(original, database_path)
+        print(f"Backed up the database to {backup_path}")
+    else:
+        backup_path = None
+
     connection = open_connection(database_path)
-
-    if not pending(connection, MIGRATIONS):
-        print("Database is up to date - no migrations to run.")
-        return 0
-
-    backup_path = backup(connection, database_path)
-    print(f"Backed up the database to {backup_path}")
-
     try:
-        for name in run_pending(connection, MIGRATIONS):
-            print(f"Applied migration: {name}")
+        applied = run_pending(connection, MIGRATIONS)
     except MigrationFailed as error:
         traceback.print_exception(error.__cause__, file=sys.stdout)
         print()
@@ -49,6 +56,10 @@ def main() -> int:
         print(f"Your database before migrating is saved at {backup_path}")
         return 1
 
+    for name in applied:
+        print(f"Applied migration: {name}")
+    if not applied:
+        print("Database is up to date - no migrations to run.")
     return 0
 
 

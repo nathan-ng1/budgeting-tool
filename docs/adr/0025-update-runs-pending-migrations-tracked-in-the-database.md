@@ -31,6 +31,10 @@ pending migration once, in order, and records each one in the database itself:
 
 ## Consequences
 
+- Widens [ADR-0019](./0019-update-checks-are-automatic-updates-are-manual.md)'s "pull-latest-and-
+  re-sync" scope for `update` to include migrating the database. Applying an update stays a manual,
+  confirmed step, so ADR-0019's decision itself is unchanged. ADR-0022's and ADR-0024's one-off
+  scripts are now run by the update process instead of by hand.
 - Adding a migration means writing `src/migration/<name>.py` with `migrate(connection)` and
   appending it to `MIGRATIONS`. Nothing else is needed for the next update to apply it.
 - Running a migration script directly would skip the record, so the scripts no longer have their
