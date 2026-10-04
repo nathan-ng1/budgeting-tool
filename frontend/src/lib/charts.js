@@ -56,22 +56,17 @@ export function donutSegments(spendingByCategory) {
   });
 }
 
-// Income, Expenses & Debt by Month: the mockup's grouped-bar-plus-line plot
-// area, sized for 12 equal month slots (Issue #41; Debt bar added by #50,
-// Bills & Subscriptions bar by #149 - bars narrowed from 12 to 11 wide, gap
-// 3 to 2, to fit a fourth in the same slot).
+// Cash Flow by Month: the mockup's grouped-bar-plus-line plot area, sized
+// for 12 equal month slots (Issue #41; Debt bar added by #50, Bills &
+// Subscriptions bar by #149). The Bills & Subscriptions bar is only drawn
+// once some month actually has any - until then the other three keep their
+// pre-#149 12-wide bars and 3 gaps rather than leaving an empty slot between
+// Expenses and Debt; with it, bars narrow to 11 wide, gap 2, to fit a fourth.
 export const MONTH_CHART_WIDTH = 720;
 export const MONTH_CHART_HEIGHT = 240;
 const MONTH_SLOT_WIDTH = MONTH_CHART_WIDTH / 12;
-const MONTH_BAR_WIDTH = 11;
-const MONTH_BAR_GAP = 2;
-// Four bars-plus-gaps centred within the month slot, in CONTEXT.md's Type order.
-const MONTH_BARS_WIDTH = 4 * MONTH_BAR_WIDTH + 3 * MONTH_BAR_GAP;
-const MONTH_INCOME_BAR_OFFSET = (MONTH_SLOT_WIDTH - MONTH_BARS_WIDTH) / 2;
-const MONTH_EXPENSE_BAR_OFFSET = MONTH_INCOME_BAR_OFFSET + MONTH_BAR_WIDTH + MONTH_BAR_GAP;
-const MONTH_BILLS_SUBSCRIPTIONS_BAR_OFFSET = MONTH_EXPENSE_BAR_OFFSET + MONTH_BAR_WIDTH + MONTH_BAR_GAP;
-const MONTH_DEBT_BAR_OFFSET = MONTH_BILLS_SUBSCRIPTIONS_BAR_OFFSET + MONTH_BAR_WIDTH + MONTH_BAR_GAP;
-const MONTH_LINE_OFFSET = MONTH_INCOME_BAR_OFFSET + MONTH_BARS_WIDTH / 2;
+const THREE_BAR_LAYOUT = { barWidth: 12, gap: 3 };
+const FOUR_BAR_LAYOUT = { barWidth: 11, gap: 2 };
 
 export function monthlyComparisonChart(monthlyTotals) {
   if (monthlyTotals.length === 0) {
@@ -79,6 +74,7 @@ export function monthlyComparisonChart(monthlyTotals) {
       incomeBars: [],
       expenseBars: [],
       billsSubscriptionsBars: [],
+      showsBillsSubscriptions: false,
       debtBars: [],
       netPoints: [],
       netLinePath: "",
@@ -91,22 +87,31 @@ export function monthlyComparisonChart(monthlyTotals) {
   const axisMax = roundedAxisMax(peak);
   const valueY = (value) => MONTH_CHART_HEIGHT - (value / axisMax) * MONTH_CHART_HEIGHT;
 
+  const showsBillsSubscriptions = monthlyTotals.some((m) => m.bills_subscriptions > 0);
+  const barCount = showsBillsSubscriptions ? 4 : 3;
+  const { barWidth, gap } = showsBillsSubscriptions ? FOUR_BAR_LAYOUT : THREE_BAR_LAYOUT;
+  // The bars-plus-gaps are centred within the month slot, in CONTEXT.md's Type order.
+  const barsWidth = barCount * barWidth + (barCount - 1) * gap;
+  const firstBarOffset = (MONTH_SLOT_WIDTH - barsWidth) / 2;
+  const barOffset = (position) => firstBarOffset + position * (barWidth + gap);
+
   const bar = (value, offset, index) => ({
     x: index * MONTH_SLOT_WIDTH + offset,
     y: round(valueY(value)),
-    width: MONTH_BAR_WIDTH,
+    width: barWidth,
     height: round(MONTH_CHART_HEIGHT - valueY(value)),
   });
 
-  const incomeBars = monthlyTotals.map((m, index) => bar(m.income, MONTH_INCOME_BAR_OFFSET, index));
-  const expenseBars = monthlyTotals.map((m, index) => bar(m.expenses, MONTH_EXPENSE_BAR_OFFSET, index));
-  const billsSubscriptionsBars = monthlyTotals.map((m, index) =>
-    bar(m.bills_subscriptions, MONTH_BILLS_SUBSCRIPTIONS_BAR_OFFSET, index),
-  );
-  const debtBars = monthlyTotals.map((m, index) => bar(m.debt, MONTH_DEBT_BAR_OFFSET, index));
+  const incomeBars = monthlyTotals.map((m, index) => bar(m.income, barOffset(0), index));
+  const expenseBars = monthlyTotals.map((m, index) => bar(m.expenses, barOffset(1), index));
+  const billsSubscriptionsBars = showsBillsSubscriptions
+    ? monthlyTotals.map((m, index) => bar(m.bills_subscriptions, barOffset(2), index))
+    : [];
+  const debtBars = monthlyTotals.map((m, index) => bar(m.debt, barOffset(barCount - 1), index));
 
+  const lineOffset = firstBarOffset + barsWidth / 2;
   const netPoints = monthlyTotals.map((m, index) => ({
-    x: index * MONTH_SLOT_WIDTH + MONTH_LINE_OFFSET,
+    x: index * MONTH_SLOT_WIDTH + lineOffset,
     // A deficit month plots below the $0 baseline - clamped there rather
     // than left to run off the bottom of the viewBox, where it would be
     // silently clipped by the SVG's default overflow:hidden.
@@ -118,6 +123,7 @@ export function monthlyComparisonChart(monthlyTotals) {
     incomeBars,
     expenseBars,
     billsSubscriptionsBars,
+    showsBillsSubscriptions,
     debtBars,
     netPoints,
     netLinePath,

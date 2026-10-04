@@ -9,7 +9,7 @@ export default function IncomeVsExpensesByMonth({ months }) {
   return (
     <section className="card card--chart">
       <div className="card__head">
-        <h3>Income, Expenses & Debt by Month</h3>
+        <h3>Cash Flow by Month</h3>
         <div className="allocation__legend">
           <span className="allocation__legend-item">
             <span className="dot dot--lg" style={{ background: "var(--color-accent-2-500)" }} />
@@ -19,10 +19,12 @@ export default function IncomeVsExpensesByMonth({ months }) {
             <span className="dot dot--lg" style={{ background: "var(--color-negative-fill)" }} />
             Expenses
           </span>
-          <span className="allocation__legend-item">
-            <span className="dot dot--lg" style={{ background: "var(--color-bills-subscriptions)" }} />
-            Bills & Subscriptions
-          </span>
+          {chart.showsBillsSubscriptions && (
+            <span className="allocation__legend-item">
+              <span className="dot dot--lg" style={{ background: "var(--color-bills-subscriptions)" }} />
+              Bills & Subscriptions
+            </span>
+          )}
           <span className="allocation__legend-item">
             <span className="dot dot--lg" style={{ background: "var(--color-debt)" }} />
             Debt
@@ -52,7 +54,7 @@ export default function IncomeVsExpensesByMonth({ months }) {
             viewBox={`0 0 ${MONTH_CHART_WIDTH} ${MONTH_CHART_HEIGHT}`}
             preserveAspectRatio="none"
             role="img"
-            aria-label="Income, Expenses, Bills & Subscriptions, and Debt for every month of the Financial Year, with a Net line"
+            aria-label={`Income, Expenses, ${chart.showsBillsSubscriptions ? "Bills & Subscriptions, " : ""}and Debt for every month of the Financial Year, with a Net line`}
           >
             <g stroke="var(--color-neutral-300)" strokeWidth="1" vectorEffect="non-scaling-stroke">
               {gridlines.map((y) => (
