@@ -794,7 +794,7 @@ function EditableRow({ initial, categories, emoji, onCancel, onSave }) {
   );
 
   return (
-    <tr>
+    <tr className="table__edit">
       <td>
         <input type="date" aria-label="Date" value={values.date} onChange={(event) => set("date", event.target.value)} />
       </td>
