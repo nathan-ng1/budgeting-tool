@@ -17,7 +17,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # test, every fresh install) CREATE TABLE IF NOT EXISTS builds the target
 # schema directly, while an existing pre-#90 database (still `category` TEXT)
 # needs `migration.categories_table.migrate` run once to add `category_id`,
-# backfill it, and drop the old TEXT column before this code can read it.
+# backfill it, and drop the old TEXT column before this code can read it -
+# `python -m migration` does that as part of the update process (ADR-0025).
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS categories (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -493,8 +494,9 @@ def _seed_default_categories(connection: sqlite3.Connection) -> None:
     call also lands here with an empty, freshly-created `categories` table, so
     it still seeds normally. A future addition to CATEGORIES_BY_TYPE for
     existing installs is delivered via its own one-off migration script
-    instead (see ADR-0022's rollout of Savings/Investments), not by this
-    function running again.
+    instead (see ADR-0022's rollout of Savings/Investments), registered in
+    `migration.registry` so the update process runs it (ADR-0025), not by
+    this function running again.
     """
     [(count,)] = connection.execute("SELECT COUNT(*) FROM categories")
     if count > 0:
@@ -511,28 +513,59 @@ def _seed_default_categories(connection: sqlite3.Connection) -> None:
     connection.commit()
 
 
-def connect(database_path: Path | None = None) -> LocalStore:
-    """Build a LocalStore against the local SQLite database.
-
-    Reads DATABASE_PATH from the environment (loaded from a repo-root `.env`
-    if present) when database_path isn't given explicitly. Creates the
-    categories/transactions/recurring_rules/category_budgets/budget_suggestion
-    tables if they don't exist yet, and seeds `categories` with today's fixed
-    Category list if it's empty.
+def resolve_database_path(database_path: Path | None = None) -> Path:
+    """database_path if given, else DATABASE_PATH from the environment
+    (loaded from a repo-root `.env` if present).
     """
-    if database_path is None:
-        from dotenv import load_dotenv
+    if database_path is not None:
+        return database_path
 
-        load_dotenv(REPO_ROOT / ".env")
-        database_path = Path(os.environ["DATABASE_PATH"])
+    from dotenv import load_dotenv
 
+    load_dotenv(REPO_ROOT / ".env")
+    return Path(os.environ["DATABASE_PATH"])
+
+
+def open_connection(database_path: Path | None = None) -> sqlite3.Connection:
+    """Open the local SQLite database - the public entry point for anything
+    needing a raw connection rather than a LocalStore (`python -m migration`).
+
+    Creates the categories/transactions/recurring_rules/category_budgets/
+    budget_suggestion tables if they don't exist yet, and seeds `categories`
+    with today's fixed Category list if it's empty. A brand new database -
+    one with no `transactions` table yet - is built on the current schema
+    directly, so every registered one-off migration is recorded as already
+    applied there rather than ever run against it (Issue #152, ADR-0025).
+    """
+    database_path = resolve_database_path(database_path)
     database_path.parent.mkdir(parents=True, exist_ok=True)
     # check_same_thread=False: the Dashboard's local HTTP server handles each
     # connection on its own thread, so this connection is used from threads
     # other than the one that opened it. A lock in dashboard.server serialises
     # the handlers, so access stays one request at a time - never concurrent.
     connection = sqlite3.connect(database_path, check_same_thread=False)
+    is_new = (
+        connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'transactions'").fetchone()
+        is None
+    )
+    if is_new:
+        # Recorded before the schema is built, not after: if the process dies
+        # in between, the next open still finds no `transactions` table and
+        # treats the database as new again, rather than as an old install
+        # every migration should run against. Imported here, not at module
+        # level: the migrations themselves import from this module.
+        from migration.registry import MIGRATIONS
+        from migration.runner import mark_all_applied
+
+        mark_all_applied(connection, MIGRATIONS)
     connection.executescript(SCHEMA)
     connection.commit()
     _seed_default_categories(connection)
-    return LocalStore(connection=connection)
+    return connection
+
+
+def connect(database_path: Path | None = None) -> LocalStore:
+    """Build a LocalStore against the local SQLite database - see
+    open_connection.
+    """
+    return LocalStore(connection=open_connection(database_path))

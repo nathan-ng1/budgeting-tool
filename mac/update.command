@@ -1,7 +1,8 @@
 #!/bin/bash
 # Explicit, manually-run update step (ADR-0019) - the macOS counterpart to
 # windows/update.bat (issue #117). Fetches tags, shows what's changed since
-# your installed version, confirms, then pulls and re-syncs dependencies.
+# your installed version, confirms, then pulls, re-syncs dependencies and
+# runs any pending database migrations (ADR-0025).
 # Never reconfigures .env or switches AI path - that stays setup.command's
 # job (re-run it instead).
 
@@ -90,6 +91,18 @@ echo "Re-syncing Python dependencies..."
 uv sync
 if [[ $? -ne 0 ]]; then
     echo "uv sync failed - see above."
+    press_any_key
+    exit 1
+fi
+
+echo
+echo "Migrating your database..."
+uv run python -m migration
+if [[ $? -ne 0 ]]; then
+    echo
+    echo "Migrating your database failed - see above. Your code is updated but"
+    echo "your database isn't. Fix the problem, then re-run"
+    echo "'uv run python -m migration' (or ask for help with the error)."
     press_any_key
     exit 1
 fi

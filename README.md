@@ -258,6 +258,15 @@ To work on the frontend itself, `npm run dev` in `frontend/` starts Vite with ho
 <http://127.0.0.1:5173>, proxying `/api` through to `uv run python -m dashboard` on 8765 — so run
 both together.
 
+### Updating
+
+Run the Installation Pack's `update` script (`windows/update.bat` or `mac/update.command`) when `open_dashboard` says an update is
+available. It shows what's changed and asks you to confirm. Then it pulls, re-syncs dependencies,
+runs any pending database migrations (`uv run python -m migration`, ADR-0025) and rebuilds the
+frontend. Before migrating, it backs your database up next to itself as
+`<name>.pre-migration-<timestamp>.db`. If a migration fails, the update stops and prints where that
+backup is.
+
 ## Repo layout
 
 ```
@@ -279,6 +288,7 @@ src/beem/                  Beem Report parsing + deterministic Income categorisa
 src/categorisation/        Pluggable Categoriser interface + Claude/Codex/OpenAI-compatible backends
 src/recurring/             Recurring Transactions Config schedule expansion
 src/database/              Local SQLite store (Transaction Log + Recurring Transactions Config)
+src/migration/             One-off database migrations, run by `update` (ADR-0025)
 src/transaction_log/       Dedupe logic + Candidate/ExistingRow types
 src/dashboard/             Dashboard server + Month Overview query; serves the built frontend
 frontend/                  Dashboard frontend (React + Vite), built into src/dashboard/static/
@@ -300,3 +310,20 @@ The Dashboard frontend has its own suite (Vitest + Testing Library):
 cd frontend
 npm test
 ```
+
+## Adding a database migration
+
+An existing install only picks up a schema change, or new default Categories, through a one-off
+migration. `connect()` builds the current schema on a new database, but it never reseeds a
+non-empty `categories` table. To add one:
+
+1. Write `src/migration/<name>.py` exposing `migrate(connection: sqlite3.Connection) -> None`.
+   Commit inside it. Make it safe to re-run where you can: a failed run is retried.
+2. Append `Migration(name="<name>", migrate=<name>.migrate)` to the end of `MIGRATIONS` in
+   `src/migration/registry.py`. Never rename or reorder an entry that has shipped. Its name is what
+   the database's `schema_migrations` table records.
+3. Test it against an in-memory database shaped like an install from before the change (see
+   `tests/migration/`).
+
+The next `update` runs it once on each existing install. A database created after it ships records
+it as applied without running it. To run pending migrations by hand: `uv run python -m migration`.

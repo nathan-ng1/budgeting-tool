@@ -1,8 +1,8 @@
 """One-off migration adding the Bills & Subscriptions Type's predefined
 Categories to an existing database (Issue #147, ADR-0024).
 
-Run once against a real pre-#147 database - not on every connect() (mirrors
-`migration.rename_transfer_to_savings`'s own one-off convention). A brand new
+Run once against a real pre-#147 database by `python -m migration` during
+the update process (ADR-0025) - not on every connect(). A brand new
 database never needs this: `database.store._seed_default_categories` already
 seeds every CATEGORIES_BY_TYPE entry into an empty `categories` table, but by
 design never reseeds a non-empty one, so an existing install can't pick the
@@ -34,9 +34,3 @@ def migrate(connection: sqlite3.Connection) -> None:
     )
     connection.commit()
 
-
-if __name__ == "__main__":
-    from database.store import connect
-
-    migrate(connect()._connection)
-    print(f"{TYPE} Categories migrated.")

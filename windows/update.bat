@@ -1,9 +1,10 @@
 @echo off
 REM Explicit, manually-run update step (ADR-0019) - the counterpart to
 REM open_dashboard.bat's silent "update available" notice. Fetches tags, shows
-REM what's changed since your installed version, confirms, then pulls and
-REM re-syncs dependencies. Never reconfigures .env or switches AI path - that
-REM stays setup.bat's job (re-run it instead).
+REM what's changed since your installed version, confirms, then pulls,
+REM re-syncs dependencies and runs any pending database migrations (ADR-0025).
+REM Never reconfigures .env or switches AI path - that stays setup.bat's job
+REM (re-run it instead).
 REM
 REM Lives under windows/, alongside the other Windows scripts - see mac/ for
 REM the macOS equivalents (issue #117).
@@ -93,6 +94,18 @@ echo Re-syncing Python dependencies...
 uv sync
 if errorlevel 1 (
     echo uv sync failed - see above.
+    pause
+    exit /b 1
+)
+
+echo.
+echo Migrating your database...
+uv run python -m migration
+if errorlevel 1 (
+    echo.
+    echo Migrating your database failed - see above. Your code is updated but
+    echo your database isn't. Fix the problem, then re-run
+    echo 'uv run python -m migration' ^(or ask for help with the error^).
     pause
     exit /b 1
 )

@@ -2,8 +2,8 @@
 ADR-0022).
 
 Run once against a real pre-rename database still holding rows typed
-'Transfer' - not on every connect() (mirrors `migration.categories_table`'s
-own one-off convention). A brand new database never needs this: Savings
+'Transfer', by `python -m migration` during the update process (ADR-0025) -
+not on every connect(). A brand new database never needs this: Savings
 never existed under its old name there. Safe to re-run: each UPDATE only
 touches rows still typed 'Transfer', so a second run is a no-op.
 """
