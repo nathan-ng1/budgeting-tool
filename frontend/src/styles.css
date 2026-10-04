@@ -1656,7 +1656,9 @@ tbody:first-of-type .bva__section {
 }
 
 .field input,
-.field select {
+.field select,
+.table__edit input,
+.table__edit select {
   padding: 9px 11px;
   border: 1px solid var(--color-neutral-300);
   border-radius: 10px;
@@ -1667,7 +1669,9 @@ tbody:first-of-type .bva__section {
 }
 
 .field input:focus-visible,
-.field select:focus-visible {
+.field select:focus-visible,
+.table__edit input:focus-visible,
+.table__edit select:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 1px;
 }
@@ -1959,6 +1963,27 @@ tbody:first-of-type .bva__section {
 
 .table tr:last-child td {
   border-bottom: none;
+}
+
+/* The in-row Edit form (Transactions): the same inputs as a .field, but
+   tightened to the table's row height and font, and filling their column. */
+.table__edit td {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.table__edit input,
+.table__edit select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 110px;
+  padding: 6px 9px;
+  border-radius: 8px;
+  font-size: 13.5px;
+}
+
+.table__edit input[type="date"] {
+  min-width: 140px;
 }
 
 .table__num {
