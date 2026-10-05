@@ -15,7 +15,7 @@ special-casing needed at any of those sites. Scoped during a `/grill-with-docs` 
 ## Consequences
 
 - The Transaction Log's Amount is documented as always positive "regardless of the Statement
-  Export's sign" (see CONTEXT.md). Beem Adjustment is now a deliberate, narrow exception to that
+  Export's sign" (see GLOSSARY.md). Beem Adjustment is now a deliberate, narrow exception to that
   rule — not a general mechanism other Categories can opt into.
 - The write path normalises every Statement-Export-sourced Candidate's Amount to positive via
   `abs()`; this needed a Category-specific exception so Beem Adjustment's negative sign survives to

@@ -1,7 +1,7 @@
 # Running the Statement Export pipeline
 
 How to get a new credit card Statement Export from your bank's website into the Transaction
-Log. See `CONTEXT.md` for the vocabulary used below (Statement Export, Sanitising, Needs
+Log. See `GLOSSARY.md` for the vocabulary used below (Statement Export, Sanitising, Needs
 Review, Recurring Transaction, etc).
 
 ## When a new export arrives
@@ -12,7 +12,7 @@ Review, Recurring Transaction, etc).
    [ADR-0001](../adr/0001-sanitising-happens-outside-claudes-read-access.md)). Name it
    `{Issuer}_{yyyymmdd}.csv` (e.g. `ANZ_20260830.csv`) — the issuer prefix must match a handler
    registered in `src/sanitising/sanitise.py` (currently `ANZ`, `Beem`, and `NAB`). A Beem
-   Report (see `CONTEXT.md`) follows the same naming convention (e.g. `Beem_20260830.csv`) and
+   Report (see `GLOSSARY.md`) follows the same naming convention (e.g. `Beem_20260830.csv`) and
    can sit in the Inbox alongside a card export — both are sanitised and processed in the same
    run.
 
@@ -34,7 +34,7 @@ Review, Recurring Transaction, etc).
    - **Card export (e.g. ANZ)**: parse the export. Every positive-Amount row is a Bill Payment
      and is dropped before categorisation: never written, and it never blocks archiving (see
      [ADR-0016](../adr/0016-retire-refund-positive-amount-card-rows-are-always-bill-payment.md)).
-     Each remaining Transaction is first checked for a **History Match** (see `CONTEXT.md` and
+     Each remaining Transaction is first checked for a **History Match** (see `GLOSSARY.md` and
      [ADR-0026](../adr/0026-history-matches-skip-the-categorisation-backend.md)). Its Notes are
      normalised (lowercased, digits stripped, whitespace collapsed) and compared with the same key
      on existing Transaction Log rows, leaving out Beem Adjustment rows. If every matching row

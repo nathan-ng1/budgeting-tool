@@ -7,7 +7,7 @@ categorised entries in a local budget database.
 > "One-time setup" below, or jump directly to `docs/setup-guide.html` (Windows) /
 > `docs/setup-guide-mac.html` (macOS) (ADR-0017, issue #117).
 
-See `CONTEXT.md` for the full glossary of terms used below (Statement Export, Sanitising,
+See `GLOSSARY.md` for the full glossary of terms used below (Statement Export, Sanitising,
 Transaction Log, Needs Review, Recurring Transaction, etc).
 
 ## How it works, in short
@@ -270,7 +270,7 @@ backup is.
 ## Repo layout
 
 ```
-CONTEXT.md                 Domain glossary
+GLOSSARY.md                Domain glossary
 docs/adr/                  Architecture decisions
 docs/agents/                Agent-facing runbooks (issue tracker, MCP, pipeline)
 docs/setup-guide.html       Windows Installation Pack guide (self-contained, terracotta-themed)

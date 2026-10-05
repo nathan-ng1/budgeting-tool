@@ -3,7 +3,7 @@ import { colourForCategory } from "../lib/categoryColours.js";
 import { UNSET, money, signedMoney, signedPct } from "../lib/format.js";
 import { toneFor } from "../lib/tone.js";
 
-// The budgetable Types, in CONTEXT.md's order - the table's section order,
+// The budgetable Types, in GLOSSARY.md's order - the table's section order,
 // top to bottom. Every Type is budgetable (ADR-0023), so this is just the
 // TYPE_ORDER mirror rather than a second list to keep in step.
 const SECTIONS = TYPE_ORDER;
@@ -62,7 +62,7 @@ function SignedCells({ type, diff, pct }) {
 // Budgeted and Diff/% compare like with like: only Categories that actually
 // have a Category Budget count. Charging an unbudgeted Category's spend
 // against a budgeted-only total would read as an overspend that isn't one -
-// an unset Category Budget is not a $0 one (CONTEXT.md). Actual isn't a
+// an unset Category Budget is not a $0 one (GLOSSARY.md). Actual isn't a
 // comparison though - it's the section's real total spend/income, so it
 // sums every row regardless of budget.
 function subtotal(rows) {

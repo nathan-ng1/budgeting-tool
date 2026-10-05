@@ -72,7 +72,7 @@ you keep it configured.
 - Wrote `Category: Income, Sub-category: Beem Adjustment` to test row 166 (first blank row past the real data, which ends at row 164) and confirmed the row's resolved dropdown source (`U166:AN166`, driven by `T166` mirroring `J166`) resolved to `Salary, Rental, Beem Adjustment`, with the write persisting without being rejected.
 - Cleared the test row back to blank and confirmed it reads empty again. No residual test data left in the sheet.
 
-## Transaction Log column layout (as built, not as documented in CONTEXT.md)
+## Transaction Log column layout (as built, not as documented in GLOSSARY.md)
 
 Month, Amount, Category and Sub-category each have a **wide merged header label one column
 left of the data cell** (verified via the sheet's `merges` metadata — e.g. the "Month" label
@@ -92,7 +92,7 @@ merge** — their label sits directly in their own single value column, same as 
 
 Column N is unused (blank).
 
-This was corrected twice now: `CONTEXT.md` originally listed Sub-Category as K and Notes as L;
+This was corrected twice now: `GLOSSARY.md` originally listed Sub-Category as K and Notes as L;
 that was fixed to L/N based on the merge pattern holding for every field. It doesn't — Notes'
 header isn't merged like Month/Amount/Category/Sub-category are, so there's no offset for it,
 and the real column is M. Confirmed against the live sheet after a real write landed Notes in N

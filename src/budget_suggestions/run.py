@@ -16,7 +16,7 @@ def generate_budget_suggestion(
     window helper the Budget tab's editor uses (Issue #63) - anchored on
     `today`'s month, rather than duplicating that windowing logic here.
     Income and Savings rows are dropped before the Advisor ever sees them
-    (CONTEXT.md's Budget Suggestion entry: under/over-earning isn't advised
+    (GLOSSARY.md's Budget Suggestion entry: under/over-earning isn't advised
     on, and ADR-0023 explicitly kept Savings out of this write-up when it
     extended Category Budget to cover it).
     """

@@ -3,7 +3,7 @@
 // and Recurring Rule forms' Type/Category selects) derives that view from
 // here, so the grouping logic exists in exactly one place.
 
-// CONTEXT.md's own Type order, not alphabetical - so a Type select built from
+// GLOSSARY.md's own Type order, not alphabetical - so a Type select built from
 // this matches the Types filter dropdown's order.
 export const TYPE_ORDER = ["Income", "Expense", "Bills & Subscriptions", "Debt", "Savings"];
 

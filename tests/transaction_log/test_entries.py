@@ -21,7 +21,7 @@ def test_candidate_with_zero_amount_is_rejected(make_candidate):
 
 def test_candidate_accepts_a_negative_amount(make_candidate):
     # A raw Statement Export Transaction is negative-signed for spend (see
-    # CONTEXT.md) — the writer normalises to positive when it writes, not the
+    # GLOSSARY.md) — the writer normalises to positive when it writes, not the
     # Candidate itself, since Candidate carries the source transaction's sign.
     candidate = make_candidate(amount=-42.50)
 

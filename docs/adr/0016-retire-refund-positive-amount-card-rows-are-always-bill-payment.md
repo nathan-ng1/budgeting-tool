@@ -20,7 +20,7 @@ than a per-transaction model judgement call. This supersedes ADR-0007. Scoped du
   axis and the positive-Amount guidance prompt text — positive-Amount card rows are filtered out
   before ever reaching the categorisation backend, mirroring how Beem Report row-type filtering
   already happens deterministically rather than via a model call.
-- Refund is removed from the Income Category list; CONTEXT.md's Category list, Refund, Beem Report,
+- Refund is removed from the Income Category list; GLOSSARY.md's Category list, Refund, Beem Report,
   and Bill Payment term definitions are updated accordingly.
 - No historical migration is needed — zero live Transaction Log rows have Category=Refund.
 - If a genuine merchant refund needs to be tracked again in future, the user's own workflow is to

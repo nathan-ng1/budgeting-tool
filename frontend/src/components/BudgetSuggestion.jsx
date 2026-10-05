@@ -30,7 +30,7 @@ function bulletsFrom(writeUp) {
 
 // The one standing Budget Suggestion write-up (Issue #66) - its own
 // top-level card above the Budget tab's editor, not scoped to whichever
-// month pill is selected (CONTEXT.md's Budget Suggestion entry). `editor`
+// month pill is selected (GLOSSARY.md's Budget Suggestion entry). `editor`
 // (the currently selected month's rows, or null for Full year) drives the
 // variance chips only - the write-up itself is unaffected by month
 // selection. `suggestion` is null when the script has never been run.

@@ -90,7 +90,7 @@ export function monthlyComparisonChart(monthlyTotals) {
   const showsBillsSubscriptions = monthlyTotals.some((m) => m.bills_subscriptions > 0);
   const barCount = showsBillsSubscriptions ? 4 : 3;
   const { barWidth, gap } = showsBillsSubscriptions ? FOUR_BAR_LAYOUT : THREE_BAR_LAYOUT;
-  // The bars-plus-gaps are centred within the month slot, in CONTEXT.md's Type order.
+  // The bars-plus-gaps are centred within the month slot, in GLOSSARY.md's Type order.
   const barsWidth = barCount * barWidth + (barCount - 1) * gap;
   const firstBarOffset = (MONTH_SLOT_WIDTH - barsWidth) / 2;
   const barOffset = (position) => firstBarOffset + position * (barWidth + gap);
