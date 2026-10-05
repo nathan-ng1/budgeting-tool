@@ -1,8 +1,9 @@
 import json
 import urllib.request
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Callable
 
+from categorisation.history import Example
 from categorisation.interface import BatchResult, MalformedResponseError
 from categorisation.prompt import RESULTS_JSON_SCHEMA, build_prompt, parse_batch_response
 from statement_export.parser import RawTransaction
@@ -43,8 +44,10 @@ class OpenAICompatibleCategoriser:
         self._model = model
         self._post = post
 
-    def categorise(self, transactions: list[RawTransaction], categories: list[Category]) -> BatchResult:
-        prompt = build_prompt(transactions, categories)
+    def categorise(
+        self, transactions: list[RawTransaction], categories: list[Category], examples: Sequence[Example] = ()
+    ) -> BatchResult:
+        prompt = build_prompt(transactions, categories, examples)
         body = {
             "model": self._model,
             "messages": [{"role": "user", "content": prompt}],

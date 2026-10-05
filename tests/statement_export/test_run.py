@@ -77,10 +77,10 @@ def test_one_files_malformed_response_aborts_only_that_file(
     (data_dir / "NAB_20260805.csv").write_text("05/08/2026,-10.00,Coles\n")
 
     class RoutingCategoriser:
-        def categorise(self, transactions, categories_by_type):
+        def categorise(self, transactions, categories, examples=()):
             if transactions[0].notes == "Woolworths":
                 raise MalformedResponseError("bad output")
-            return fake_categoriser(results=[make_category_result()]).categorise(transactions, categories_by_type)
+            return fake_categoriser(results=[make_category_result()]).categorise(transactions, categories, examples)
 
     store = fake_store()
 

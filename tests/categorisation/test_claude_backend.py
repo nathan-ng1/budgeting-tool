@@ -4,6 +4,7 @@ from datetime import date
 import pytest
 
 from categorisation.claude_backend import ClaudeCodeCategoriser
+from categorisation.history import Example
 from categorisation.interface import MalformedResponseError
 from statement_export.parser import RawTransaction
 from transaction_log.categories import Category
@@ -113,3 +114,13 @@ def test_result_text_that_is_not_the_expected_json_shape_raises_malformed_respon
 
     with pytest.raises(MalformedResponseError):
         categoriser.categorise([make_transaction()], CATEGORIES)
+
+
+def test_examples_reach_the_prompt():
+    runner = FakeProcessRunner(envelope_with_structured_output(batch_dict()))
+    categoriser = ClaudeCodeCategoriser(run_process=runner)
+
+    categoriser.categorise([make_transaction()], CATEGORIES, [Example("coles", (("Expense", "Groceries"),))])
+
+    [args] = runner.calls
+    assert "'coles' -> Expense / Groceries" in args[args.index("-p") + 1]

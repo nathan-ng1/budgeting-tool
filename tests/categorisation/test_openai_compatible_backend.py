@@ -3,6 +3,7 @@ from datetime import date
 
 import pytest
 
+from categorisation.history import Example
 from categorisation.interface import MalformedResponseError
 from categorisation.openai_compatible_backend import OpenAICompatibleCategoriser
 from statement_export.parser import RawTransaction
@@ -128,3 +129,13 @@ def test_non_json_message_content_raises_malformed_response_error():
 
     with pytest.raises(MalformedResponseError):
         categoriser.categorise([make_transaction()], CATEGORIES)
+
+
+def test_examples_reach_the_prompt():
+    transport = FakeTransport(chat_completion_response(batch_json()))
+    categoriser = OpenAICompatibleCategoriser(base_url="http://x", api_key="key", model="m", post=transport)
+
+    categoriser.categorise([make_transaction()], CATEGORIES, [Example("coles", (("Expense", "Groceries"),))])
+
+    [(_, _, body)] = transport.calls
+    assert "'coles' -> Expense / Groceries" in body["messages"][0]["content"]

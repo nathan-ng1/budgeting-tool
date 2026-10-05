@@ -1,5 +1,7 @@
 import json
+from collections.abc import Sequence
 
+from categorisation.history import Example
 from categorisation.interface import BatchResult, CategoryResult, MalformedResponseError
 from statement_export.parser import RawTransaction
 from transaction_log.categories import Category, assignable_categories_by_type, types_with_categories
@@ -44,11 +46,14 @@ user to confirm it
 - "reason": a short one-sentence explanation, or null if needs_review is false"""
 
 
-def build_prompt(transactions: list[RawTransaction], categories: list[Category]) -> str:
+def build_prompt(
+    transactions: list[RawTransaction], categories: list[Category], examples: Sequence[Example] = ()
+) -> str:
     assignable = assignable_categories_by_type(categories)
+    assignable_types = types_with_categories(assignable)
     type_lines = [
         f"- {transaction_type}: {', '.join(sorted(assignable[transaction_type]))}"
-        for transaction_type in types_with_categories(assignable)
+        for transaction_type in assignable_types
     ]
     transaction_lines = [
         f"{i}. date={transaction.date.isoformat()} amount={transaction.amount} notes={transaction.notes!r}"
@@ -59,10 +64,39 @@ def build_prompt(transactions: list[RawTransaction], categories: list[Category])
         "You are categorising credit card / bank transactions for a personal budget.\n\n"
         "Assign each transaction a Type and Category from this fixed list:\n"
         + "\n".join(type_lines)
+        + _examples_section(examples, assignable, assignable_types)
         + "\n\nTransactions:\n"
         + "\n".join(transaction_lines)
         + "\n\n"
         + RESPONSE_INSTRUCTIONS
+    )
+
+
+def _examples_section(
+    examples: Sequence[Example], assignable: dict[str, set[str]], assignable_types: list[str]
+) -> str:
+    """Past Notes -> Type / Category pairs from the Transaction Log (ADR-0026),
+    or "" when there are none. A pair the backend may not assign (a locked
+    Category, or an AI-excluded Type like Savings) is left out, so an example
+    can't steer the model towards a response parse_batch_response would
+    reject; an example left with no pairs is dropped.
+    """
+    lines = []
+    for example in examples:
+        pairs = [
+            f"{transaction_type} / {category}"
+            for transaction_type, category in example.pairs
+            if transaction_type in assignable_types and category in assignable[transaction_type]
+        ]
+        if pairs:
+            lines.append(f"- {example.notes_key!r} -> {'; '.join(pairs)}")
+    if not lines:
+        return ""
+
+    return (
+        "\n\nPreviously categorised by the user - use as guidance, not as rules. Notes are shown "
+        "lowercased with digits removed; a line listing more than one Type / Category means the "
+        "user has categorised those Notes differently over time:\n" + "\n".join(lines)
     )
 
 

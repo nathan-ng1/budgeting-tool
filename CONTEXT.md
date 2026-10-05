@@ -65,8 +65,12 @@ The database table this process writes to. One row per categorised Transaction: 
 _Avoid_: Budget sheet, spreadsheet, Google Sheet, Description (for the Notes field — Notes is the term everywhere it appears, including the Dashboard's Transactions tab)
 
 **Needs Review**:
-The checkpoint where the configured categorisation backend flags every Transaction it can't confidently assign a Category to (a `needs_review` flag in its structured response), and `uv run python -m statement_export` prompts you for each one right in the terminal. Nothing is written to the Transaction Log until every Needs Review item for that file is resolved.
+The checkpoint where the configured categorisation backend flags every Transaction (other than a History Match, which never reaches the backend) it can't confidently assign a Category to (a `needs_review` flag in its structured response), and `uv run python -m statement_export` prompts you for each one right in the terminal. Nothing is written to the Transaction Log until every Needs Review item for that file is resolved.
 _Avoid_: Uncategorised, low-confidence
+
+**History Match**:
+A card Statement Export Transaction whose Type and Category are taken straight from earlier Transaction Log rows with the same Notes — compared ignoring case, digits, and spacing, so the same merchant under a different store number still counts — instead of from the categorisation backend. A History Match is never sent to the backend and never goes to Needs Review. It only happens when every earlier row with those Notes agrees on one Category; if they've ever disagreed (e.g. a merchant you later moved to a different Category), the Transaction goes to the backend as normal. Beem Reports never produce History Matches — a Beem message is free text too vague to match on. The Transaction Log is the only source: there's no separate list of rules, so editing a row on the Dashboard changes what future Transactions match to. Beem Adjustment rows are never matched against, since their Category is forced by direction rather than chosen. Those same past rows are also given to the backend as examples for the Transactions that aren't History Matches, including outgoing Beem rows, but there they're only a hint. See [ADR-0026](./docs/adr/0026-history-matches-skip-the-categorisation-backend.md).
+_Avoid_: Known Merchant, Remembered Category, rule, auto-categorisation
 
 **Processed archive**:
 `.data\processed\` — where a Statement Export moves once its Transactions have been successfully written to the Transaction Log. Anything still sitting directly in `.data\` is outstanding and hasn't been processed yet.
