@@ -45,6 +45,9 @@ Transactions still need a model's judgement.
   Dashboard edit or a Recurring rule set its Category. A wrong row repeats until you edit it.
 - Rows with Category Beem Adjustment are never learned from, by either the lookup or the prompt
   history: direction forced their Category, so they say nothing about what the money was spent on.
+- A History Match only assigns a pair the backend itself could assign, so never a Savings
+  Category ([ADR-0022](./0022-rename-transfer-to-savings-with-predefined-categories.md)): a card
+  Transaction whose Notes have only ever been Savings goes to the backend instead.
 - Beem Reports never produce History Matches, because a free-text message like `dinner` is too
   vague to auto-accept. They do get prompt history.
 - A run's summary reports how many Transactions were History Matches, how many went to the

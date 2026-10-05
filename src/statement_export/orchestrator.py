@@ -55,7 +55,7 @@ def run(
 
     counts = dict(history_match_count=len(history_matches), backend_count=len(to_categorise))
     categorised, needs_review_count, abort_reason = _categorise(
-        to_categorise, categoriser, categories, prompt_examples(history), resolve_needs_review
+        to_categorise, categoriser, categories, prompt_examples(history, categories), resolve_needs_review
     )
     if abort_reason is not None:
         return OrchestrationResult(

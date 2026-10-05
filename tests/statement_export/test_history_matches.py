@@ -197,6 +197,26 @@ def test_a_settled_pair_no_longer_in_the_categories_table_is_not_a_match(
     assert len(categoriser.calls) == 1
 
 
+def test_settled_savings_history_is_never_a_history_match(
+    fake_categoriser, fake_store, make_category_result, make_transaction, tmp_path: Path
+):
+    # Savings is manual-entry only (ADR-0022): never assigned from a
+    # Statement Export, even by repeating a past categorisation.
+    data_dir = write_export(tmp_path, "ANZ_20260805.csv", ["05/08/2026,-100.00,Vanguard Invest"])
+    categoriser = fake_categoriser(results=[make_category_result()])
+    store = fake_store(
+        transactions=[history_row(make_transaction, "Vanguard Invest", type="Savings", category="Investments")]
+    )
+
+    [(_, result)] = process_data_dir(
+        data_dir=data_dir, categoriser=categoriser, store=store, resolve_needs_review=fail_if_called
+    )
+
+    [call] = categoriser.calls
+    assert [t.notes for t in call] == ["Vanguard Invest"]
+    assert result.history_match_count == 0
+
+
 def test_a_file_of_only_history_matches_and_bill_payments_never_calls_the_categoriser(
     fake_store, make_transaction, tmp_path: Path
 ):

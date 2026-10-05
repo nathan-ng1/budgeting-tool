@@ -94,8 +94,9 @@ model backend rather than improvised in chat:
   lookup of past Categories in the Transaction Log, run before the backend for card Transactions
   (by `statement_export.orchestrator`), plus the prompt examples sent with whatever does reach the
   backend. It isn't a hand-written rule set: it repeats a categorisation you've already made for
-  that exact merchant, so only new or ambiguous Transactions need a model. Pairs the backend may
-  not assign (Savings, locked Categories) are left out of the prompt examples.
+  that exact merchant, so only new or ambiguous Transactions need a model. A pair the backend may
+  not assign (Savings, locked Categories) is never a History Match and is left out of the prompt
+  examples.
 - `src/beem/parser.py` — parses a Beem Report (keeping both directions) and splits it into
   deterministic Income candidates and outgoing rows still needing categorisation.
 - `src/categorisation/` — the pluggable `Categoriser` interface and its three backends
