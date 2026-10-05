@@ -86,7 +86,7 @@ export function toPayload(values) {
     interval: Number(values.interval),
     day: values.day,
     start_date: values.start_date,
-    // Blank means recurs indefinitely (CONTEXT.md), which the store stores as
+    // Blank means recurs indefinitely (GLOSSARY.md), which the store stores as
     // no End Date at all rather than as an empty string.
     end_date: values.end_date === "" ? null : values.end_date,
   };

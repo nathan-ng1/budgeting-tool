@@ -14,7 +14,7 @@ rather than being omitted. Stat tiles and monthly averages divide by elapsed mon
 
 The annual Budgeted vs Actual table's Expected/Diff/% columns are always "—", for every Category,
 regardless of whether a Category Budget is set. A Category Budget is currently a single flat monthly
-amount (CONTEXT.md) with no per-month variation; multiplying that by elapsed months would produce a
+amount (GLOSSARY.md) with no per-month variation; multiplying that by elapsed months would produce a
 number that looks like a real annual target without being one. Real annual budgeting (a
 per-month-capable Category Budget) is deferred to a future feature - only the Actual column is real
 for Full year today.

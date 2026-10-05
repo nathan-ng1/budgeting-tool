@@ -1,6 +1,6 @@
 # Update checks are automatic on Dashboard launch; applying an update stays manual
 
-CONTEXT.md's opening line calls this whole tool "a personal, manually-triggered process," and
+GLOSSARY.md's opening line calls this whole tool "a personal, manually-triggered process," and
 [ADR-0008](./0008-dashboard-is-a-local-web-app-not-a-hosted-artifact.md) established that nothing
 about the Dashboard page reaches the network so transaction data never leaves the machine. Against
 that backdrop, having `open_dashboard.bat` silently call the GitHub Releases API on every launch

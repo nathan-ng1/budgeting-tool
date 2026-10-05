@@ -21,7 +21,7 @@ describe("colourForCategory", () => {
   });
 
   it("gives an unknown Category a stable colour rather than undefined", () => {
-    // Categories are added lazily as real cases occur (CONTEXT.md), so the
+    // Categories are added lazily as real cases occur (GLOSSARY.md), so the
     // frontend must not break on one it was not built with.
     const first = colourForCategory("Some Future Category");
 

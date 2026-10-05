@@ -85,7 +85,7 @@ class BudgetGridRow:
     category: str
     # 12 entries, July through June (matching the Budget tab's Full year
     # column order) - None where that month has no Category Budget set
-    # (unset != $0, CONTEXT.md's Category Budget entry).
+    # (unset != $0, GLOSSARY.md's Category Budget entry).
     amounts: list[float | None]
 
 
@@ -214,7 +214,7 @@ def get_annual_overview(store, year: int, today: date | None = None, start_month
 
 def _budgetable_type_category_pairs(categories: list[Category]):
     """Every (Type, Category) pair a Category Budget can apply to, in
-    CONTEXT.md's Type order and alphabetical within it - shared by
+    GLOSSARY.md's Type order and alphabetical within it - shared by
     get_budget_editor and get_full_year_budget_grid so both walk the same
     rows in the same order. Sourced from the live `categories` table (Issue
     #90), not the hardcoded CATEGORIES_BY_TYPE dict, so a Category added
@@ -381,7 +381,7 @@ def _stat_tiles(transactions: list[Transaction]) -> StatTiles:
     bills_subscriptions = _round(sum(t.amount for t in transactions if t.type == "Bills & Subscriptions"))
     debt = _round(sum(t.amount for t in transactions if t.type == "Debt"))
     saved = _round(sum(t.amount for t in transactions if t.type == "Savings"))
-    # Savings is never subtracted - see CONTEXT.md's Net Balance entry
+    # Savings is never subtracted - see GLOSSARY.md's Net Balance entry
     # (ADR-0022); Bills & Subscriptions is, like Expense/Debt (ADR-0024).
     net_balance = _round(income - expenses - bills_subscriptions - debt)
     return StatTiles(
@@ -521,7 +521,7 @@ def _budgeted_vs_actual_rows(
     budgets: dict[str, float], actuals: dict[str, float], categories: list[Category]
 ) -> list[BudgetVsActual]:
     """Build one row per Category with a budget and/or non-zero actual, sorted
-    by Type (CONTEXT.md order) then Category - shared by the per-month and
+    by Type (GLOSSARY.md order) then Category - shared by the per-month and
     Full year Budgeted vs Actual tables, which differ only in how `budgets`
     and `actuals` are computed. Types are resolved from the live `categories`
     table (Issue #90), not the hardcoded CATEGORIES_BY_TYPE dict, so a

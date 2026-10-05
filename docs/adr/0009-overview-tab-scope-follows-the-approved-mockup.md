@@ -18,7 +18,7 @@ Budgeted vs Actual table's Expected column.
 - ADR-0008's tab-scope sentence is superseded for the per-month Overview tab by this ADR; ADR-0008's
   architectural decision (local web app, not a hosted Artifact) is unchanged.
 - The Category Budget concept needs its own storage (a new table alongside `transactions` and
-  `recurring_rules`) and, eventually, a formal glossary entry in `CONTEXT.md` — flagged here for a
+  `recurring_rules`) and, eventually, a formal glossary entry in `GLOSSARY.md` — flagged here for a
   future `/domain-modeling` pass rather than defined informally.
 - The annual Overview (no month selected) is a separate, not-yet-designed screen — this ADR and the
   mockup it references cover the per-month view only.

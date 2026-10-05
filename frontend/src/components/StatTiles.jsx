@@ -2,7 +2,7 @@ import { money, signedMoney } from "../lib/format.js";
 import { toneFor } from "../lib/tone.js";
 
 // "Real Income" is the mockup's tile copy for the Income Type - no distinct
-// concept, just Income (CONTEXT.md).
+// concept, just Income (GLOSSARY.md).
 //
 // `average` is the Full year view's per-month figures (same StatTiles shape,
 // already divided by elapsed months by the backend - see ADR-0011). It is

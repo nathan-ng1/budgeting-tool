@@ -47,7 +47,7 @@ def test_a_stored_write_up_is_returned_as_is(running_server):
 
 def test_the_write_up_is_the_same_regardless_of_any_month_query_param(running_server):
     """The endpoint takes no (year, month) at all - it is one standing
-    write-up, not scoped to a month (CONTEXT.md's Budget Suggestion entry)."""
+    write-up, not scoped to a month (GLOSSARY.md's Budget Suggestion entry)."""
     store, server = running_server
     store.write_budget_suggestion("Standing advice.", datetime(2026, 8, 20, 14, 32))
 

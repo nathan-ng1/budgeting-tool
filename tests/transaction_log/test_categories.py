@@ -17,7 +17,7 @@ def test_the_five_types_are_income_expense_bills_and_subscriptions_debt_and_savi
 
 
 def test_type_order_is_income_expense_bills_and_subscriptions_debt_savings():
-    # CONTEXT.md's own definition order - what the Types filter and the
+    # GLOSSARY.md's own definition order - what the Types filter and the
     # Transaction/Recurring Rule forms' Type selects display, as opposed to
     # types_with_categories()'s alphabetical order below.
     assert TYPE_ORDER == ("Income", "Expense", "Bills & Subscriptions", "Debt", "Savings")

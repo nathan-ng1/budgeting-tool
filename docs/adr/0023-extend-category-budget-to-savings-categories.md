@@ -26,7 +26,7 @@ comments on.
 ## Consequences
 
 - Supersedes ADR-0013's Income/Expense/Debt framing of which Types Category Budget applies to, and
-  CONTEXT.md's "Savings has none to budget" line. The per-(Category, month) shape ADR-0013 introduced
+  GLOSSARY.md's "Savings has none to budget" line. The per-(Category, month) shape ADR-0013 introduced
   is unchanged — only the set of budgetable Types grows.
 - `dashboard.budgets.BUDGETABLE_TYPES` (the wire-shape grouping constant) simplifies to reuse
   `transaction_log.categories.TYPE_ORDER` directly, since it no longer excludes anything.

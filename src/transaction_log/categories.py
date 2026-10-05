@@ -17,7 +17,7 @@ class Category:
     locked: bool
 
 
-# Every Category has exactly one fixed Type — see CONTEXT.md and ADR-0006. Debt
+# Every Category has exactly one fixed Type — see GLOSSARY.md and ADR-0006. Debt
 # starts empty on purpose: its Categories are added lazily, only for real
 # cases. Savings (ADR-0022) and Bills & Subscriptions (ADR-0024) are the
 # exceptions: predefined from the start, since (unlike Debt) every user has
@@ -58,7 +58,7 @@ CATEGORIES_BY_TYPE = {
     },
 }
 
-# The Type order presented to a user - CONTEXT.md's own definition order, not
+# The Type order presented to a user - GLOSSARY.md's own definition order, not
 # the alphabetical order types_with_categories() returns below (that order is
 # only for internal iteration - the categorisation prompt and terminal review -
 # where display order doesn't matter).
@@ -92,7 +92,7 @@ def type_for_category(category: str) -> str | None:
     """The Type that owns `category`, or None if it isn't a valid Category.
 
     The reverse of CATEGORIES_BY_TYPE - every Category has exactly one Type
-    (CONTEXT.md), so this is a lookup, not a computation.
+    (GLOSSARY.md), so this is a lookup, not a computation.
     """
     for transaction_type, categories in CATEGORIES_BY_TYPE.items():
         if category in categories:
