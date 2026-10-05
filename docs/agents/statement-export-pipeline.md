@@ -31,22 +31,29 @@ Review, Recurring Transaction, etc).
    (Or just run `windows/process_statement_export.bat` / `mac/process_statement_export.command`,
    which does steps 2 and 3 together.) The script
    looks at what's sitting in `.data\` and handles each file there by issuer:
-   - **Card export (e.g. ANZ)**: parse the export (both signs — negative spend and positive
-     Bill Payment/Refund rows all flow into categorisation, see
-     [ADR-0007](../adr/0007-classify-refunds-vs-bill-payments-via-the-categorisation-backend.md))
-     and assign a Type/Category to every transaction against the fixed mapping in
-     `src/transaction_log/categories.py`, via whichever backend `CATEGORISER_BACKEND` selects. A
-     positive-Amount row is classified by the backend as a genuine Refund (written as Type
-     Income, Category Refund) or a Bill Payment (`is_bill_payment: true` — dropped before
-     `Candidate`s are built, never written, never blocks archiving); an ambiguous one goes to
-     Needs Review, where the terminal resolver can pick a Type/Category or drop it as a Bill
-     Payment.
-   - **Beem Report**: `beem.parser.parse()` keeps both directions (unlike a card export, a
-     positive row here is real Income, not a Bill Payment/Refund judgement call).
+   - **Card export (e.g. ANZ)**: parse the export. Every positive-Amount row is a Bill Payment
+     and is dropped before categorisation: never written, and it never blocks archiving (see
+     [ADR-0016](../adr/0016-retire-refund-positive-amount-card-rows-are-always-bill-payment.md)).
+     Each remaining Transaction is first checked for a **History Match** (see `CONTEXT.md` and
+     [ADR-0026](../adr/0026-history-matches-skip-the-categorisation-backend.md)). Its Notes are
+     normalised (lowercased, digits stripped, whitespace collapsed) and compared with the same key
+     on existing Transaction Log rows, leaving out Beem Adjustment rows. If every matching row
+     agrees on one Type/Category, the Transaction takes it with no backend call and no Needs
+     Review. Everything else gets a Type/Category from whichever backend `CATEGORISER_BACKEND`
+     selects, against the live categories table.
+   - **Beem Report**: `beem.parser.parse()` keeps both directions.
      `beem.parser.categorise()` splits the parsed rows: incoming (positive) rows become
-     deterministic `Type: Income, Category: Beem Adjustment` candidates with no model
-     call needed; outgoing (negative) rows are categorised from their Message against the same
-     fixed Expense Category list used for card Transactions.
+     deterministic `Type: Expense, Category: Beem Adjustment` candidates with no model call
+     needed (see [ADR-0015](../adr/0015-beem-adjustment-reduces-expense-instead-of-income.md));
+     outgoing (negative) rows are categorised from their Message by the backend. Beem rows never
+     get History Matches, because a free-text message is too vague to auto-accept.
+   - **Prompt history**: whatever does go to the backend, card or Beem, is sent along with up to
+     the 200 most recently seen normalised Notes keys from the Transaction Log and their
+     Category (Beem Adjustment rows left out; a key whose rows disagree lists every Category it
+     has had). These are only examples: the model can still pick something else or flag
+     `needs_review`.
+   - The run summary for each file shows how many Transactions were History Matches, how many
+     went to the backend, and how many were flagged Needs Review.
    - Either way: anything the backend flags `needs_review` is prompted right there in the
      terminal (via `statement_export.terminal_review.TerminalReviewer`), and nothing is written
      until every Needs Review item for that file is resolved.
@@ -80,8 +87,16 @@ run as plain scripts so they're exactly right every time, and even the judgement
 model backend rather than improvised in chat:
 
 - `src/sanitising/` — moves and sanitises exports (run manually, step 2 above).
-- `src/statement_export/parser.py` — parses a Statement Export into raw Transactions, both signs
-  (negative spend and positive Bill Payment/Refund rows all flow into categorisation).
+- `src/statement_export/parser.py` — parses a Statement Export into raw Transactions and drops
+  every positive-Amount row as a Bill Payment (ADR-0016).
+- `src/categorisation/history.py` — History Matches
+  ([ADR-0026](../adr/0026-history-matches-skip-the-categorisation-backend.md)): a deterministic
+  lookup of past Categories in the Transaction Log, run before the backend for card Transactions
+  (by `statement_export.orchestrator`), plus the prompt examples sent with whatever does reach the
+  backend. It isn't a hand-written rule set: it repeats a categorisation you've already made for
+  that exact merchant, so only new or ambiguous Transactions need a model. A pair the backend may
+  not assign (Savings, locked Categories) is never a History Match and is left out of the prompt
+  examples.
 - `src/beem/parser.py` — parses a Beem Report (keeping both directions) and splits it into
   deterministic Income candidates and outgoing rows still needing categorisation.
 - `src/categorisation/` — the pluggable `Categoriser` interface and its three backends

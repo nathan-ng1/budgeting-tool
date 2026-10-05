@@ -1,8 +1,12 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from statement_export.parser import RawTransaction
 from transaction_log.categories import Category
+
+if TYPE_CHECKING:
+    from categorisation.history import Example
 
 
 class MalformedResponseError(Exception):
@@ -27,4 +31,5 @@ class Categoriser(Protocol):
         self,
         transactions: list[RawTransaction],
         categories: list[Category],
+        examples: Sequence["Example"] = (),
     ) -> BatchResult: ...

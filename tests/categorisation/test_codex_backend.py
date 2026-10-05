@@ -4,6 +4,7 @@ from datetime import date
 import pytest
 
 from categorisation.codex_backend import CodexCategoriser
+from categorisation.history import Example
 from categorisation.interface import MalformedResponseError
 from statement_export.parser import RawTransaction
 from transaction_log.categories import Category
@@ -80,3 +81,13 @@ def test_non_json_stdout_raises_malformed_response_error():
 
     with pytest.raises(MalformedResponseError):
         categoriser.categorise([make_transaction()], CATEGORIES)
+
+
+def test_examples_reach_the_prompt():
+    runner = FakeProcessRunner(batch_json())
+    categoriser = CodexCategoriser(run_process=runner)
+
+    categoriser.categorise([make_transaction()], CATEGORIES, [Example("coles", (("Expense", "Groceries"),))])
+
+    [args] = runner.calls
+    assert "'coles' -> Expense / Groceries" in args[2]

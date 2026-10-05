@@ -1,8 +1,10 @@
+from collections.abc import Sequence
 from datetime import date, datetime
 
 import pytest
 
 from budget_suggestions.suggestion import BudgetSuggestion
+from categorisation.history import Example
 from categorisation.interface import BatchResult, CategoryResult
 from database.store import CategoryInUse, CategoryLocked, CategoryNotFound, RecurringRuleNotFound, TransactionNotFound
 from recurring.rules import RecurringRule, StoredRecurringRule
@@ -39,9 +41,13 @@ class FakeCategoriser:
         self._results = results
         self._error = error
         self.calls: list[list[RawTransaction]] = []
+        self.examples: list[list[Example]] = []
 
-    def categorise(self, transactions: list[RawTransaction], categories: list[Category]) -> BatchResult:
+    def categorise(
+        self, transactions: list[RawTransaction], categories: list[Category], examples: Sequence[Example] = ()
+    ) -> BatchResult:
         self.calls.append(transactions)
+        self.examples.append(list(examples))
         if self._error is not None:
             raise self._error
         return BatchResult(results=self._results)

@@ -66,6 +66,16 @@ def process_data_dir(
             resolve_needs_review=resolve_needs_review,
             archive=Archive(source_path=source, processed_dir=processed_dir),
             dry_run=dry_run,
+            # Beem Reports never get History Matches: a free-text message is
+            # too vague to auto-accept (ADR-0026).
+            use_history_matches=issuer != "Beem",
+        )
+        logger.info(
+            "%s: %d History Match(es), %d sent to the backend, %d flagged Needs Review",
+            source.name,
+            result.history_match_count,
+            result.backend_count,
+            result.needs_review_count,
         )
         if result.aborted:
             logger.info("%s: aborted - %s", source.name, result.reason)

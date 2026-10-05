@@ -3,6 +3,7 @@ from datetime import date
 
 import pytest
 
+from categorisation.history import Example
 from categorisation.interface import MalformedResponseError
 from categorisation.prompt import build_prompt, parse_batch_response
 from statement_export.parser import RawTransaction
@@ -75,6 +76,52 @@ def test_prompt_lists_every_transaction_with_date_amount_and_notes():
     assert "-42.5" in prompt
     assert "Woolworths" in prompt
     assert "Coles" in prompt
+
+
+def test_prompt_lists_examples_as_guidance_with_their_type_and_category():
+    prompt = build_prompt(
+        [make_transaction()],
+        CATEGORIES,
+        [Example("woolworths", (("Expense", "Groceries"),)), Example("salary acme", (("Income", "Salary"),))],
+    )
+
+    assert "guidance, not as rules" in prompt
+    assert "'woolworths' -> Expense / Groceries" in prompt
+    assert "'salary acme' -> Income / Salary" in prompt
+
+
+def test_prompt_lists_every_pair_for_a_key_whose_history_disagrees():
+    prompt = build_prompt(
+        [make_transaction()],
+        CATEGORIES,
+        [Example("uber", (("Expense", "Dining & Takeaway"), ("Expense", "Groceries")))],
+    )
+
+    assert "'uber' -> Expense / Dining & Takeaway; Expense / Groceries" in prompt
+
+
+def test_prompt_omits_the_examples_section_when_there_are_no_examples():
+    assert "guidance, not as rules" not in build_prompt([make_transaction()], CATEGORIES)
+    assert "guidance, not as rules" not in build_prompt([make_transaction()], CATEGORIES, [])
+
+
+def test_prompt_examples_leave_out_pairs_the_backend_may_not_assign():
+    # A Savings row (AI-excluded, ADR-0022) or a locked Category must never
+    # nudge the model towards a pair parse_batch_response would reject.
+    categories = [*CATEGORIES, Category(id=5, type="Savings", name="Investments", emoji=None, locked=False)]
+
+    prompt = build_prompt(
+        [make_transaction()],
+        categories,
+        [
+            Example("vanguard", (("Savings", "Investments"),)),
+            Example("mixed", (("Expense", "Beem Adjustment"), ("Expense", "Groceries"))),
+        ],
+    )
+
+    assert "vanguard" not in prompt
+    assert "'mixed' -> Expense / Groceries\n" in prompt
+    assert "Beem Adjustment" not in prompt
 
 
 def test_prompt_instructs_a_results_wrapped_json_object():
