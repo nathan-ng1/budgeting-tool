@@ -6,7 +6,14 @@ import pytest
 from budget_suggestions.suggestion import BudgetSuggestion
 from categorisation.history import Example
 from categorisation.interface import BatchResult, CategoryResult
-from database.store import CategoryInUse, CategoryLocked, CategoryNotFound, RecurringRuleNotFound, TransactionNotFound
+from database.store import (
+    CategoryInUse,
+    CategoryLocked,
+    CategoryNotFound,
+    RecurringRuleNotFound,
+    TransactionNotFound,
+    category_in_use_message,
+)
 from recurring.rules import RecurringRule, StoredRecurringRule
 from statement_export.parser import RawTransaction
 from transaction_log.categories import CATEGORIES_BY_TYPE, TYPE_ORDER, Category
@@ -238,14 +245,14 @@ class FakeStore:
         if existing.locked:
             raise CategoryLocked(f"Category {existing.name!r} is locked and cannot be deleted")
 
-        in_use = (
-            any(transaction.category == existing.name for transaction in self._transactions)
-            or any(rule.category == existing.name for rule in self.read_recurring_rules())
-            or any(category == existing.name for category, _year, _month in self._category_budgets)
-        )
-        if in_use:
-            raise CategoryInUse(f"Category {existing.name!r} is still used and cannot be deleted")
+        transactions = sum(transaction.category == existing.name for transaction in self._transactions)
+        rules = sum(rule.category == existing.name for rule in self.read_recurring_rules())
+        if transactions or rules:
+            raise CategoryInUse(category_in_use_message(existing.name, transactions, rules))
 
+        self._category_budgets = {
+            key: amount for key, amount in self._category_budgets.items() if key[0] != existing.name
+        }
         self._categories = [category for category in self._categories if category.id != category_id]
 
     def _category_by_id(self, category_id: int) -> Category:

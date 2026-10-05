@@ -94,10 +94,22 @@ class CategoryLocked(ValueError):
 
 
 class CategoryInUse(ValueError):
-    """A Category still referenced by a Transaction, Recurring Rule, or
-    Category Budget can't be deleted - delete is blocked, not cascading
-    (Issue #89).
+    """A Category still referenced by a Transaction or Recurring Rule can't
+    be deleted - delete is blocked, not cascading (Issue #89). Category
+    Budgets don't count: they're deleted with the Category (Issue #162).
     """
+
+
+def category_in_use_message(name: str, transactions: int, rules: int) -> str:
+    """Name each cause blocking a Category delete, so the Dashboard says
+    what to re-categorise first rather than an opaque record count.
+    """
+    causes = []
+    if transactions:
+        causes.append(f"{transactions} Transaction{'s' if transactions != 1 else ''}")
+    if rules:
+        causes.append(f"{rules} Recurring Transactions Config rule{'s' if rules != 1 else ''}")
+    return f"Category {name!r} is used by {' and '.join(causes)} and cannot be deleted"
 
 
 class LocalStore:
@@ -359,18 +371,19 @@ class LocalStore:
         if existing.locked:
             raise CategoryLocked(f"Category {existing.name!r} is locked and cannot be deleted")
 
-        in_use = self._connection.execute(
+        transactions, rules = self._connection.execute(
             "SELECT "
-            "(SELECT COUNT(*) FROM transactions WHERE category_id = :id) + "
-            "(SELECT COUNT(*) FROM recurring_rules WHERE category_id = :id) + "
-            "(SELECT COUNT(*) FROM category_budgets WHERE category_id = :id)",
+            "(SELECT COUNT(*) FROM transactions WHERE category_id = :id), "
+            "(SELECT COUNT(*) FROM recurring_rules WHERE category_id = :id)",
             {"id": category_id},
-        ).fetchone()[0]
-        if in_use > 0:
-            raise CategoryInUse(
-                f"Category {existing.name!r} is still used by {in_use} record(s) and cannot be deleted"
-            )
+        ).fetchone()
+        if transactions or rules:
+            raise CategoryInUse(category_in_use_message(existing.name, transactions, rules))
 
+        # A Category Budget never keeps its Category alive (Issue #162) - it
+        # goes with it, committed together. Foreign keys aren't enforced, so
+        # nothing would remove these rows otherwise.
+        self._connection.execute("DELETE FROM category_budgets WHERE category_id = ?", (category_id,))
         self._connection.execute("DELETE FROM categories WHERE id = ?", (category_id,))
         self._connection.commit()
 

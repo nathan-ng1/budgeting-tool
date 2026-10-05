@@ -620,9 +620,13 @@ def test_delete_category_rejects_deleting_one_still_used_by_a_transaction(tmp_pa
     store = connect(tmp_path / "budget.db")
     created = store.create_category("Expense", "Pets", None)
     store.create_transaction(make_candidate(type="Expense", category="Pets", notes="Vet"))
+    store.upsert_category_budget("Expense", "Pets", 2026, 8, 100.0)
 
-    with pytest.raises(CategoryInUse, match="Pets"):
+    with pytest.raises(CategoryInUse, match=r"^Category 'Pets' is used by 1 Transaction and cannot be deleted$"):
         store.delete_category(created.id)
+
+    # A refused delete removes nothing - not even the Category Budgets.
+    assert store.read_category_budgets(2026, 8) == {"Pets": 100.0}
 
 
 def test_delete_category_rejects_deleting_one_still_used_by_a_recurring_rule(tmp_path: Path, make_rule):
@@ -630,17 +634,41 @@ def test_delete_category_rejects_deleting_one_still_used_by_a_recurring_rule(tmp
     created = store.create_category("Expense", "Pets", None)
     store.create_recurring_rule(make_rule(type="Expense", category="Pets"))
 
-    with pytest.raises(CategoryInUse, match="Pets"):
+    with pytest.raises(
+        CategoryInUse, match=r"^Category 'Pets' is used by 1 Recurring Transactions Config rule and cannot be deleted$"
+    ):
         store.delete_category(created.id)
 
 
-def test_delete_category_rejects_deleting_one_still_used_by_a_category_budget(tmp_path: Path):
+def test_delete_category_refusal_names_every_cause_with_its_count(tmp_path: Path, make_candidate, make_rule):
+    store = connect(tmp_path / "budget.db")
+    created = store.create_category("Expense", "Pets", None)
+    store.create_transaction(make_candidate(type="Expense", category="Pets", notes="Vet"))
+    store.create_transaction(make_candidate(type="Expense", category="Pets", notes="Pet food"))
+    store.create_recurring_rule(make_rule(type="Expense", category="Pets", notes="Pet insurance"))
+    store.create_recurring_rule(make_rule(type="Expense", category="Pets", notes="Grooming"))
+
+    with pytest.raises(
+        CategoryInUse,
+        match=r"^Category 'Pets' is used by 2 Transactions and 2 Recurring Transactions Config rules and cannot be deleted$",
+    ):
+        store.delete_category(created.id)
+
+
+def test_delete_category_removes_one_used_only_by_category_budgets_along_with_its_budgets(tmp_path: Path):
+    """A Category Budget never keeps its Category alive (Issue #162) - every
+    month's budget goes with it, and other Categories' budgets are untouched."""
     store = connect(tmp_path / "budget.db")
     created = store.create_category("Expense", "Pets", None)
     store.upsert_category_budget("Expense", "Pets", 2026, 8, 100.0)
+    store.upsert_category_budget("Expense", "Pets", 2027, 1, 120.0)
+    store.upsert_category_budget("Expense", "Groceries", 2026, 8, 600.0)
 
-    with pytest.raises(CategoryInUse, match="Pets"):
-        store.delete_category(created.id)
+    store.delete_category(created.id)
+
+    assert created not in store.read_categories()
+    assert store.read_category_budgets(2026, 8) == {"Groceries": 600.0}
+    assert store.read_category_budgets(2027, 1) == {}
 
 
 def test_delete_category_budget_for_an_unknown_category_is_a_noop(tmp_path: Path):

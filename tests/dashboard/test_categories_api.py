@@ -262,16 +262,16 @@ def test_deleting_a_category_referenced_by_a_recurring_rule_is_rejected(running_
     assert "Pets" in json.loads(exc_info.value.read())["error"]
 
 
-def test_deleting_a_category_referenced_by_a_category_budget_is_rejected(running_server):
+def test_deleting_a_category_used_only_by_a_category_budget_removes_both(running_server):
     store, server = running_server
     _status, created = call(server, "POST", "/api/categories", {"type": "Expense", "name": "Pets"})
     store.upsert_category_budget("Expense", "Pets", 2026, 8, 100.0)
 
-    with pytest.raises(HTTPError) as exc_info:
-        call(server, "DELETE", f"/api/categories/{created['id']}")
+    status, _body = call(server, "DELETE", f"/api/categories/{created['id']}")
 
-    assert exc_info.value.code == 400
-    assert "Pets" in json.loads(exc_info.value.read())["error"]
+    assert status == 204
+    assert not any(category.name == "Pets" for category in store.read_categories())
+    assert store.read_category_budgets(2026, 8) == {}
 
 
 def test_renaming_a_locked_category_is_rejected(running_server):
