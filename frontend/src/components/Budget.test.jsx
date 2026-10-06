@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { StrictMode, useState } from "react";
 
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -111,6 +111,12 @@ function backend(initial = editor(), suggestion = { write_up: null, generated_at
   const byMonth = new Map([["2026-8", structuredClone(initial)]]);
 
   return vi.fn(async (url, options = {}) => {
+    // Like real fetch, a request aborted while in flight rejects rather than
+    // resolving - otherwise an aborted load would still land its data.
+    await Promise.resolve();
+    if (options.signal?.aborted) {
+      throw new DOMException("The operation was aborted.", "AbortError");
+    }
     const method = options.method ?? "GET";
     const parsed = new URL(url, "http://localhost");
     const year = parsed.searchParams.get("year");
@@ -189,6 +195,18 @@ describe("Budget", () => {
 
     expect(await screen.findByLabelText("Groceries Budgeted Amount")).toHaveValue(650);
     expect(screen.getByLabelText("Salary Budgeted Amount")).toHaveValue(null);
+  });
+
+  // StrictMode (main.jsx) mounts, aborts, and re-runs the load effect - the
+  // aborted first load must not count as the month's values having loaded.
+  it("fills the opening month's Budgeted Amounts under StrictMode, without switching months first", async () => {
+    render(
+      <StrictMode>
+        <ControlledBudget />
+      </StrictMode>,
+    );
+
+    expect(await screen.findByLabelText("Groceries Budgeted Amount")).toHaveValue(650);
   });
 
   it("shows a Category's emoji next to its name in the editor", async () => {

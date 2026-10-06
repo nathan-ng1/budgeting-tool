@@ -57,6 +57,13 @@ export default function Budget({ periodType, referenceYear, selected, onSelect }
   // refreshes what's on screen, but only resets the Amount editing state
   // (`values`/`initial`) when the month itself changed, so switching the
   // window dropdown never discards an unsaved edit.
+  // The month whose Amounts are currently in `values` - recorded only once a
+  // load has actually landed them, not when one starts. StrictMode (and any
+  // quick dependency change) aborts the first load of a month; recording the
+  // month up front left that aborted load counted as done, so the retry never
+  // reset `values` and the opening month showed blank fields.
+  const valuesMonthKey = useRef(null);
+
   const load = useCallback(async (month, window, signal, resetValues) => {
     const loaded = await fetchBudgetEditor(month, { window, signal });
     setEditor(loaded);
@@ -64,14 +71,13 @@ export default function Budget({ periodType, referenceYear, selected, onSelect }
       const asValues = valuesFrom(loaded);
       setValues(asValues);
       setInitial(asValues);
+      valuesMonthKey.current = `${month.year}-${month.month}`;
     }
   }, []);
 
   const loadGrid = useCallback(async (year, periodType, signal) => {
     setGrid(await fetchBudgetGrid({ year, periodType }, { signal }));
   }, []);
-
-  const previousMonthKey = useRef(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -92,8 +98,7 @@ export default function Budget({ periodType, referenceYear, selected, onSelect }
 
     setGrid(null);
     const monthKey = `${selected.year}-${selected.month}`;
-    const isMonthChange = previousMonthKey.current !== monthKey;
-    previousMonthKey.current = monthKey;
+    const isMonthChange = valuesMonthKey.current !== monthKey;
     if (isMonthChange) {
       setEditor(null);
     }
