@@ -47,6 +47,18 @@ describe("allocationBar", () => {
     expect(bar.ticks[bar.ticks.length - 1].label).toBe("130%");
   });
 
+  it("keeps a 100% axis for a balanced month whose rounded shares sum to just over 100% (#166)", () => {
+    // Each share is rounded to 1 dp independently by the backend, so a month
+    // whose outflows exactly equal Income can report 100.1% in total.
+    const bar = allocationBar(
+      allocation({ expenses_pct: 60.1, bills_subscriptions_pct: 10.0, debt_pct: 10.0, saved_pct: 20.0 }),
+    );
+
+    expect(bar.axisMax).toBe(100);
+    expect(bar.incomeMarkerLeft).toBe("100%");
+    expect(bar.ticks.map((tick) => tick.label)).not.toContain("110%");
+  });
+
   it("trims Over income back out of Expenses so the bar doesn't double-count the overage", () => {
     // expenses_pct (103.1%) already includes the amount that ran past income;
     // over_income_pct (3.1%) is that same tail, not additional outflow.

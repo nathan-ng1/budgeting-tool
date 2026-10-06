@@ -30,12 +30,10 @@ const OUTFLOW_SEGMENTS_LAST_FIRST = SEGMENT_ORDER.slice(
 ).reverse();
 
 export function allocationBar(incomeAllocation) {
-  const outflowPct =
-    incomeAllocation.expenses_pct +
-    incomeAllocation.bills_subscriptions_pct +
-    incomeAllocation.debt_pct +
-    incomeAllocation.saved_pct;
-  const axisMax = Math.max(100, Math.ceil(outflowPct / 10) * 10);
+  // Size the axis from Over income, not by summing the outflow shares: each
+  // share is rounded to 1 dp independently, so an exactly balanced month can
+  // sum to 100.1% and would otherwise draw a spurious 100-110% tail (#166).
+  const axisMax = Math.max(100, Math.ceil((100 + incomeAllocation.over_income_pct) / 10) * 10);
 
   // over_income_pct is the tail of the outflow that runs past 100% of income -
   // it's already counted inside the outflow segments' own pcts, not stacked
