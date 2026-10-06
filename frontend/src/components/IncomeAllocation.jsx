@@ -6,7 +6,7 @@ const SEGMENT_COLOURS = {
   bills_subscriptions: "var(--color-bills-subscriptions)",
   debt: "var(--color-debt)",
   saved: "var(--color-savings)",
-  remaining: "var(--color-accent-2-500)",
+  unallocated: "var(--color-accent-2-500)",
   over_income: "var(--color-danger)",
 };
 

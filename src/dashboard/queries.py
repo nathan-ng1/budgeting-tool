@@ -32,6 +32,9 @@ class StatTiles:
     debt: float
     available_to_save: float
     saved: float
+    # Income left after every outflow, Savings included - signed, never
+    # clamped, so a balanced month reads exactly 0 (GLOSSARY.md, #168).
+    unallocated: float
 
 
 @dataclass(frozen=True)
@@ -44,8 +47,8 @@ class IncomeAllocation:
     debt_pct: float
     saved_amount: float
     saved_pct: float
-    remaining_amount: float
-    remaining_pct: float
+    unallocated_amount: float
+    unallocated_pct: float
     over_income_amount: float
     over_income_pct: float
 
@@ -391,6 +394,7 @@ def _stat_tiles(transactions: list[Transaction]) -> StatTiles:
         debt=debt,
         available_to_save=available_to_save,
         saved=saved,
+        unallocated=_round(available_to_save - saved),
     )
 
 
@@ -414,7 +418,13 @@ def _add_months(start: date, months: int) -> date:
 def _monthly_average(totals: StatTiles, elapsed_months: int) -> StatTiles:
     if elapsed_months == 0:
         return StatTiles(
-            income=0.0, expenses=0.0, bills_subscriptions=0.0, debt=0.0, available_to_save=0.0, saved=0.0
+            income=0.0,
+            expenses=0.0,
+            bills_subscriptions=0.0,
+            debt=0.0,
+            available_to_save=0.0,
+            saved=0.0,
+            unallocated=0.0,
         )
     return StatTiles(
         income=_round(totals.income / elapsed_months),
@@ -423,6 +433,7 @@ def _monthly_average(totals: StatTiles, elapsed_months: int) -> StatTiles:
         debt=_round(totals.debt / elapsed_months),
         available_to_save=_round(totals.available_to_save / elapsed_months),
         saved=_round(totals.saved / elapsed_months),
+        unallocated=_round(totals.unallocated / elapsed_months),
     )
 
 
@@ -442,15 +453,17 @@ def _income_allocation(tiles: StatTiles) -> IncomeAllocation:
             debt_pct=0.0,
             saved_amount=saved,
             saved_pct=0.0,
-            remaining_amount=0.0,
-            remaining_pct=0.0,
+            unallocated_amount=0.0,
+            unallocated_pct=0.0,
             over_income_amount=0.0,
             over_income_pct=0.0,
         )
 
-    remaining = income - expenses - bills_subscriptions - debt - saved
-    remaining_amount = max(remaining, 0.0)
-    over_income_amount = max(-remaining, 0.0)
+    # The bar's Unallocated segment is clamped at 0 (a bar can't have a
+    # negative segment); the overage shows as Over income instead. The signed
+    # figure lives on StatTiles.unallocated (#168).
+    unallocated_amount = max(tiles.unallocated, 0.0)
+    over_income_amount = max(-tiles.unallocated, 0.0)
 
     return IncomeAllocation(
         expenses_amount=expenses,
@@ -461,8 +474,8 @@ def _income_allocation(tiles: StatTiles) -> IncomeAllocation:
         debt_pct=_pct(debt, income),
         saved_amount=saved,
         saved_pct=_pct(saved, income),
-        remaining_amount=_round(remaining_amount),
-        remaining_pct=_pct(remaining_amount, income),
+        unallocated_amount=_round(unallocated_amount),
+        unallocated_pct=_pct(unallocated_amount, income),
         over_income_amount=_round(over_income_amount),
         over_income_pct=_pct(over_income_amount, income),
     )

@@ -17,16 +17,16 @@ const SEGMENT_ORDER = [
   },
   { key: "debt", label: "Debt", amountField: "debt_amount", pctField: "debt_pct" },
   { key: "saved", label: "Saved", amountField: "saved_amount", pctField: "saved_pct" },
-  { key: "remaining", label: "Remaining", amountField: "remaining_amount", pctField: "remaining_pct" },
+  { key: "unallocated", label: "Unallocated", amountField: "unallocated_amount", pctField: "unallocated_pct" },
   { key: "over_income", label: "Over income", amountField: "over_income_amount", pctField: "over_income_pct" },
 ];
 
-// The outflow segments (everything before Remaining), walked back from the
+// The outflow segments (everything before Unallocated), walked back from the
 // one drawn nearest Over income - derived from SEGMENT_ORDER so the two can't
 // drift apart when a Type is added.
 const OUTFLOW_SEGMENTS_LAST_FIRST = SEGMENT_ORDER.slice(
   0,
-  SEGMENT_ORDER.findIndex((s) => s.key === "remaining"),
+  SEGMENT_ORDER.findIndex((s) => s.key === "unallocated"),
 ).reverse();
 
 export function allocationBar(incomeAllocation) {

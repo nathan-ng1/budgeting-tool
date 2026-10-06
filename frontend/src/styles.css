@@ -1088,12 +1088,21 @@ button.nav__tab:hover {
   grid-area: wide;
 }
 
+/* "Where did my income go?" beside the Balance check card (#168). */
+.row--allocation {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
 @media (max-width: 900px) {
   .tiles {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .row--split {
+  .row--split,
+  .row--allocation {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -2068,9 +2077,10 @@ tbody:first-of-type .table th.table__section {
   font-weight: 700;
 }
 
-/* — Left to Budget (Budget tab, Issue #167) — */
+/* — Balance status (Left to Budget #167, Unallocated #168) — */
 
-/* Balanced / Over-budgeted - a pill inline with the figure it qualifies. */
+/* Balanced / Over-budgeted / Over income - a pill inline with the figure it
+   qualifies (BalanceStatus.jsx). */
 .status-chip {
   display: inline-block;
   padding: 2px 8px;
@@ -2091,6 +2101,38 @@ tbody:first-of-type .table th.table__section {
   background: var(--color-negative-tint);
   color: var(--color-negative);
 }
+
+/* — Balance check card (Overview, Issue #168) — */
+
+/* The chip sits on the amount's line, right-aligned, so the card stays no
+   taller than "Where did my income go?" beside it. */
+.balance-check__value {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
+  font-family: var(--font-heading);
+  font-size: 32px;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+}
+
+/* Saved as a share of Available to Save. */
+.balance-check__meter {
+  height: 10px;
+  margin-top: 14px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--color-neutral-200);
+}
+
+.balance-check__fill {
+  height: 100%;
+  background: var(--color-savings);
+}
+
+/* — Left to Budget (Budget tab, Issue #167) — */
 
 /* Month pills + Trailing window on the left, the Left to Budget block on
    the right; stacks below 900px like the rest of the layout's rows. */

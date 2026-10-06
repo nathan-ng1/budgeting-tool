@@ -1,6 +1,6 @@
 import { OUTFLOW_TYPES, leftToBudget } from "../lib/budgetTotals.js";
-import { money, signedMoney } from "../lib/format.js";
-import { ADVERSE } from "../lib/tone.js";
+import { money } from "../lib/format.js";
+import { BalanceChip, BalanceFigure, isShort } from "./BalanceStatus.jsx";
 
 // Left to Budget (Issue #167, see GLOSSARY.md): budgeted Income minus every
 // budgeted outflow, Savings included - the planning-time counterpart of the
@@ -15,36 +15,6 @@ const SEGMENT_COLOURS = {
   Savings: "var(--color-savings)",
 };
 
-// Balanced is exact to the cent (spec #164 has no tolerance band) - this only
-// absorbs floating-point dust from summing typed decimal fields.
-function isZero(value) {
-  return Math.abs(value) < 0.005;
-}
-
-function isOverBudgeted(value) {
-  return value < 0 && !isZero(value);
-}
-
-// Signed, adverse only when negative. A positive figure stays neutral rather
-// than favourable: the goal is $0, so unassigned money isn't a win.
-function Figure({ value }) {
-  return (
-    <span className={`numeric ${isOverBudgeted(value) ? ADVERSE : ""}`.trim()}>
-      {isZero(value) ? money(0) : signedMoney(value)}
-    </span>
-  );
-}
-
-function Chip({ value }) {
-  if (isZero(value)) {
-    return <span className="status-chip status-chip--positive">Balanced</span>;
-  }
-  if (value < 0) {
-    return <span className="status-chip status-chip--negative">Over-budgeted</span>;
-  }
-  return null;
-}
-
 // The per-month editor's block, right of the month pills. `totals` is
 // totalsByType's live output, so it moves as the user types, before Save.
 export function LeftToBudgetSummary({ totals }) {
@@ -58,7 +28,7 @@ export function LeftToBudgetSummary({ totals }) {
     <section className="left-to-budget" aria-label="Left to Budget">
       <div className="tile__label">Left to Budget</div>
       <div className="left-to-budget__value">
-        <Figure value={left} /> <Chip value={left} />
+        <BalanceFigure value={left} /> <BalanceChip value={left} shortLabel="Over-budgeted" />
       </div>
       <div className="left-to-budget__meter" title="Budgeted outflows against budgeted Income">
         <div className="left-to-budget__track">
@@ -99,10 +69,10 @@ export function LeftToBudgetGridRow({ totals, monthCount }) {
           const share = income > 0 ? Math.min(outflows / income, 1) : 1;
           return (
             <td key={index} className="table__num">
-              <Figure value={left} />
+              <BalanceFigure value={left} />
               <div className="left-to-budget__mini-meter">
                 <div
-                  className={`left-to-budget__mini-fill ${isOverBudgeted(left) ? "left-to-budget__mini-fill--over" : ""}`.trim()}
+                  className={`left-to-budget__mini-fill ${isShort(left) ? "left-to-budget__mini-fill--over" : ""}`.trim()}
                   style={{ width: `${share * 100}%` }}
                 />
               </div>

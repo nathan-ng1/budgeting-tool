@@ -56,6 +56,19 @@ def test_overview_endpoint_names_the_cashflow_figure_available_to_save(running_s
     assert "net_balance" not in body["stat_tiles"]
 
 
+def test_overview_endpoint_carries_unallocated_and_no_remaining_fields(running_server):
+    # #168 - the bar's leftover segment is named Unallocated, like the card.
+    _store, server = running_server
+
+    with urlopen(f"http://127.0.0.1:{server.server_port}/api/overview?year=2026&month=8") as response:
+        body = json.loads(response.read())
+
+    assert body["stat_tiles"]["unallocated"] == 0
+    assert body["income_allocation"]["unallocated_amount"] == 0
+    assert body["income_allocation"]["unallocated_pct"] == 0
+    assert "remaining_" not in json.dumps(body)
+
+
 def test_annual_overview_endpoint_returns_the_same_view_model_shape_the_query_function_produces(
     running_server, make_candidate
 ):
@@ -99,6 +112,7 @@ def test_annual_overview_endpoint_names_the_cashflow_figure_available_to_save(ru
 
     assert body["stat_tiles"]["available_to_save"] == 0
     assert body["monthly_average"]["available_to_save"] == 0
+    assert body["monthly_average"]["unallocated"] == 0
     assert all(row["available_to_save"] == 0 for row in body["month_by_month"])
     assert "net_balance" not in json.dumps(body)
 
