@@ -1,12 +1,15 @@
 import { allocationBar } from "../lib/allocationBar.js";
 import { money } from "../lib/format.js";
+import { TYPE_COLOURS } from "../lib/typeColours.js";
 
+// The outflow segments take their Type's shared fill; Unallocated and Over
+// income aren't Types, so their fills belong to this bar alone.
 const SEGMENT_COLOURS = {
-  expenses: "var(--color-negative-fill)",
-  bills_subscriptions: "var(--color-bills-subscriptions)",
-  debt: "var(--color-debt)",
-  saved: "var(--color-savings)",
-  remaining: "var(--color-accent-2-500)",
+  expenses: TYPE_COLOURS.Expense,
+  bills_subscriptions: TYPE_COLOURS["Bills & Subscriptions"],
+  debt: TYPE_COLOURS.Debt,
+  saved: TYPE_COLOURS.Savings,
+  unallocated: "var(--color-accent-2-500)",
   over_income: "var(--color-danger)",
 };
 

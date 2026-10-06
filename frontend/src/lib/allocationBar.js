@@ -17,25 +17,23 @@ const SEGMENT_ORDER = [
   },
   { key: "debt", label: "Debt", amountField: "debt_amount", pctField: "debt_pct" },
   { key: "saved", label: "Saved", amountField: "saved_amount", pctField: "saved_pct" },
-  { key: "remaining", label: "Remaining", amountField: "remaining_amount", pctField: "remaining_pct" },
+  { key: "unallocated", label: "Unallocated", amountField: "unallocated_amount", pctField: "unallocated_pct" },
   { key: "over_income", label: "Over income", amountField: "over_income_amount", pctField: "over_income_pct" },
 ];
 
-// The outflow segments (everything before Remaining), walked back from the
+// The outflow segments (everything before Unallocated), walked back from the
 // one drawn nearest Over income - derived from SEGMENT_ORDER so the two can't
 // drift apart when a Type is added.
 const OUTFLOW_SEGMENTS_LAST_FIRST = SEGMENT_ORDER.slice(
   0,
-  SEGMENT_ORDER.findIndex((s) => s.key === "remaining"),
+  SEGMENT_ORDER.findIndex((s) => s.key === "unallocated"),
 ).reverse();
 
 export function allocationBar(incomeAllocation) {
-  const outflowPct =
-    incomeAllocation.expenses_pct +
-    incomeAllocation.bills_subscriptions_pct +
-    incomeAllocation.debt_pct +
-    incomeAllocation.saved_pct;
-  const axisMax = Math.max(100, Math.ceil(outflowPct / 10) * 10);
+  // Size the axis from Over income, not by summing the outflow shares: each
+  // share is rounded to 1 dp independently, so an exactly balanced month can
+  // sum to 100.1% and would otherwise draw a spurious 100-110% tail (#166).
+  const axisMax = Math.max(100, Math.ceil((100 + incomeAllocation.over_income_pct) / 10) * 10);
 
   // over_income_pct is the tail of the outflow that runs past 100% of income -
   // it's already counted inside the outflow segments' own pcts, not stacked

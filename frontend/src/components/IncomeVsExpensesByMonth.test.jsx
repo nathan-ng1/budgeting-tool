@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import IncomeVsExpensesByMonth from "./IncomeVsExpensesByMonth.jsx";
 
 function month(overrides) {
-  return { year: 2026, month: 7, income: 0, expenses: 0, bills_subscriptions: 0, debt: 0, net_balance: 0, saved: 0, ...overrides };
+  return { year: 2026, month: 7, income: 0, expenses: 0, bills_subscriptions: 0, debt: 0, available_to_save: 0, saved: 0, ...overrides };
 }
 
 function twelveMonths(overrides = {}) {
@@ -77,7 +77,7 @@ describe("IncomeVsExpensesByMonth", () => {
     expect(screen.queryByText("Bills & Subscriptions")).not.toBeInTheDocument();
   });
 
-  it("titles the card Cash Flow by Month and shows a legend for Income, Expenses, Bills & Subscriptions, Debt, and Net", () => {
+  it("titles the card Cash Flow by Month and shows a legend for Income, Expenses, Bills & Subscriptions, Debt, and Available to Save", () => {
     render(<IncomeVsExpensesByMonth months={twelveMonths({ 0: { bills_subscriptions: 50 } })} />);
 
     expect(screen.getByText("Cash Flow by Month")).toBeInTheDocument();
@@ -85,6 +85,7 @@ describe("IncomeVsExpensesByMonth", () => {
     expect(screen.getByText("Expenses")).toBeInTheDocument();
     expect(screen.getByText("Bills & Subscriptions")).toBeInTheDocument();
     expect(screen.getByText("Debt")).toBeInTheDocument();
-    expect(screen.getByText("Net")).toBeInTheDocument();
+    expect(screen.getByText("Available to Save")).toBeInTheDocument();
+    expect(screen.queryByText("Net")).not.toBeInTheDocument();
   });
 });

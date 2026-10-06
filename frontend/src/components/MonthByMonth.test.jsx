@@ -8,11 +8,11 @@ function row(name) {
 }
 
 function month(overrides) {
-  return { year: 2026, month: 7, income: 0, expenses: 0, bills_subscriptions: 0, debt: 0, net_balance: 0, saved: 0, ...overrides };
+  return { year: 2026, month: 7, income: 0, expenses: 0, bills_subscriptions: 0, debt: 0, available_to_save: 0, saved: 0, ...overrides };
 }
 
 describe("MonthByMonth", () => {
-  it("renders a row per month, with Income, Expenses, Bills & Subscriptions, Debt, Net, and Saved", () => {
+  it("renders a row per month, with Income, Expenses, Bills & Subscriptions, Debt, Available to Save, and Saved", () => {
     render(
       <MonthByMonth
         months={[
@@ -22,7 +22,7 @@ describe("MonthByMonth", () => {
             expenses: 3810,
             bills_subscriptions: 330,
             debt: 200,
-            net_balance: 900,
+            available_to_save: 900,
             saved: 900,
           }),
         ]}
@@ -30,6 +30,8 @@ describe("MonthByMonth", () => {
     );
 
     expect(screen.getByRole("columnheader", { name: "Bills & Subscriptions" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Available to Save" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Net" })).not.toBeInTheDocument();
     const cells = within(row("July")).getAllByRole("cell");
     expect(cells[0]).toHaveTextContent("July");
     expect(cells[1]).toHaveTextContent("$5,240");
@@ -58,7 +60,7 @@ describe("MonthByMonth", () => {
             expenses: 3810,
             bills_subscriptions: 330,
             debt: 200,
-            net_balance: 900,
+            available_to_save: 900,
             saved: 900,
           }),
           month({
@@ -67,7 +69,7 @@ describe("MonthByMonth", () => {
             expenses: 3402,
             bills_subscriptions: 1100,
             debt: 150,
-            net_balance: 588,
+            available_to_save: 588,
             saved: 900,
           }),
         ]}
@@ -83,8 +85,26 @@ describe("MonthByMonth", () => {
     expect(totals[6]).toHaveTextContent("$1,800");
   });
 
-  it("colours a negative Net Balance as adverse, the opposite of an overspend Diff", () => {
-    render(<MonthByMonth months={[month({ month: 12, income: 5240, expenses: 5900, net_balance: -660 })]} />);
+  it("shows a year total that sums to $0 only up to floating-point dust as a plain, unstyled $0", () => {
+    // 0.1 + 0.2 - 0.3 is 5.55e-17 in floating point, not 0 - the same rule as
+    // Unallocated (BalanceStatus.isBalanced) has to call that balanced.
+    render(
+      <MonthByMonth
+        months={[
+          month({ month: 7, available_to_save: 0.1 }),
+          month({ month: 8, available_to_save: 0.2 }),
+          month({ month: 9, available_to_save: -0.3 }),
+        ]}
+      />,
+    );
+
+    const total = within(row("Total")).getAllByRole("cell")[5];
+    expect(total.textContent).toBe("$0");
+    expect(total.className).not.toContain("figure--");
+  });
+
+  it("colours a negative Available to Save as adverse, the opposite of an overspend Diff", () => {
+    render(<MonthByMonth months={[month({ month: 12, income: 5240, expenses: 5900, available_to_save: -660 })]} />);
 
     const cells = within(row("December")).getAllByRole("cell");
     expect(cells[5]).toHaveTextContent("−$660");

@@ -90,8 +90,8 @@ describe("cumulativeChart", () => {
 
 describe("monthlyComparisonChart", () => {
   const months = [
-    { income: 1000, expenses: 600, bills_subscriptions: 200, debt: 300, net_balance: 200 },
-    { income: 0, expenses: 0, bills_subscriptions: 0, debt: 0, net_balance: 0 },
+    { income: 1000, expenses: 600, bills_subscriptions: 200, debt: 300, available_to_save: 200 },
+    { income: 0, expenses: 0, bills_subscriptions: 0, debt: 0, available_to_save: 0 },
   ];
 
   it("lays out each month's income, expense, bills & subscriptions, and debt bars in its own slot, tallest against a round axis max", () => {
@@ -111,8 +111,8 @@ describe("monthlyComparisonChart", () => {
 
   it("drops the Bills & Subscriptions bar and centres the other three in their pre-#149 layout when no month has any", () => {
     const chart = monthlyComparisonChart([
-      { income: 1000, expenses: 600, bills_subscriptions: 0, debt: 300, net_balance: 100 },
-      { income: 0, expenses: 0, bills_subscriptions: 0, debt: 0, net_balance: 0 },
+      { income: 1000, expenses: 600, bills_subscriptions: 0, debt: 300, available_to_save: 100 },
+      { income: 0, expenses: 0, bills_subscriptions: 0, debt: 0, available_to_save: 0 },
     ]);
 
     expect(chart.showsBillsSubscriptions).toBe(false);
@@ -121,7 +121,7 @@ describe("monthlyComparisonChart", () => {
     expect(chart.expenseBars[0]).toEqual({ x: 24, y: 96, width: 12, height: 144 });
     expect(chart.debtBars[0]).toEqual({ x: 39, y: 168, width: 12, height: 72 });
     expect(chart.debtBars[1].x).toBe(99);
-    expect(chart.netPoints[0].x).toBe(30);
+    expect(chart.availableToSavePoints[0].x).toBe(30);
   });
 
   it("keeps the Bills & Subscriptions bar in every month once any single month has some", () => {
@@ -133,18 +133,18 @@ describe("monthlyComparisonChart", () => {
 
   it("scales the axis to a month whose tallest bar is Bills & Subscriptions", () => {
     const chart = monthlyComparisonChart([
-      { income: 100, expenses: 50, bills_subscriptions: 1800, debt: 0, net_balance: -1750 },
+      { income: 100, expenses: 50, bills_subscriptions: 1800, debt: 0, available_to_save: -1750 },
     ]);
 
     expect(chart.axisMax).toBe(2000);
   });
 
-  it("plots the Net line through the centre of each month's slot", () => {
+  it("plots the Available to Save line through the centre of each month's slot", () => {
     const chart = monthlyComparisonChart(months);
 
-    expect(chart.netPoints[0]).toEqual({ x: 30, y: 192 });
-    expect(chart.netPoints[1]).toEqual({ x: 90, y: 240 });
-    expect(chart.netLinePath).toBe("M30,192 L90,240");
+    expect(chart.availableToSavePoints[0]).toEqual({ x: 30, y: 192 });
+    expect(chart.availableToSavePoints[1]).toEqual({ x: 90, y: 240 });
+    expect(chart.availableToSaveLinePath).toBe("M30,192 L90,240");
   });
 
   it("renders a month with no Income, Expenses, Bills & Subscriptions, or Debt as a zero-height bar, not an omitted one", () => {
@@ -164,16 +164,16 @@ describe("monthlyComparisonChart", () => {
     expect(chart.billsSubscriptionsBars).toEqual([]);
     expect(chart.showsBillsSubscriptions).toBe(false);
     expect(chart.debtBars).toEqual([]);
-    expect(chart.netPoints).toEqual([]);
-    expect(chart.netLinePath).toBe("");
+    expect(chart.availableToSavePoints).toEqual([]);
+    expect(chart.availableToSaveLinePath).toBe("");
   });
 
-  it("clamps a deficit month's Net point to the $0 baseline instead of letting it run off the chart", () => {
+  it("clamps a deficit month's Available to Save point to the $0 baseline instead of letting it run off the chart", () => {
     const chart = monthlyComparisonChart([
-      { income: 400, expenses: 1000, bills_subscriptions: 0, debt: 0, net_balance: -600 },
+      { income: 400, expenses: 1000, bills_subscriptions: 0, debt: 0, available_to_save: -600 },
     ]);
 
-    expect(chart.netPoints[0].y).toBe(240);
+    expect(chart.availableToSavePoints[0].y).toBe(240);
   });
 });
 

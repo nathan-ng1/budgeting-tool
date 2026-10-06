@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App.jsx";
 
-const ZERO_STAT_TILES = { income: 0, expenses: 0, debt: 0, net_balance: 0, saved: 0 };
-const ZERO_MONTH_TOTALS = { income: 0, expenses: 0, debt: 0, net_balance: 0, saved: 0 };
+const ZERO_STAT_TILES = { income: 0, expenses: 0, debt: 0, available_to_save: 0, saved: 0, unallocated: 0 };
+const ZERO_MONTH_TOTALS = { income: 0, expenses: 0, debt: 0, available_to_save: 0, saved: 0 };
 const ZERO_ALLOCATION = {
   expenses_amount: 0,
   expenses_pct: 0,
@@ -13,8 +13,8 @@ const ZERO_ALLOCATION = {
   debt_pct: 0,
   saved_amount: 0,
   saved_pct: 0,
-  remaining_amount: 0,
-  remaining_pct: 0,
+  unallocated_amount: 0,
+  unallocated_pct: 0,
   over_income_amount: 0,
   over_income_pct: 0,
 };
@@ -38,7 +38,7 @@ function monthWithSpending(year, month, overrides = {}) {
   return monthOverview({
     year,
     month,
-    stat_tiles: { income: 5240, expenses: 3667, debt: 0, net_balance: 1573, saved: 900 },
+    stat_tiles: { income: 5240, expenses: 3667, debt: 0, available_to_save: 1573, saved: 900, unallocated: 673 },
     income_allocation: {
       expenses_amount: 3667,
       expenses_pct: 70,
@@ -46,8 +46,8 @@ function monthWithSpending(year, month, overrides = {}) {
       debt_pct: 0,
       saved_amount: 900,
       saved_pct: 17.2,
-      remaining_amount: 673,
-      remaining_pct: 12.8,
+      unallocated_amount: 673,
+      unallocated_pct: 12.8,
       over_income_amount: 0,
       over_income_pct: 0,
     },
@@ -90,12 +90,12 @@ function annualOverview(overrides = {}) {
 
 function annualWithSpending(overrides = {}) {
   const months = ZERO_MONTHS.map((m, index) =>
-    index === 0 ? { ...m, income: 5240, expenses: 3810, debt: 0, net_balance: 1430, saved: 900 } : m,
+    index === 0 ? { ...m, income: 5240, expenses: 3810, debt: 0, available_to_save: 1430, saved: 900 } : m,
   );
 
   return annualOverview({
-    stat_tiles: { income: 8000, expenses: 6000, debt: 0, net_balance: 2000, saved: 1000 },
-    monthly_average: { income: 4000, expenses: 3000, debt: 0, net_balance: 1000, saved: 500 },
+    stat_tiles: { income: 8000, expenses: 6000, debt: 0, available_to_save: 2000, saved: 1000, unallocated: 1000 },
+    monthly_average: { income: 4000, expenses: 3000, debt: 0, available_to_save: 1000, saved: 500, unallocated: 500 },
     income_allocation: {
       expenses_amount: 6000,
       expenses_pct: 75,
@@ -103,8 +103,8 @@ function annualWithSpending(overrides = {}) {
       debt_pct: 0,
       saved_amount: 1000,
       saved_pct: 12.5,
-      remaining_amount: 1000,
-      remaining_pct: 12.5,
+      unallocated_amount: 1000,
+      unallocated_pct: 12.5,
       over_income_amount: 0,
       over_income_pct: 0,
     },
@@ -180,8 +180,28 @@ describe("App", () => {
 
     expect(await screen.findByText("$8,000")).toBeInTheDocument(); // Real Income tile
     expect(screen.getByText("$4,000 / month average")).toBeInTheDocument();
-    expect(screen.getByText("$1,000 / month · includes savings")).toBeInTheDocument(); // Net Balance average
+    expect(screen.getByText("$1,000 / month average")).toBeInTheDocument(); // Available to Save average
+    expect(screen.queryByText(/includes savings/)).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Where did my income go?" })).toBeInTheDocument();
+  });
+
+  it("renders the Balance check card's Unallocated beside the income allocation, with no Left to Budget", async () => {
+    // #168 - the Overview shows actuals only; Left to Budget stays on the Budget tab.
+    respondWith();
+    render(<App />);
+    await screen.findByText("$8,000");
+
+    const card = screen.getByRole("region", { name: "Balance check" });
+    expect(within(card).getByText("+$1,000")).toBeInTheDocument();
+    expect(within(card).getByText("+$500 / month average")).toBeInTheDocument();
+    expect(screen.queryByText(/Left to Budget/)).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Aug" }));
+    await screen.findByText("$5,240");
+
+    expect(within(screen.getByRole("region", { name: "Balance check" })).getByText("+$673")).toBeInTheDocument();
+    expect(screen.queryByText(/month average/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Left to Budget/)).not.toBeInTheDocument();
   });
 
   it("renders Full year's Spending by Category, Budgeted vs Actual, Month by month, Cash Flow by Month, and Top 10 expenses", async () => {
@@ -303,7 +323,7 @@ describe("App", () => {
   it("renders the Debt card between Spending by Category/Budgeted vs Actual and Top 5/Expenses over time, for a month with Debt", async () => {
     respondWith({
       month: monthWithSpending(2026, 8, {
-        stat_tiles: { income: 5240, expenses: 3667, debt: 875, net_balance: 698, saved: 900 },
+        stat_tiles: { income: 5240, expenses: 3667, debt: 875, available_to_save: 698, saved: 900, unallocated: -202 },
         debt_summary: [{ notes: "Werribee", amount: 875, pct_of_debt: 100 }],
       }),
     });
@@ -324,7 +344,7 @@ describe("App", () => {
   it("groups Spending by Category, Budgeted vs Actual, and Debt into the wide-pair layout, for a month", async () => {
     respondWith({
       month: monthWithSpending(2026, 8, {
-        stat_tiles: { income: 5240, expenses: 3667, debt: 875, net_balance: 698, saved: 900 },
+        stat_tiles: { income: 5240, expenses: 3667, debt: 875, available_to_save: 698, saved: 900, unallocated: -202 },
         debt_summary: [{ notes: "Werribee", amount: 875, pct_of_debt: 100 }],
       }),
     });
@@ -342,8 +362,8 @@ describe("App", () => {
   it("renders the Debt card with a $/month average, for Full year", async () => {
     respondWith({
       annual: annualWithSpending({
-        stat_tiles: { income: 8000, expenses: 6000, debt: 1600, net_balance: 400, saved: 1000 },
-        monthly_average: { income: 4000, expenses: 3000, debt: 800, net_balance: 200, saved: 500 },
+        stat_tiles: { income: 8000, expenses: 6000, debt: 1600, available_to_save: 400, saved: 1000, unallocated: -600 },
+        monthly_average: { income: 4000, expenses: 3000, debt: 800, available_to_save: 200, saved: 500, unallocated: -300 },
         debt_summary: [{ notes: "Werribee", amount: 1600, pct_of_debt: 100 }],
       }),
     });
@@ -362,8 +382,8 @@ describe("App", () => {
   it("groups Month by month, Budgeted vs Actual, and Debt into the wide-pair layout, and pairs Spending by Category with Top expenses, for Full year", async () => {
     respondWith({
       annual: annualWithSpending({
-        stat_tiles: { income: 8000, expenses: 6000, debt: 1600, net_balance: 400, saved: 1000 },
-        monthly_average: { income: 4000, expenses: 3000, debt: 800, net_balance: 200, saved: 500 },
+        stat_tiles: { income: 8000, expenses: 6000, debt: 1600, available_to_save: 400, saved: 1000, unallocated: -600 },
+        monthly_average: { income: 4000, expenses: 3000, debt: 800, available_to_save: 200, saved: 500, unallocated: -300 },
         debt_summary: [{ notes: "Werribee", amount: 1600, pct_of_debt: 100 }],
       }),
     });

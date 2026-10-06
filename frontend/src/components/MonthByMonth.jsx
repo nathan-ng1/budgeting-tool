@@ -1,14 +1,15 @@
 import { MONTH_LABELS_LONG } from "../lib/months.js";
-import { money, signedMoney } from "../lib/format.js";
+import { money } from "../lib/format.js";
 import { toneFor } from "../lib/tone.js";
+import { balanceText, isBalanced } from "./BalanceStatus.jsx";
 
 // A balanced month is neither a surplus nor a shortfall, so it reads as a
-// plain $0 rather than a signed one - same convention as StatTiles' Net
-// Balance tile.
-function NetCell({ value }) {
-  return (
-    <td className={`mbm__num numeric ${toneFor(-value)}`}>{value === 0 ? money(0) : signedMoney(value)}</td>
-  );
+// plain, unstyled $0 rather than a signed one - same rule as StatTiles'
+// Available to Save tile. isBalanced matters most for the Total, a client-side
+// float sum that can land a hair off 0 for a balanced year.
+function AvailableToSaveCell({ value }) {
+  const tone = isBalanced(value) ? "" : toneFor(-value);
+  return <td className={`mbm__num numeric ${tone}`}>{balanceText(value)}</td>;
 }
 
 export default function MonthByMonth({ months }) {
@@ -16,7 +17,7 @@ export default function MonthByMonth({ months }) {
   const totalExpenses = months.reduce((sum, m) => sum + m.expenses, 0);
   const totalBillsSubscriptions = months.reduce((sum, m) => sum + m.bills_subscriptions, 0);
   const totalDebt = months.reduce((sum, m) => sum + m.debt, 0);
-  const totalNet = months.reduce((sum, m) => sum + m.net_balance, 0);
+  const totalAvailableToSave = months.reduce((sum, m) => sum + m.available_to_save, 0);
   const totalSaved = months.reduce((sum, m) => sum + m.saved, 0);
 
   return (
@@ -46,7 +47,7 @@ export default function MonthByMonth({ months }) {
               Debt
             </th>
             <th scope="col" className="mbm__num">
-              Net
+              Available to Save
             </th>
             <th scope="col" className="mbm__num">
               Saved
@@ -61,7 +62,7 @@ export default function MonthByMonth({ months }) {
               <td className="mbm__num numeric">{money(m.expenses)}</td>
               <td className="mbm__num numeric">{money(m.bills_subscriptions)}</td>
               <td className="mbm__num numeric">{money(m.debt)}</td>
-              <NetCell value={m.net_balance} />
+              <AvailableToSaveCell value={m.available_to_save} />
               <td className="mbm__num numeric muted">{money(m.saved)}</td>
             </tr>
           ))}
@@ -73,7 +74,7 @@ export default function MonthByMonth({ months }) {
             <td className="mbm__num numeric">{money(totalExpenses)}</td>
             <td className="mbm__num numeric">{money(totalBillsSubscriptions)}</td>
             <td className="mbm__num numeric">{money(totalDebt)}</td>
-            <NetCell value={totalNet} />
+            <AvailableToSaveCell value={totalAvailableToSave} />
             <td className="mbm__num numeric muted">{money(totalSaved)}</td>
           </tr>
         </tfoot>

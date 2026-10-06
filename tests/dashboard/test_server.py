@@ -45,6 +45,30 @@ def test_overview_endpoint_on_a_month_with_no_transactions_returns_a_zeroed_resu
     assert body["spending_by_category"] == []
 
 
+def test_overview_endpoint_names_the_cashflow_figure_available_to_save(running_server):
+    # #165 - Net Balance was renamed Available to Save; no net_balance field remains.
+    _store, server = running_server
+
+    with urlopen(f"http://127.0.0.1:{server.server_port}/api/overview?year=2026&month=8") as response:
+        body = json.loads(response.read())
+
+    assert body["stat_tiles"]["available_to_save"] == 0
+    assert "net_balance" not in body["stat_tiles"]
+
+
+def test_overview_endpoint_carries_unallocated_and_no_remaining_fields(running_server):
+    # #168 - the bar's leftover segment is named Unallocated, like the card.
+    _store, server = running_server
+
+    with urlopen(f"http://127.0.0.1:{server.server_port}/api/overview?year=2026&month=8") as response:
+        body = json.loads(response.read())
+
+    assert body["stat_tiles"]["unallocated"] == 0
+    assert body["income_allocation"]["unallocated_amount"] == 0
+    assert body["income_allocation"]["unallocated_pct"] == 0
+    assert "remaining_" not in json.dumps(body)
+
+
 def test_annual_overview_endpoint_returns_the_same_view_model_shape_the_query_function_produces(
     running_server, make_candidate
 ):
@@ -74,6 +98,23 @@ def test_annual_overview_endpoint_on_a_year_with_no_transactions_returns_a_zeroe
 
     assert body["stat_tiles"]["income"] == 0
     assert body["monthly_average"]["income"] == 0
+
+
+def test_annual_overview_endpoint_names_the_cashflow_figure_available_to_save(running_server):
+    # #165 - the Full year tiles, monthly average and per-month rows all carry
+    # available_to_save; no net_balance field remains.
+    _store, server = running_server
+    today = date.today()
+    financial_year = today.year if today.month >= 7 else today.year - 1
+
+    with urlopen(f"http://127.0.0.1:{server.server_port}/api/annual-overview?year={financial_year}") as response:
+        body = json.loads(response.read())
+
+    assert body["stat_tiles"]["available_to_save"] == 0
+    assert body["monthly_average"]["available_to_save"] == 0
+    assert body["monthly_average"]["unallocated"] == 0
+    assert all(row["available_to_save"] == 0 for row in body["month_by_month"])
+    assert "net_balance" not in json.dumps(body)
 
 
 def test_annual_overview_endpoint_missing_year_returns_400(running_server):

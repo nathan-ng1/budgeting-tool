@@ -13,8 +13,8 @@ function allocation(overrides = {}) {
     debt_pct: 0,
     saved_amount: 0,
     saved_pct: 0,
-    remaining_amount: 0,
-    remaining_pct: 0,
+    unallocated_amount: 0,
+    unallocated_pct: 0,
     over_income_amount: 0,
     over_income_pct: 0,
     ...overrides,
@@ -22,7 +22,7 @@ function allocation(overrides = {}) {
 }
 
 describe("IncomeAllocation", () => {
-  it("splits income across what was spent, saved and left over", () => {
+  it("splits income across what was spent, what was saved and what stayed Unallocated", () => {
     render(
       <IncomeAllocation
         income={5240}
@@ -31,15 +31,18 @@ describe("IncomeAllocation", () => {
           expenses_pct: 70,
           saved_amount: 900,
           saved_pct: 17.2,
-          remaining_amount: 673,
-          remaining_pct: 12.8,
+          unallocated_amount: 673,
+          unallocated_pct: 12.8,
         })}
       />,
     );
 
     expect(screen.getByText("Expenses")).toBeInTheDocument();
     expect(screen.getByText("70.0%")).toBeInTheDocument();
-    expect(screen.getByText("Remaining")).toBeInTheDocument();
+    // #168 - the Unallocated segment shares the Balance check card's name, and
+    // stays a 1-dp share of Income like the rest of the legend.
+    expect(screen.getByText("Unallocated")).toBeInTheDocument();
+    expect(screen.getByText("12.8%")).toBeInTheDocument();
   });
 
   it("renders a Debt segment ordered between Expenses and Saved", () => {
@@ -53,8 +56,8 @@ describe("IncomeAllocation", () => {
           debt_pct: 15.3,
           saved_amount: 900,
           saved_pct: 17.2,
-          remaining_amount: 1540,
-          remaining_pct: 29.4,
+          unallocated_amount: 1540,
+          unallocated_pct: 29.4,
         })}
       />,
     );
@@ -63,9 +66,9 @@ describe("IncomeAllocation", () => {
     // lives in a nested span - so matching on direct text (not full textContent,
     // which would also pick up the nested percentage) gives the label order.
     const legendLabels = screen
-      .getAllByText(/^(Expenses|Debt|Saved|Remaining)$/)
+      .getAllByText(/^(Expenses|Debt|Saved|Unallocated)$/)
       .map((el) => el.textContent.trim().split(" ")[0]);
-    expect(legendLabels).toEqual(["Expenses", "Debt", "Saved", "Remaining"]);
+    expect(legendLabels).toEqual(["Expenses", "Debt", "Saved", "Unallocated"]);
     expect(screen.getByText("15.3%")).toBeInTheDocument();
   });
 
@@ -80,8 +83,8 @@ describe("IncomeAllocation", () => {
           bills_subscriptions_pct: 12,
           debt_amount: 750,
           debt_pct: 15,
-          remaining_amount: 1650,
-          remaining_pct: 33,
+          unallocated_amount: 1650,
+          unallocated_pct: 33,
         })}
       />,
     );
@@ -89,7 +92,7 @@ describe("IncomeAllocation", () => {
     const legendLabels = [...container.querySelectorAll(".allocation__legend-item")].map((el) =>
       el.textContent.replace(/\s*[\d.]+%$/, ""),
     );
-    expect(legendLabels).toEqual(["Expenses", "Bills & Subscriptions", "Debt", "Remaining"]);
+    expect(legendLabels).toEqual(["Expenses", "Bills & Subscriptions", "Debt", "Unallocated"]);
     expect(screen.getByText("12.0%")).toBeInTheDocument();
     expect(
       container.querySelector('.allocation__segment[style*="var(--color-bills-subscriptions)"]'),
@@ -111,7 +114,7 @@ describe("IncomeAllocation", () => {
 
     expect(screen.getByText("Over income")).toBeInTheDocument();
     expect(screen.getByText(/\$760/)).toBeInTheDocument();
-    expect(screen.queryByText("Remaining")).not.toBeInTheDocument();
+    expect(screen.queryByText("Unallocated")).not.toBeInTheDocument();
   });
 
   it("does not report a month with no income but real spending as 0% spent", () => {

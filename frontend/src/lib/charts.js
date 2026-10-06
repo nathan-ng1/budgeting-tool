@@ -76,8 +76,8 @@ export function monthlyComparisonChart(monthlyTotals) {
       billsSubscriptionsBars: [],
       showsBillsSubscriptions: false,
       debtBars: [],
-      netPoints: [],
-      netLinePath: "",
+      availableToSavePoints: [],
+      availableToSaveLinePath: "",
       axisMax: 0,
       yTicks: [],
     };
@@ -110,14 +110,14 @@ export function monthlyComparisonChart(monthlyTotals) {
   const debtBars = monthlyTotals.map((m, index) => bar(m.debt, barOffset(barCount - 1), index));
 
   const lineOffset = firstBarOffset + barsWidth / 2;
-  const netPoints = monthlyTotals.map((m, index) => ({
+  const availableToSavePoints = monthlyTotals.map((m, index) => ({
     x: index * MONTH_SLOT_WIDTH + lineOffset,
     // A deficit month plots below the $0 baseline - clamped there rather
     // than left to run off the bottom of the viewBox, where it would be
     // silently clipped by the SVG's default overflow:hidden.
-    y: round(Math.min(valueY(m.net_balance), MONTH_CHART_HEIGHT)),
+    y: round(Math.min(valueY(m.available_to_save), MONTH_CHART_HEIGHT)),
   }));
-  const netLinePath = netPoints.map((point, index) => `${index === 0 ? "M" : "L"}${point.x},${point.y}`).join(" ");
+  const availableToSaveLinePath = availableToSavePoints.map((point, index) => `${index === 0 ? "M" : "L"}${point.x},${point.y}`).join(" ");
 
   return {
     incomeBars,
@@ -125,8 +125,8 @@ export function monthlyComparisonChart(monthlyTotals) {
     billsSubscriptionsBars,
     showsBillsSubscriptions,
     debtBars,
-    netPoints,
-    netLinePath,
+    availableToSavePoints,
+    availableToSaveLinePath,
     axisMax,
     yTicks: yTicksUpTo(axisMax),
   };

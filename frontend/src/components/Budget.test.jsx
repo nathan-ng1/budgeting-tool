@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { StrictMode, useState } from "react";
 
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -111,6 +111,12 @@ function backend(initial = editor(), suggestion = { write_up: null, generated_at
   const byMonth = new Map([["2026-8", structuredClone(initial)]]);
 
   return vi.fn(async (url, options = {}) => {
+    // Like real fetch, a request aborted while in flight rejects rather than
+    // resolving - otherwise an aborted load would still land its data.
+    await Promise.resolve();
+    if (options.signal?.aborted) {
+      throw new DOMException("The operation was aborted.", "AbortError");
+    }
     const method = options.method ?? "GET";
     const parsed = new URL(url, "http://localhost");
     const year = parsed.searchParams.get("year");
@@ -189,6 +195,18 @@ describe("Budget", () => {
 
     expect(await screen.findByLabelText("Groceries Budgeted Amount")).toHaveValue(650);
     expect(screen.getByLabelText("Salary Budgeted Amount")).toHaveValue(null);
+  });
+
+  // StrictMode (main.jsx) mounts, aborts, and re-runs the load effect - the
+  // aborted first load must not count as the month's values having loaded.
+  it("fills the opening month's Budgeted Amounts under StrictMode, without switching months first", async () => {
+    render(
+      <StrictMode>
+        <ControlledBudget />
+      </StrictMode>,
+    );
+
+    expect(await screen.findByLabelText("Groceries Budgeted Amount")).toHaveValue(650);
   });
 
   it("shows a Category's emoji next to its name in the editor", async () => {
@@ -420,6 +438,48 @@ describe("Budget", () => {
     expect(expenseTotalRow).toHaveTextContent("$700");
   });
 
+  it("shows Left to Budget beside the month pills, updating live as fields change, before Save (Issue #167)", async () => {
+    render(<ControlledBudget />);
+    const salary = await screen.findByLabelText("Salary Budgeted Amount");
+    const leftToBudget = screen.getByRole("region", { name: "Left to Budget" });
+
+    // Salary unset ($0) against Groceries' $650: over-budgeted.
+    expect(leftToBudget).toHaveTextContent("−$650");
+    expect(leftToBudget).toHaveTextContent("Over-budgeted");
+    expect(leftToBudget).toHaveTextContent("$650 of $0 budgeted Income");
+
+    await userEvent.type(salary, "5000");
+    expect(leftToBudget).toHaveTextContent("+$4,350");
+    expect(leftToBudget).not.toHaveTextContent("Over-budgeted");
+    expect(leftToBudget).not.toHaveTextContent("Balanced");
+    expect(leftToBudget).toHaveTextContent("$650 of $5,000 budgeted Income");
+
+    await userEvent.clear(salary);
+    await userEvent.type(salary, "650");
+    expect(leftToBudget).toHaveTextContent("$0");
+    expect(leftToBudget).not.toHaveTextContent("+$0");
+    expect(leftToBudget).toHaveTextContent("Balanced");
+    expect(fetchMock.mock.calls.some(([, o]) => o?.method === "PUT")).toBe(false);
+  });
+
+  it("counts every outflow Type, Savings included, towards Left to Budget (Issue #167)", async () => {
+    useBackend(
+      editor({
+        Income: [row({ category: "Salary", amount: 6000 })],
+        "Bills & Subscriptions": [row({ category: "Phone", amount: 100 })],
+        Debt: [row({ category: "Mortgage Repayment", amount: 2000 })],
+        Savings: [row({ category: "Investments", amount: 400 })],
+      }),
+    );
+    render(<ControlledBudget />);
+    await screen.findByText("Investments");
+
+    // 6000 - (650 + 100 + 2000 + 400)
+    const leftToBudget = screen.getByRole("region", { name: "Left to Budget" });
+    expect(leftToBudget).toHaveTextContent("+$2,850");
+    expect(leftToBudget).toHaveTextContent("$3,150 of $6,000 budgeted Income");
+  });
+
   it("shows a Savings Type Total row when Savings Category Budgets are present (Issue #136)", async () => {
     // Budget.jsx renders whichever Type keys the payload contains, so a
     // Savings section is a fixture-data addition, not a new code path.
@@ -591,6 +651,48 @@ describe("Budget Full year", () => {
     expect(within(expenseTotalRow).getAllByRole("cell")[2]).toHaveTextContent("$650");
     const incomeTotalRow = screen.getAllByText("Total")[0].closest("tr");
     expect(within(incomeTotalRow).getAllByRole("cell")[2]).toHaveTextContent("$5,000");
+  });
+
+  it("shows a Left to Budget row with each month's figure, blank where nothing is budgeted (Issue #167)", async () => {
+    const grid = {
+      Income: [{ category: "Salary", amounts: [5000, 650, 1000, ...Array(9).fill(null)] }],
+      Expense: [{ category: "Groceries", amounts: [650, 650, 1200, ...Array(9).fill(null)] }],
+      Debt: [{ category: "Mortgage Repayment", amounts: Array(12).fill(null) }],
+      Savings: [{ category: "Investments", amounts: [null, null, null, 400, ...Array(8).fill(null)] }],
+    };
+    fetchMock = vi.fn(async (url) => {
+      const parsed = new URL(url, "http://localhost");
+      if (parsed.pathname === "/api/categories") {
+        return { ok: true, status: 200, json: async () => [] };
+      }
+      if (parsed.pathname === "/api/budget-suggestion") {
+        return { ok: true, status: 200, json: async () => ({ write_up: null, generated_at: null }) };
+      }
+      return { ok: true, status: 200, json: async () => grid };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Budget periodType="financial" referenceYear={2026} selected={null} onSelect={vi.fn()} />);
+    await screen.findByText("Investments");
+
+    const cells = within(screen.getByText("Left to Budget").closest("tr")).getAllByRole("cell");
+    expect(cells[1]).toHaveTextContent("+$4,350"); // Jul
+    expect(cells[2]).toHaveTextContent("$0"); // Aug: exactly balanced
+    expect(cells[2]).not.toHaveTextContent("+");
+    expect(cells[3]).toHaveTextContent("−$200"); // Sep: over-budgeted
+    expect(cells[4]).toHaveTextContent("−$400"); // Oct: Savings with no Income
+    expect(cells[5]).toHaveTextContent(/^$/); // Nov: nothing budgeted
+    expect(cells[12]).toHaveTextContent(/^$/); // Jun
+  });
+
+  it("does not show the Left to Budget summary above the Full year grid (Issue #167)", async () => {
+    render(<ControlledBudget />);
+    await screen.findByRole("region", { name: "Left to Budget" });
+
+    await userEvent.click(screen.getByRole("button", { name: "Full year" }));
+    await screen.findByRole("columnheader", { name: "Jul" });
+
+    expect(screen.queryByRole("region", { name: "Left to Budget" })).not.toBeInTheDocument();
   });
 
   it("shows a Savings Type Total row when Savings Category Budgets are present (Issue #136)", async () => {
