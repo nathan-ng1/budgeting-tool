@@ -1,6 +1,7 @@
 import { gridTotalsByType } from "../lib/budgetTotals.js";
 import { monthsOfPeriod } from "../lib/period.js";
 import { money } from "../lib/format.js";
+import { LeftToBudgetGrid } from "./prototype/LeftToBudget.prototype.jsx"; // PROTOTYPE
 
 // The Budget tab's Full year read-only grid (Issue #64) - every Category's
 // Category Budget across the shared referenceYear's 12 months, in the shared
@@ -51,6 +52,7 @@ export default function BudgetGrid({ referenceYear, periodType, grid }) {
             </tr>
           </tbody>
         ))}
+        <LeftToBudgetGrid totals={totals} />
       </table>
     </div>
   );

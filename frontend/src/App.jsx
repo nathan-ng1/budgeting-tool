@@ -16,6 +16,7 @@ import StatTiles from "./components/StatTiles.jsx";
 import ThemeSwitcher from "./components/ThemeSwitcher.jsx";
 import TopExpenses from "./components/TopExpenses.jsx";
 import Transactions from "./components/Transactions.jsx";
+import UnallocatedOverviewPrototype from "./components/prototype/UnallocatedOverview.prototype.jsx"; // PROTOTYPE
 import { fetchAnnualOverview, fetchLatestTransactionDate, fetchMonthOverview, fetchTransactionDateRange } from "./lib/api.js";
 import { fetchCategories } from "./lib/categoriesApi.js";
 import { dayMonthLong } from "./lib/format.js";
@@ -255,8 +256,11 @@ export default function App() {
 
             {error === null && overview !== null && (
               <>
-                <StatTiles tiles={overview.stat_tiles} average={selected === null ? overview.monthly_average : undefined} />
-                <IncomeAllocation allocation={overview.income_allocation} income={overview.stat_tiles.income} />
+                {/* PROTOTYPE: replaces StatTiles + IncomeAllocation while the variants are compared. */}
+                <UnallocatedOverviewPrototype
+                  overview={overview}
+                  average={selected === null ? overview.monthly_average : undefined}
+                />
 
                 {selected !== null ? (
                   <>

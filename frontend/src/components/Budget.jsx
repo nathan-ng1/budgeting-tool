@@ -15,6 +15,7 @@ import { UNSET, money, signedPct } from "../lib/format.js";
 import BudgetGrid from "./BudgetGrid.jsx";
 import BudgetSuggestion from "./BudgetSuggestion.jsx";
 import MonthSelector from "./MonthSelector.jsx";
+import { BudgetPrototypeSwitcher, LeftToBudgetEditor } from "./prototype/LeftToBudget.prototype.jsx"; // PROTOTYPE
 
 // The trailing windows the Budget tab's dropdown offers - see
 // dashboard.queries.TRAILING_WINDOWS.
@@ -242,6 +243,8 @@ export default function Budget({ periodType, referenceYear, selected, onSelect }
           )}
         </div>
 
+        <div className="proto-selector-row">
+          <div>
         <MonthSelector referenceYear={referenceYear} periodType={periodType} selected={selected} onSelect={onSelect} />
 
         {selected !== null && (
@@ -261,6 +264,9 @@ export default function Budget({ periodType, referenceYear, selected, onSelect }
             </label>
           </div>
         )}
+          </div>
+          {selected !== null && <LeftToBudgetEditor slot="selector" totals={totals} />}
+        </div>
 
         {error !== null && (
           <p className="state state--error" role="alert">
@@ -282,6 +288,8 @@ export default function Budget({ periodType, referenceYear, selected, onSelect }
           <p className="state">Loading the Full year&rsquo;s Category Budgets&hellip;</p>
         )}
 
+        <BudgetPrototypeSwitcher />
+        {selected !== null && editor !== null && <LeftToBudgetEditor slot="above" totals={totals} />}
         {selected !== null && editor !== null && (
           <div className="table-scroll">
             <table className="table">
@@ -338,6 +346,7 @@ export default function Budget({ periodType, referenceYear, selected, onSelect }
                   </tr>
                 </tbody>
               ))}
+              <LeftToBudgetEditor slot="tfoot" totals={totals} />
             </table>
           </div>
         )}
