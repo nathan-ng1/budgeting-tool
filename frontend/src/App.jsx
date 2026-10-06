@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import BalanceCheck from "./components/BalanceCheck.jsx";
 import Budget from "./components/Budget.jsx";
 import BudgetedVsActual from "./components/BudgetedVsActual.jsx";
 import CategoryManagement from "./components/CategoryManagement.jsx";
@@ -256,7 +257,13 @@ export default function App() {
             {error === null && overview !== null && (
               <>
                 <StatTiles tiles={overview.stat_tiles} average={selected === null ? overview.monthly_average : undefined} />
-                <IncomeAllocation allocation={overview.income_allocation} income={overview.stat_tiles.income} />
+                <div className="row--allocation">
+                  <IncomeAllocation allocation={overview.income_allocation} income={overview.stat_tiles.income} />
+                  <BalanceCheck
+                    tiles={overview.stat_tiles}
+                    average={selected === null ? overview.monthly_average : undefined}
+                  />
+                </div>
 
                 {selected !== null ? (
                   <>

@@ -127,6 +127,35 @@ def test_available_to_save_subtracts_bills_and_subscriptions(fake_store, make_tr
     assert overview.stat_tiles.available_to_save == 350.0
 
 
+@pytest.mark.parametrize(
+    ("saved", "expected_unallocated"),
+    [
+        (100.0, 250.0),  # money left without a job
+        (350.0, 0.0),  # every dollar allocated - Balanced
+        (500.0, -150.0),  # Savings dipped into existing funds - Over income
+    ],
+)
+def test_unallocated_is_available_to_save_minus_saved_signed_and_never_clamped(
+    fake_store, make_transaction, saved, expected_unallocated
+):
+    # #168 - Unallocated is Income - Expenses - Bills & Subscriptions - Debt -
+    # Savings (GLOSSARY.md); unlike the allocation bar it goes negative.
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 8, 1), amount=1000.0, type="Income", category="Salary", notes="Employer"),
+            make_transaction(date=date(2026, 8, 2), amount=300.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 8, 3), amount=200.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+            make_transaction(date=date(2026, 8, 4), amount=150.0, type="Bills & Subscriptions", category="Insurance", notes="NRMA"),
+            make_transaction(date=date(2026, 8, 5), amount=saved, type="Savings", category="Savings", notes="To savings"),
+        ]
+    )
+
+    overview = get_month_overview(store, year=2026, month=8)
+
+    assert overview.stat_tiles.available_to_save == 350.0
+    assert overview.stat_tiles.unallocated == expected_unallocated
+
+
 def test_transactions_outside_the_selected_month_are_excluded(tmp_path: Path, make_candidate):
     store = connect(tmp_path / "budget.db")
     store.append_rows(
@@ -143,7 +172,7 @@ def test_transactions_outside_the_selected_month_are_excluded(tmp_path: Path, ma
     assert overview.stat_tiles.expenses == 42.0
 
 
-def test_income_allocation_splits_expenses_saved_and_remaining_as_pct_of_income(fake_store, make_transaction):
+def test_income_allocation_splits_expenses_saved_and_unallocated_as_pct_of_income(fake_store, make_transaction):
     store = fake_store(
         transactions=[
             make_transaction(date=date(2026, 8, 1), amount=1000.0, type="Income", category="Salary", notes="Employer"),
@@ -159,8 +188,8 @@ def test_income_allocation_splits_expenses_saved_and_remaining_as_pct_of_income(
     assert allocation.expenses_pct == 40.0
     assert allocation.saved_amount == 100.0
     assert allocation.saved_pct == 10.0
-    assert allocation.remaining_amount == 500.0
-    assert allocation.remaining_pct == 50.0
+    assert allocation.unallocated_amount == 500.0
+    assert allocation.unallocated_pct == 50.0
     assert allocation.over_income_amount == 0.0
     assert allocation.over_income_pct == 0.0
 
@@ -180,8 +209,8 @@ def test_income_allocation_includes_a_debt_share_of_income(fake_store, make_tran
 
     assert allocation.debt_amount == 200.0
     assert allocation.debt_pct == 20.0
-    assert allocation.remaining_amount == 300.0
-    assert allocation.remaining_pct == 30.0
+    assert allocation.unallocated_amount == 300.0
+    assert allocation.unallocated_pct == 30.0
 
 
 def test_income_allocation_includes_a_bills_and_subscriptions_share_of_income(fake_store, make_transaction):
@@ -199,8 +228,8 @@ def test_income_allocation_includes_a_bills_and_subscriptions_share_of_income(fa
 
     assert allocation.bills_subscriptions_amount == 150.0
     assert allocation.bills_subscriptions_pct == 15.0
-    assert allocation.remaining_amount == 350.0
-    assert allocation.remaining_pct == 35.0
+    assert allocation.unallocated_amount == 350.0
+    assert allocation.unallocated_pct == 35.0
 
 
 def test_income_allocation_counts_bills_and_subscriptions_toward_over_income(fake_store, make_transaction):
@@ -230,8 +259,10 @@ def test_income_allocation_reports_over_income_excess_when_outflows_exceed_incom
     overview = get_month_overview(store, year=2026, month=8)
     allocation = overview.income_allocation
 
-    assert allocation.remaining_amount == 0.0
-    assert allocation.remaining_pct == 0.0
+    # Unallocated is -200 here; the bar clamps its segment at 0 and reports
+    # the overage as Over income instead (#168).
+    assert allocation.unallocated_amount == 0.0
+    assert allocation.unallocated_pct == 0.0
     assert allocation.over_income_amount == 200.0
     assert allocation.over_income_pct == 20.0
 
@@ -249,7 +280,7 @@ def test_income_allocation_with_zero_income_reports_zero_pct_rather_than_dividin
     assert allocation.expenses_pct == 0.0
     assert allocation.bills_subscriptions_pct == 0.0
     assert allocation.saved_pct == 0.0
-    assert allocation.remaining_pct == 0.0
+    assert allocation.unallocated_pct == 0.0
     assert allocation.over_income_pct == 0.0
 
 
@@ -663,6 +694,27 @@ def test_annual_overview_stat_tiles_and_monthly_average_include_bills_and_subscr
     assert overview.monthly_average.bills_subscriptions == 100.0
     assert overview.income_allocation.bills_subscriptions_amount == 200.0
     assert overview.income_allocation.bills_subscriptions_pct == 20.0
+
+
+def test_annual_overview_stat_tiles_and_monthly_average_include_unallocated(fake_store, make_transaction):
+    # #168 - the year-to-date total is signed like the month figure, and the
+    # average divides it by elapsed months like every other tile.
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, 1), amount=1000.0, type="Income", category="Salary", notes="Employer"),
+            make_transaction(date=date(2026, 7, 2), amount=700.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 7, 3), amount=500.0, type="Savings", category="Savings", notes="To savings"),
+            make_transaction(date=date(2026, 8, 1), amount=1000.0, type="Income", category="Salary", notes="Employer"),
+            make_transaction(date=date(2026, 8, 2), amount=200.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 8, 3), amount=900.0, type="Savings", category="Savings", notes="To savings"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21))
+
+    assert overview.stat_tiles.available_to_save == 1100.0
+    assert overview.stat_tiles.unallocated == -300.0
+    assert overview.monthly_average.unallocated == -150.0
 
 
 def test_annual_overview_on_a_completed_financial_year_elapses_all_twelve_months(fake_store):
