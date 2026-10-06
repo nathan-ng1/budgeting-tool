@@ -30,3 +30,18 @@ export function gridTotalsByType(grid) {
   }
   return totals;
 }
+
+// The Types a Left to Budget subtracts from budgeted Income (Issue #167) -
+// every outflow, Savings included, so a plan that gives every dollar a job
+// lands on exactly $0 (see GLOSSARY.md). Order matters to the editor's
+// stacked meter, which draws its segments in this order.
+export const OUTFLOW_TYPES = ["Expense", "Bills & Subscriptions", "Debt", "Savings"];
+
+// Left to Budget from one month's Type totals (either totalsByType's live
+// figures or one column of gridTotalsByType's). A Type missing from `totals`
+// counts as $0, same as an unset field does inside totalsByType.
+export function leftToBudget(totals) {
+  const income = totals.Income ?? 0;
+  const outflows = OUTFLOW_TYPES.reduce((sum, type) => sum + (totals[type] ?? 0), 0);
+  return { income, outflows, left: income - outflows };
+}
