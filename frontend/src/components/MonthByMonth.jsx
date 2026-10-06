@@ -1,14 +1,15 @@
 import { MONTH_LABELS_LONG } from "../lib/months.js";
-import { money, signedMoney } from "../lib/format.js";
+import { money } from "../lib/format.js";
 import { toneFor } from "../lib/tone.js";
+import { balanceText, isBalanced } from "./BalanceStatus.jsx";
 
 // A balanced month is neither a surplus nor a shortfall, so it reads as a
-// plain $0 rather than a signed one - same convention as StatTiles' Available
-// to Save tile.
+// plain, unstyled $0 rather than a signed one - same rule as StatTiles'
+// Available to Save tile. isBalanced matters most for the Total, a client-side
+// float sum that can land a hair off 0 for a balanced year.
 function AvailableToSaveCell({ value }) {
-  return (
-    <td className={`mbm__num numeric ${toneFor(-value)}`}>{value === 0 ? money(0) : signedMoney(value)}</td>
-  );
+  const tone = isBalanced(value) ? "" : toneFor(-value);
+  return <td className={`mbm__num numeric ${tone}`}>{balanceText(value)}</td>;
 }
 
 export default function MonthByMonth({ months }) {

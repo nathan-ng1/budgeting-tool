@@ -1,19 +1,11 @@
-import { OUTFLOW_TYPES, leftToBudget } from "../lib/budgetTotals.js";
+import { OUTFLOW_TYPES, gridMonthTotals, leftToBudget } from "../lib/budgetTotals.js";
 import { money } from "../lib/format.js";
+import { TYPE_COLOURS } from "../lib/typeColours.js";
 import { BalanceChip, BalanceFigure, isShort } from "./BalanceStatus.jsx";
 
 // Left to Budget (Issue #167, see GLOSSARY.md): budgeted Income minus every
 // budgeted outflow, Savings included - the planning-time counterpart of the
 // Overview's Unallocated, sharing its display rule (spec #164).
-
-// The same fills as the "Where did my income go?" bar's segments
-// (IncomeAllocation.jsx), so a Type reads as one colour across both tabs.
-const SEGMENT_COLOURS = {
-  Expense: "var(--color-negative-fill)",
-  "Bills & Subscriptions": "var(--color-bills-subscriptions)",
-  Debt: "var(--color-debt)",
-  Savings: "var(--color-savings)",
-};
 
 // The per-month editor's block, right of the month pills. `totals` is
 // totalsByType's live output, so it moves as the user types, before Save.
@@ -36,7 +28,7 @@ export function LeftToBudgetSummary({ totals }) {
             <div
               key={type}
               className="left-to-budget__segment"
-              style={{ width: `${((totals[type] ?? 0) / axis) * 100}%`, background: SEGMENT_COLOURS[type] }}
+              style={{ width: `${((totals[type] ?? 0) / axis) * 100}%`, background: TYPE_COLOURS[type] }}
             />
           ))}
         </div>
@@ -52,9 +44,7 @@ export function LeftToBudgetSummary({ totals }) {
 // The Full year grid's trailing row. `totals` is gridTotalsByType's output
 // (one array per Type), read a month column at a time.
 export function LeftToBudgetGridRow({ totals, monthCount }) {
-  const months = Array.from({ length: monthCount }, (_, index) =>
-    leftToBudget(Object.fromEntries(Object.entries(totals).map(([type, amounts]) => [type, amounts[index] ?? 0]))),
-  );
+  const months = gridMonthTotals(totals, monthCount).map(leftToBudget);
 
   return (
     <tbody>

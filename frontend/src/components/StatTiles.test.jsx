@@ -60,6 +60,14 @@ describe("StatTiles", () => {
     expect(value.className).not.toContain("figure--");
   });
 
+  it("shows an Available to Save that is $0 up to floating-point dust as a plain, unstyled $0", () => {
+    render(<StatTiles tiles={tiles({ available_to_save: 0.1 + 0.2 - 0.3 })} />);
+
+    const value = screen.getByText("Available to Save").nextElementSibling;
+    expect(value.textContent).toBe("$0");
+    expect(value.className).not.toContain("figure--");
+  });
+
   it("orders the Bills & Subscriptions tile between Expenses and Debt", () => {
     const { container } = render(<StatTiles tiles={tiles()} />);
 

@@ -50,9 +50,15 @@ describe("BalanceCheck", () => {
   });
 
   it("omits the share when nothing was available to save", () => {
-    render(<BalanceCheck tiles={tiles({ available_to_save: -300, saved: 0, unallocated: -300 })} />);
+    render(<BalanceCheck tiles={tiles({ available_to_save: 0, saved: 0, unallocated: 0 })} />);
 
     expect(screen.getByText("Saved $0 of $0 available to save")).toBeInTheDocument();
+  });
+
+  it("shows a negative Available to Save as its real, signed figure rather than clamping it to $0", () => {
+    render(<BalanceCheck tiles={tiles({ available_to_save: -300, saved: 0, unallocated: -300 })} />);
+
+    expect(screen.getByText("Saved $0 of −$300 available to save")).toBeInTheDocument();
   });
 
   it("shows no monthly average line for a single month", () => {

@@ -81,7 +81,7 @@
        transfer ride the neutral ramp" convention Midnight/Orchid use - not
        part of the A/B/C comparison, since the neutral ramp itself didn't
        change.
-     - --color-positive (+ --color-accent-2-500 for Income/Remaining, + its
+     - --color-positive (+ --color-accent-2-500 for Income/Unallocated, + its
        tint) keeps its existing olive/sage hue family (~88deg, close to the
        old literal's ~82deg), now formula-derived and contrast-checked
        against --color-card instead of a hand-picked hex.
@@ -205,7 +205,7 @@
      ride along the ramp rather than getting a standalone hue) move from
      taupe/brown to a mauve/rose-grey hue-locked to --color-accent, matching
      the convention Terracotta (warm tan) and Midnight (blue) already use.
-   - --color-positive (+ --color-accent-2-500 for Income/Remaining, + its
+   - --color-positive (+ --color-accent-2-500 for Income/Unallocated, + its
      tint) moves off purple to sage green: purple is reserved for a planned
      future dark-purple theme, so Orchid needed to stop using it everywhere,
      not just here.
@@ -267,22 +267,22 @@
      uses are body text that needs to stay legible dark-on-light, not white.
    - --color-text/--color-positive/-tint/--color-accent-2-500 are
      untouched: text was already dark charcoal, and green stays reserved
-     for positive Net Balance per the brief.
+     for positive Available to Save per the brief.
 
    Pass 3, live feedback on pass 2's build - green dropped entirely, and
    the neutral ramp's remaining mauve tint still read as "purple":
    - --color-accent-2-500 (Income bars/dots, the allocation bar's
-     "Remaining" segment - all fill-only, no text ever sits directly on
+     "Unallocated" segment - all fill-only, no text ever sits directly on
      it, see IncomeAllocation.jsx/IncomeVsExpensesByMonth.jsx) is now the
      literal seed #DC7386 - safe here since it's never held to the 4.5:1
      text bar.
    - --color-positive (+ its tint) moves off green onto the same ~349° rose
-     family, but *is* text (.figure--favourable, the Net Balance figure,
+     family, but *is* text (.figure--favourable, the Available to Save figure,
      Budget Suggestion chips) - so it's a separate, darker/less saturated
      derivation (#642b35, ~7.8:1 against --color-card) from --color-accent/
      --color-negative's brighter crimson (#a32941, ~5.1:1), rather than the
      same value - a single hex for both signs would make the Month by
-     month table's per-row Net column (favourable/adverse rows stacked
+     month table's per-row Available to Save column (favourable/adverse rows stacked
      together) unreadable as a sequence.
    - --color-neutral-100..700 all become literal white: text/border/
      gridline elements that read as "purple" survived pass 2's hue
@@ -298,8 +298,8 @@
      visible against --color-card) - they get their own fixed steps in the
      same rose family instead, ordered so all four "Where did my income
      go?" segments plus Income stay distinguishable by lightness: Expenses
-     #a32941 (darkest) -> Debt #c65068 -> Remaining/Income #dc7386 ->
-     Transferred #eeb3c0 (lightest).
+     #a32941 (darkest) -> Debt #c65068 -> Unallocated/Income #dc7386 ->
+     Savings #eeb3c0 (lightest).
 
    Pass 4, live feedback on pass 3's build - white text still wasn't the
    ask (asked again, this time for black), and green's replacement is now
@@ -318,16 +318,16 @@
      that token's background role wins - flag if those should go black
      too, since it'd need splitting into its own token like
      --color-chart-line below.
-   - --color-accent-2-500 (Income/Remaining fill) and --color-positive
+   - --color-accent-2-500 (Income/Unallocated fill) and --color-positive
      (+ its tint, the *text* form - same darken-for-contrast reasoning as
      every other text token here) move off pink onto purple (~275°):
      #6e3399 fill, #4d2768 text (~8.3:1 against --color-card).
      --color-debt/--color-transfer become the two waypoints of a pink
      (#a32941, ~349°) -> purple (#6e3399, ~275°) hue ramp instead of a
-     single-hue lightness ramp: Debt #962c6a (~325°), Transfer #962c96
+     single-hue lightness ramp: Debt #962c6a (~325°), Savings #962c96
      (~300°) - so the "Where did my income go?" bar now reads as a
      genuine pink-to-purple gradient left to right (Expenses, Debt,
-     Transferred, Remaining) rather than one hue at four lightnesses.
+     Savings, Unallocated) rather than one hue at four lightnesses.
      --color-negative/--color-danger stay pink/crimson, unchanged.
 
    Pass 5, live feedback on pass 4's build - flat black text/borders/
@@ -364,7 +364,7 @@
 
    Pass 6, live feedback on pass 5's build - "red" negative asked to become
    hot pink, "purple" positive asked to become royal purple, and the
-   pink<->purple bar/donut ramp (Expenses/Debt/Transferred/Remaining) was
+   pink<->purple bar/donut ramp (Expenses/Debt/Savings/Unallocated) was
    "a little hard to decipher":
    - --color-accent/-600/--color-negative move from crimson (~349 deg) to
      canonical hot pink (~330 deg, the hue of the web colour #FF69B4),
@@ -378,7 +378,7 @@
      a visually distinct "alert red" from the new hot pink, matching the
      "stays visually distinct from --color-negative" rule every earlier
      Orchid revision has followed for this token.
-   - --color-positive (+ --color-accent-2-500 for Income/Remaining, + its
+   - --color-positive (+ --color-accent-2-500 for Income/Unallocated, + its
      tint) move from ~275 deg to ~266 deg, the hue of the named colour
      "royal purple" (#7851A9), at higher saturation (S=55%) than the
      previous pass's more muted purple for a richer/more "royal" read.
@@ -387,14 +387,14 @@
      for the same reason established in pass 3 - one hex can't serve both
      a 4.5:1 text bar and a vivid fill.
    - The real fix for "hard to decipher": pass 4's ramp varied only hue
-     between the four bar/donut segments (Expenses/Debt/Transferred/
-     Remaining all sat at ~38-40% lightness) - on a thin stacked bar,
+     between the four bar/donut segments (Expenses/Debt/Savings/
+     Unallocated all sat at ~38-40% lightness) - on a thin stacked bar,
      near-identical lightness made adjacent segments blur together even
      though the hues technically differed. --color-debt (#d025a5, H=315,
      L=48%) and --color-transfer (#ce4eda, H=295, L=58%) now swing
      lightness *and* saturation, not just hue, between the two fixed
      endpoints (dark hot-pink Expenses at L=32%, medium royal-purple
-     Remaining at L=42%) - every adjacent pair in the sequence now differs
+     Unallocated at L=42%) - every adjacent pair in the sequence now differs
      by >=16% lightness, which is what actually separates segments at a
      glance, not hue alone.
    - lib/categoryColours.js's ORCHID_PALETTE indices 4-7 (Spending by
@@ -460,11 +460,11 @@
    changes yet) and .button:disabled is opacity:0.55 over --color-card -
    confirmed live by entering a budget amount, which makes it render the
    identical #ae095c; no token changed for that half of the report.
-   Transferred (#ce4eda, fill-only, L=58%) still read as "the hot pink"
+   Savings (#ce4eda, fill-only, L=58%) still read as "the hot pink"
    over Expenses itself, for the same structural reason pass 7 fixed for
    Debt: a fill-only waypoint with no AA ceiling can always out-brighten
    a text-constrained anchor. Pass 7 only fixed the Expenses-vs-Debt half
-   of that; Transferred was still brighter than accent-600's L=36% AA
+   of that; Savings was still brighter than accent-600's L=36% AA
    ceiling.
    - This pass finally breaks the ceiling itself rather than patching
      around it again: --color-negative-fill (new token, see :root) takes

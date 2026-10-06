@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { gridTotalsByType, leftToBudget, totalsByType } from "./budgetTotals.js";
+import { gridMonthTotals, gridTotalsByType, leftToBudget, totalsByType } from "./budgetTotals.js";
 
 describe("totalsByType", () => {
   const editor = {
@@ -40,6 +40,25 @@ describe("gridTotalsByType", () => {
 
   it("returns an empty array for a Type with no Categories", () => {
     expect(gridTotalsByType({ Debt: [] })).toEqual({ Debt: [] });
+  });
+});
+
+describe("gridMonthTotals", () => {
+  it("turns gridTotalsByType's per-Type arrays into one Type totals object per month", () => {
+    const totals = { Income: [5000, 0, 5000], Expense: [650, 800, 100] };
+
+    expect(gridMonthTotals(totals, 3)).toEqual([
+      { Income: 5000, Expense: 650 },
+      { Income: 0, Expense: 800 },
+      { Income: 5000, Expense: 100 },
+    ]);
+  });
+
+  it("counts a Type with no Categories (an empty array) as $0 in every month", () => {
+    expect(gridMonthTotals({ Income: [5000, 5000], Debt: [] }, 2)).toEqual([
+      { Income: 5000, Debt: 0 },
+      { Income: 5000, Debt: 0 },
+    ]);
   });
 });
 

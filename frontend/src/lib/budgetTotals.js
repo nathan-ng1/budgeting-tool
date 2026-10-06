@@ -31,6 +31,16 @@ export function gridTotalsByType(grid) {
   return totals;
 }
 
+// gridTotalsByType's output transposed: one Type totals object per month
+// column, the shape leftToBudget takes - so the Full year grid's Left to
+// Budget row (#167) reads a column the same way the per-month editor reads
+// totalsByType. A Type with no Categories (an empty array) counts as $0.
+export function gridMonthTotals(totals, monthCount) {
+  return Array.from({ length: monthCount }, (_, index) =>
+    Object.fromEntries(Object.entries(totals).map(([type, amounts]) => [type, amounts[index] ?? 0])),
+  );
+}
+
 // The Types a Left to Budget subtracts from budgeted Income (Issue #167) -
 // every outflow, Savings included, so a plan that gives every dollar a job
 // lands on exactly $0 (see GLOSSARY.md). Order matters to the editor's
