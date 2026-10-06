@@ -30,7 +30,7 @@ class StatTiles:
     expenses: float
     bills_subscriptions: float
     debt: float
-    net_balance: float
+    available_to_save: float
     saved: float
 
 
@@ -138,7 +138,7 @@ class MonthlyTotals:
     expenses: float
     bills_subscriptions: float
     debt: float
-    net_balance: float
+    available_to_save: float
     saved: float
 
 
@@ -381,15 +381,15 @@ def _stat_tiles(transactions: list[Transaction]) -> StatTiles:
     bills_subscriptions = _round(sum(t.amount for t in transactions if t.type == "Bills & Subscriptions"))
     debt = _round(sum(t.amount for t in transactions if t.type == "Debt"))
     saved = _round(sum(t.amount for t in transactions if t.type == "Savings"))
-    # Savings is never subtracted - see GLOSSARY.md's Net Balance entry
+    # Savings is never subtracted - see GLOSSARY.md's Available to Save entry
     # (ADR-0022); Bills & Subscriptions is, like Expense/Debt (ADR-0024).
-    net_balance = _round(income - expenses - bills_subscriptions - debt)
+    available_to_save = _round(income - expenses - bills_subscriptions - debt)
     return StatTiles(
         income=income,
         expenses=expenses,
         bills_subscriptions=bills_subscriptions,
         debt=debt,
-        net_balance=net_balance,
+        available_to_save=available_to_save,
         saved=saved,
     )
 
@@ -414,14 +414,14 @@ def _add_months(start: date, months: int) -> date:
 def _monthly_average(totals: StatTiles, elapsed_months: int) -> StatTiles:
     if elapsed_months == 0:
         return StatTiles(
-            income=0.0, expenses=0.0, bills_subscriptions=0.0, debt=0.0, net_balance=0.0, saved=0.0
+            income=0.0, expenses=0.0, bills_subscriptions=0.0, debt=0.0, available_to_save=0.0, saved=0.0
         )
     return StatTiles(
         income=_round(totals.income / elapsed_months),
         expenses=_round(totals.expenses / elapsed_months),
         bills_subscriptions=_round(totals.bills_subscriptions / elapsed_months),
         debt=_round(totals.debt / elapsed_months),
-        net_balance=_round(totals.net_balance / elapsed_months),
+        available_to_save=_round(totals.available_to_save / elapsed_months),
         saved=_round(totals.saved / elapsed_months),
     )
 
@@ -654,7 +654,7 @@ def _monthly_totals(transactions: list[Transaction], start: date) -> list[Monthl
                 expenses=tiles.expenses,
                 bills_subscriptions=tiles.bills_subscriptions,
                 debt=tiles.debt,
-                net_balance=tiles.net_balance,
+                available_to_save=tiles.available_to_save,
                 saved=tiles.saved,
             )
         )

@@ -31,7 +31,7 @@ export default function IncomeVsExpensesByMonth({ months }) {
           </span>
           <span className="allocation__legend-item">
             <span className="mbe__line-swatch" />
-            Net
+            Available to Save
           </span>
         </div>
       </div>
@@ -54,7 +54,7 @@ export default function IncomeVsExpensesByMonth({ months }) {
             viewBox={`0 0 ${MONTH_CHART_WIDTH} ${MONTH_CHART_HEIGHT}`}
             preserveAspectRatio="none"
             role="img"
-            aria-label={`Income, Expenses, ${chart.showsBillsSubscriptions ? "Bills & Subscriptions, " : ""}and Debt for every month of the Financial Year, with a Net line`}
+            aria-label={`Income, Expenses, ${chart.showsBillsSubscriptions ? "Bills & Subscriptions, " : ""}and Debt for every month of the Financial Year, with an Available to Save line`}
           >
             <g stroke="var(--color-neutral-300)" strokeWidth="1" vectorEffect="non-scaling-stroke">
               {gridlines.map((y) => (
@@ -81,10 +81,10 @@ export default function IncomeVsExpensesByMonth({ months }) {
                 <rect key={index} x={bar.x} y={bar.y} width={bar.width} height={bar.height} rx="3" />
               ))}
             </g>
-            {chart.netLinePath !== "" && (
+            {chart.availableToSaveLinePath !== "" && (
               <g>
                 <path
-                  d={chart.netLinePath}
+                  d={chart.availableToSaveLinePath}
                   fill="none"
                   stroke="var(--color-chart-line)"
                   strokeWidth="2"
@@ -93,7 +93,7 @@ export default function IncomeVsExpensesByMonth({ months }) {
                   vectorEffect="non-scaling-stroke"
                 />
                 <g fill="var(--color-card)" stroke="var(--color-chart-line)" strokeWidth="1.75" vectorEffect="non-scaling-stroke">
-                  {chart.netPoints.map((point, index) => (
+                  {chart.availableToSavePoints.map((point, index) => (
                     <circle key={index} cx={point.x} cy={point.y} r="3.2" />
                   ))}
                 </g>
