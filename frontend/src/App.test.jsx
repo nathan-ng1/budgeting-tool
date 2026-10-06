@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App.jsx";
 
-const ZERO_STAT_TILES = { income: 0, expenses: 0, debt: 0, net_balance: 0, saved: 0 };
-const ZERO_MONTH_TOTALS = { income: 0, expenses: 0, debt: 0, net_balance: 0, saved: 0 };
+const ZERO_STAT_TILES = { income: 0, expenses: 0, debt: 0, available_to_save: 0, saved: 0 };
+const ZERO_MONTH_TOTALS = { income: 0, expenses: 0, debt: 0, available_to_save: 0, saved: 0 };
 const ZERO_ALLOCATION = {
   expenses_amount: 0,
   expenses_pct: 0,
@@ -38,7 +38,7 @@ function monthWithSpending(year, month, overrides = {}) {
   return monthOverview({
     year,
     month,
-    stat_tiles: { income: 5240, expenses: 3667, debt: 0, net_balance: 1573, saved: 900 },
+    stat_tiles: { income: 5240, expenses: 3667, debt: 0, available_to_save: 1573, saved: 900 },
     income_allocation: {
       expenses_amount: 3667,
       expenses_pct: 70,
@@ -90,12 +90,12 @@ function annualOverview(overrides = {}) {
 
 function annualWithSpending(overrides = {}) {
   const months = ZERO_MONTHS.map((m, index) =>
-    index === 0 ? { ...m, income: 5240, expenses: 3810, debt: 0, net_balance: 1430, saved: 900 } : m,
+    index === 0 ? { ...m, income: 5240, expenses: 3810, debt: 0, available_to_save: 1430, saved: 900 } : m,
   );
 
   return annualOverview({
-    stat_tiles: { income: 8000, expenses: 6000, debt: 0, net_balance: 2000, saved: 1000 },
-    monthly_average: { income: 4000, expenses: 3000, debt: 0, net_balance: 1000, saved: 500 },
+    stat_tiles: { income: 8000, expenses: 6000, debt: 0, available_to_save: 2000, saved: 1000 },
+    monthly_average: { income: 4000, expenses: 3000, debt: 0, available_to_save: 1000, saved: 500 },
     income_allocation: {
       expenses_amount: 6000,
       expenses_pct: 75,
@@ -180,7 +180,8 @@ describe("App", () => {
 
     expect(await screen.findByText("$8,000")).toBeInTheDocument(); // Real Income tile
     expect(screen.getByText("$4,000 / month average")).toBeInTheDocument();
-    expect(screen.getByText("$1,000 / month · includes savings")).toBeInTheDocument(); // Net Balance average
+    expect(screen.getByText("$1,000 / month average")).toBeInTheDocument(); // Available to Save average
+    expect(screen.queryByText(/includes savings/)).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Where did my income go?" })).toBeInTheDocument();
   });
 
@@ -303,7 +304,7 @@ describe("App", () => {
   it("renders the Debt card between Spending by Category/Budgeted vs Actual and Top 5/Expenses over time, for a month with Debt", async () => {
     respondWith({
       month: monthWithSpending(2026, 8, {
-        stat_tiles: { income: 5240, expenses: 3667, debt: 875, net_balance: 698, saved: 900 },
+        stat_tiles: { income: 5240, expenses: 3667, debt: 875, available_to_save: 698, saved: 900 },
         debt_summary: [{ notes: "Werribee", amount: 875, pct_of_debt: 100 }],
       }),
     });
@@ -324,7 +325,7 @@ describe("App", () => {
   it("groups Spending by Category, Budgeted vs Actual, and Debt into the wide-pair layout, for a month", async () => {
     respondWith({
       month: monthWithSpending(2026, 8, {
-        stat_tiles: { income: 5240, expenses: 3667, debt: 875, net_balance: 698, saved: 900 },
+        stat_tiles: { income: 5240, expenses: 3667, debt: 875, available_to_save: 698, saved: 900 },
         debt_summary: [{ notes: "Werribee", amount: 875, pct_of_debt: 100 }],
       }),
     });
@@ -342,8 +343,8 @@ describe("App", () => {
   it("renders the Debt card with a $/month average, for Full year", async () => {
     respondWith({
       annual: annualWithSpending({
-        stat_tiles: { income: 8000, expenses: 6000, debt: 1600, net_balance: 400, saved: 1000 },
-        monthly_average: { income: 4000, expenses: 3000, debt: 800, net_balance: 200, saved: 500 },
+        stat_tiles: { income: 8000, expenses: 6000, debt: 1600, available_to_save: 400, saved: 1000 },
+        monthly_average: { income: 4000, expenses: 3000, debt: 800, available_to_save: 200, saved: 500 },
         debt_summary: [{ notes: "Werribee", amount: 1600, pct_of_debt: 100 }],
       }),
     });
@@ -362,8 +363,8 @@ describe("App", () => {
   it("groups Month by month, Budgeted vs Actual, and Debt into the wide-pair layout, and pairs Spending by Category with Top expenses, for Full year", async () => {
     respondWith({
       annual: annualWithSpending({
-        stat_tiles: { income: 8000, expenses: 6000, debt: 1600, net_balance: 400, saved: 1000 },
-        monthly_average: { income: 4000, expenses: 3000, debt: 800, net_balance: 200, saved: 500 },
+        stat_tiles: { income: 8000, expenses: 6000, debt: 1600, available_to_save: 400, saved: 1000 },
+        monthly_average: { income: 4000, expenses: 3000, debt: 800, available_to_save: 200, saved: 500 },
         debt_summary: [{ notes: "Werribee", amount: 1600, pct_of_debt: 100 }],
       }),
     });

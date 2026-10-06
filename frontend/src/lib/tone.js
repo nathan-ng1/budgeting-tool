@@ -1,6 +1,6 @@
-// Which way a figure went, as a CSS class. Overspending and a negative Net
-// Balance are adverse; staying under a Category Budget and a positive Net
-// Balance are favourable. Exactly zero is neither, so it stays unstyled.
+// Which way a figure went, as a CSS class. Overspending and a negative
+// Available to Save are adverse; staying under a Category Budget and a positive
+// Available to Save are favourable. Exactly zero is neither, so it stays unstyled.
 
 export const ADVERSE = "figure--adverse";
 export const FAVOURABLE = "figure--favourable";

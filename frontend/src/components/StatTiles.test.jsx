@@ -9,7 +9,7 @@ function tiles(overrides = {}) {
     expenses: 3667,
     bills_subscriptions: 412,
     debt: 875,
-    net_balance: 286,
+    available_to_save: 286,
     saved: 900,
     ...overrides,
   };
@@ -31,18 +31,40 @@ describe("StatTiles", () => {
   });
 
   it("shows a monthly average under each tile when one is supplied", () => {
-    render(<StatTiles tiles={tiles({ income: 2000 })} average={tiles({ income: 1000, net_balance: 700 })} />);
+    render(<StatTiles tiles={tiles({ income: 2000 })} average={tiles({ income: 1000, available_to_save: 700 })} />);
 
     expect(screen.getByText("$2,000")).toBeInTheDocument();
     expect(screen.getByText("$1,000 / month average")).toBeInTheDocument();
-    expect(screen.getByText("$700 / month · includes savings")).toBeInTheDocument();
+    expect(screen.getByText("$700 / month average")).toBeInTheDocument();
+    expect(screen.queryByText(/includes savings/)).not.toBeInTheDocument();
+  });
+
+  it("labels the cashflow tile Available to Save, signed and coloured by direction", () => {
+    const { rerender } = render(<StatTiles tiles={tiles({ available_to_save: 286 })} />);
+
+    const value = () => screen.getByText("Available to Save").nextElementSibling;
+    expect(screen.queryByText("Net Balance")).not.toBeInTheDocument();
+    expect(value()).toHaveTextContent("+$286");
+    expect(value().className).toContain("figure--favourable");
+
+    rerender(<StatTiles tiles={tiles({ available_to_save: -120 })} />);
+    expect(value()).toHaveTextContent("−$120");
+    expect(value().className).toContain("figure--adverse");
+  });
+
+  it("shows an exactly balanced Available to Save as a plain $0", () => {
+    render(<StatTiles tiles={tiles({ available_to_save: 0 })} />);
+
+    const value = screen.getByText("Available to Save").nextElementSibling;
+    expect(value.textContent).toBe("$0");
+    expect(value.className).not.toContain("figure--");
   });
 
   it("orders the Bills & Subscriptions tile between Expenses and Debt", () => {
     const { container } = render(<StatTiles tiles={tiles()} />);
 
     const labels = [...container.querySelectorAll(".tile__label")].map((el) => el.textContent);
-    expect(labels).toEqual(["Real Income", "Expenses", "Bills & Subscriptions", "Debt", "Net Balance", "Saved"]);
+    expect(labels).toEqual(["Real Income", "Expenses", "Bills & Subscriptions", "Debt", "Available to Save", "Saved"]);
   });
 
   it("shows a Bills & Subscriptions monthly average in the Full year view", () => {

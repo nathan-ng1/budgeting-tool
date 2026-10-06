@@ -702,7 +702,7 @@ h3 {
   color: var(--color-neutral-600);
 }
 
-/* A figure that went the wrong way (overspent, negative Net Balance) reads in
+/* A figure that went the wrong way (overspent, negative Available to Save) reads in
    --color-negative; one that went the right way reads in --color-positive. */
 .figure--adverse {
   color: var(--color-negative);
