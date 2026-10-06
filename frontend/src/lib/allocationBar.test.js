@@ -127,7 +127,7 @@ describe("allocationBar", () => {
     expect(widths.over_income).toBe(`${(30 / 130) * 100}%`);
   });
 
-  it("drops the Unallocated segment when there is nothing left over", () => {
+  it("drops the Unallocated segment when nothing is Unallocated", () => {
     const bar = allocationBar(allocation({ expenses_pct: 106.9, over_income_pct: 6.9 }));
     const keys = bar.segments.map((segment) => segment.key);
 

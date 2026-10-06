@@ -22,7 +22,7 @@ function allocation(overrides = {}) {
 }
 
 describe("IncomeAllocation", () => {
-  it("splits income across what was spent, saved and left over", () => {
+  it("splits income across what was spent, what was saved and what stayed Unallocated", () => {
     render(
       <IncomeAllocation
         income={5240}
@@ -39,7 +39,7 @@ describe("IncomeAllocation", () => {
 
     expect(screen.getByText("Expenses")).toBeInTheDocument();
     expect(screen.getByText("70.0%")).toBeInTheDocument();
-    // #168 - the leftover segment shares the Balance check card's name, and
+    // #168 - the Unallocated segment shares the Balance check card's name, and
     // stays a 1-dp share of Income like the rest of the legend.
     expect(screen.getByText("Unallocated")).toBeInTheDocument();
     expect(screen.getByText("12.8%")).toBeInTheDocument();
