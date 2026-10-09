@@ -87,8 +87,9 @@ setup" below as-is.
 
 **The guided installer is the intended path for everyone** — download `setup.bat` (Windows) or
 `setup.command` (macOS) from the
-[latest Release](https://github.com/nathan-ng1/budgeting-tool/releases) and double-click it. In one
-run it installs every prerequisite above (via winget or Homebrew), clones this repo, asks whether
+[latest Release](https://github.com/nathan-ng1/budgeting-tool/releases) and double-click it
+(macOS: run `bash ~/Downloads/setup.command` in Terminal instead - Gatekeeper blocks a
+double-click on a downloaded script). In one run it installs every prerequisite above (via winget or Homebrew), clones this repo, asks whether
 you have a Claude Code or Codex CLI subscription and branches accordingly (ADR-0018), writes your
 `.env` — including `CATEGORISER_BACKEND`/`ADVISOR_BACKEND` on the AI path, so nothing below needs
 editing by hand — and builds the Dashboard frontend. It's also safe to re-run any time, e.g. to add
@@ -212,8 +213,7 @@ Full walkthrough: `docs/agents/statement-export-pipeline.md`.
 ### Viewing the Dashboard
 
 Double-click **`windows/open_dashboard.bat`** (Windows) or **`mac/open_dashboard.command`**
-(macOS — right-click → Open the first time, see `docs/setup-guide-mac.html`). It starts the local
-server and opens the Dashboard in Chrome once the server is actually accepting connections
+(macOS). It starts the local server and opens the Dashboard in Chrome once the server is actually accepting connections
 (falling back to your default browser if Chrome isn't installed). Leave the window it opens
 running while you use the Dashboard - closing it stops the server. Running it again while the
 Dashboard is already up just opens the page rather than starting a second server.
