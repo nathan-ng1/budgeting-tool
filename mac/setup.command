@@ -10,9 +10,11 @@
 # install" path and the "Dashboard-only user adding the AI path later" path
 # (ADR-0017's idempotency requirement, mirroring issue #116 stories 4 and 13).
 #
-# First run needs a Gatekeeper step Windows has no equivalent of: right-click
-# this file in Finder and choose Open (or `xattr -d com.apple.quarantine
-# setup.command`) before double-clicking will work - see
+# Downloaded from a browser, this file is quarantined and Gatekeeper blocks a
+# double-click (recent macOS no longer offers right-click -> Open as a way
+# round it), so the first run is `bash path/to/setup.command` from Terminal -
+# bash reads the file rather than executing it, so quarantine doesn't apply.
+# Everything it clones afterwards isn't quarantined. See
 # docs/setup-guide-mac.html for the guided walkthrough this script backs.
 
 set -uo pipefail

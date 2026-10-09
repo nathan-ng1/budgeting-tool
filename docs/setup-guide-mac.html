@@ -280,12 +280,14 @@
   <div class="step">
     <div class="num">2</div>
     <div class="body">
-      <h4>The first time only: right-click to open</h4>
-      <p>macOS blocks a freshly-downloaded script from running on a plain double-click
-      (Gatekeeper). <strong>Right-click <code>setup.command</code> in Finder, choose
-      <em>Open</em>, then confirm</strong> in the dialog that appears. After this first run,
-      double-clicking works normally. If you'd rather use Terminal, this is equivalent:</p>
-      <pre><code>xattr -d com.apple.quarantine setup.command</code></pre>
+      <h4>Run it from Terminal</h4>
+      <p>macOS blocks a freshly-downloaded script from running on a double-click (Gatekeeper), and
+      recent versions no longer offer a right-click &rarr; <em>Open</em> way around it. Running it
+      through <code>bash</code> sidesteps that entirely. Open <strong>Terminal</strong> (Cmd+Space,
+      type <em>Terminal</em>, Enter) and run, adjusting the path if you saved it somewhere else:</p>
+      <pre><code>bash ~/Downloads/setup.command</code></pre>
+      <p>The repo is cloned into the same folder as <code>setup.command</code>, so move it somewhere
+      permanent (e.g. <code>~/Documents</code>) first if you don't want it in Downloads.</p>
     </div>
   </div>
 
@@ -313,9 +315,9 @@
     <div class="num">5</div>
     <div class="body">
       <h4>Open the Dashboard</h4>
-      <p>Double-click <code>mac/open_dashboard.command</code> in the cloned folder (right-click →
-      Open the first time, same as step 2). It starts the local server and opens the Dashboard in
-      Chrome — nothing about your transaction data ever leaves your machine. For a tour of what's
+      <p>Double-click <code>mac/open_dashboard.command</code> in the cloned folder &mdash; it came
+      from the clone rather than a browser download, so Gatekeeper doesn't block it. It starts the
+      local server and opens the Dashboard in Chrome — nothing about your transaction data ever leaves your machine. For a tour of what's
       on each tab, see <code>docs/dashboard-guide.html</code>.</p>
     </div>
   </div>
