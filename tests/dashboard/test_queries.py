@@ -35,9 +35,9 @@ def test_a_month_with_no_transactions_returns_a_zeroed_result(tmp_path: Path):
     assert overview.budgeted_vs_actual == []
     assert overview.debt_summary == []
     assert overview.top_expenses == []
-    assert overview.expenses_over_time.total == 0
-    assert overview.expenses_over_time.daily_average == 0
-    assert len(overview.expenses_over_time.daily) == 31  # every day of August
+    assert overview.spending_over_time.total == 0
+    assert overview.spending_over_time.daily_average == 0
+    assert len(overview.spending_over_time.daily) == 31  # every day of August
 
 
 def test_stat_tiles_sum_by_type_for_the_selected_month(tmp_path: Path, make_candidate):
@@ -297,8 +297,8 @@ def test_spending_by_category_only_includes_expense_categories_with_nonzero_spen
     overview = get_month_overview(store, year=2026, month=8)
 
     assert overview.spending_by_category == [
-        CategorySpend(category="Groceries", amount=400.0, pct_of_expenses=80.0),
-        CategorySpend(category="Transport", amount=100.0, pct_of_expenses=20.0),
+        CategorySpend(category="Groceries", type="Expense", amount=400.0, pct_of_spending=80.0),
+        CategorySpend(category="Transport", type="Expense", amount=100.0, pct_of_spending=20.0),
     ]
 
 
@@ -313,7 +313,7 @@ def test_spending_by_category_excludes_debt(fake_store, make_transaction):
     overview = get_month_overview(store, year=2026, month=8)
 
     assert overview.spending_by_category == [
-        CategorySpend(category="Groceries", amount=300.0, pct_of_expenses=100.0),
+        CategorySpend(category="Groceries", type="Expense", amount=300.0, pct_of_spending=100.0),
     ]
 
 
@@ -563,7 +563,7 @@ def test_top_5_expenses_excludes_debt(fake_store, make_transaction):
     assert [row.notes for row in overview.top_expenses] == ["A"]
 
 
-def test_expenses_over_time_is_a_cumulative_daily_total_for_every_day_of_the_month(fake_store, make_transaction):
+def test_spending_over_time_is_a_cumulative_daily_total_for_every_day_of_the_month(fake_store, make_transaction):
     store = fake_store(
         transactions=[
             make_transaction(date=date(2026, 8, 1), amount=100.0, type="Expense", category="Groceries", notes="Woolworths"),
@@ -572,7 +572,7 @@ def test_expenses_over_time_is_a_cumulative_daily_total_for_every_day_of_the_mon
     )
 
     overview = get_month_overview(store, year=2026, month=8)
-    daily = overview.expenses_over_time.daily
+    daily = overview.spending_over_time.daily
 
     assert len(daily) == 31
     assert daily[0].date == "2026-08-01"
@@ -580,11 +580,11 @@ def test_expenses_over_time_is_a_cumulative_daily_total_for_every_day_of_the_mon
     assert daily[1].cumulative == 100.0  # no transaction on day 2 - carries forward
     assert daily[2].cumulative == 150.0
     assert daily[-1].cumulative == 150.0
-    assert overview.expenses_over_time.total == 150.0
-    assert overview.expenses_over_time.daily_average == round(150.0 / 31, 2)
+    assert overview.spending_over_time.total == 150.0
+    assert overview.spending_over_time.daily_average == round(150.0 / 31, 2)
 
 
-def test_expenses_over_time_excludes_debt(fake_store, make_transaction):
+def test_spending_over_time_excludes_debt(fake_store, make_transaction):
     store = fake_store(
         transactions=[
             make_transaction(date=date(2026, 8, 1), amount=100.0, type="Expense", category="Groceries", notes="Woolworths"),
@@ -594,7 +594,7 @@ def test_expenses_over_time_excludes_debt(fake_store, make_transaction):
 
     overview = get_month_overview(store, year=2026, month=8)
 
-    assert overview.expenses_over_time.total == 100.0
+    assert overview.spending_over_time.total == 100.0
 
 
 def test_annual_overview_before_the_financial_year_starts_elapses_no_months(tmp_path: Path):
@@ -754,8 +754,8 @@ def test_annual_overview_spending_by_category_sums_actual_expenses_over_elapsed_
     overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21))
 
     assert overview.spending_by_category == [
-        CategorySpend(category="Groceries", amount=400.0, pct_of_expenses=80.0),
-        CategorySpend(category="Transport", amount=100.0, pct_of_expenses=20.0),
+        CategorySpend(category="Groceries", type="Expense", amount=400.0, pct_of_spending=80.0),
+        CategorySpend(category="Transport", type="Expense", amount=100.0, pct_of_spending=20.0),
     ]
 
 
@@ -770,7 +770,7 @@ def test_annual_overview_spending_by_category_excludes_debt(fake_store, make_tra
     overview = get_annual_overview(store, year=2026, today=date(2026, 7, 15))
 
     assert overview.spending_by_category == [
-        CategorySpend(category="Groceries", amount=300.0, pct_of_expenses=100.0),
+        CategorySpend(category="Groceries", type="Expense", amount=300.0, pct_of_spending=100.0),
     ]
 
 
@@ -1244,8 +1244,8 @@ def test_annual_overview_spending_by_category_sums_actual_expenses_over_elapsed_
     overview = get_annual_overview(store, year=2026, today=date(2026, 2, 21), start_month=1)
 
     assert overview.spending_by_category == [
-        CategorySpend(category="Groceries", amount=400.0, pct_of_expenses=80.0),
-        CategorySpend(category="Transport", amount=100.0, pct_of_expenses=20.0),
+        CategorySpend(category="Groceries", type="Expense", amount=400.0, pct_of_spending=80.0),
+        CategorySpend(category="Transport", type="Expense", amount=100.0, pct_of_spending=20.0),
     ]
 
 
@@ -1260,7 +1260,7 @@ def test_annual_overview_spending_by_category_excludes_debt_for_calendar_year(fa
     overview = get_annual_overview(store, year=2026, today=date(2026, 1, 15), start_month=1)
 
     assert overview.spending_by_category == [
-        CategorySpend(category="Groceries", amount=300.0, pct_of_expenses=100.0),
+        CategorySpend(category="Groceries", type="Expense", amount=300.0, pct_of_spending=100.0),
     ]
 
 
@@ -1978,3 +1978,68 @@ def test_full_year_grid_a_month_with_no_budget_set_is_none_not_zero(fake_store):
     rows = get_full_year_budget_grid(store, year=2026)
 
     assert all(amount is None for row in rows for amount in row.amounts)
+
+
+def test_spending_over_time_counts_bills_and_subscriptions_but_not_debt_or_savings(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 8, 1), amount=100.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 8, 10), amount=620.0, type="Bills & Subscriptions", category="Insurance", notes="Annual cover"),
+            make_transaction(date=date(2026, 8, 3), amount=875.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+            make_transaction(date=date(2026, 8, 4), amount=500.0, type="Savings", category="Savings", notes="Transfer"),
+        ]
+    )
+
+    overview = get_month_overview(store, year=2026, month=8)
+    daily = overview.spending_over_time.daily
+
+    assert overview.spending_over_time.total == 720.0
+    assert overview.spending_over_time.daily_average == round(720.0 / 31, 2)
+    assert daily[8].cumulative == 100.0
+    assert daily[9].cumulative == 720.0  # the lumpy bill is a step
+
+
+def test_spending_over_time_is_reduced_by_beem_adjustment_reimbursements(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 8, 1), amount=100.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 8, 2), amount=-30.0, type="Expense", category="Beem Adjustment", notes="Beem"),
+        ]
+    )
+
+    assert get_month_overview(store, year=2026, month=8).spending_over_time.total == 70.0
+
+
+def test_spending_by_category_lists_bills_and_subscriptions_with_shares_of_spending(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 8, 1), amount=300.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 8, 2), amount=100.0, type="Bills & Subscriptions", category="Internet", notes="ISP"),
+            make_transaction(date=date(2026, 8, 3), amount=875.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+        ]
+    )
+
+    overview = get_month_overview(store, year=2026, month=8)
+
+    assert overview.spending_by_category == [
+        CategorySpend(category="Groceries", type="Expense", amount=300.0, pct_of_spending=75.0),
+        CategorySpend(category="Internet", type="Bills & Subscriptions", amount=100.0, pct_of_spending=25.0),
+    ]
+    assert sum(r.amount for r in overview.spending_by_category) == overview.spending_over_time.total
+
+
+def test_annual_spending_by_category_lists_bills_and_subscriptions_with_shares_of_spending(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, 1), amount=300.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 8, 2), amount=100.0, type="Bills & Subscriptions", category="Internet", notes="ISP"),
+            make_transaction(date=date(2026, 8, 3), amount=875.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21))
+
+    assert overview.spending_by_category == [
+        CategorySpend(category="Groceries", type="Expense", amount=300.0, pct_of_spending=75.0),
+        CategorySpend(category="Internet", type="Bills & Subscriptions", amount=100.0, pct_of_spending=25.0),
+    ]
