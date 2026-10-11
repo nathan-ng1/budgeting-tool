@@ -160,6 +160,7 @@ class AnnualOverview:
     top_merchants: list[TopMerchant]
     month_by_month: list[MonthlyTotals]
     income_vs_expenses_by_month: list[MonthlyTotals]
+    outflows_by_month: list[MonthlyTotals]
 
 
 def get_month_overview(store, year: int, month: int) -> MonthOverview:
@@ -214,6 +215,7 @@ def get_annual_overview(store, year: int, today: date | None = None, start_month
         # with optional fields (ADR-0011).
         month_by_month=monthly_totals,
         income_vs_expenses_by_month=monthly_totals,
+        outflows_by_month=monthly_totals,
     )
 
 

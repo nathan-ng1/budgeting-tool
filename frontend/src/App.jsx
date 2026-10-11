@@ -9,6 +9,7 @@ import DebtSummary from "./components/DebtSummary.jsx";
 import SpendingOverTime from "./components/SpendingOverTime.jsx";
 import IncomeAllocation from "./components/IncomeAllocation.jsx";
 import OutflowsBreakdown from "./components/OutflowsBreakdown.jsx";
+import OutflowsByMonth from "./components/OutflowsByMonth.jsx";
 import IncomeVsExpensesByMonth from "./components/IncomeVsExpensesByMonth.jsx";
 import MonthByMonth from "./components/MonthByMonth.jsx";
 import MonthSelector from "./components/MonthSelector.jsx";
@@ -387,8 +388,9 @@ function Dashboard({ settings, onSettingsSaved }) {
                         />
                       </div>
                     </div>
+                    <OutflowsByMonth months={overview.outflows_by_month} />
                     <div className="row--split">
-                      <TopMerchants merchants={overview.top_merchants} count={10} colourFor={colourFor} />
+                      <TopMerchants merchants={overview.top_merchants} count={10}colourFor={colourFor} />
                     </div>
                   </>
                 )}

@@ -84,6 +84,7 @@ function annualOverview(overrides = {}) {
     top_merchants: [],
     month_by_month: ZERO_MONTHS,
     income_vs_expenses_by_month: ZERO_MONTHS,
+    outflows_by_month: ZERO_MONTHS,
     ...overrides,
   };
 }
@@ -404,7 +405,7 @@ describe("App", () => {
     expect(screen.queryByText(/month average/)).not.toBeInTheDocument();
   });
 
-  it("places the Outflows breakdown full width between the wide-pair row and the split row, for a month only", async () => {
+  it("places the Outflows breakdown full width between the wide-pair row and the split row, for a month", async () => {
     respondWith({
       month: monthWithSpending(2026, 8, {
         stat_tiles: { income: 5240, expenses: 3667, debt: 875, available_to_save: 698, saved: 900, unallocated: -202 },
@@ -412,7 +413,6 @@ describe("App", () => {
     });
     render(<App />);
     await screen.findByText("$8,000");
-    expect(screen.queryByRole("heading", { name: "Outflows breakdown" })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Aug" }));
     await screen.findByText("$5,240");
@@ -470,12 +470,13 @@ describe("App", () => {
         stat_tiles: { income: 8000, expenses: 6000, debt: 1600, available_to_save: 400, saved: 1000, unallocated: -600 },
         monthly_average: { income: 4000, expenses: 3000, debt: 800, available_to_save: 200, saved: 500, unallocated: -300 },
         debt_summary: [{ notes: "Werribee", amount: 1600, pct_of_debt: 100 }],
+        outflows_by_month: ZERO_MONTHS.map((m, index) => (index === 0 ? { ...m, expenses: 600, debt: 400 } : m)),
       }),
     });
     render(<App />);
     await screen.findByText("$8,000");
 
-    const columns = screen.getByRole("heading", { name: "Month by month" }).closest(".row--columns");
+    const columns =screen.getByRole("heading", { name: "Month by month" }).closest(".row--columns");
     expect(columns).not.toBeNull();
     const [left, right] = columns.querySelectorAll(":scope > .row--columns__col");
     const cardTitles = (column) => [...column.querySelectorAll(":scope > .card h3")].map((h) => h.textContent);
@@ -485,8 +486,31 @@ describe("App", () => {
 
     const split = screen.getByRole("heading", { name: "Top merchants" }).closest(".row--split");
     expect(split).not.toBeNull();
-    expect(columns.nextElementSibling).toBe(split);
+    // The full-width Outflows breakdown sits between the columns and Top merchants.
+    const outflows = screen.getByTestId("outflows-columns-legend").closest("section");
+    expect(columns.nextElementSibling).toBe(outflows);
+    expect(outflows.nextElementSibling).toBe(split);
     expect(screen.queryByText(/Top \d+ expenses/i)).not.toBeInTheDocument();
+  });
+
+  it("draws the Outflows breakdown as stacked columns for Full year, and not for a single month", async () => {
+    const months = ZERO_MONTHS.map((m, index) =>
+      index === 0 ? { ...m, expenses: 600, bills_subscriptions: 300, debt: 100 } : m,
+    );
+    respondWith({
+      annual: annualWithSpending({ outflows_by_month: months }),
+      month: monthWithSpending(2026, 8),
+    });
+    render(<App />);
+    await screen.findByText("$8,000");
+
+    expect(screen.getByRole("img", { name: /Outflows by Type for every month/ })).toBeInTheDocument();
+    expect(screen.getByTestId("outflows-columns-legend")).toHaveTextContent("Expenses 60.0%");
+
+    await userEvent.click(screen.getByRole("button", { name: "Aug" }));
+    await screen.findByText("$5,240");
+    expect(screen.queryByTestId("outflows-columns-legend")).not.toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /Outflows by Type for every month/ })).not.toBeInTheDocument();
   });
 
   it("shows the ten largest merchants for Full year and five for a month", async () => {

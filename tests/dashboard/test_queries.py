@@ -2100,3 +2100,37 @@ def test_annual_spending_by_category_lists_bills_and_subscriptions_with_shares_o
         CategorySpend(category="Groceries", type="Expense", amount=300.0, pct_of_spending=75.0),
         CategorySpend(category="Internet", type="Bills & Subscriptions", amount=100.0, pct_of_spending=25.0),
     ]
+
+
+def test_annual_overview_outflows_by_month_has_twelve_rows_with_unelapsed_months_zeroed(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, 3), amount=100.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 7, 4), amount=60.0, type="Bills & Subscriptions", category="Phone Plan", notes="Telstra"),
+            make_transaction(date=date(2026, 8, 5), amount=2000.0, type="Debt", category="Mortgage Repayment", notes="Loan"),
+            make_transaction(date=date(2026, 9, 1), amount=999.0, type="Expense", category="Groceries", notes="Not yet elapsed"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21))
+    rows = overview.outflows_by_month
+
+    assert [(r.year, r.month) for r in rows][:3] == [(2026, 7), (2026, 8), (2026, 9)]
+    assert len(rows) == 12
+    assert (rows[0].expenses, rows[0].bills_subscriptions, rows[0].debt) == (100.0, 60.0, 0.0)
+    assert (rows[1].expenses, rows[1].bills_subscriptions, rows[1].debt) == (0.0, 0.0, 2000.0)
+    for unelapsed in rows[2:]:
+        assert (unelapsed.expenses, unelapsed.bills_subscriptions, unelapsed.debt) == (0.0, 0.0, 0.0)
+
+
+def test_annual_overview_outflows_by_month_leaves_savings_out_of_the_outflow_figures(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, 3), amount=100.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 7, 4), amount=500.0, type="Savings", category="Savings", notes="Transfer"),
+        ]
+    )
+
+    july = get_annual_overview(store, year=2026, today=date(2026, 8, 21)).outflows_by_month[0]
+
+    assert (july.expenses, july.bills_subscriptions, july.debt) == (100.0, 0.0, 0.0)

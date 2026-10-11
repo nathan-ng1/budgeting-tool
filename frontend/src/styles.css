@@ -1567,6 +1567,46 @@ tbody:first-of-type .bva__section {
   flex: none;
 }
 
+/* — outflows breakdown, Full year columns — */
+
+/* The plot is a fixed 240px tall - the same number as OUTFLOWS_CHART_HEIGHT
+   in lib/charts.js - so the "segment under 16px gets no label" rule counts
+   real pixels. */
+.outflows-cols {
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1fr);
+  grid-template-rows: 240px auto;
+  margin-top: 18px;
+}
+
+.outflows-cols__yaxis {
+  position: relative;
+  padding-right: 10px;
+  font-size: 11.5px;
+  color: var(--color-neutral-600);
+}
+
+.outflows-cols__plot {
+  position: relative;
+}
+
+.outflows-cols__plot svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Same white-on-Type-fill treatment as the single-month bar's segments. */
+.outflows-cols__pct {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+}
+
 /* — states — */
 
 .state {
