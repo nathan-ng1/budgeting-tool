@@ -341,6 +341,28 @@ describe("App", () => {
     expect(screen.queryByText(/month average/)).not.toBeInTheDocument();
   });
 
+  it("places the Outflows breakdown full width between the wide-pair row and the split row, for a month only", async () => {
+    respondWith({
+      month: monthWithSpending(2026, 8, {
+        stat_tiles: { income: 5240, expenses: 3667, debt: 875, available_to_save: 698, saved: 900, unallocated: -202 },
+      }),
+    });
+    render(<App />);
+    await screen.findByText("$8,000");
+    expect(screen.queryByRole("heading", { name: "Outflows breakdown" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Aug" }));
+    await screen.findByText("$5,240");
+
+    const heading = screen.getByRole("heading", { name: "Outflows breakdown" });
+    expect(heading.closest(".row--wide-pair")).toBeNull();
+    expect(heading.closest(".row--split")).toBeNull();
+    const card = heading.closest("section");
+    const widePair = screen.getByRole("heading", { name: "Budgeted vs Actual" }).closest(".row--wide-pair");
+    expect(widePair.nextElementSibling).toBe(card);
+    expect(card.nextElementSibling).toHaveClass("row--split");
+  });
+
   it("groups Spending by Category, Budgeted vs Actual, and Debt into the wide-pair layout, for a month", async () => {
     respondWith({
       month: monthWithSpending(2026, 8, {

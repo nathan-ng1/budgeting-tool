@@ -1014,6 +1014,26 @@ button.nav__tab:hover {
   flex: none;
 }
 
+/* Outflows breakdown reuses the allocation bar but is taller and carries the
+   amount inside each wide segment. White on the Type fills needs the soft
+   shadow to stay legible on the lighter fills across themes. */
+.outflows__bar {
+  height: 40px;
+  border-radius: var(--radius-md);
+}
+
+.outflows__segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
 .allocation__marker {
   position: absolute;
   top: -6px;

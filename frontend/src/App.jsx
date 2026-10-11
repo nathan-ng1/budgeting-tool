@@ -8,6 +8,7 @@ import DisplaySettings from "./components/DisplaySettings.jsx";
 import DebtSummary from "./components/DebtSummary.jsx";
 import ExpensesOverTime from "./components/ExpensesOverTime.jsx";
 import IncomeAllocation from "./components/IncomeAllocation.jsx";
+import OutflowsBreakdown from "./components/OutflowsBreakdown.jsx";
 import IncomeVsExpensesByMonth from "./components/IncomeVsExpensesByMonth.jsx";
 import MonthByMonth from "./components/MonthByMonth.jsx";
 import MonthSelector from "./components/MonthSelector.jsx";
@@ -346,6 +347,7 @@ function Dashboard({ settings, onSettingsSaved }) {
                         <DebtSummary debtSummary={overview.debt_summary} total={overview.stat_tiles.debt} />
                       </div>
                     </div>
+                    <OutflowsBreakdown tiles={overview.stat_tiles} />
                     <div className="row--split">
                       <TopExpenses expenses={overview.top_expenses} count={5} />
                       <ExpensesOverTime overTime={overview.expenses_over_time} />
