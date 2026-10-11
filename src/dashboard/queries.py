@@ -26,8 +26,12 @@ BUDGETABLE_TYPES = TYPE_ORDER
 TRAILING_WINDOWS = (3, 6, 12)
 
 # How far back the Overview's look-back cards read: twelve whole months ending
-# with the viewed month (Recurring Charges; Movers' longest basis).
+# with the viewed month (Recurring Charges).
 TRAILING_WINDOW_MONTHS = 12
+
+# Movers' comparison bases: the previous month, or the average of the 3 or 12
+# months preceding the viewed one (the Budget editor's trailing-average convention).
+MOVERS_AVERAGE_MONTHS = (3, 12)
 
 
 @dataclass(frozen=True)
@@ -147,6 +151,25 @@ class SpendingOverTime:
 
 
 @dataclass(frozen=True)
+class Mover:
+    category: str
+    actual: float
+    # What the basis says the Category usually costs: last month's total, or the
+    # sum over the preceding N months divided by N (zeros included).
+    comparison: float
+    diff: float
+    # None where the comparison is 0 - the Category is new (no basis to scale by).
+    pct: float | None
+
+
+@dataclass(frozen=True)
+class Movers:
+    previous_month: list[Mover]
+    avg_3_months: list[Mover]
+    avg_12_months: list[Mover]
+
+
+@dataclass(frozen=True)
 class MonthOverview:
     year: int
     month: int
@@ -158,6 +181,7 @@ class MonthOverview:
     top_merchants: list[TopMerchant]
     spending_over_time: SpendingOverTime
     recurring_charges: RecurringCharges
+    movers: Movers
 
 
 @dataclass(frozen=True)
@@ -190,12 +214,13 @@ class AnnualOverview:
 
 
 def get_month_overview(store, year: int, month: int) -> MonthOverview:
-    # Read the wider window once: cards that look back (Recurring Charges, 12
-    # months) take their slice of `window`; every selected-month-only figure
-    # below keeps using `transactions`, the selected month alone.
+    # Read the wider window once - the selected month plus the twelve before it
+    # (Movers' longest basis). Each look-back card takes its own slice of
+    # `window`; every selected-month-only figure below keeps using
+    # `transactions`, the selected month alone.
     month_start = date(year, month, 1)
     window_end = _add_months(month_start, 1)
-    window = _transactions_between(store.read_transactions(), _add_months(window_end, -TRAILING_WINDOW_MONTHS), window_end)
+    window = _transactions_between(store.read_transactions(), _add_months(month_start, -max(MOVERS_AVERAGE_MONTHS)), window_end)
     transactions = _transactions_between(window, month_start, window_end)
     stat_tiles = _stat_tiles(transactions)
 
@@ -211,7 +236,10 @@ def get_month_overview(store, year: int, month: int) -> MonthOverview:
         debt_summary=_debt_summary(transactions, stat_tiles.debt),
         top_merchants=_top_merchants(transactions, limit=5),
         spending_over_time=_spending_over_time(transactions, year, month),
-        recurring_charges=_recurring_charges(window),
+        recurring_charges=_recurring_charges(
+            _transactions_between(window, _add_months(window_end, -TRAILING_WINDOW_MONTHS), window_end)
+        ),
+        movers=_movers(window, month_start),
     )
 
 
@@ -790,6 +818,45 @@ def _recurring_charges(transactions: list[Transaction]) -> RecurringCharges:
     rows.sort(key=lambda r: (-r.per_year, r.merchant.lower(), r.merchant))
     per_year_total = _round(sum(r.per_year for r in rows))
     return RecurringCharges(per_year=per_year_total, per_month=_round(per_year_total / 12), rows=rows)
+
+
+def _movers(window: list[Transaction], month_start: date) -> Movers:
+    """How far each Spending Category's total this month sits from a
+    comparison: last month, or the average of the preceding 3 or 12 months.
+    `window` holds the selected month and the months before it. A Category with
+    no Spending Transaction this month or anywhere in a basis's months is
+    omitted from that basis; rows run largest absolute difference first.
+    """
+    by_month: dict[date, dict[str, float]] = {}
+    for t in window:
+        if t.type in SPENDING_TYPES:
+            totals = by_month.setdefault(date(t.date.year, t.date.month, 1), {})
+            totals[t.category] = totals.get(t.category, 0.0) + t.amount
+
+    def rows_against(months_back: int) -> list[Mover]:
+        this_month = by_month.get(month_start, {})
+        earlier = [by_month.get(_add_months(month_start, -offset), {}) for offset in range(1, months_back + 1)]
+        rows = []
+        for category in set(this_month).union(*earlier):
+            actual = this_month.get(category, 0.0)
+            comparison = sum(totals.get(category, 0.0) for totals in earlier) / months_back
+            diff = actual - comparison
+            rows.append(
+                Mover(
+                    category=category,
+                    actual=_round(actual),
+                    comparison=_round(comparison),
+                    diff=_round(diff),
+                    pct=_round(diff / abs(comparison) * 100, digits=1) if comparison else None,
+                )
+            )
+        return sorted(rows, key=lambda row: (-abs(row.diff), row.category))
+
+    return Movers(
+        previous_month=rows_against(1),
+        avg_3_months=rows_against(MOVERS_AVERAGE_MONTHS[0]),
+        avg_12_months=rows_against(MOVERS_AVERAGE_MONTHS[1]),
+    )
 
 
 def _spending_over_time(transactions: list[Transaction], year: int, month: int) -> SpendingOverTime:

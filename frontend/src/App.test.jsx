@@ -7,6 +7,12 @@ import App from "./App.jsx";
 const ZERO_STAT_TILES = { income: 0, expenses: 0, bills_subscriptions: 0, debt: 0, available_to_save: 0, saved: 0, unallocated: 0 };
 const ZERO_MONTH_TOTALS = { income: 0, expenses: 0, bills_subscriptions: 0, debt: 0, available_to_save: 0, saved: 0 };
 const NO_RECURRING = { per_year: 0, per_month: 0, rows: [] };
+const NO_MOVERS = { previous_month: [], avg_3_months: [], avg_12_months: [] };
+const DINING_MOVERS = {
+  previous_month: [{ category: "Dining", actual: 300, comparison: 200, diff: 100, pct: 50 }],
+  avg_3_months: [{ category: "Dining", actual: 300, comparison: 150, diff: 150, pct: 100 }],
+  avg_12_months: [{ category: "Dining", actual: 300, comparison: 250, diff: 50, pct: 20 }],
+};
 const GYM_RECURRING = {
   per_year: 977.68,
   per_month: 81.47,
@@ -39,6 +45,7 @@ function monthOverview({ year = 2026, month = 8, ...overrides } = {}) {
     top_merchants: [],
     spending_over_time: { daily: [], total: 0, daily_average: 0 },
     recurring_charges: NO_RECURRING,
+    movers: NO_MOVERS,
     ...overrides,
   };
 }
@@ -539,6 +546,29 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Top merchants" }).closest(".row--split").nextElementSibling).toBe(row);
     expect(within(row).getByText("Anytime Fitness")).toBeInTheDocument();
     expect(within(row).getByText("$978 / year")).toBeInTheDocument();
+  });
+
+  it("places Movers in the right half beside Recurring Charges, for a month, and not at all for Full year", async () => {
+    respondWith({
+      month: monthWithSpending(2026, 8, { recurring_charges: GYM_RECURRING, movers: DINING_MOVERS }),
+      annual: annualWithSpending(),
+    });
+    render(<App />);
+    await screen.findByText("$8,000");
+    expect(screen.queryByRole("heading", { name: "Movers" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Aug" }));
+    await screen.findByText("$5,240");
+
+    const row = screen.getByRole("heading", { name: "Recurring Charges" }).closest(".row--split");
+    const [left, right] = row.children;
+    expect(within(left).getByRole("heading", { name: "Recurring Charges" })).toBeInTheDocument();
+    expect(within(right).getByRole("heading", { name: "Movers" })).toBeInTheDocument();
+    expect(within(right).getByText("vs the average of the preceding 3 months")).toBeInTheDocument();
+    expect(within(right).getByText("+$150")).toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Compare against" }), "previous_month");
+    expect(within(right).getByText("+$100")).toBeInTheDocument();
   });
 
   it("places Recurring Charges beside Top merchants, for Full year", async () => {

@@ -2281,3 +2281,195 @@ def test_annual_recurring_charges_are_empty_before_the_year_starts(fake_store, m
     overview = get_annual_overview(store, year=2026, today=date(2026, 3, 1))
 
     assert overview.recurring_charges.rows == []
+
+
+def spend(make_transaction, when, amount, category="Groceries", type="Expense", id=1):
+    return make_transaction(id=id, date=when, amount=amount, type=type, category=category, notes=category)
+
+
+def mover_rows(overview, basis):
+    return {row.category: row for row in getattr(overview.movers, basis)}
+
+
+def test_movers_carry_all_three_comparison_bases(fake_store, make_transaction):
+    store = fake_store(transactions=[spend(make_transaction, date(2026, 9, 3), 10.0)])
+
+    movers = get_month_overview(store, year=2026, month=9).movers
+
+    assert [len(movers.previous_month), len(movers.avg_3_months), len(movers.avg_12_months)] == [1, 1, 1]
+
+
+def test_movers_previous_month_compares_this_month_with_last_calendar_month(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            spend(make_transaction, date(2026, 7, 9), 500.0, id=1),
+            spend(make_transaction, date(2026, 8, 9), 100.0, id=2),
+            spend(make_transaction, date(2026, 9, 9), 150.0, id=3),
+        ]
+    )
+
+    row = mover_rows(get_month_overview(store, year=2026, month=9), "previous_month")["Groceries"]
+
+    assert (row.actual, row.comparison, row.diff, row.pct) == (150.0, 100.0, 50.0, 50.0)
+
+
+def test_movers_three_month_comparison_is_the_sum_of_the_preceding_three_months_over_three_zeros_included(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            spend(make_transaction, date(2026, 5, 30), 999.0, id=1),  # outside the three months
+            spend(make_transaction, date(2026, 6, 1), 90.0, id=2),
+            spend(make_transaction, date(2026, 8, 31), 30.0, id=3),  # July had nothing: counts as 0
+            spend(make_transaction, date(2026, 9, 1), 100.0, id=4),
+        ]
+    )
+
+    row = mover_rows(get_month_overview(store, year=2026, month=9), "avg_3_months")["Groceries"]
+
+    assert (row.actual, row.comparison, row.diff, row.pct) == (100.0, 40.0, 60.0, 150.0)
+
+
+def test_movers_twelve_month_comparison_is_the_sum_of_the_preceding_twelve_months_over_twelve(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            spend(make_transaction, date(2025, 8, 31), 999.0, id=1),  # thirteen months back: outside
+            spend(make_transaction, date(2025, 9, 1), 120.0, id=2),
+            spend(make_transaction, date(2026, 8, 31), 240.0, id=3),
+            spend(make_transaction, date(2026, 9, 1), 60.0, id=4),
+        ]
+    )
+
+    row = mover_rows(get_month_overview(store, year=2026, month=9), "avg_12_months")["Groceries"]
+
+    assert (row.actual, row.comparison, row.diff, row.pct) == (60.0, 30.0, 30.0, 100.0)
+
+
+def test_movers_a_falling_category_has_a_negative_difference_and_percentage(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            spend(make_transaction, date(2026, 8, 9), 200.0, id=1),
+            spend(make_transaction, date(2026, 9, 9), 150.0, id=2),
+        ]
+    )
+
+    row = mover_rows(get_month_overview(store, year=2026, month=9), "previous_month")["Groceries"]
+
+    assert (row.diff, row.pct) == (-50.0, -25.0)
+
+
+def test_movers_a_category_new_this_month_has_no_percentage(fake_store, make_transaction):
+    store = fake_store(transactions=[spend(make_transaction, date(2026, 9, 9), 80.0, category="Dining")])
+
+    row = mover_rows(get_month_overview(store, year=2026, month=9), "avg_3_months")["Dining"]
+
+    assert (row.actual, row.comparison, row.diff, row.pct) == (80.0, 0.0, 80.0, None)
+
+
+def test_movers_a_category_that_stopped_this_month_falls_by_its_whole_comparison(fake_store, make_transaction):
+    store = fake_store(transactions=[spend(make_transaction, date(2026, 8, 9), 80.0, category="Dining")])
+
+    row = mover_rows(get_month_overview(store, year=2026, month=9), "previous_month")["Dining"]
+
+    assert (row.actual, row.comparison, row.diff, row.pct) == (0.0, 80.0, -80.0, -100.0)
+
+
+def test_movers_omit_a_category_with_no_activity_this_month_or_in_the_comparison_window(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            spend(make_transaction, date(2026, 5, 9), 80.0, category="Dining", id=1),  # before the 3-month window
+            spend(make_transaction, date(2026, 9, 9), 10.0, id=2),
+        ]
+    )
+
+    movers = get_month_overview(store, year=2026, month=9).movers
+
+    assert [row.category for row in movers.previous_month] == ["Groceries"]
+    assert [row.category for row in movers.avg_3_months] == ["Groceries"]
+    assert sorted(row.category for row in movers.avg_12_months) == ["Dining", "Groceries"]
+
+
+def test_movers_unchanged_category_is_kept_with_a_zero_difference(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            spend(make_transaction, date(2026, 8, 9), 70.0, id=1),
+            spend(make_transaction, date(2026, 9, 9), 70.0, id=2),
+        ]
+    )
+
+    row = mover_rows(get_month_overview(store, year=2026, month=9), "previous_month")["Groceries"]
+
+    assert (row.diff, row.pct) == (0.0, 0.0)
+
+
+def test_movers_are_sorted_by_absolute_difference_largest_first_then_by_name(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            spend(make_transaction, date(2026, 8, 1), 100.0, category="Falling", id=1),
+            spend(make_transaction, date(2026, 9, 1), 60.0, category="Falling", id=2),  # -40
+            spend(make_transaction, date(2026, 9, 2), 90.0, category="Rising", id=3),  # +90
+            spend(make_transaction, date(2026, 9, 3), 40.0, category="Beta", id=4),  # +40
+            spend(make_transaction, date(2026, 9, 4), 40.0, category="Alpha", id=5),  # +40
+        ]
+    )
+
+    rows = get_month_overview(store, year=2026, month=9).movers.previous_month
+
+    assert [row.category for row in rows] == ["Rising", "Alpha", "Beta", "Falling"]
+
+
+def test_movers_cover_spending_categories_only(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            spend(make_transaction, date(2026, 9, 1), 10.0, category="Groceries", id=1),
+            spend(make_transaction, date(2026, 9, 2), 20.0, category="Gym", type="Bills & Subscriptions", id=2),
+            spend(make_transaction, date(2026, 9, 3), 900.0, category="Loan", type="Debt", id=3),
+            spend(make_transaction, date(2026, 9, 4), 500.0, category="Savings", type="Savings", id=4),
+            spend(make_transaction, date(2026, 9, 5), 3000.0, category="Salary", type="Income", id=5),
+        ]
+    )
+
+    rows = get_month_overview(store, year=2026, month=9).movers.previous_month
+
+    assert sorted(row.category for row in rows) == ["Groceries", "Gym"]
+
+
+def test_movers_are_empty_for_a_month_with_no_spending(fake_store):
+    movers = get_month_overview(fake_store(transactions=[]), year=2026, month=9).movers
+
+    assert (movers.previous_month, movers.avg_3_months, movers.avg_12_months) == ([], [], [])
+
+
+def test_movers_look_back_across_a_year_boundary(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            spend(make_transaction, date(2025, 12, 20), 100.0, id=1),
+            spend(make_transaction, date(2026, 1, 20), 130.0, id=2),
+        ]
+    )
+
+    row = mover_rows(get_month_overview(store, year=2026, month=1), "previous_month")["Groceries"]
+
+    assert (row.comparison, row.diff) == (100.0, 30.0)
+
+
+def test_widening_the_month_read_for_movers_leaves_recurring_charges_at_twelve_months(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            bs(make_transaction, date(2025, 9, 30), 1.0, notes="Just before the window", id=1),
+            bs(make_transaction, date(2025, 10, 1), 2.0, notes="First day in the window", id=2),
+        ]
+    )
+
+    overview = get_month_overview(store, year=2026, month=9)
+
+    assert [row.merchant for row in overview.recurring_charges.rows] == ["First day in the window"]
+    assert overview.stat_tiles.bills_subscriptions == 0.0
+
+
+def test_the_full_year_overview_has_no_movers(fake_store):
+    overview = get_annual_overview(fake_store(transactions=[]), year=2026, today=date(2026, 8, 15))
+
+    assert not hasattr(overview, "movers")

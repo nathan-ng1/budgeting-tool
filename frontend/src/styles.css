@@ -1530,6 +1530,111 @@ tbody:first-of-type .bva__section {
   font-size: 11.5px;
 }
 
+/* — movers — */
+
+.movers__select {
+  padding: 7px 11px;
+  border: 1px solid var(--color-neutral-300);
+  border-radius: 10px;
+  background: var(--color-card);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 13.5px;
+}
+
+.movers__select:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.movers {
+  margin-top: 14px;
+}
+
+.movers__head,
+.movers__row {
+  display: grid;
+  grid-template-columns: 150px minmax(60px, 1fr) 92px 84px;
+  gap: 10px;
+  align-items: center;
+}
+
+.movers__head {
+  padding-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-neutral-500);
+  border-bottom: 1px solid var(--color-neutral-300);
+}
+
+.movers__basis {
+  grid-column: 1 / -1;
+  margin-top: -6px;
+  font-size: 11.5px;
+  font-weight: 400;
+  text-align: right;
+}
+
+.movers__row {
+  padding: 9px 0;
+  font-size: 13.5px;
+  border-bottom: 1px solid var(--color-neutral-200);
+}
+
+.movers__row:last-child {
+  border-bottom: 0;
+}
+
+.movers__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.movers .movers__num {
+  text-align: right;
+}
+
+/* The bar grows from the centre line: right for a rise, left for a fall. */
+.movers__track {
+  position: relative;
+  height: 12px;
+}
+
+.movers__mid {
+  position: absolute;
+  left: 50%;
+  top: -3px;
+  bottom: -3px;
+  width: 1px;
+  background: var(--color-neutral-400);
+}
+
+.movers__bar {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 3px;
+}
+
+.movers__bar--up {
+  left: 50%;
+  background: var(--color-negative-fill);
+}
+
+.movers__bar--down {
+  right: 50%;
+  background: var(--color-positive);
+}
+
+@media (max-width: 480px) {
+  .movers__head,
+  .movers__row {
+    grid-template-columns: 90px minmax(30px, 1fr) 64px 58px;
+    gap: 6px;
+  }
+}
+
 /* — expenses over time — */
 
 .timechart {
