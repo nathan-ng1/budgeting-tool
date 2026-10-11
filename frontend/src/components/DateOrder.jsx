@@ -1,6 +1,4 @@
-import { useState } from "react";
-
-import { saveSettings } from "../lib/settingsApi.js";
+import { useSettingSave } from "../lib/useSettingSave.js";
 
 // The two orders, each with a sample so a user can tell which one they mean.
 const ORDERS = [
@@ -12,21 +10,7 @@ const ORDERS = [
 // explicitly. `dateOrder` is the saved order; `onSaved` hands the server's
 // answer (every setting) back to App, which re-renders every date.
 export default function DateOrder({ dateOrder, onSaved }) {
-  const [selected, setSelected] = useState(dateOrder);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
-
-  async function save() {
-    setSaving(true);
-    setError(null);
-    try {
-      onSaved(await saveSettings({ date_order: selected }));
-    } catch (cause) {
-      setError(cause.message);
-    } finally {
-      setSaving(false);
-    }
-  }
+  const { selected, setSelected, saving, error, save, unchanged } = useSettingSave("date_order", dateOrder, onSaved);
 
   return (
     <section className="card">
@@ -46,7 +30,7 @@ export default function DateOrder({ dateOrder, onSaved }) {
           {error}
         </p>
       )}
-      <button type="button" className="button" disabled={saving || selected === dateOrder} onClick={save}>
+      <button type="button" className="button" disabled={saving || unchanged} onClick={save}>
         Save Date Order
       </button>
     </section>

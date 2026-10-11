@@ -1,28 +1,12 @@
-import { useState } from "react";
-
 import { MONTH_LABELS_LONG } from "../lib/months.js";
-import { saveSettings } from "../lib/settingsApi.js";
+import { useSettingSave } from "../lib/useSettingSave.js";
 
 // Financial Year start month (ADR-0027) - a card of its own on the Settings
 // tab, saved explicitly like Display Currency. `startMonth` is the saved month
 // number (1-12); `onSaved` hands the server's answer (every setting) back to
 // App, which regroups the whole Dashboard around it.
 export default function FinancialYearStart({ startMonth, onSaved }) {
-  const [selected, setSelected] = useState(startMonth);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
-
-  async function save() {
-    setSaving(true);
-    setError(null);
-    try {
-      onSaved(await saveSettings({ financial_year_start_month: selected }));
-    } catch (cause) {
-      setError(cause.message);
-    } finally {
-      setSaving(false);
-    }
-  }
+  const { selected, setSelected, saving, error, save, unchanged } = useSettingSave("financial_year_start_month", startMonth, onSaved);
 
   return (
     <section className="card">
@@ -45,7 +29,7 @@ export default function FinancialYearStart({ startMonth, onSaved }) {
           {error}
         </p>
       )}
-      <button type="button" className="button" disabled={saving || selected === startMonth} onClick={save}>
+      <button type="button" className="button" disabled={saving || unchanged} onClick={save}>
         Save Financial Year start
       </button>
     </section>

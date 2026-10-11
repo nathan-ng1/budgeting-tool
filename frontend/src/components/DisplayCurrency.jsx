@@ -1,8 +1,8 @@
-import { useId, useState } from "react";
+import { useId } from "react";
 
 import { CURRENCIES } from "../lib/currencies.js";
 import { preciseMoney } from "../lib/format.js";
-import { saveSettings } from "../lib/settingsApi.js";
+import { useSettingSave } from "../lib/useSettingSave.js";
 
 // The sample every dropdown entry shows, so a user can tell which entry
 // matches their own conventions before choosing it.
@@ -13,21 +13,7 @@ const SAMPLE_AMOUNT = 1234.56;
 // answer (every setting) back to App, which re-renders every amount.
 export default function DisplayCurrency({ currency, onSaved }) {
   const noteId = useId();
-  const [selected, setSelected] = useState(currency);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
-
-  async function save() {
-    setSaving(true);
-    setError(null);
-    try {
-      onSaved(await saveSettings({ currency: selected }));
-    } catch (cause) {
-      setError(cause.message);
-    } finally {
-      setSaving(false);
-    }
-  }
+  const { selected, setSelected, saving, error, save, unchanged } = useSettingSave("currency", currency, onSaved);
 
   return (
     <section className="card">
@@ -50,7 +36,7 @@ export default function DisplayCurrency({ currency, onSaved }) {
           {error}
         </p>
       )}
-      <button type="button" className="button" disabled={saving || selected === currency} onClick={save}>
+      <button type="button" className="button" disabled={saving || unchanged} onClick={save}>
         Save Display Currency
       </button>
     </section>
