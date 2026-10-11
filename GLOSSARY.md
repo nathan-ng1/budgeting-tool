@@ -30,9 +30,9 @@ The top-level classification of a Transaction: Income, Expense, Bills & Subscrip
 _Avoid_: Category (retired for this meaning), Group, Real Income (Dashboard tile copy for the Income Type — no distinct concept, just "Income")
 
 **Category**:
-The specific budget label for a Transaction — e.g. Groceries, Subscriptions, Salary. Flat: there's no grouping layer between Category and Type (the old Bills & Subscriptions / Expenses / Debt / Savings / Investments split is gone — Bills & Subscriptions now exists only as a Type, see below). Each Category has one fixed Type, never determined per-Transaction:
+The specific budget label for a Transaction — e.g. Groceries, Rental Expense, Salary. Flat: there's no grouping layer between Category and Type (the old Bills & Subscriptions / Expenses / Debt / Savings / Investments split is gone — Bills & Subscriptions now exists only as a Type, see below). Each Category has one fixed Type, never determined per-Transaction:
 - **Income**: Salary, Rental
-- **Expense**: Groceries, Dining & Takeaway, Transport, Shopping & Retail, Holidays & Travel, Entertainment & Leisure, Health & Medical, Donations & Giving, Subscriptions, Insurance & Bills, Rental Expense, Beem Adjustment
+- **Expense**: Groceries, Dining & Takeaway, Transport, Shopping & Retail, Holidays & Travel, Entertainment & Leisure, Health & Medical, Donations & Giving, Rental Expense, Beem Adjustment
 - **Debt**: Mortgage Repayment — populated lazily like Rental and Rental Expense above; the first real non-mortgage Debt (e.g. a car or personal loan) adds its own Category rather than one being speculatively predefined. Unlike Bills & Subscriptions and Savings, no further Categories are predefined ahead of a real case.
 - **Bills & Subscriptions**: Insurance, Car Registration, Phone Plan, Internet — predefined for every install rather than populated lazily, and unlocked (freely renamed or deleted in Category Management); see [ADR-0024](./docs/adr/0024-reintroduce-bills-and-subscriptions-as-a-fifth-type.md).
 - **Savings**: Savings, Investments — predefined for every install rather than populated lazily, like Bills & Subscriptions; see [ADR-0022](./docs/adr/0022-rename-transfer-to-savings-with-predefined-categories.md).
@@ -40,12 +40,8 @@ The specific budget label for a Transaction — e.g. Groceries, Subscriptions, S
 Every categorised Transaction gets exactly one Category, which determines its Type. Replaces what was previously called "Sub-category" — see [ADR-0006](./docs/adr/0006-simplify-to-three-types-with-a-flat-category-list.md).
 _Avoid_: Sub-category (retired), Label, tag
 
-**Subscriptions** (Category):
-Means the Transaction *itself* is a recurring charge (same merchant, regular cadence — e.g. the Anthropic Claude charge), not "sold by a platform that also offers subscriptions." A one-off purchase from a subscription-style platform (e.g. a single Steam game purchase) goes by what was bought, landing in Entertainment & Leisure instead.
-_Avoid_: Label, tag, Bill (not a Category name — a recurring bill belongs under the Bills & Subscriptions Type)
-
 **Bills & Subscriptions**:
-A Transaction paying a recurring bill or subscription — an insurance premium, car registration, a phone plan, an internet plan — including irregular ones that land annually or quarterly rather than monthly. One of the five Types, alongside Income, Expense, Debt, and Savings. Distinct from an Expense (ordinary day-to-day spending): a committed, recurring cost rather than discretionary consumption. Starts with four predefined, unlocked Categories. Assignable by the categorisation backend and offered in Needs Review, the same as Income, Expense, and Debt. The Expense Categories Subscriptions and Insurance & Bills overlap in meaning and are deliberately left under Expense for now. See [ADR-0024](./docs/adr/0024-reintroduce-bills-and-subscriptions-as-a-fifth-type.md), which reverses ADR-0006's folding of this name into Expense.
+A Transaction paying a recurring bill or subscription — an insurance premium, car registration, a phone plan, an internet plan — including irregular ones that land annually or quarterly rather than monthly. One of the five Types, alongside Income, Expense, Debt, and Savings. Distinct from an Expense (ordinary day-to-day spending): a committed, recurring cost rather than discretionary consumption. Starts with four predefined, unlocked Categories. Assignable by the categorisation backend and offered in Needs Review, the same as Income, Expense, and Debt. It is the home of every recurring charge: the former Expense Categories Subscriptions and Insurance & Bills are retired, no longer predefined for new installs. See [ADR-0024](./docs/adr/0024-reintroduce-bills-and-subscriptions-as-a-fifth-type.md), which reverses ADR-0006's folding of this name into Expense.
 _Avoid_: Bills (on its own), Fixed costs
 
 **Debt**:
@@ -55,6 +51,14 @@ _Avoid_: Liability, Loan repayment
 **Savings**:
 A Transaction that moves money to an account you own and control (a savings or investment account) rather than to a third party. Looks identical to an Expense in a bank export — a debit leaving the account — but is economically distinct: not consumption. One of the five Types, alongside Income, Expense, Bills & Subscriptions, and Debt. Its Category list starts predefined with two defaults, Savings and Investments — the Savings Category shares its name with the Savings Type, a deliberate overlap rather than a naming mistake — predefined rather than lazily populated, since (unlike Debt, which varies person to person) every user has some form of savings or investment account. Never assigned by the categorisation backend or offered in Needs Review: a Savings Transaction is always entered by hand, via the Dashboard's Transactions tab or Recurring Transactions Config, never from a Statement Export. See [ADR-0022](./docs/adr/0022-rename-transfer-to-savings-with-predefined-categories.md), which renames this Type from Transfer and supersedes ADR-0006's lazy-population policy for it.
 _Avoid_: Transfer (this Type's retired name — see ADR-0022)
+
+**Outflows**:
+Expense + Bills & Subscriptions + Debt for the period shown: every dollar that left as a cost or a repayment. Never includes Savings, which is money moved to an account you own. The superset behind the Dashboard's Outflows breakdown; Spending (below) is the part of it without Debt.
+_Avoid_: Cash outflows, Cash flow (Available to Save's retired alias), Spend (ambiguous between Outflows and Spending)
+
+**Spending**:
+Expense + Bills & Subscriptions for the period shown: Outflows without Debt, the costs a household can realistically change. Debt is kept out because it is non-discretionary and already has its own card. Within Spending, Bills & Subscriptions is the *committed* part (recurring, agreed in advance) and Expense the *discretionary* part (day-to-day consumption). "Committed" and "discretionary" are glossary-only reasoning aids — the Dashboard labels these by Type name and never uses either word.
+_Avoid_: Expenses (that's the Expense Type alone), Outflows (that includes Debt)
 
 **Transactions Inbox**:
 The external folder (path set via `TRANSACTIONS_INBOX` in `.env`) where unsanitised Statement Exports are saved directly from a card issuer's site. Claude never reads this location — only the Sanitising script does.

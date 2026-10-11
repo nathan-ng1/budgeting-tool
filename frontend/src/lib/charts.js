@@ -2,7 +2,8 @@
 // endpoint's numbers as given (Issue #27 owns the aggregation) and turn them
 // into coordinates - no totalling or re-deriving happens here.
 
-import { colourForCategory } from "./categoryColours.js";
+import { categoryColours } from "./categoryColours.js";
+import { OUTFLOW_SERIES } from "./typeColours.js";
 
 // Donut: the mockup's ring is r=70 in a 200x200 viewBox, drawn with
 // stroke-dasharray, so arc lengths are fractions of the circumference.
@@ -23,7 +24,9 @@ export function plotGridlines(height) {
     .reverse();
 }
 
-export function donutSegments(spendingByCategory) {
+// `colourFor(category, type)` is the period's shared Category colour mapping
+// (categoryColours); it defaults to one built from these same rows.
+export function donutSegments(spendingByCategory, colourFor = categoryColours(spendingByCategory)) {
   // A reimbursement Category (e.g. Beem Adjustment, ADR-0015) carries a
   // negative amount that reduces the month's net spend rather than adding to
   // it - it has no slice of its own to draw. The ring's proportions are
@@ -36,9 +39,9 @@ export function donutSegments(spendingByCategory) {
 
   let consumed = 0;
 
-  return spendingByCategory.map(({ category, amount }) => {
+  return spendingByCategory.map(({ category, type, amount }) => {
     if (amount <= 0) {
-      return { category, amount, length: 0, offset: -consumed, colour: colourForCategory(category) };
+      return { category, amount, length: 0, offset: -consumed, colour: colourFor(category, type) };
     }
 
     const length = (amount / spendBasis) * CIRCUMFERENCE;
@@ -49,7 +52,7 @@ export function donutSegments(spendingByCategory) {
       // Each arc starts where the previous one ended; a negative dashoffset
       // rotates the arc forward around the ring.
       offset: -consumed,
-      colour: colourForCategory(category),
+      colour: colourFor(category, type),
     };
     consumed += length;
     return segment;
@@ -130,6 +133,48 @@ export function monthlyComparisonChart(monthlyTotals) {
     axisMax,
     yTicks: yTicksUpTo(axisMax),
   };
+}
+
+// Outflows breakdown (Full year): one stacked column per month, Expenses at
+// the bottom then Bills & Subscriptions then Debt, in absolute amounts. The
+// plot is drawn at a fixed pixel height (the CSS pins it to the same number),
+// so a segment's height in viewBox units is also its height on screen - which
+// is what the 16px "too short to carry a label" rule relies on.
+export const OUTFLOWS_CHART_WIDTH = 720;
+export const OUTFLOWS_CHART_HEIGHT = 240;
+export const OUTFLOWS_MIN_LABEL_HEIGHT = 16;
+const OUTFLOWS_BAR_WIDTH = 36;
+const OUTFLOW_KEYS = OUTFLOW_SERIES.map((series) => series.key);
+
+export function outflowsColumnsChart(monthlyTotals) {
+  const totalOf = (m) => OUTFLOW_KEYS.reduce((sum, key) => sum + m[key], 0);
+  const peak = Math.max(0, ...monthlyTotals.map(totalOf));
+  const axisMax = roundedAxisMax(peak);
+  const slotWidth = OUTFLOWS_CHART_WIDTH / Math.max(monthlyTotals.length, 1);
+
+  const columns = monthlyTotals.map((m, index) => {
+    const total = totalOf(m);
+    let stacked = 0;
+    const segments = OUTFLOW_KEYS.map((key) => {
+      const height = (m[key] / axisMax) * OUTFLOWS_CHART_HEIGHT;
+      const bottom = OUTFLOWS_CHART_HEIGHT - (stacked / axisMax) * OUTFLOWS_CHART_HEIGHT;
+      stacked += m[key];
+      return {
+        key,
+        amount: m[key],
+        share: total > 0 ? m[key] / total : 0,
+        x: round(index * slotWidth + (slotWidth - OUTFLOWS_BAR_WIDTH) / 2),
+        width: OUTFLOWS_BAR_WIDTH,
+        y: round(bottom - height),
+        height: round(height),
+        centreY: round(bottom - height / 2),
+        labelled: height >= OUTFLOWS_MIN_LABEL_HEIGHT,
+      };
+    });
+    return { year: m.year, month: m.month, total, centreX: round(index * slotWidth + slotWidth / 2), segments };
+  });
+
+  return { axisMax, yTicks: yTicksUpTo(axisMax), columns };
 }
 
 export function cumulativeChart(daily) {

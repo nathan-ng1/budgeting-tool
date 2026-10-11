@@ -34,10 +34,10 @@ def test_a_month_with_no_transactions_returns_a_zeroed_result(tmp_path: Path):
     assert overview.spending_by_category == []
     assert overview.budgeted_vs_actual == []
     assert overview.debt_summary == []
-    assert overview.top_expenses == []
-    assert overview.expenses_over_time.total == 0
-    assert overview.expenses_over_time.daily_average == 0
-    assert len(overview.expenses_over_time.daily) == 31  # every day of August
+    assert overview.top_merchants == []
+    assert overview.spending_over_time.total == 0
+    assert overview.spending_over_time.daily_average == 0
+    assert len(overview.spending_over_time.daily) == 31  # every day of August
 
 
 def test_stat_tiles_sum_by_type_for_the_selected_month(tmp_path: Path, make_candidate):
@@ -297,8 +297,8 @@ def test_spending_by_category_only_includes_expense_categories_with_nonzero_spen
     overview = get_month_overview(store, year=2026, month=8)
 
     assert overview.spending_by_category == [
-        CategorySpend(category="Groceries", amount=400.0, pct_of_expenses=80.0),
-        CategorySpend(category="Transport", amount=100.0, pct_of_expenses=20.0),
+        CategorySpend(category="Groceries", type="Expense", amount=400.0, pct_of_spending=80.0),
+        CategorySpend(category="Transport", type="Expense", amount=100.0, pct_of_spending=20.0),
     ]
 
 
@@ -313,7 +313,7 @@ def test_spending_by_category_excludes_debt(fake_store, make_transaction):
     overview = get_month_overview(store, year=2026, month=8)
 
     assert overview.spending_by_category == [
-        CategorySpend(category="Groceries", amount=300.0, pct_of_expenses=100.0),
+        CategorySpend(category="Groceries", type="Expense", amount=300.0, pct_of_spending=100.0),
     ]
 
 
@@ -517,53 +517,126 @@ def test_budgeted_vs_actual_includes_bills_and_subscriptions_categories(fake_sto
     assert by_category["Phone Plan"].diff == -15.0
 
 
-def test_top_5_expenses_are_the_five_largest_that_month_descending(fake_store, make_transaction):
+def tx(make_transaction, day, amount, notes, category="Groceries", type="Expense", month=8, id=1):
+    return make_transaction(
+        id=id, date=date(2026, month, day), amount=amount, type=type, category=category, notes=notes
+    )
+
+
+def test_top_merchants_are_the_five_largest_that_month_descending(fake_store, make_transaction):
     store = fake_store(
         transactions=[
-            make_transaction(date=date(2026, 8, 1), amount=10.0, type="Expense", category="Groceries", notes="A"),
-            make_transaction(date=date(2026, 8, 2), amount=90.0, type="Expense", category="Groceries", notes="B"),
-            make_transaction(date=date(2026, 8, 3), amount=50.0, type="Expense", category="Groceries", notes="C"),
-            make_transaction(date=date(2026, 8, 4), amount=70.0, type="Expense", category="Groceries", notes="D"),
-            make_transaction(date=date(2026, 8, 5), amount=60.0, type="Expense", category="Groceries", notes="E"),
-            make_transaction(date=date(2026, 8, 6), amount=40.0, type="Expense", category="Groceries", notes="F"),
-            make_transaction(date=date(2026, 8, 7), amount=1000.0, type="Income", category="Salary", notes="Employer"),
+            tx(make_transaction, 1, 10.0, "A"),
+            tx(make_transaction, 2, 90.0, "B"),
+            tx(make_transaction, 3, 50.0, "C"),
+            tx(make_transaction, 4, 70.0, "D"),
+            tx(make_transaction, 5, 60.0, "E"),
+            tx(make_transaction, 6, 40.0, "F"),
+            tx(make_transaction, 7, 1000.0, "Employer", category="Salary", type="Income"),
         ]
     )
 
     overview = get_month_overview(store, year=2026, month=8)
 
-    assert [row.amount for row in overview.top_expenses] == [90.0, 70.0, 60.0, 50.0, 40.0]
-    assert [row.notes for row in overview.top_expenses] == ["B", "D", "E", "C", "F"]
+    assert [row.total for row in overview.top_merchants] == [90.0, 70.0, 60.0, 50.0, 40.0]
+    assert [row.merchant for row in overview.top_merchants] == ["B", "D", "E", "C", "F"]
 
 
-def test_top_5_expenses_tiebreaks_by_date_then_notes(fake_store, make_transaction):
+def test_top_merchants_group_case_digit_and_spacing_variants_into_one_merchant(fake_store, make_transaction):
     store = fake_store(
         transactions=[
-            make_transaction(date=date(2026, 8, 5), amount=50.0, type="Expense", category="Groceries", notes="Zebra"),
-            make_transaction(date=date(2026, 8, 1), amount=50.0, type="Expense", category="Groceries", notes="Apple"),
-            make_transaction(date=date(2026, 8, 1), amount=50.0, type="Expense", category="Groceries", notes="Banana"),
+            tx(make_transaction, 1, 30.0, "WOOLWORTHS 1234", id=1),
+            tx(make_transaction, 9, 20.0, "Woolworths  5678", id=2),
+            tx(make_transaction, 5, 10.0, "woolworths", id=3),
+            tx(make_transaction, 2, 25.0, "Coles", id=4),
         ]
     )
 
     overview = get_month_overview(store, year=2026, month=8)
 
-    assert [row.notes for row in overview.top_expenses] == ["Apple", "Banana", "Zebra"]
+    assert len(overview.top_merchants) == 2
+    woolworths = overview.top_merchants[0]
+    assert woolworths.merchant == "Woolworths  5678"  # most recent original Notes
+    assert woolworths.total == 60.0
+    assert woolworths.count == 3
 
 
-def test_top_5_expenses_excludes_debt(fake_store, make_transaction):
+def test_top_merchants_category_is_that_of_the_most_recent_transaction(fake_store, make_transaction):
     store = fake_store(
         transactions=[
-            make_transaction(date=date(2026, 8, 1), amount=10.0, type="Expense", category="Groceries", notes="A"),
-            make_transaction(date=date(2026, 8, 2), amount=875.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+            tx(make_transaction, 1, 10.0, "Kmart", category="Shopping & Retail", id=1),
+            tx(make_transaction, 8, 10.0, "Kmart", category="Entertainment & Leisure", id=2),
+            tx(make_transaction, 3, 10.0, "Kmart", category="Groceries", id=3),
         ]
     )
 
     overview = get_month_overview(store, year=2026, month=8)
 
-    assert [row.notes for row in overview.top_expenses] == ["A"]
+    assert overview.top_merchants[0].category == "Entertainment & Leisure"
 
 
-def test_expenses_over_time_is_a_cumulative_daily_total_for_every_day_of_the_month(fake_store, make_transaction):
+def test_top_merchants_tiebreak_by_name(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            tx(make_transaction, 5, 50.0, "Zebra"),
+            tx(make_transaction, 1, 50.0, "Apple"),
+            tx(make_transaction, 1, 50.0, "banana"),
+        ]
+    )
+
+    overview = get_month_overview(store, year=2026, month=8)
+
+    assert [row.merchant for row in overview.top_merchants] == ["Apple", "banana", "Zebra"]
+
+
+def test_top_merchants_exclude_debt_and_beem_adjustment_but_include_bills_and_subscriptions(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            tx(make_transaction, 1, 10.0, "A"),
+            tx(make_transaction, 2, 875.0, "Werribee", category="Mortgage Repayment", type="Debt"),
+            tx(make_transaction, 3, -500.0, "Beem credit", category="Beem Adjustment"),
+            tx(make_transaction, 4, 120.0, "AGL", category="Internet", type="Bills & Subscriptions"),
+        ]
+    )
+
+    overview = get_month_overview(store, year=2026, month=8)
+
+    assert [row.merchant for row in overview.top_merchants] == ["AGL", "A"]
+
+
+def test_top_merchants_group_outgoing_beem_payments_by_notes(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            tx(make_transaction, 1, 40.0, "Beem to Sam", category="Dining & Takeaway", id=1),
+            tx(make_transaction, 2, 15.0, "Beem to Sam", category="Dining & Takeaway", id=2),
+        ]
+    )
+
+    overview = get_month_overview(store, year=2026, month=8)
+
+    assert [(row.merchant, row.total, row.count) for row in overview.top_merchants] == [("Beem to Sam", 55.0, 2)]
+
+
+def test_top_merchants_group_digit_only_notes_by_the_stripped_lowercased_notes(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            tx(make_transaction, 1, 10.0, "1234", id=1),
+            tx(make_transaction, 2, 20.0, "5678", id=2),
+            tx(make_transaction, 3, 5.0, "1234 ", id=3),
+        ]
+    )
+
+    overview = get_month_overview(store, year=2026, month=8)
+
+    assert [(row.merchant, row.total, row.count) for row in overview.top_merchants] == [
+        ("5678", 20.0, 1),
+        ("1234 ", 15.0, 2),
+    ]
+
+
+def test_spending_over_time_is_a_cumulative_daily_total_for_every_day_of_the_month(fake_store, make_transaction):
     store = fake_store(
         transactions=[
             make_transaction(date=date(2026, 8, 1), amount=100.0, type="Expense", category="Groceries", notes="Woolworths"),
@@ -572,7 +645,7 @@ def test_expenses_over_time_is_a_cumulative_daily_total_for_every_day_of_the_mon
     )
 
     overview = get_month_overview(store, year=2026, month=8)
-    daily = overview.expenses_over_time.daily
+    daily = overview.spending_over_time.daily
 
     assert len(daily) == 31
     assert daily[0].date == "2026-08-01"
@@ -580,11 +653,11 @@ def test_expenses_over_time_is_a_cumulative_daily_total_for_every_day_of_the_mon
     assert daily[1].cumulative == 100.0  # no transaction on day 2 - carries forward
     assert daily[2].cumulative == 150.0
     assert daily[-1].cumulative == 150.0
-    assert overview.expenses_over_time.total == 150.0
-    assert overview.expenses_over_time.daily_average == round(150.0 / 31, 2)
+    assert overview.spending_over_time.total == 150.0
+    assert overview.spending_over_time.daily_average == round(150.0 / 31, 2)
 
 
-def test_expenses_over_time_excludes_debt(fake_store, make_transaction):
+def test_spending_over_time_excludes_debt(fake_store, make_transaction):
     store = fake_store(
         transactions=[
             make_transaction(date=date(2026, 8, 1), amount=100.0, type="Expense", category="Groceries", notes="Woolworths"),
@@ -594,7 +667,7 @@ def test_expenses_over_time_excludes_debt(fake_store, make_transaction):
 
     overview = get_month_overview(store, year=2026, month=8)
 
-    assert overview.expenses_over_time.total == 100.0
+    assert overview.spending_over_time.total == 100.0
 
 
 def test_annual_overview_before_the_financial_year_starts_elapses_no_months(tmp_path: Path):
@@ -606,7 +679,7 @@ def test_annual_overview_before_the_financial_year_starts_elapses_no_months(tmp_
     assert overview.elapsed_months == 0
     assert overview.stat_tiles.income == 0
     assert overview.monthly_average.income == 0
-    assert overview.top_expenses == []
+    assert overview.top_merchants == []
 
 
 def test_annual_overview_counts_the_current_in_progress_month_as_elapsed(fake_store, make_transaction):
@@ -754,8 +827,8 @@ def test_annual_overview_spending_by_category_sums_actual_expenses_over_elapsed_
     overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21))
 
     assert overview.spending_by_category == [
-        CategorySpend(category="Groceries", amount=400.0, pct_of_expenses=80.0),
-        CategorySpend(category="Transport", amount=100.0, pct_of_expenses=20.0),
+        CategorySpend(category="Groceries", type="Expense", amount=400.0, pct_of_spending=80.0),
+        CategorySpend(category="Transport", type="Expense", amount=100.0, pct_of_spending=20.0),
     ]
 
 
@@ -770,7 +843,7 @@ def test_annual_overview_spending_by_category_excludes_debt(fake_store, make_tra
     overview = get_annual_overview(store, year=2026, today=date(2026, 7, 15))
 
     assert overview.spending_by_category == [
-        CategorySpend(category="Groceries", amount=300.0, pct_of_expenses=100.0),
+        CategorySpend(category="Groceries", type="Expense", amount=300.0, pct_of_spending=100.0),
     ]
 
 
@@ -938,59 +1011,53 @@ def test_annual_overview_budgeted_vs_actual_includes_savings_categories_summed_a
     assert by_category["Savings"].actual == 1100.0
 
 
-def test_annual_overview_top_expenses_are_the_ten_largest_across_elapsed_months(fake_store, make_transaction):
+def test_annual_overview_top_merchants_are_the_ten_largest_across_elapsed_months(
+    fake_store, make_transaction
+):
     store = fake_store(
         transactions=[
-            make_transaction(date=date(2026, 7, d), amount=amount, type="Expense", category="Groceries", notes=str(amount))
+            tx(make_transaction, d, amount, "Merchant " + "ABCDEFGHIJK"[d - 1], month=7)
             for d, amount in enumerate([10.0, 90.0, 50.0, 70.0, 60.0, 40.0, 30.0, 20.0, 80.0, 100.0, 110.0], start=1)
         ]
-        + [make_transaction(date=date(2026, 8, 1), amount=1000.0, type="Income", category="Salary", notes="Employer")]
+        + [tx(make_transaction, 1, 1000.0, "Employer", category="Salary", type="Income", month=8)]
     )
 
     overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21))
 
-    assert len(overview.top_expenses) == 10
-    assert [row.amount for row in overview.top_expenses] == [110.0, 100.0, 90.0, 80.0, 70.0, 60.0, 50.0, 40.0, 30.0, 20.0]
+    assert len(overview.top_merchants) == 10
+    assert [row.total for row in overview.top_merchants] == [110.0, 100.0, 90.0, 80.0, 70.0, 60.0, 50.0, 40.0, 30.0, 20.0]
 
 
-def test_annual_overview_top_expenses_excludes_debt(fake_store, make_transaction):
+def test_annual_overview_top_merchants_group_across_months_and_exclude_debt_and_beem_adjustment(
+    fake_store, make_transaction
+):
     store = fake_store(
         transactions=[
-            make_transaction(date=date(2026, 7, 1), amount=10.0, type="Expense", category="Groceries", notes="A"),
-            make_transaction(date=date(2026, 7, 2), amount=875.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
-        ]
-    )
-
-    overview = get_annual_overview(store, year=2026, today=date(2026, 7, 15))
-
-    assert [row.notes for row in overview.top_expenses] == ["A"]
-
-
-def test_annual_overview_top_expenses_excludes_transactions_from_months_not_yet_elapsed(fake_store, make_transaction):
-    store = fake_store(
-        transactions=[
-            make_transaction(date=date(2026, 8, 5), amount=500.0, type="Expense", category="Groceries", notes="Elapsed"),
-            make_transaction(date=date(2026, 9, 1), amount=999.0, type="Expense", category="Groceries", notes="Not yet elapsed"),
+            tx(make_transaction, 1, 10.0, "Woolworths 1", month=7, id=1),
+            tx(make_transaction, 2, 15.0, "WOOLWORTHS 2", month=8, id=2),
+            tx(make_transaction, 3, 875.0, "Werribee", category="Mortgage Repayment", type="Debt", month=7, id=3),
+            tx(make_transaction, 4, -9.0, "Beem credit", category="Beem Adjustment", month=7, id=4),
         ]
     )
 
     overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21))
 
-    assert [row.notes for row in overview.top_expenses] == ["Elapsed"]
+    assert [(row.merchant, row.total, row.count) for row in overview.top_merchants] == [("WOOLWORTHS 2", 25.0, 2)]
 
 
-def test_annual_overview_top_expenses_tiebreaks_by_date_then_notes(fake_store, make_transaction):
+def test_annual_overview_top_merchants_exclude_transactions_from_months_not_yet_elapsed(
+    fake_store, make_transaction
+):
     store = fake_store(
         transactions=[
-            make_transaction(date=date(2026, 7, 5), amount=50.0, type="Expense", category="Groceries", notes="Zebra"),
-            make_transaction(date=date(2026, 7, 1), amount=50.0, type="Expense", category="Groceries", notes="Apple"),
-            make_transaction(date=date(2026, 7, 1), amount=50.0, type="Expense", category="Groceries", notes="Banana"),
+            tx(make_transaction, 5, 500.0, "Elapsed", month=7),
+            tx(make_transaction, 1, 999.0, "Not yet elapsed", month=8),
         ]
     )
 
-    overview = get_annual_overview(store, year=2026, today=date(2026, 7, 15))
+    overview = get_annual_overview(store, year=2026, today=date(2026, 7, 21))
 
-    assert [row.notes for row in overview.top_expenses] == ["Apple", "Banana", "Zebra"]
+    assert [row.merchant for row in overview.top_merchants] == ["Elapsed"]
 
 
 def test_annual_overview_month_by_month_always_has_twelve_entries_in_financial_year_order(fake_store):
@@ -1244,8 +1311,8 @@ def test_annual_overview_spending_by_category_sums_actual_expenses_over_elapsed_
     overview = get_annual_overview(store, year=2026, today=date(2026, 2, 21), start_month=1)
 
     assert overview.spending_by_category == [
-        CategorySpend(category="Groceries", amount=400.0, pct_of_expenses=80.0),
-        CategorySpend(category="Transport", amount=100.0, pct_of_expenses=20.0),
+        CategorySpend(category="Groceries", type="Expense", amount=400.0, pct_of_spending=80.0),
+        CategorySpend(category="Transport", type="Expense", amount=100.0, pct_of_spending=20.0),
     ]
 
 
@@ -1260,7 +1327,7 @@ def test_annual_overview_spending_by_category_excludes_debt_for_calendar_year(fa
     overview = get_annual_overview(store, year=2026, today=date(2026, 1, 15), start_month=1)
 
     assert overview.spending_by_category == [
-        CategorySpend(category="Groceries", amount=300.0, pct_of_expenses=100.0),
+        CategorySpend(category="Groceries", type="Expense", amount=300.0, pct_of_spending=100.0),
     ]
 
 
@@ -1383,63 +1450,53 @@ def test_annual_overview_budgeted_vs_actual_includes_income_and_debt_categories_
     assert by_category["Mortgage Repayment"].budgeted == 850.0
 
 
-def test_annual_overview_top_expenses_are_the_ten_largest_across_elapsed_months_for_calendar_year(
+def test_annual_overview_top_merchants_are_the_ten_largest_across_elapsed_months_for_calendar_year(
     fake_store, make_transaction
 ):
     store = fake_store(
         transactions=[
-            make_transaction(date=date(2026, 1, d), amount=amount, type="Expense", category="Groceries", notes=str(amount))
+            tx(make_transaction, d, amount, "Merchant " + "ABCDEFGHIJK"[d - 1], month=1)
             for d, amount in enumerate([10.0, 90.0, 50.0, 70.0, 60.0, 40.0, 30.0, 20.0, 80.0, 100.0, 110.0], start=1)
         ]
-        + [make_transaction(date=date(2026, 2, 1), amount=1000.0, type="Income", category="Salary", notes="Employer")]
+        + [tx(make_transaction, 1, 1000.0, "Employer", category="Salary", type="Income", month=2)]
     )
 
     overview = get_annual_overview(store, year=2026, today=date(2026, 2, 21), start_month=1)
 
-    assert len(overview.top_expenses) == 10
-    assert [row.amount for row in overview.top_expenses] == [110.0, 100.0, 90.0, 80.0, 70.0, 60.0, 50.0, 40.0, 30.0, 20.0]
+    assert len(overview.top_merchants) == 10
+    assert [row.total for row in overview.top_merchants] == [110.0, 100.0, 90.0, 80.0, 70.0, 60.0, 50.0, 40.0, 30.0, 20.0]
 
 
-def test_annual_overview_top_expenses_excludes_debt_for_calendar_year(fake_store, make_transaction):
-    store = fake_store(
-        transactions=[
-            make_transaction(date=date(2026, 1, 1), amount=10.0, type="Expense", category="Groceries", notes="A"),
-            make_transaction(date=date(2026, 1, 2), amount=875.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
-        ]
-    )
-
-    overview = get_annual_overview(store, year=2026, today=date(2026, 1, 15), start_month=1)
-
-    assert [row.notes for row in overview.top_expenses] == ["A"]
-
-
-def test_annual_overview_top_expenses_excludes_transactions_from_months_not_yet_elapsed_for_calendar_year(
+def test_annual_overview_top_merchants_group_across_months_and_exclude_debt_and_beem_adjustment_for_calendar_year(
     fake_store, make_transaction
 ):
     store = fake_store(
         transactions=[
-            make_transaction(date=date(2026, 2, 5), amount=500.0, type="Expense", category="Groceries", notes="Elapsed"),
-            make_transaction(date=date(2026, 3, 1), amount=999.0, type="Expense", category="Groceries", notes="Not yet elapsed"),
+            tx(make_transaction, 1, 10.0, "Woolworths 1", month=1, id=1),
+            tx(make_transaction, 2, 15.0, "WOOLWORTHS 2", month=2, id=2),
+            tx(make_transaction, 3, 875.0, "Werribee", category="Mortgage Repayment", type="Debt", month=1, id=3),
+            tx(make_transaction, 4, -9.0, "Beem credit", category="Beem Adjustment", month=1, id=4),
         ]
     )
 
     overview = get_annual_overview(store, year=2026, today=date(2026, 2, 21), start_month=1)
 
-    assert [row.notes for row in overview.top_expenses] == ["Elapsed"]
+    assert [(row.merchant, row.total, row.count) for row in overview.top_merchants] == [("WOOLWORTHS 2", 25.0, 2)]
 
 
-def test_annual_overview_top_expenses_tiebreaks_by_date_then_notes_for_calendar_year(fake_store, make_transaction):
+def test_annual_overview_top_merchants_exclude_transactions_from_months_not_yet_elapsed_for_calendar_year(
+    fake_store, make_transaction
+):
     store = fake_store(
         transactions=[
-            make_transaction(date=date(2026, 1, 5), amount=50.0, type="Expense", category="Groceries", notes="Zebra"),
-            make_transaction(date=date(2026, 1, 1), amount=50.0, type="Expense", category="Groceries", notes="Apple"),
-            make_transaction(date=date(2026, 1, 1), amount=50.0, type="Expense", category="Groceries", notes="Banana"),
+            tx(make_transaction, 5, 500.0, "Elapsed", month=1),
+            tx(make_transaction, 1, 999.0, "Not yet elapsed", month=2),
         ]
     )
 
-    overview = get_annual_overview(store, year=2026, today=date(2026, 1, 15), start_month=1)
+    overview = get_annual_overview(store, year=2026, today=date(2026, 1, 21), start_month=1)
 
-    assert [row.notes for row in overview.top_expenses] == ["Apple", "Banana", "Zebra"]
+    assert [row.merchant for row in overview.top_merchants] == ["Elapsed"]
 
 
 def test_annual_overview_month_by_month_sums_each_month_independently_for_calendar_year(fake_store, make_transaction):
@@ -1978,3 +2035,518 @@ def test_full_year_grid_a_month_with_no_budget_set_is_none_not_zero(fake_store):
     rows = get_full_year_budget_grid(store, year=2026)
 
     assert all(amount is None for row in rows for amount in row.amounts)
+
+
+def test_spending_over_time_counts_bills_and_subscriptions_but_not_debt_or_savings(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 8, 1), amount=100.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 8, 10), amount=620.0, type="Bills & Subscriptions", category="Insurance", notes="Annual cover"),
+            make_transaction(date=date(2026, 8, 3), amount=875.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+            make_transaction(date=date(2026, 8, 4), amount=500.0, type="Savings", category="Savings", notes="Transfer"),
+        ]
+    )
+
+    overview = get_month_overview(store, year=2026, month=8)
+    daily = overview.spending_over_time.daily
+
+    assert overview.spending_over_time.total == 720.0
+    assert overview.spending_over_time.daily_average == round(720.0 / 31, 2)
+    assert daily[8].cumulative == 100.0
+    assert daily[9].cumulative == 720.0  # the lumpy bill is a step
+
+
+def test_spending_over_time_is_reduced_by_beem_adjustment_reimbursements(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 8, 1), amount=100.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 8, 2), amount=-30.0, type="Expense", category="Beem Adjustment", notes="Beem"),
+        ]
+    )
+
+    assert get_month_overview(store, year=2026, month=8).spending_over_time.total == 70.0
+
+
+def test_spending_by_category_lists_bills_and_subscriptions_with_shares_of_spending(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 8, 1), amount=300.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 8, 2), amount=100.0, type="Bills & Subscriptions", category="Internet", notes="ISP"),
+            make_transaction(date=date(2026, 8, 3), amount=875.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+        ]
+    )
+
+    overview = get_month_overview(store, year=2026, month=8)
+
+    assert overview.spending_by_category == [
+        CategorySpend(category="Groceries", type="Expense", amount=300.0, pct_of_spending=75.0),
+        CategorySpend(category="Internet", type="Bills & Subscriptions", amount=100.0, pct_of_spending=25.0),
+    ]
+    assert sum(r.amount for r in overview.spending_by_category) == overview.spending_over_time.total
+
+
+def test_annual_spending_by_category_lists_bills_and_subscriptions_with_shares_of_spending(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, 1), amount=300.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 8, 2), amount=100.0, type="Bills & Subscriptions", category="Internet", notes="ISP"),
+            make_transaction(date=date(2026, 8, 3), amount=875.0, type="Debt", category="Mortgage Repayment", notes="Werribee"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21))
+
+    assert overview.spending_by_category == [
+        CategorySpend(category="Groceries", type="Expense", amount=300.0, pct_of_spending=75.0),
+        CategorySpend(category="Internet", type="Bills & Subscriptions", amount=100.0, pct_of_spending=25.0),
+    ]
+
+
+def test_annual_overview_outflows_by_month_has_twelve_rows_with_unelapsed_months_zeroed(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, 3), amount=100.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 7, 4), amount=60.0, type="Bills & Subscriptions", category="Phone Plan", notes="Telstra"),
+            make_transaction(date=date(2026, 8, 5), amount=2000.0, type="Debt", category="Mortgage Repayment", notes="Loan"),
+            make_transaction(date=date(2026, 9, 1), amount=999.0, type="Expense", category="Groceries", notes="Not yet elapsed"),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 8, 21))
+    rows = overview.outflows_by_month
+
+    assert [(r.year, r.month) for r in rows][:3] == [(2026, 7), (2026, 8), (2026, 9)]
+    assert len(rows) == 12
+    assert (rows[0].expenses, rows[0].bills_subscriptions, rows[0].debt) == (100.0, 60.0, 0.0)
+    assert (rows[1].expenses, rows[1].bills_subscriptions, rows[1].debt) == (0.0, 0.0, 2000.0)
+    for unelapsed in rows[2:]:
+        assert (unelapsed.expenses, unelapsed.bills_subscriptions, unelapsed.debt) == (0.0, 0.0, 0.0)
+
+
+def test_annual_overview_outflows_by_month_leaves_savings_out_of_the_outflow_figures(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            make_transaction(date=date(2026, 7, 3), amount=100.0, type="Expense", category="Groceries", notes="Woolworths"),
+            make_transaction(date=date(2026, 7, 4), amount=500.0, type="Savings", category="Savings", notes="Transfer"),
+        ]
+    )
+
+    july = get_annual_overview(store, year=2026, today=date(2026, 8, 21)).outflows_by_month[0]
+
+    assert (july.expenses, july.bills_subscriptions, july.debt) == (100.0, 0.0, 0.0)
+
+
+def bs(make_transaction, when, amount, notes="Gym", category="Gym", id=1, type="Bills & Subscriptions"):
+    return make_transaction(id=id, date=when, amount=amount, type=type, category=category, notes=notes)
+
+
+def fortnightly_gym(make_transaction, first=date(2026, 5, 4), count=11, amount=37.5, id_start=100):
+    return [
+        bs(make_transaction, date.fromordinal(first.toordinal() + 14 * i), amount, id=id_start + i)
+        for i in range(count)
+    ]
+
+
+def test_recurring_charges_project_a_fortnightly_charge_to_its_yearly_cost(fake_store, make_transaction):
+    store = fake_store(transactions=fortnightly_gym(make_transaction))  # 11 x 37.50 = 412.50, 4 May - 21 Sep
+
+    overview = get_month_overview(store, year=2026, month=9)
+
+    (row,) = overview.recurring_charges.rows
+    assert row.merchant == "Gym"
+    assert row.category == "Gym"
+    assert row.charges == 11
+    assert row.last_charged == "2026-09-21"
+    assert row.typical == 37.5
+    assert row.cadence_days == 14
+    assert row.cadence == "Fortnightly"
+    assert row.per_year == 975.0  # 37.50 x 26 fortnights, not the 412.50 paid so far
+
+
+def test_recurring_charges_header_totals_are_per_year_and_a_twelfth_of_it(fake_store, make_transaction):
+    store = fake_store(
+        transactions=fortnightly_gym(make_transaction)
+        + [bs(make_transaction, date(2026, 9, 1), 120.0, notes="Insurer", category="Insurance", id=1)]
+    )
+
+    charges = get_month_overview(store, year=2026, month=9).recurring_charges
+
+    assert charges.per_year == 1095.0
+    assert charges.per_month == 91.25
+    assert [row.merchant for row in charges.rows] == ["Gym", "Insurer"]  # largest yearly cost first
+
+
+def test_recurring_charges_single_charge_merchant_shows_what_was_paid_with_no_cadence(fake_store, make_transaction):
+    store = fake_store(transactions=[bs(make_transaction, date(2026, 3, 10), 480.0, notes="Car Insurance", category="Insurance")])
+
+    (row,) = get_month_overview(store, year=2026, month=9).recurring_charges.rows
+
+    assert (row.charges, row.typical, row.cadence_days, row.per_year) == (1, 480.0, None, 480.0)
+    assert row.cadence is None
+
+
+def test_recurring_charges_typical_is_the_median_and_slightly_varying_amounts_group_as_one_merchant(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            bs(make_transaction, date(2026, 6, 1), 60.0, notes="Telstra Mobile 1234", id=1),
+            bs(make_transaction, date(2026, 7, 1), 64.0, notes="TELSTRA MOBILE 5678", id=2),
+            bs(make_transaction, date(2026, 8, 1), 90.0, notes="Telstra Mobile 9", id=3),
+        ]
+    )
+
+    (row,) = get_month_overview(store, year=2026, month=9).recurring_charges.rows
+
+    assert row.merchant == "Telstra Mobile 9"
+    assert row.charges == 3
+    assert row.typical == 64.0
+    assert row.cadence_days == 31  # gaps of 30 and 31 days: median 30.5 rounds half up to a whole day
+    assert row.cadence == "Monthly"
+    assert row.per_year == 768.0  # 64.00 x 12 monthly charges
+
+
+def test_recurring_charges_several_charges_on_one_date_have_no_cadence_and_keep_the_count_and_sum_paid(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            bs(make_transaction, date(2026, 3, 10), 30.0, notes="Double Billed", category="Insurance", id=1),
+            bs(make_transaction, date(2026, 3, 10), 30.0, notes="Double Billed", category="Insurance", id=2),
+            bs(make_transaction, date(2026, 3, 10), 30.0, notes="Double Billed", category="Insurance", id=3),
+        ]
+    )
+
+    (row,) = get_month_overview(store, year=2026, month=9).recurring_charges.rows
+
+    assert (row.charges, row.typical, row.cadence_days, row.per_year) == (3, 30.0, None, 90.0)
+    assert row.cadence is None
+
+
+@pytest.mark.parametrize(
+    ("gap_days", "cadence", "per_year"),
+    [
+        (5, None, round(3650 / 5, 2)),
+        (6, "Weekly", 52 * 10.0),
+        (8, "Weekly", 52 * 10.0),
+        (9, None, round(3650 / 9, 2)),
+        (11, None, round(3650 / 11, 2)),
+        (12, "Fortnightly", 26 * 10.0),
+        (16, "Fortnightly", 26 * 10.0),
+        (17, None, round(3650 / 17, 2)),
+        (27, None, round(3650 / 27, 2)),
+        (28, "Monthly", 12 * 10.0),
+        (33, "Monthly", 12 * 10.0),
+        (34, None, round(3650 / 34, 2)),
+        (87, None, round(3650 / 87, 2)),
+        (88, "Quarterly", 4 * 10.0),
+        (94, "Quarterly", 4 * 10.0),
+        (95, None, round(3650 / 95, 2)),
+        (359, None, round(3650 / 359, 2)),
+        (360, "Yearly", 10.0),
+    ],
+)
+def test_recurring_charges_name_a_near_standard_cadence_and_project_it_with_the_standard_charges_per_year(
+    fake_store, make_transaction, gap_days, cadence, per_year
+):
+    first = date(2025, 10, 1)
+    store = fake_store(
+        transactions=[
+            bs(make_transaction, date.fromordinal(first.toordinal() + gap_days * i), 10.0, id=i + 1) for i in range(2)
+        ]
+    )
+
+    (row,) = get_month_overview(store, year=2026, month=9).recurring_charges.rows
+
+    assert row.cadence_days == gap_days
+    assert row.cadence == cadence
+    assert row.per_year == per_year
+
+
+def test_recurring_charges_snap_on_the_unrounded_median_gap(fake_store, make_transaction):
+    # gaps of 8 and 9 days: the median 8.5 is outside Weekly (6-8) although the gap of 8 alone would be inside
+    store = fake_store(
+        transactions=[
+            bs(make_transaction, date(2026, 1, 1), 10.0, id=1),
+            bs(make_transaction, date(2026, 1, 9), 10.0, id=2),
+            bs(make_transaction, date(2026, 1, 18), 10.0, id=3),
+        ]
+    )
+
+    (row,) = get_month_overview(store, year=2026, month=9).recurring_charges.rows
+
+    assert row.cadence is None
+    assert row.cadence_days == 9
+    assert row.per_year == round(10.0 * 365 / 8.5, 2)
+
+
+def test_recurring_charges_window_is_the_twelve_months_ending_at_the_end_of_the_selected_month(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            bs(make_transaction, date(2025, 9, 30), 1.0, notes="Too early", id=1),
+            bs(make_transaction, date(2025, 10, 1), 2.0, notes="First day in", id=2),
+            bs(make_transaction, date(2026, 9, 30), 3.0, notes="Last day in", id=3),
+            bs(make_transaction, date(2026, 10, 1), 4.0, notes="Too late", id=4),
+        ]
+    )
+
+    rows = get_month_overview(store, year=2026, month=9).recurring_charges.rows
+
+    assert sorted(row.merchant for row in rows) == ["First day in", "Last day in"]
+
+
+def test_recurring_charges_only_cover_bills_and_subscriptions(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            bs(make_transaction, date(2026, 9, 1), 50.0, notes="Netflix", id=1),
+            bs(make_transaction, date(2026, 9, 2), 20.0, notes="Cafe", category="Dining", type="Expense", id=2),
+            bs(make_transaction, date(2026, 9, 3), 900.0, notes="Loan", category="Loan", type="Debt", id=3),
+        ]
+    )
+
+    rows = get_month_overview(store, year=2026, month=9).recurring_charges.rows
+
+    assert [row.merchant for row in rows] == ["Netflix"]
+
+
+def test_recurring_charges_are_empty_when_there_are_no_bills_and_subscriptions(fake_store):
+    charges = get_month_overview(fake_store(transactions=[]), year=2026, month=9).recurring_charges
+
+    assert (charges.per_year, charges.per_month, charges.rows) == (0.0, 0.0, [])
+
+
+def test_the_month_view_reads_earlier_months_for_recurring_charges_without_widening_its_other_figures(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            bs(make_transaction, date(2026, 8, 5), 30.0, notes="Streaming", id=1),
+            bs(make_transaction, date(2026, 9, 5), 30.0, notes="Streaming", id=2),
+        ]
+    )
+
+    overview = get_month_overview(store, year=2026, month=9)
+
+    assert overview.stat_tiles.bills_subscriptions == 30.0
+    assert [(m.merchant, m.total, m.count) for m in overview.top_merchants] == [("Streaming", 30.0, 1)]
+    assert overview.recurring_charges.rows[0].charges == 2
+
+
+def test_annual_recurring_charges_cover_the_twelve_months_ending_at_the_last_elapsed_month(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            bs(make_transaction, date(2025, 8, 31), 1.0, notes="Too early", id=1),
+            bs(make_transaction, date(2025, 9, 1), 2.0, notes="Before the year", id=2),
+            bs(make_transaction, date(2026, 8, 31), 3.0, notes="Last elapsed day", id=3),
+            bs(make_transaction, date(2026, 9, 1), 4.0, notes="Not yet elapsed", id=4),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 8, 15))
+
+    assert sorted(row.merchant for row in overview.recurring_charges.rows) == ["Before the year", "Last elapsed day"]
+    assert overview.stat_tiles.bills_subscriptions == 3.0
+
+
+def test_annual_recurring_charges_are_empty_before_the_year_starts(fake_store, make_transaction):
+    store = fake_store(transactions=[bs(make_transaction, date(2026, 3, 1), 5.0, id=1)])
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 3, 1))
+
+    assert overview.recurring_charges.rows == []
+
+
+def spend(make_transaction, when, amount, category="Groceries", type="Expense", id=1):
+    return make_transaction(id=id, date=when, amount=amount, type=type, category=category, notes=category)
+
+
+def mover_rows(overview, basis):
+    return {row.category: row for row in getattr(overview.movers, basis)}
+
+
+def test_movers_carry_all_three_comparison_bases(fake_store, make_transaction):
+    store = fake_store(transactions=[spend(make_transaction, date(2026, 9, 3), 10.0)])
+
+    movers = get_month_overview(store, year=2026, month=9).movers
+
+    assert [len(movers.previous_month), len(movers.avg_3_months), len(movers.avg_12_months)] == [1, 1, 1]
+
+
+def test_movers_previous_month_compares_this_month_with_last_calendar_month(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            spend(make_transaction, date(2026, 7, 9), 500.0, id=1),
+            spend(make_transaction, date(2026, 8, 9), 100.0, id=2),
+            spend(make_transaction, date(2026, 9, 9), 150.0, id=3),
+        ]
+    )
+
+    row = mover_rows(get_month_overview(store, year=2026, month=9), "previous_month")["Groceries"]
+
+    assert (row.actual, row.comparison, row.diff, row.pct) == (150.0, 100.0, 50.0, 50.0)
+
+
+def test_movers_three_month_comparison_is_the_sum_of_the_preceding_three_months_over_three_zeros_included(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            spend(make_transaction, date(2026, 5, 30), 999.0, id=1),  # outside the three months
+            spend(make_transaction, date(2026, 6, 1), 90.0, id=2),
+            spend(make_transaction, date(2026, 8, 31), 30.0, id=3),  # July had nothing: counts as 0
+            spend(make_transaction, date(2026, 9, 1), 100.0, id=4),
+        ]
+    )
+
+    row = mover_rows(get_month_overview(store, year=2026, month=9), "avg_3_months")["Groceries"]
+
+    assert (row.actual, row.comparison, row.diff, row.pct) == (100.0, 40.0, 60.0, 150.0)
+
+
+def test_movers_twelve_month_comparison_is_the_sum_of_the_preceding_twelve_months_over_twelve(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            spend(make_transaction, date(2025, 8, 31), 999.0, id=1),  # thirteen months back: outside
+            spend(make_transaction, date(2025, 9, 1), 120.0, id=2),
+            spend(make_transaction, date(2026, 8, 31), 240.0, id=3),
+            spend(make_transaction, date(2026, 9, 1), 60.0, id=4),
+        ]
+    )
+
+    row = mover_rows(get_month_overview(store, year=2026, month=9), "avg_12_months")["Groceries"]
+
+    assert (row.actual, row.comparison, row.diff, row.pct) == (60.0, 30.0, 30.0, 100.0)
+
+
+def test_movers_a_falling_category_has_a_negative_difference_and_percentage(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            spend(make_transaction, date(2026, 8, 9), 200.0, id=1),
+            spend(make_transaction, date(2026, 9, 9), 150.0, id=2),
+        ]
+    )
+
+    row = mover_rows(get_month_overview(store, year=2026, month=9), "previous_month")["Groceries"]
+
+    assert (row.diff, row.pct) == (-50.0, -25.0)
+
+
+def test_movers_a_category_new_this_month_has_no_percentage(fake_store, make_transaction):
+    store = fake_store(transactions=[spend(make_transaction, date(2026, 9, 9), 80.0, category="Dining")])
+
+    row = mover_rows(get_month_overview(store, year=2026, month=9), "avg_3_months")["Dining"]
+
+    assert (row.actual, row.comparison, row.diff, row.pct) == (80.0, 0.0, 80.0, None)
+
+
+def test_movers_a_category_that_stopped_this_month_falls_by_its_whole_comparison(fake_store, make_transaction):
+    store = fake_store(transactions=[spend(make_transaction, date(2026, 8, 9), 80.0, category="Dining")])
+
+    row = mover_rows(get_month_overview(store, year=2026, month=9), "previous_month")["Dining"]
+
+    assert (row.actual, row.comparison, row.diff, row.pct) == (0.0, 80.0, -80.0, -100.0)
+
+
+def test_movers_omit_a_category_with_no_activity_this_month_or_in_the_comparison_window(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            spend(make_transaction, date(2026, 5, 9), 80.0, category="Dining", id=1),  # before the 3-month window
+            spend(make_transaction, date(2026, 9, 9), 10.0, id=2),
+        ]
+    )
+
+    movers = get_month_overview(store, year=2026, month=9).movers
+
+    assert [row.category for row in movers.previous_month] == ["Groceries"]
+    assert [row.category for row in movers.avg_3_months] == ["Groceries"]
+    assert sorted(row.category for row in movers.avg_12_months) == ["Dining", "Groceries"]
+
+
+def test_movers_unchanged_category_is_kept_with_a_zero_difference(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            spend(make_transaction, date(2026, 8, 9), 70.0, id=1),
+            spend(make_transaction, date(2026, 9, 9), 70.0, id=2),
+        ]
+    )
+
+    row = mover_rows(get_month_overview(store, year=2026, month=9), "previous_month")["Groceries"]
+
+    assert (row.diff, row.pct) == (0.0, 0.0)
+
+
+def test_movers_are_sorted_by_absolute_difference_largest_first_then_by_name(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            spend(make_transaction, date(2026, 8, 1), 100.0, category="Falling", id=1),
+            spend(make_transaction, date(2026, 9, 1), 60.0, category="Falling", id=2),  # -40
+            spend(make_transaction, date(2026, 9, 2), 90.0, category="Rising", id=3),  # +90
+            spend(make_transaction, date(2026, 9, 3), 40.0, category="Beta", id=4),  # +40
+            spend(make_transaction, date(2026, 9, 4), 40.0, category="Alpha", id=5),  # +40
+        ]
+    )
+
+    rows = get_month_overview(store, year=2026, month=9).movers.previous_month
+
+    assert [row.category for row in rows] == ["Rising", "Alpha", "Beta", "Falling"]
+
+
+def test_movers_cover_spending_categories_only(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            spend(make_transaction, date(2026, 9, 1), 10.0, category="Groceries", id=1),
+            spend(make_transaction, date(2026, 9, 2), 20.0, category="Gym", type="Bills & Subscriptions", id=2),
+            spend(make_transaction, date(2026, 9, 3), 900.0, category="Loan", type="Debt", id=3),
+            spend(make_transaction, date(2026, 9, 4), 500.0, category="Savings", type="Savings", id=4),
+            spend(make_transaction, date(2026, 9, 5), 3000.0, category="Salary", type="Income", id=5),
+        ]
+    )
+
+    rows = get_month_overview(store, year=2026, month=9).movers.previous_month
+
+    assert sorted(row.category for row in rows) == ["Groceries", "Gym"]
+
+
+def test_movers_are_empty_for_a_month_with_no_spending(fake_store):
+    movers = get_month_overview(fake_store(transactions=[]), year=2026, month=9).movers
+
+    assert (movers.previous_month, movers.avg_3_months, movers.avg_12_months) == ([], [], [])
+
+
+def test_movers_look_back_across_a_year_boundary(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            spend(make_transaction, date(2025, 12, 20), 100.0, id=1),
+            spend(make_transaction, date(2026, 1, 20), 130.0, id=2),
+        ]
+    )
+
+    row = mover_rows(get_month_overview(store, year=2026, month=1), "previous_month")["Groceries"]
+
+    assert (row.comparison, row.diff) == (100.0, 30.0)
+
+
+def test_widening_the_month_read_for_movers_leaves_recurring_charges_at_twelve_months(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            bs(make_transaction, date(2025, 9, 30), 1.0, notes="Just before the window", id=1),
+            bs(make_transaction, date(2025, 10, 1), 2.0, notes="First day in the window", id=2),
+        ]
+    )
+
+    overview = get_month_overview(store, year=2026, month=9)
+
+    assert [row.merchant for row in overview.recurring_charges.rows] == ["First day in the window"]
+    assert overview.stat_tiles.bills_subscriptions == 0.0
+
+
+def test_the_full_year_overview_has_no_movers(fake_store):
+    overview = get_annual_overview(fake_store(transactions=[]), year=2026, today=date(2026, 8, 15))
+
+    assert not hasattr(overview, "movers")

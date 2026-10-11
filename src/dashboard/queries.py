@@ -6,10 +6,12 @@ No HTTP or browser dependency here - callable directly against any store
 """
 
 from calendar import monthrange
-from collections.abc import Collection
+from collections.abc import Collection, Iterable
 from dataclasses import dataclass
 from datetime import date
+from statistics import median
 
+from categorisation.history import normalise_notes
 from transaction_log.categories import TYPE_ORDER, Category, categories_by_type, type_lookup
 from transaction_log.entries import Transaction
 
@@ -22,6 +24,19 @@ BUDGETABLE_TYPES = TYPE_ORDER
 
 # The trailing window sizes the Budget tab's editor dropdown offers - Issue #63.
 TRAILING_WINDOWS = (3, 6, 12)
+
+# How far back the Overview's look-back cards read: twelve whole months ending
+# with the viewed month (Recurring Charges).
+TRAILING_WINDOW_MONTHS = 12
+
+# Movers' comparison bases: the previous month, or the average of the 3 or 12
+# months preceding the viewed one (the Budget editor's trailing-average convention).
+MOVERS_AVERAGE_MONTHS = (3, 12)
+
+MONTHS_PER_YEAR = 12
+DAYS_PER_YEAR = 365
+
+BILLS_SUBSCRIPTIONS = "Bills & Subscriptions"
 
 
 @dataclass(frozen=True)
@@ -56,8 +71,9 @@ class IncomeAllocation:
 @dataclass(frozen=True)
 class CategorySpend:
     category: str
+    type: str
     amount: float
-    pct_of_expenses: float
+    pct_of_spending: float
 
 
 @dataclass(frozen=True)
@@ -100,11 +116,52 @@ class DebtByNotes:
 
 
 @dataclass(frozen=True)
-class TopExpense:
-    notes: str
+class TopMerchant:
+    merchant: str
     category: str
-    date: str
-    amount: float
+    total: float
+    count: int
+
+
+# Recurring Charges names a cadence when the median gap between charges (in days,
+# un-rounded) falls in a band: (name, shortest gap, longest gap, charges per year).
+NAMED_CADENCES = (
+    ("Weekly", 6, 8, 52),
+    ("Fortnightly", 12, 16, 26),
+    ("Monthly", 28, 33, 12),
+    ("Quarterly", 88, 94, 4),
+    ("Yearly", 360, 370, 1),
+)
+
+
+def _named_cadence(median_gap: float) -> tuple[str, int] | None:
+    """The (name, charges per year) of the cadence `median_gap` days snaps to."""
+    for name, shortest, longest, per_year in NAMED_CADENCES:
+        if shortest <= median_gap <= longest:
+            return name, per_year
+    return None
+
+
+@dataclass(frozen=True)
+class RecurringCharge:
+    merchant: str
+    category: str
+    charges: int
+    last_charged: str
+    typical: float
+    # Whole days between charges (median gap); None with fewer than two charge dates.
+    cadence_days: int | None
+    # "Weekly", "Fortnightly", ... when the median gap is near-standard (see
+    # NAMED_CADENCES), else None (shown as "Every <cadence_days> days").
+    cadence: str | None
+    per_year: float
+
+
+@dataclass(frozen=True)
+class RecurringCharges:
+    per_year: float
+    per_month: float
+    rows: list[RecurringCharge]
 
 
 @dataclass(frozen=True)
@@ -114,10 +171,29 @@ class DailyCumulative:
 
 
 @dataclass(frozen=True)
-class ExpensesOverTime:
+class SpendingOverTime:
     daily: list[DailyCumulative]
     total: float
     daily_average: float
+
+
+@dataclass(frozen=True)
+class Mover:
+    category: str
+    actual: float
+    # What the basis says the Category usually costs: last month's total, or the
+    # sum over the preceding N months divided by N (zeros included).
+    comparison: float
+    diff: float
+    # None where the comparison is 0 - the Category is new (no basis to scale by).
+    pct: float | None
+
+
+@dataclass(frozen=True)
+class Movers:
+    previous_month: list[Mover]
+    avg_3_months: list[Mover]
+    avg_12_months: list[Mover]
 
 
 @dataclass(frozen=True)
@@ -129,8 +205,10 @@ class MonthOverview:
     spending_by_category: list[CategorySpend]
     budgeted_vs_actual: list[BudgetVsActual]
     debt_summary: list[DebtByNotes]
-    top_expenses: list[TopExpense]
-    expenses_over_time: ExpensesOverTime
+    top_merchants: list[TopMerchant]
+    spending_over_time: SpendingOverTime
+    recurring_charges: RecurringCharges
+    movers: Movers
 
 
 @dataclass(frozen=True)
@@ -155,13 +233,22 @@ class AnnualOverview:
     spending_by_category: list[CategorySpend]
     budgeted_vs_actual: list[BudgetVsActual]
     debt_summary: list[DebtByNotes]
-    top_expenses: list[TopExpense]
+    top_merchants: list[TopMerchant]
+    recurring_charges: RecurringCharges
     month_by_month: list[MonthlyTotals]
     income_vs_expenses_by_month: list[MonthlyTotals]
+    outflows_by_month: list[MonthlyTotals]
 
 
 def get_month_overview(store, year: int, month: int) -> MonthOverview:
-    transactions = [t for t in store.read_transactions() if t.date.year == year and t.date.month == month]
+    # Read the wider window once - the selected month plus the twelve before it
+    # (Movers' longest basis). Each look-back card takes its own slice of
+    # `window`; every selected-month-only figure below keeps using
+    # `transactions`, the selected month alone.
+    month_start = date(year, month, 1)
+    window_end = _add_months(month_start, 1)
+    window = _transactions_between(store.read_transactions(), _add_months(month_start, -max(MOVERS_AVERAGE_MONTHS)), window_end)
+    transactions = _transactions_between(window, month_start, window_end)
     stat_tiles = _stat_tiles(transactions)
 
     return MonthOverview(
@@ -169,13 +256,17 @@ def get_month_overview(store, year: int, month: int) -> MonthOverview:
         month=month,
         stat_tiles=stat_tiles,
         income_allocation=_income_allocation(stat_tiles),
-        spending_by_category=_spending_by_category(transactions, stat_tiles.expenses),
+        spending_by_category=_spending_by_category(transactions, stat_tiles.expenses + stat_tiles.bills_subscriptions),
         budgeted_vs_actual=_budgeted_vs_actual(
             transactions, store.read_category_budgets(year, month), store.read_categories()
         ),
         debt_summary=_debt_summary(transactions, stat_tiles.debt),
-        top_expenses=_top_expenses(transactions, limit=5),
-        expenses_over_time=_expenses_over_time(transactions, year, month),
+        top_merchants=_top_merchants(transactions, limit=5),
+        spending_over_time=_spending_over_time(transactions, year, month),
+        recurring_charges=_recurring_charges(
+            _transactions_between(window, _add_months(window_end, -TRAILING_WINDOW_MONTHS), window_end)
+        ),
+        movers=_movers(window, month_start),
     )
 
 
@@ -189,7 +280,11 @@ def get_annual_overview(store, year: int, today: date | None = None, start_month
     elapsed_months = _elapsed_months(year, today, start_month)
     start = date(year, start_month, 1)
     end = _add_months(start, elapsed_months)
-    transactions = [t for t in store.read_transactions() if start <= t.date < end]
+    all_transactions = store.read_transactions()
+    transactions = _transactions_between(all_transactions, start, end)
+    # The trailing window ends with the last elapsed month, so it can reach
+    # back before the year's own start; none of it before a month has elapsed.
+    trailing = _transactions_between(all_transactions, _add_months(end, -TRAILING_WINDOW_MONTHS), end) if elapsed_months else []
     stat_tiles = _stat_tiles(transactions)
     monthly_totals = _monthly_totals(transactions, start)
 
@@ -199,10 +294,11 @@ def get_annual_overview(store, year: int, today: date | None = None, start_month
         stat_tiles=stat_tiles,
         monthly_average=_monthly_average(stat_tiles, elapsed_months),
         income_allocation=_income_allocation(stat_tiles),
-        spending_by_category=_spending_by_category(transactions, stat_tiles.expenses),
+        spending_by_category=_spending_by_category(transactions, stat_tiles.expenses + stat_tiles.bills_subscriptions),
         budgeted_vs_actual=_annual_budgeted_vs_actual(store, transactions, start, elapsed_months),
         debt_summary=_debt_summary(transactions, stat_tiles.debt),
-        top_expenses=_top_expenses(transactions, limit=10),
+        top_merchants=_top_merchants(transactions, limit=10),
+        recurring_charges=_recurring_charges(trailing),
         # Two named series over the same rows, not two computations: the Month
         # by month table and the Income vs Expenses chart both need one row
         # per month, but are separate fields (rather than one field two
@@ -212,6 +308,7 @@ def get_annual_overview(store, year: int, today: date | None = None, start_month
         # with optional fields (ADR-0011).
         month_by_month=monthly_totals,
         income_vs_expenses_by_month=monthly_totals,
+        outflows_by_month=monthly_totals,
     )
 
 
@@ -381,7 +478,7 @@ def get_transaction_date_range(store) -> tuple[date | None, date | None]:
 def _stat_tiles(transactions: list[Transaction]) -> StatTiles:
     income = _round(sum(t.amount for t in transactions if t.type == "Income"))
     expenses = _round(sum(t.amount for t in transactions if t.type == "Expense"))
-    bills_subscriptions = _round(sum(t.amount for t in transactions if t.type == "Bills & Subscriptions"))
+    bills_subscriptions = _round(sum(t.amount for t in transactions if t.type == BILLS_SUBSCRIPTIONS))
     debt = _round(sum(t.amount for t in transactions if t.type == "Debt"))
     saved = _round(sum(t.amount for t in transactions if t.type == "Savings"))
     # Savings is never subtracted - see GLOSSARY.md's Available to Save entry
@@ -490,16 +587,21 @@ def _totals_by_category(transactions: list[Transaction], types: Collection[str])
     return totals
 
 
-def _expense_totals_by_category(transactions: list[Transaction]) -> dict[str, float]:
-    return _totals_by_category(transactions, {"Expense"})
+# Spending (GLOSSARY): Expense plus Bills & Subscriptions; Debt and Savings are out.
+SPENDING_TYPES = frozenset({"Expense", BILLS_SUBSCRIPTIONS})
+BEEM_ADJUSTMENT = "Beem Adjustment"
 
 
-def _spending_by_category(transactions: list[Transaction], expenses: float) -> list[CategorySpend]:
-    totals = _expense_totals_by_category(transactions)
+def _spending_by_category(transactions: list[Transaction], spending: float) -> list[CategorySpend]:
+    totals: dict[tuple[str, str], float] = {}
+    for t in transactions:
+        if t.type in SPENDING_TYPES:
+            key = (t.category, t.type)
+            totals[key] = totals.get(key, 0.0) + t.amount
 
     rows = [
-        CategorySpend(category=category, amount=_round(amount), pct_of_expenses=_pct(amount, expenses))
-        for category, amount in totals.items()
+        CategorySpend(category=category, type=type_, amount=_round(amount), pct_of_spending=_pct(amount, spending))
+        for (category, type_), amount in totals.items()
         if amount != 0
     ]
     return sorted(rows, key=lambda row: (-row.amount, row.category))
@@ -674,21 +776,135 @@ def _monthly_totals(transactions: list[Transaction], start: date) -> list[Monthl
     return rows
 
 
-def _top_expenses(transactions: list[Transaction], limit: int) -> list[TopExpense]:
-    expenses = [t for t in transactions if t.type == "Expense"]
-    ranked = sorted(expenses, key=lambda t: (-t.amount, t.date, t.notes))
-    return [
-        TopExpense(notes=t.notes, category=t.category, date=t.date.isoformat(), amount=_round(t.amount))
-        for t in ranked[:limit]
-    ]
+def _merchant_key(notes: str) -> str:
+    """The grouping key for a merchant: the History Match normaliser (ADR-0026).
+    Notes made only of digits normalise to nothing, so fall back to the
+    stripped, lower-cased Notes rather than lumping them all together."""
+    return normalise_notes(notes) or notes.strip().lower()
 
 
-def _expenses_over_time(transactions: list[Transaction], year: int, month: int) -> ExpensesOverTime:
+def _merchant_groups(transactions: Iterable[Transaction]) -> list[tuple[Transaction, list[Transaction]]]:
+    """`transactions` grouped by merchant key, each group paired with its latest
+    Transaction (by date, then id) - the one whose Notes and Category name the
+    merchant. Shared by Top merchants and Recurring Charges."""
+    groups: dict[str, list[Transaction]] = {}
+    for t in transactions:
+        groups.setdefault(_merchant_key(t.notes), []).append(t)
+    return [(max(rows, key=lambda t: (t.date, t.id)), rows) for rows in groups.values()]
+
+
+def _top_merchants(transactions: list[Transaction], limit: int) -> list[TopMerchant]:
+    spending = (t for t in transactions if t.type in SPENDING_TYPES and t.category != BEEM_ADJUSTMENT)
+
+    merchants = []
+    for latest, rows in _merchant_groups(spending):
+        merchants.append(
+            TopMerchant(
+                merchant=latest.notes,
+                category=latest.category,
+                total=_round(sum(t.amount for t in rows)),
+                count=len(rows),
+            )
+        )
+    merchants.sort(key=lambda m: (-m.total, m.merchant.lower(), m.merchant))
+    return merchants[:limit]
+
+
+def _transactions_between(transactions: list[Transaction], start: date, end: date) -> list[Transaction]:
+    """The Transactions dated from `start` up to but not including `end`."""
+    return [t for t in transactions if start <= t.date < end]
+
+
+def _recurring_charges(transactions: list[Transaction]) -> RecurringCharges:
+    """Every Bills & Subscriptions merchant in `transactions` (already the
+    trailing-12-month window), grouped by the same merchant key as Top
+    merchants so slightly varying charges stay one merchant. Typical charge is
+    the median amount; cadence the median gap between distinct charge dates
+    (shown in whole days, but snapping and the yearly cost use the un-rounded
+    gap). A near-standard gap is named (NAMED_CADENCES) and projected as typical
+    x that cadence's charges per year; any other gap projects as typical x 365 /
+    median gap. With no gap (all charges on a single date) per-year is what was
+    actually paid.
+    """
+    bills = (t for t in transactions if t.type == BILLS_SUBSCRIPTIONS)
+
+    rows = []
+    for latest, group in _merchant_groups(bills):
+        typical = median(t.amount for t in group)
+        charge_dates = sorted({t.date for t in group})
+        gaps = [(later - earlier).days for earlier, later in zip(charge_dates, charge_dates[1:])]
+        median_gap = median(gaps) if gaps else None
+        cadence = max(1, int(median_gap + 0.5)) if median_gap is not None else None
+        named = _named_cadence(median_gap) if median_gap is not None else None
+        if named is not None:
+            per_year = typical * named[1]
+        elif median_gap is not None:
+            per_year = typical * DAYS_PER_YEAR / median_gap
+        else:
+            per_year = sum(t.amount for t in group)
+        rows.append(
+            RecurringCharge(
+                merchant=latest.notes,
+                category=latest.category,
+                charges=len(group),
+                last_charged=latest.date.isoformat(),
+                typical=_round(typical),
+                cadence_days=cadence,
+                cadence=named[0] if named is not None else None,
+                per_year=_round(per_year),
+            )
+        )
+    rows.sort(key=lambda r: (-r.per_year, r.merchant.lower(), r.merchant))
+    per_year_total = _round(sum(r.per_year for r in rows))
+    return RecurringCharges(per_year=per_year_total, per_month=_round(per_year_total / MONTHS_PER_YEAR), rows=rows)
+
+
+def _movers(window: list[Transaction], month_start: date) -> Movers:
+    """How far each Spending Category's total this month sits from a
+    comparison: last month, or the average of the preceding 3 or 12 months.
+    `window` holds the selected month and the months before it. A Category with
+    no Spending Transaction this month or anywhere in a basis's months is
+    omitted from that basis; rows run largest absolute difference first.
+    """
+    by_month: dict[date, dict[str, float]] = {}
+    for t in window:
+        if t.type in SPENDING_TYPES:
+            totals = by_month.setdefault(date(t.date.year, t.date.month, 1), {})
+            totals[t.category] = totals.get(t.category, 0.0) + t.amount
+
+    def rows_against(months_back: int) -> list[Mover]:
+        this_month = by_month.get(month_start, {})
+        earlier = [by_month.get(_add_months(month_start, -offset), {}) for offset in range(1, months_back + 1)]
+        rows = []
+        for category in set(this_month).union(*earlier):
+            actual = this_month.get(category, 0.0)
+            comparison = sum(totals.get(category, 0.0) for totals in earlier) / months_back
+            diff = actual - comparison
+            rows.append(
+                Mover(
+                    category=category,
+                    actual=_round(actual),
+                    comparison=_round(comparison),
+                    diff=_round(diff),
+                    pct=_round(diff / abs(comparison) * 100, digits=1) if comparison else None,
+                )
+            )
+        return sorted(rows, key=lambda row: (-abs(row.diff), row.category))
+
+    # The `avg_<n>_months` fields are named from MOVERS_AVERAGE_MONTHS itself, so
+    # the windows and the wire names cannot drift apart.
+    return Movers(
+        previous_month=rows_against(1),
+        **{f"avg_{months_back}_months": rows_against(months_back) for months_back in MOVERS_AVERAGE_MONTHS},
+    )
+
+
+def _spending_over_time(transactions: list[Transaction], year: int, month: int) -> SpendingOverTime:
     days_in_month = monthrange(year, month)[1]
 
     daily_totals: dict[date, float] = {}
     for t in transactions:
-        if t.type != "Expense":
+        if t.type not in SPENDING_TYPES:
             continue
         daily_totals[t.date] = daily_totals.get(t.date, 0.0) + t.amount
 
@@ -700,7 +916,7 @@ def _expenses_over_time(transactions: list[Transaction], year: int, month: int) 
         daily.append(DailyCumulative(date=current_date.isoformat(), cumulative=_round(running_total)))
 
     total = _round(running_total)
-    return ExpensesOverTime(daily=daily, total=total, daily_average=_round(total / days_in_month))
+    return SpendingOverTime(daily=daily, total=total, daily_average=_round(total / days_in_month))
 
 
 def _pct(part: float, whole: float | None) -> float:

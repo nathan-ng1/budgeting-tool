@@ -99,7 +99,7 @@ def test_migrate_backfills_recurring_rule_category_id_from_its_text_category():
     connection.execute(
         "INSERT INTO recurring_rules "
         "(amount, type, category, notes, frequency, interval, day, start_date, end_date) "
-        "VALUES (100.0, 'Expense', 'Subscriptions', 'Streaming service', 'Weekly', 1, 'Wednesday', '2026-08-05', NULL)"
+        "VALUES (100.0, 'Expense', 'Entertainment & Leisure', 'Streaming service', 'Weekly', 1, 'Wednesday', '2026-08-05', NULL)"
     )
     connection.commit()
 
@@ -108,7 +108,7 @@ def test_migrate_backfills_recurring_rule_category_id_from_its_text_category():
     row = connection.execute(
         "SELECT r.amount, r.type, c.name, r.notes FROM recurring_rules r JOIN categories c ON c.id = r.category_id"
     ).fetchone()
-    assert row == (100.0, "Expense", "Subscriptions", "Streaming service")
+    assert row == (100.0, "Expense", "Entertainment & Leisure", "Streaming service")
 
 
 def test_migrate_backfills_category_budget_category_id_from_its_text_category():

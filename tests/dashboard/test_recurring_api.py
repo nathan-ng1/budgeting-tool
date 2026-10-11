@@ -16,7 +16,7 @@ from recurring.rules import WEEKDAY_NAMES, RecurringRule
 WEEKLY_PAYLOAD = {
     "amount": 100.0,
     "type": "Expense",
-    "category": "Subscriptions",
+    "category": "Entertainment & Leisure",
     "notes": "Streaming service",
     "frequency": "Weekly",
     "interval": 1,
@@ -102,7 +102,7 @@ def test_a_rule_created_through_the_endpoint_is_what_the_next_expansion_reads(ru
         RecurringRule(
             amount=100.0,
             type="Expense",
-            category="Subscriptions",
+            category="Entertainment & Leisure",
             notes="Streaming service",
             frequency="Weekly",
             interval=1,
@@ -157,7 +157,7 @@ def test_editing_a_rule_into_an_invalid_pair_is_rejected_and_leaves_it_alone(run
         call(server, "PUT", f"/api/recurring-rules/{created['id']}", {**WEEKLY_PAYLOAD, "category": "Salary"})
 
     assert exc_info.value.code == 400
-    assert [rule.category for rule in store.read_recurring_rules()] == ["Subscriptions"]
+    assert [rule.category for rule in store.read_recurring_rules()] == ["Entertainment & Leisure"]
 
 
 def test_a_schedule_that_contradicts_itself_is_rejected(running_server):
@@ -278,7 +278,7 @@ def weekly_rule_payload_starting(start: date, **overrides) -> dict:
     payload = {
         "amount": 60.0,
         "type": "Expense",
-        "category": "Subscriptions",
+        "category": "Entertainment & Leisure",
         "notes": "Streaming service",
         "frequency": "Weekly",
         "interval": 1,
@@ -322,7 +322,7 @@ def test_run_endpoint_skips_an_occurrence_already_in_the_transaction_log_from_el
     today = date.today()
     # Mimics a row already logged via a Statement Export or by hand on the
     # Transactions tab - not by a prior manual run of this same endpoint.
-    store.append_rows([make_candidate(date=today, amount=60.0, type="Expense", category="Subscriptions", notes="Streaming service")])
+    store.append_rows([make_candidate(date=today, amount=60.0, type="Expense", category="Entertainment & Leisure", notes="Streaming service")])
     call(server, "POST", "/api/recurring-rules", weekly_rule_payload_starting(today))
 
     status, body = call(server, "POST", "/api/recurring-rules/run")
@@ -380,7 +380,7 @@ def split_payload(total, **overrides) -> dict:
     payload = {key: value for key, value in MONTHLY_PAYLOAD.items() if key != "amount"}
     payload.update(
         type="Expense",
-        category="Subscriptions",
+        category="Entertainment & Leisure",
         notes="Annual software licence",
         total_amount=total,
     )

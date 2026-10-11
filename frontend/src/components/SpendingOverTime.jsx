@@ -3,7 +3,7 @@ import { useDateFormat, useMoney } from "../lib/settings.jsx";
 
 const X_LABEL_STRIDE = 7;
 
-export default function ExpensesOverTime({ overTime }) {
+export default function SpendingOverTime({ overTime }) {
   const { money } = useMoney();
   const { dayMonth } = useDateFormat();
   const chart = cumulativeChart(overTime.daily);
@@ -13,7 +13,7 @@ export default function ExpensesOverTime({ overTime }) {
   return (
     <section className="card card--chart">
       <div className="card__head">
-        <h3>Expenses over time</h3>
+        <h3>Spending over time</h3>
         <div className="card__aside">
           <div className="card__aside-figure numeric">{money(overTime.total)}</div>
           <div className="card__aside-label numeric">{money(overTime.daily_average)} / day average</div>
@@ -35,7 +35,7 @@ export default function ExpensesOverTime({ overTime }) {
 
         <div className="timechart__plot">
           <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} preserveAspectRatio="none" role="img"
-            aria-label={`Cumulative expenses across the month, ${money(overTime.total)} by month end`}>
+            aria-label={`Cumulative spending across the month, ${money(overTime.total)} by month end`}>
             <defs>
               <linearGradient id="spendFill" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="var(--color-negative-fill)" stopOpacity="0.26" />

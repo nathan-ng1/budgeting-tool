@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { CIRCUMFERENCE, cumulativeChart, donutSegments, monthlyComparisonChart, plotGridlines } from "./charts.js";
+import { CIRCUMFERENCE, cumulativeChart, donutSegments, monthlyComparisonChart, outflowsColumnsChart, plotGridlines } from "./charts.js";
 
 describe("donutSegments", () => {
   it("lays each Category's arc end to end around the ring, largest first", () => {
     const segments = donutSegments([
-      { category: "Groceries", amount: 750, pct_of_expenses: 75 },
-      { category: "Transport", amount: 250, pct_of_expenses: 25 },
+      { category: "Groceries", amount: 750, pct_of_spending: 75 },
+      { category: "Transport", amount: 250, pct_of_spending: 25 },
     ]);
 
     expect(segments).toHaveLength(2);
@@ -17,10 +17,11 @@ describe("donutSegments", () => {
     expect(segments[1].offset).toBeCloseTo(-CIRCUMFERENCE * 0.75, 5);
   });
 
-  it("carries each Category's own colour, not a rank-ordered one", () => {
-    const [transport] = donutSegments([{ category: "Transport", amount: 10, pct_of_expenses: 100 }]);
+  it("colours each arc with the colour the period's mapping gives that Category", () => {
+    const rows = [{ category: "Transport", type: "Expense", amount: 10, pct_of_spending: 100 }];
+    const [transport] = donutSegments(rows, (category, type) => `${type}:${category}`);
 
-    expect(transport.colour).toBe("#d67f48");
+    expect(transport.colour).toBe("Expense:Transport");
   });
 
   it("renders a month with no spending as no arcs at all", () => {
@@ -29,8 +30,8 @@ describe("donutSegments", () => {
 
   it("gives a negative-amount Category (e.g. Beem Adjustment, ADR-0015) a zero-length arc instead of a broken negative one, while still returning it for the legend", () => {
     const segments = donutSegments([
-      { category: "Groceries", amount: 800, pct_of_expenses: 125 },
-      { category: "Beem Adjustment", amount: -200, pct_of_expenses: -31.25 },
+      { category: "Groceries", amount: 800, pct_of_spending: 125 },
+      { category: "Beem Adjustment", amount: -200, pct_of_spending: -31.25 },
     ]);
 
     expect(segments).toHaveLength(2);
@@ -180,5 +181,27 @@ describe("monthlyComparisonChart", () => {
 describe("plotGridlines", () => {
   it("gives the four gridlines below the baseline, evenly spaced up from zero", () => {
     expect(plotGridlines(240)).toEqual([0, 60, 120, 180]);
+  });
+});
+
+describe("outflowsColumnsChart", () => {
+  const month = (m, expenses, bills_subscriptions, debt) => ({ year: 2026, month: m, expenses, bills_subscriptions, debt });
+
+  it("stacks Expenses, then Bills & Subscriptions, then Debt up from the baseline on a rounded axis", () => {
+    const chart = outflowsColumnsChart([month(7, 500, 300, 200)]);
+
+    expect(chart.axisMax).toBe(1000);
+    expect(chart.yTicks).toEqual([1000, 750, 500, 250, 0]);
+    const [expenses, bills, debt] = chart.columns[0].segments;
+    expect(expenses).toMatchObject({ y: 120, height: 120, centreY: 180, share: 0.5, labelled: true });
+    expect(bills).toMatchObject({ y: 48, height: 72, share: 0.3, labelled: true });
+    expect(debt).toMatchObject({ y: 0, height: 48, share: 0.2, labelled: true });
+  });
+
+  it("leaves a segment under 16px unlabelled and a month with no Outflows empty", () => {
+    const chart = outflowsColumnsChart([month(7, 990, 10, 0), month(8, 0, 0, 0)]);
+
+    expect(chart.columns[0].segments.map((s) => s.labelled)).toEqual([true, false, false]);
+    expect(chart.columns[1].segments.every((s) => s.height === 0 && s.share === 0 && !s.labelled)).toBe(true);
   });
 });

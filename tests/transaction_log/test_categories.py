@@ -34,6 +34,23 @@ def test_bills_and_subscriptions_has_four_predefined_categories():
     assert CATEGORIES_BY_TYPE["Bills & Subscriptions"] == {"Insurance", "Car Registration", "Phone Plan", "Internet"}
 
 
+def test_expense_has_ten_predefined_categories_without_the_retired_recurring_ones():
+    # ADR-0028 - Subscriptions and Insurance & Bills are retired: Bills &
+    # Subscriptions is the single home of recurring charges.
+    assert CATEGORIES_BY_TYPE["Expense"] == {
+        "Groceries",
+        "Dining & Takeaway",
+        "Transport",
+        "Shopping & Retail",
+        "Holidays & Travel",
+        "Entertainment & Leisure",
+        "Health & Medical",
+        "Donations & Giving",
+        "Rental Expense",
+        "Beem Adjustment",
+    }
+
+
 def test_types_with_categories_offers_bills_and_subscriptions():
     # Unlike Savings, Bills & Subscriptions stays assignable by the
     # categorisation backend and offered in Needs Review.
@@ -55,7 +72,7 @@ def test_types_with_categories_excludes_savings_even_though_it_has_categories():
         ("Income", "Salary"),
         ("Income", "Rental"),
         ("Expense", "Groceries"),
-        ("Expense", "Subscriptions"),
+        ("Expense", "Health & Medical"),
         ("Expense", "Rental Expense"),
         ("Expense", "Beem Adjustment"),
         ("Debt", "Mortgage Repayment"),

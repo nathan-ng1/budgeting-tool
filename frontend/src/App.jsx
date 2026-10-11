@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import BalanceCheck from "./components/BalanceCheck.jsx";
 import Budget from "./components/Budget.jsx";
@@ -6,8 +6,10 @@ import BudgetedVsActual from "./components/BudgetedVsActual.jsx";
 import CategoryManagement from "./components/CategoryManagement.jsx";
 import DisplaySettings from "./components/DisplaySettings.jsx";
 import DebtSummary from "./components/DebtSummary.jsx";
-import ExpensesOverTime from "./components/ExpensesOverTime.jsx";
+import SpendingOverTime from "./components/SpendingOverTime.jsx";
 import IncomeAllocation from "./components/IncomeAllocation.jsx";
+import OutflowsBreakdown from "./components/OutflowsBreakdown.jsx";
+import OutflowsByMonth from "./components/OutflowsByMonth.jsx";
 import IncomeVsExpensesByMonth from "./components/IncomeVsExpensesByMonth.jsx";
 import MonthByMonth from "./components/MonthByMonth.jsx";
 import MonthSelector from "./components/MonthSelector.jsx";
@@ -16,10 +18,13 @@ import RecurringRules from "./components/RecurringRules.jsx";
 import SpendingByCategory from "./components/SpendingByCategory.jsx";
 import StatTiles from "./components/StatTiles.jsx";
 import ThemeSwitcher from "./components/ThemeSwitcher.jsx";
-import TopExpenses from "./components/TopExpenses.jsx";
+import RecurringCharges from "./components/RecurringCharges.jsx";
+import Movers from "./components/Movers.jsx";
+import TopMerchants from "./components/TopMerchants.jsx";
 import Transactions from "./components/Transactions.jsx";
 import { fetchAnnualOverview, fetchLatestTransactionDate, fetchMonthOverview, fetchTransactionDateRange } from "./lib/api.js";
 import { fetchCategories } from "./lib/categoriesApi.js";
+import { SPENDING_TYPES, categoryColours } from "./lib/categoryColours.js";
 import { DEFAULT_SETTINGS, SettingsProvider, useDateFormat } from "./lib/settings.jsx";
 import { fetchSettings } from "./lib/settingsApi.js";
 import {
@@ -244,6 +249,21 @@ function Dashboard({ settings, onSettingsSaved }) {
     onSettingsSaved(saved);
   }
 
+  // One Category colour mapping per Overview period, shared by every card that
+  // draws a Category dot so a Category is one colour across the page.
+  // Spending Categories the other cards show without any spend this period (an
+  // earlier Recurring Charge, a top merchant's Category, a budgeted Category)
+  // are handed slots too, so they never fall back to a Type grey.
+  const colourFor = useMemo(
+    () =>
+      categoryColours(overview?.spending_by_category ?? [], [
+        ...(overview?.recurring_charges?.rows ?? []).map((row) => row.category),
+        ...(overview?.top_merchants ?? []).map((row) => row.category),
+        ...(overview?.budgeted_vs_actual ?? []).filter((row) => SPENDING_TYPES.includes(row.type)).map((row) => row.category),
+      ]),
+    [overview],
+  );
+
   return (
     <div className="page">
       <div className="page__inner">
@@ -335,38 +355,49 @@ function Dashboard({ settings, onSettingsSaved }) {
                       <div className="row--wide-pair__top">
                         <SpendingByCategory
                           spending={overview.spending_by_category}
-                          total={overview.stat_tiles.expenses}
+                          total={overview.stat_tiles.expenses + overview.stat_tiles.bills_subscriptions}
                           categories={categories}
+                          colourFor={colourFor}
                         />
                       </div>
                       <div className="row--wide-pair__wide">
-                        <BudgetedVsActual rows={overview.budgeted_vs_actual} categories={categories} />
+                        <BudgetedVsActual rows={overview.budgeted_vs_actual} categories={categories} colourFor={colourFor} />
                       </div>
                       <div className="row--wide-pair__bottom">
                         <DebtSummary debtSummary={overview.debt_summary} total={overview.stat_tiles.debt} />
                       </div>
                     </div>
+                    <OutflowsBreakdown tiles={overview.stat_tiles} />
                     <div className="row--split">
-                      <TopExpenses expenses={overview.top_expenses} count={5} />
-                      <ExpensesOverTime overTime={overview.expenses_over_time} />
+                      <TopMerchants merchants={overview.top_merchants} count={5} colourFor={colourFor} />
+                      <SpendingOverTime overTime={overview.spending_over_time} />
+                    </div>
+                    <div className="row--split">
+                      <RecurringCharges recurring={overview.recurring_charges} colourFor={colourFor} />
+                      <Movers movers={overview.movers} />
                     </div>
                   </>
                 ) : (
-                  // Full year pairs Month by Month with Budgeted vs Actual
-                  // rather than with the donut: over a whole Financial Year
-                  // the month-by-month shape is what the donut begs the
-                  // reader to ask about (ADR-0011), so Spending by Category
-                  // moves down to pair with Top expenses instead.
+                  // Full year runs two equal columns - Month by month over
+                  // Spending by Category on the left, Budgeted vs Actual over
+                  // Debt on the right (the last card in each stretches to the
+                  // bottom edge) - then a row for Top merchants. Over a whole
+                  // Financial Year the month-by-month shape is what the donut
+                  // begs the reader to ask about (ADR-0011).
                   <>
                     <IncomeVsExpensesByMonth months={overview.income_vs_expenses_by_month} />
-                    <div className="row--wide-pair row--wide-pair--even">
-                      <div className="row--wide-pair__top">
+                    <div className="row--columns">
+                      <div className="row--columns__col">
                         <MonthByMonth months={overview.month_by_month} />
+                        <SpendingByCategory
+                          spending={overview.spending_by_category}
+                          total={overview.stat_tiles.expenses + overview.stat_tiles.bills_subscriptions}
+                          categories={categories}
+                          colourFor={colourFor}
+                        />
                       </div>
-                      <div className="row--wide-pair__wide">
-                        <BudgetedVsActual rows={overview.budgeted_vs_actual} categories={categories} />
-                      </div>
-                      <div className="row--wide-pair__bottom">
+                      <div className="row--columns__col">
+                        <BudgetedVsActual rows={overview.budgeted_vs_actual} categories={categories} colourFor={colourFor} />
                         <DebtSummary
                           debtSummary={overview.debt_summary}
                           total={overview.stat_tiles.debt}
@@ -374,13 +405,10 @@ function Dashboard({ settings, onSettingsSaved }) {
                         />
                       </div>
                     </div>
+                    <OutflowsByMonth months={overview.outflows_by_month} />
                     <div className="row--split">
-                      <SpendingByCategory
-                        spending={overview.spending_by_category}
-                        total={overview.stat_tiles.expenses}
-                        categories={categories}
-                      />
-                      <TopExpenses expenses={overview.top_expenses} count={10} />
+                      <TopMerchants merchants={overview.top_merchants} count={10} colourFor={colourFor} />
+                      <RecurringCharges recurring={overview.recurring_charges} colourFor={colourFor} />
                     </div>
                   </>
                 )}

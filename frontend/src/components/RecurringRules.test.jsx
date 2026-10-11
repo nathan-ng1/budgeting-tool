@@ -6,7 +6,7 @@ import RecurringRules from "./RecurringRules.jsx";
 
 const CATEGORIES = [
   { id: 1, type: "Expense", name: "Groceries", emoji: null, locked: false },
-  { id: 2, type: "Expense", name: "Subscriptions", emoji: null, locked: false },
+  { id: 2, type: "Expense", name: "Entertainment & Leisure", emoji: null, locked: false },
   { id: 3, type: "Income", name: "Salary", emoji: null, locked: false },
 ];
 
@@ -15,7 +15,7 @@ function rule(overrides = {}) {
     id: 1,
     amount: 100,
     type: "Expense",
-    category: "Subscriptions",
+    category: "Entertainment & Leisure",
     notes: "Streaming service",
     frequency: "Weekly",
     interval: 1,
@@ -89,7 +89,7 @@ async function openForm(name) {
 
 async function fillMonthlyYear() {
   await userEvent.type(screen.getByLabelText("Notes"), "Annual software licence");
-  await userEvent.selectOptions(screen.getByLabelText("Category"), "Subscriptions");
+  await userEvent.selectOptions(screen.getByLabelText("Category"), "Entertainment & Leisure");
   await userEvent.selectOptions(screen.getByLabelText("Frequency"), "Monthly");
   await userEvent.clear(screen.getByLabelText("Start Date"));
   await userEvent.type(screen.getByLabelText("Start Date"), "2026-01-15");
@@ -121,7 +121,7 @@ describe("RecurringRules", () => {
 
     await userEvent.type(screen.getByLabelText("Amount"), "100");
     await userEvent.type(screen.getByLabelText("Notes"), "Streaming service");
-    await userEvent.selectOptions(screen.getByLabelText("Category"), "Subscriptions");
+    await userEvent.selectOptions(screen.getByLabelText("Category"), "Entertainment & Leisure");
     await userEvent.clear(screen.getByLabelText("Start Date"));
     await userEvent.type(screen.getByLabelText("Start Date"), "2026-08-05");
     await userEvent.click(screen.getByRole("button", { name: "Save rule" }));
@@ -132,7 +132,7 @@ describe("RecurringRules", () => {
     expect(JSON.parse(posted[1].body)).toMatchObject({
       amount: 100,
       type: "Expense",
-      category: "Subscriptions",
+      category: "Entertainment & Leisure",
       notes: "Streaming service",
       frequency: "Weekly",
       day: "Wednesday",
@@ -186,7 +186,7 @@ describe("RecurringRules", () => {
 
     await userEvent.type(screen.getByLabelText("Amount"), "100");
     await userEvent.type(screen.getByLabelText("Notes"), "Streaming service");
-    await userEvent.selectOptions(screen.getByLabelText("Category"), "Subscriptions");
+    await userEvent.selectOptions(screen.getByLabelText("Category"), "Entertainment & Leisure");
     await userEvent.click(screen.getByRole("button", { name: "Save rule" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("not a valid Expense Category");
@@ -198,11 +198,11 @@ describe("RecurringRules", () => {
     await openForm("Add rule");
 
     const category = screen.getByLabelText("Category");
-    expect(within(category).getByRole("option", { name: "Subscriptions" })).toBeInTheDocument();
+    expect(within(category).getByRole("option", { name: "Entertainment & Leisure" })).toBeInTheDocument();
 
     await userEvent.selectOptions(screen.getByLabelText("Type"), "Income");
 
-    expect(within(category).queryByRole("option", { name: "Subscriptions" })).not.toBeInTheDocument();
+    expect(within(category).queryByRole("option", { name: "Entertainment & Leisure" })).not.toBeInTheDocument();
     expect(within(category).getByRole("option", { name: "Salary" })).toBeInTheDocument();
   });
 
@@ -211,20 +211,20 @@ describe("RecurringRules", () => {
       [rule()],
       [
         { id: 1, type: "Expense", name: "Groceries", emoji: null, locked: false },
-        { id: 2, type: "Expense", name: "Subscriptions", emoji: "📺", locked: false },
+        { id: 2, type: "Expense", name: "Entertainment & Leisure", emoji: "📺", locked: false },
         { id: 3, type: "Income", name: "Salary", emoji: null, locked: false },
       ],
     );
     vi.stubGlobal("fetch", fetchMock);
     render(<RecurringRules />);
 
-    expect(await screen.findByText("📺 Subscriptions")).toBeInTheDocument();
+    expect(await screen.findByText("📺 Entertainment & Leisure")).toBeInTheDocument();
 
     await openForm("Edit Streaming service");
     const category = screen.getByLabelText("Category");
-    expect(within(category).getByRole("option", { name: "📺 Subscriptions" })).toBeInTheDocument();
+    expect(within(category).getByRole("option", { name: "📺 Entertainment & Leisure" })).toBeInTheDocument();
     // The value posted back is still the bare name, not the decorated label.
-    expect(within(category).getByRole("option", { name: "📺 Subscriptions" })).toHaveValue("Subscriptions");
+    expect(within(category).getByRole("option", { name: "📺 Entertainment & Leisure" })).toHaveValue("Entertainment & Leisure");
   });
 
   it("derives a Weekly rule's Day from its Start Date, so the two cannot disagree", async () => {

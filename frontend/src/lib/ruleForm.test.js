@@ -11,7 +11,7 @@ import {
   withType,
 } from "./ruleForm.js";
 
-const CATEGORIES = { Expense: ["Subscriptions", "Groceries"], Income: ["Salary"] };
+const CATEGORIES = { Expense: ["Entertainment & Leisure", "Groceries"], Income: ["Salary"] };
 
 describe("weekdayOf", () => {
   it("names the weekday a date falls on", () => {
@@ -71,7 +71,7 @@ describe("withFrequency", () => {
 
 describe("withType", () => {
   it("moves the Category to one the new Type actually allows", () => {
-    const values = { ...blankValues(), type: "Expense", category: "Subscriptions" };
+    const values = { ...blankValues(), type: "Expense", category: "Entertainment & Leisure" };
 
     expect(withType(values, "Income", CATEGORIES).category).toBe("Salary");
   });
@@ -89,7 +89,7 @@ describe("valuesFrom / toPayload", () => {
       id: 3,
       amount: 100,
       type: "Expense",
-      category: "Subscriptions",
+      category: "Entertainment & Leisure",
       notes: "Streaming service",
       frequency: "Weekly",
       interval: 2,
@@ -118,7 +118,7 @@ describe("toSplitPayload", () => {
   const values = {
     ...blankValues("2026-01-15"),
     amount: "99",
-    category: "Subscriptions",
+    category: "Entertainment & Leisure",
     notes: "Annual software licence",
     frequency: "Monthly",
     day: 15,

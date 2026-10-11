@@ -92,10 +92,10 @@ def test_a_key_whose_history_disagrees_goes_to_the_categoriser(
     fake_categoriser, fake_store, make_category_result, make_transaction, tmp_path: Path
 ):
     data_dir = write_export(tmp_path, "ANZ_20260805.csv", ["05/08/2026,-50.00,Gym"])
-    categoriser = fake_categoriser(results=[make_category_result(category="Subscriptions")])
+    categoriser = fake_categoriser(results=[make_category_result(category="Entertainment & Leisure")])
     store = fake_store(
         transactions=[
-            history_row(make_transaction, "Gym", category="Subscriptions", day=1, id=1),
+            history_row(make_transaction, "Gym", category="Entertainment & Leisure", day=1, id=1),
             history_row(make_transaction, "Gym", category="Health & Medical", day=2, id=2),
         ]
     )
@@ -284,10 +284,10 @@ def test_a_disagreeing_key_appears_in_examples_with_every_pair(
     fake_categoriser, fake_store, make_category_result, make_transaction, tmp_path: Path
 ):
     data_dir = write_export(tmp_path, "ANZ_20260805.csv", ["05/08/2026,-50.00,Gym"])
-    categoriser = fake_categoriser(results=[make_category_result(category="Subscriptions")])
+    categoriser = fake_categoriser(results=[make_category_result(category="Entertainment & Leisure")])
     store = fake_store(
         transactions=[
-            history_row(make_transaction, "Gym", category="Subscriptions", day=1, id=1),
+            history_row(make_transaction, "Gym", category="Entertainment & Leisure", day=1, id=1),
             history_row(make_transaction, "GYM", category="Health & Medical", day=2, id=2),
         ]
     )
@@ -296,7 +296,7 @@ def test_a_disagreeing_key_appears_in_examples_with_every_pair(
 
     [[example]] = categoriser.examples
     assert example.notes_key == "gym"
-    assert set(example.pairs) == {("Expense", "Subscriptions"), ("Expense", "Health & Medical")}
+    assert set(example.pairs) == {("Expense", "Entertainment & Leisure"), ("Expense", "Health & Medical")}
 
 
 def test_summary_counts_history_matches_backend_and_needs_review(

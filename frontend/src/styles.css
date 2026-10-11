@@ -147,7 +147,7 @@
 
   /* PROTOTYPE (prototype/orchid-pastel-palette, pass 8) - IncomeAllocation's
      "expenses" segment, IncomeVsExpensesByMonth's Expense bars/dot and
-     ExpensesOverTime's line/gradient/marker all used to read
+     SpendingOverTime's line/gradient/marker all used to read
      var(--color-accent-600) directly, like the genuine text/white-on-bg
      uses of that token (.figure--adverse, .button backgrounds). Orchid
      wants its Expenses fills pushed to a vivid hot pink well past what
@@ -470,7 +470,7 @@
      around it again: --color-negative-fill (new token, see :root) takes
      over every Expenses-only *fill* role (IncomeAllocation's "expenses"
      segment, IncomeVsExpensesByMonth's Expense bars/dot,
-     ExpensesOverTime's line/gradient/marker) that used to read
+     SpendingOverTime's line/gradient/marker) that used to read
      --color-accent-600 directly. --color-accent/-600/--color-negative
      stay at pass 7's #ae095c - still the token for buttons, the active
      month pill and .figure--adverse text, all genuinely AA-constrained -
@@ -1014,6 +1014,26 @@ button.nav__tab:hover {
   flex: none;
 }
 
+/* Outflows breakdown reuses the allocation bar but is taller and carries the
+   amount inside each wide segment. White on the Type fills needs the soft
+   shadow to stay legible on the lighter fills across themes. */
+.outflows__bar {
+  height: 40px;
+  border-radius: var(--radius-md);
+}
+
+.outflows__segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
 .allocation__marker {
   position: absolute;
   top: -6px;
@@ -1088,6 +1108,26 @@ button.nav__tab:hover {
   grid-area: wide;
 }
 
+/* Full year: two equal columns of stacked cards. The last card in each column
+   stretches to the bottom edge so the columns end flush. */
+.row--columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.row--columns__col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.row--columns__col > .card:last-child {
+  flex: 1;
+}
+
 /* "Where did my income go?" beside the Balance check card (#168). */
 .row--allocation {
   display: grid;
@@ -1102,6 +1142,7 @@ button.nav__tab:hover {
   }
 
   .row--split,
+  .row--columns,
   .row--allocation {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1401,16 +1442,197 @@ tbody:first-of-type .bva__section {
   color: var(--color-neutral-600);
 }
 
-.top5__date {
+/* Top merchants rows: rank, detail (name, Category, bar), optional count, total. */
+.top5__row--merchant {
+  grid-template-columns: 20px minmax(90px, 1fr) 84px;
+}
+
+.top5__row--merchant.top5__row--with-count {
+  grid-template-columns: 20px minmax(90px, 1fr) 52px 84px;
+}
+
+.top5__bar {
+  display: block;
+  height: 5px;
+  margin-top: 4px;
+  border-radius: 3px;
+  background: var(--color-neutral-200);
+  overflow: hidden;
+}
+
+.top5__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+}
+
+.top5__count {
   font-size: 13px;
-  color: var(--color-neutral-500);
+  text-align: right;
   white-space: nowrap;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--color-neutral-600);
+  cursor: pointer;
 }
 
 .top5__amount {
   font-size: 14.5px;
   font-weight: 600;
   text-align: right;
+}
+
+/* — recurring charges — */
+
+.recurring {
+  width: 100%;
+  margin-top: 14px;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.recurring th {
+  padding: 6px 8px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-neutral-500);
+  border-bottom: 1px solid var(--color-neutral-300);
+}
+
+.recurring td {
+  padding: 9px 8px;
+  vertical-align: top;
+  border-bottom: 1px solid var(--color-neutral-200);
+}
+
+.recurring tr:last-child td {
+  border-bottom: 0;
+}
+
+.recurring .recurring__num {
+  text-align: right;
+}
+
+.recurring__merchant {
+  display: block;
+}
+
+.recurring__category {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+}
+
+/* — movers — */
+
+.movers__select {
+  padding: 7px 11px;
+  border: 1px solid var(--color-neutral-300);
+  border-radius: 10px;
+  background: var(--color-card);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 13.5px;
+}
+
+.movers__select:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.movers {
+  margin-top: 14px;
+}
+
+.movers__head,
+.movers__row {
+  display: grid;
+  grid-template-columns: 150px minmax(60px, 1fr) 92px 84px;
+  gap: 10px;
+  align-items: center;
+}
+
+.movers__head {
+  padding-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-neutral-500);
+  border-bottom: 1px solid var(--color-neutral-300);
+}
+
+.movers__basis {
+  grid-column: 1 / -1;
+  margin-top: -6px;
+  font-size: 11.5px;
+  font-weight: 400;
+  text-align: right;
+}
+
+.movers__row {
+  padding: 9px 0;
+  font-size: 13.5px;
+  border-bottom: 1px solid var(--color-neutral-200);
+}
+
+.movers__row:last-child {
+  border-bottom: 0;
+}
+
+.movers__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.movers .movers__num {
+  text-align: right;
+}
+
+/* The bar grows from the centre line: right for a rise, left for a fall. */
+.movers__track {
+  position: relative;
+  height: 12px;
+}
+
+.movers__mid {
+  position: absolute;
+  left: 50%;
+  top: -3px;
+  bottom: -3px;
+  width: 1px;
+  background: var(--color-neutral-400);
+}
+
+.movers__bar {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 3px;
+}
+
+.movers__bar--up {
+  left: 50%;
+  background: var(--color-negative-fill);
+}
+
+.movers__bar--down {
+  right: 50%;
+  background: var(--color-positive);
+}
+
+@media (max-width: 480px) {
+  .movers__head,
+  .movers__row {
+    grid-template-columns: 90px minmax(30px, 1fr) 64px 58px;
+    gap: 6px;
+  }
 }
 
 /* — expenses over time — */
@@ -1491,6 +1713,48 @@ tbody:first-of-type .bva__section {
   height: 2px;
   background: var(--color-chart-line);
   flex: none;
+}
+
+/* — outflows breakdown, Full year columns — */
+
+/* The plot is a fixed 240px tall - the same number as OUTFLOWS_CHART_HEIGHT
+   in lib/charts.js - so the "segment under 16px gets no label" rule counts
+   real pixels. */
+.outflows-cols {
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1fr);
+  grid-template-rows: 240px auto;
+  margin-top: 18px;
+}
+
+.outflows-cols__yaxis {
+  position: relative;
+  padding-right: 10px;
+  font-size: 11.5px;
+  color: var(--color-neutral-600);
+}
+
+.outflows-cols__plot {
+  position: relative;
+}
+
+.outflows-cols__plot svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Same white-on-Type-fill treatment as the single-month bar's segments. */
+.outflows-cols__pct {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+  /* Hover falls through to the segment's own <title> underneath. */
+  pointer-events: none;
 }
 
 /* — states — */

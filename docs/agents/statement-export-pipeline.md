@@ -135,7 +135,8 @@ one-off manual check against the real CLI/endpoint before you rely on it:
   schema-shaped `structured_output` and categorised both transactions sensibly (a grocery store
   as Expenses/Groceries, a streaming service as Bills & Subscriptions/Subscriptions). Note this
   run predates the Type/Category rename (ADR-0006) — the two Categories it reports are under the
-  retired names; the equivalents now are Expense/Groceries and Expense/Subscriptions.
+  retired names; the equivalents now are Expense/Groceries and a Bills & Subscriptions Category such as
+  Internet (ADR-0028 retired the Expense Categories Subscriptions and Insurance & Bills).
 - **`codex`** (`CATEGORISER_BACKEND=codex`) — **not yet manually verified.** `codex_backend.py`'s
   invocation (`codex exec <prompt>`, stdout parsed directly as the batch JSON) is based on Codex
   CLI's documented non-interactive behaviour, not a live run. Verify once against a real Codex
