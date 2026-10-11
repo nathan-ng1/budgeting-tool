@@ -276,6 +276,37 @@ describe("App", () => {
     expect(await screen.findByRole("img", { name: "Spending by Category, $7,000 total" })).toBeInTheDocument();
   });
 
+  it("draws a Category in one colour on every card that shows its dot, and Non-Spending rows in their Type colour", async () => {
+    respondWith({
+      month: monthWithSpending(2026, 8, {
+        spending_by_category: [
+          { category: "Groceries", type: "Expense", amount: 900, pct_of_spending: 60 },
+          { category: "Insurance", type: "Bills & Subscriptions", amount: 600, pct_of_spending: 40 },
+        ],
+        budgeted_vs_actual: [
+          { type: "Expense", category: "Groceries", budgeted: 800, actual: 900, diff: -100, pct: 112.5 },
+          { type: "Bills & Subscriptions", category: "Insurance", budgeted: 600, actual: 600, diff: 0, pct: 100 },
+          { type: "Debt", category: "Mortgage", budgeted: 2000, actual: 2000, diff: 0, pct: 100 },
+        ],
+        top_expenses: [{ notes: "Woolworths", category: "Groceries", date: "2026-08-05", amount: 900 }],
+      }),
+    });
+    render(<App />);
+    await userEvent.click(await screen.findByRole("button", { name: "Aug" }));
+    await screen.findByRole("img", { name: /Spending by Category/ });
+
+    const dotColour = (row) => row.querySelector(".dot").style.background;
+    const legendRow = (name) => screen.getByText(new RegExp(name), { selector: ".legend__name" }).closest(".legend__row");
+    const bvaRow = (name) => screen.getByRole("row", { name: new RegExp(name) });
+    const topRow = screen.getByText("Woolworths").closest(".top5__row");
+
+    expect(dotColour(legendRow("Groceries"))).not.toBe(dotColour(legendRow("Insurance")));
+    expect(dotColour(bvaRow("Groceries"))).toBe(dotColour(legendRow("Groceries")));
+    expect(dotColour(bvaRow("Insurance"))).toBe(dotColour(legendRow("Insurance")));
+    expect(topRow.querySelector(".dot").style.background).toBe(dotColour(legendRow("Groceries")));
+    expect(dotColour(bvaRow("Mortgage"))).toBe("var(--color-debt)");
+  });
+
   it("re-fetches and re-renders every section when the month changes", async () => {
     fetchMock.mockImplementation(async (url) => ({
       ok: true,

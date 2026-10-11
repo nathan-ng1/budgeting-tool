@@ -1,5 +1,5 @@
 import { TYPE_ORDER, categoryLabel, emojiLookup } from "../lib/categories.js";
-import { colourForCategory } from "../lib/categoryColours.js";
+import { categoryColours } from "../lib/categoryColours.js";
 import { UNSET, signedPct } from "../lib/format.js";
 import { useMoney } from "../lib/settings.jsx";
 import { toneFor } from "../lib/tone.js";
@@ -77,7 +77,7 @@ function subtotal(rows) {
   return { hasBudgeted: budgeted.length > 0, totalBudgeted, totalActual, totalDiff, totalPct };
 }
 
-function Section({ type, rows, emoji }) {
+function Section({ type, rows, emoji, colourFor }) {
   const { money } = useMoney();
   if (rows.length === 0) {
     return null;
@@ -100,7 +100,7 @@ function Section({ type, rows, emoji }) {
         return (
           <tr key={row.category} className="bva__row">
             <td>
-              <span className="dot" style={{ background: colourForCategory(row.category) }} />
+              <span className="dot" style={{ background: colourFor(row.category, type) }} />
             </td>
             <td>{categoryLabel(row.category, emoji)}</td>
             <td className="bva__num numeric muted">{row.budgeted === null ? UNSET : money(row.budgeted)}</td>
@@ -120,7 +120,9 @@ function Section({ type, rows, emoji }) {
   );
 }
 
-export default function BudgetedVsActual({ rows, categories = [] }) {
+// `colourFor` is the period's shared Category colour mapping (categoryColours);
+// without it, only Type colours show.
+export default function BudgetedVsActual({ rows, categories = [], colourFor = categoryColours([]) }) {
   const { money, signedMoney } = useMoney();
   // The header's total Diff badge is the same subtotal() shape the per-Type
   // rows already use, just applied across every row rather than one
@@ -168,7 +170,7 @@ export default function BudgetedVsActual({ rows, categories = [] }) {
             </tr>
           </thead>
           {SECTIONS.map((type) => (
-            <Section key={type} type={type} rows={rows.filter((row) => row.type === type)} emoji={emoji} />
+            <Section key={type} type={type} rows={rows.filter((row) => row.type === type)} emoji={emoji} colourFor={colourFor} />
           ))}
         </table>
       )}

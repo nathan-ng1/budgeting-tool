@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import BalanceCheck from "./components/BalanceCheck.jsx";
 import Budget from "./components/Budget.jsx";
@@ -21,6 +21,7 @@ import TopExpenses from "./components/TopExpenses.jsx";
 import Transactions from "./components/Transactions.jsx";
 import { fetchAnnualOverview, fetchLatestTransactionDate, fetchMonthOverview, fetchTransactionDateRange } from "./lib/api.js";
 import { fetchCategories } from "./lib/categoriesApi.js";
+import { categoryColours } from "./lib/categoryColours.js";
 import { DEFAULT_SETTINGS, SettingsProvider, useDateFormat } from "./lib/settings.jsx";
 import { fetchSettings } from "./lib/settingsApi.js";
 import {
@@ -245,6 +246,10 @@ function Dashboard({ settings, onSettingsSaved }) {
     onSettingsSaved(saved);
   }
 
+  // One Category colour mapping per Overview period, shared by every card that
+  // draws a Category dot so a Category is one colour across the page.
+  const colourFor = useMemo(() => categoryColours(overview?.spending_by_category ?? []), [overview]);
+
   return (
     <div className="page">
       <div className="page__inner">
@@ -338,10 +343,11 @@ function Dashboard({ settings, onSettingsSaved }) {
                           spending={overview.spending_by_category}
                           total={overview.stat_tiles.expenses + overview.stat_tiles.bills_subscriptions}
                           categories={categories}
+                          colourFor={colourFor}
                         />
                       </div>
                       <div className="row--wide-pair__wide">
-                        <BudgetedVsActual rows={overview.budgeted_vs_actual} categories={categories} />
+                        <BudgetedVsActual rows={overview.budgeted_vs_actual} categories={categories} colourFor={colourFor} />
                       </div>
                       <div className="row--wide-pair__bottom">
                         <DebtSummary debtSummary={overview.debt_summary} total={overview.stat_tiles.debt} />
@@ -349,7 +355,7 @@ function Dashboard({ settings, onSettingsSaved }) {
                     </div>
                     <OutflowsBreakdown tiles={overview.stat_tiles} />
                     <div className="row--split">
-                      <TopExpenses expenses={overview.top_expenses} count={5} />
+                      <TopExpenses expenses={overview.top_expenses} count={5} colourFor={colourFor} />
                       <SpendingOverTime overTime={overview.spending_over_time} />
                     </div>
                   </>
@@ -366,7 +372,7 @@ function Dashboard({ settings, onSettingsSaved }) {
                         <MonthByMonth months={overview.month_by_month} />
                       </div>
                       <div className="row--wide-pair__wide">
-                        <BudgetedVsActual rows={overview.budgeted_vs_actual} categories={categories} />
+                        <BudgetedVsActual rows={overview.budgeted_vs_actual} categories={categories} colourFor={colourFor} />
                       </div>
                       <div className="row--wide-pair__bottom">
                         <DebtSummary
@@ -381,8 +387,9 @@ function Dashboard({ settings, onSettingsSaved }) {
                         spending={overview.spending_by_category}
                         total={overview.stat_tiles.expenses + overview.stat_tiles.bills_subscriptions}
                         categories={categories}
+                        colourFor={colourFor}
                       />
-                      <TopExpenses expenses={overview.top_expenses} count={10} />
+                      <TopExpenses expenses={overview.top_expenses} count={10} colourFor={colourFor} />
                     </div>
                   </>
                 )}

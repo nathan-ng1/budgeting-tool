@@ -2,7 +2,7 @@
 // endpoint's numbers as given (Issue #27 owns the aggregation) and turn them
 // into coordinates - no totalling or re-deriving happens here.
 
-import { colourForCategory } from "./categoryColours.js";
+import { categoryColours } from "./categoryColours.js";
 
 // Donut: the mockup's ring is r=70 in a 200x200 viewBox, drawn with
 // stroke-dasharray, so arc lengths are fractions of the circumference.
@@ -23,7 +23,9 @@ export function plotGridlines(height) {
     .reverse();
 }
 
-export function donutSegments(spendingByCategory) {
+// `colourFor(category, type)` is the period's shared Category colour mapping
+// (categoryColours); it defaults to one built from these same rows.
+export function donutSegments(spendingByCategory, colourFor = categoryColours(spendingByCategory)) {
   // A reimbursement Category (e.g. Beem Adjustment, ADR-0015) carries a
   // negative amount that reduces the month's net spend rather than adding to
   // it - it has no slice of its own to draw. The ring's proportions are
@@ -36,9 +38,9 @@ export function donutSegments(spendingByCategory) {
 
   let consumed = 0;
 
-  return spendingByCategory.map(({ category, amount }) => {
+  return spendingByCategory.map(({ category, type, amount }) => {
     if (amount <= 0) {
-      return { category, amount, length: 0, offset: -consumed, colour: colourForCategory(category) };
+      return { category, amount, length: 0, offset: -consumed, colour: colourFor(category, type) };
     }
 
     const length = (amount / spendBasis) * CIRCUMFERENCE;
@@ -49,7 +51,7 @@ export function donutSegments(spendingByCategory) {
       // Each arc starts where the previous one ended; a negative dashoffset
       // rotates the arc forward around the ring.
       offset: -consumed,
-      colour: colourForCategory(category),
+      colour: colourFor(category, type),
     };
     consumed += length;
     return segment;

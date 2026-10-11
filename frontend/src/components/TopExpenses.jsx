@@ -1,7 +1,8 @@
-import { colourForCategory } from "../lib/categoryColours.js";
+import { categoryColours } from "../lib/categoryColours.js";
 import { useDateFormat, useMoney } from "../lib/settings.jsx";
 
-export default function TopExpenses({ expenses, count }) {
+// `colourFor` is the period's shared Category colour mapping (categoryColours).
+export default function TopExpenses({ expenses, count, colourFor = categoryColours([]) }) {
   const { money } = useMoney();
   const { dayMonth } = useDateFormat();
   const rows = expenses.slice(0, count);
@@ -24,7 +25,7 @@ export default function TopExpenses({ expenses, count }) {
                   {expense.notes}
                 </span>
                 <span className="top5__category">
-                  <span className="dot dot--sm" style={{ background: colourForCategory(expense.category) }} />
+                  <span className="dot dot--sm" style={{ background: colourFor(expense.category) }} />
                   {expense.category}
                 </span>
               </div>
