@@ -7,6 +7,7 @@ import CategoryManagement from "./components/CategoryManagement.jsx";
 import DisplayCurrency from "./components/DisplayCurrency.jsx";
 import DebtSummary from "./components/DebtSummary.jsx";
 import ExpensesOverTime from "./components/ExpensesOverTime.jsx";
+import FinancialYearStart from "./components/FinancialYearStart.jsx";
 import IncomeAllocation from "./components/IncomeAllocation.jsx";
 import IncomeVsExpensesByMonth from "./components/IncomeVsExpensesByMonth.jsx";
 import MonthByMonth from "./components/MonthByMonth.jsx";
@@ -23,7 +24,13 @@ import { fetchCategories } from "./lib/categoriesApi.js";
 import { dayMonthLong } from "./lib/format.js";
 import { DEFAULT_SETTINGS, SettingsProvider } from "./lib/settings.jsx";
 import { fetchSettings } from "./lib/settingsApi.js";
-import { currentMonth, currentReferenceYear, getStoredPeriodType, remapReferenceYear } from "./lib/period.js";
+import {
+  currentMonth,
+  currentReferenceYear,
+  effectivePeriodType,
+  getStoredPeriodType,
+  remapReferenceYear,
+} from "./lib/period.js";
 
 // Settings holds the Recurring Transactions Config editor (Issue #29);
 // Transactions holds the read-only Transaction list (Issue #33); Budget holds
@@ -93,8 +100,16 @@ function Dashboard({ settings, onSettingsSaved }) {
   // periodType persists across reloads; referenceYear never does, always
   // starting at the period containing today (ADR-0011's existing
   // no-persistence rule for navigation state).
-  const [periodType, setPeriodType] = useState(getStoredPeriodType);
-  const [referenceYear, setReferenceYear] = useState(() => currentReferenceYear(getStoredPeriodType()));
+  // The Financial Year start month is a saved setting (ADR-0027). When it is
+  // January the Calendar Year framing is the same year, so the switcher is
+  // hidden and Financial Year framing always applies, whatever is stored in
+  // the browser - the stored choice itself is left alone.
+  const financialStartMonth = settings.financial_year_start_month;
+  const [storedPeriodType, setPeriodType] = useState(getStoredPeriodType);
+  const periodType = effectivePeriodType(storedPeriodType, financialStartMonth);
+  const [referenceYear, setReferenceYear] = useState(() =>
+    currentReferenceYear(effectivePeriodType(getStoredPeriodType(), financialStartMonth), new Date(), financialStartMonth),
+  );
   // Bounds the switcher's Previous arrow - null (unbounded) until the fetch
   // below resolves, or if it fails.
   const [earliestTransactionDate, setEarliestTransactionDate] = useState(null);
@@ -198,7 +213,7 @@ function Dashboard({ settings, onSettingsSaved }) {
   // from whichever tab is actually on screen, not always Overview's.
   function changePeriodType(nextPeriodType) {
     setPeriodType(nextPeriodType);
-    setReferenceYear(remapReferenceYear(periodAnchorFor(tab), nextPeriodType));
+    setReferenceYear(remapReferenceYear(periodAnchorFor(tab), nextPeriodType, new Date(), financialStartMonth));
   }
 
   // Paging to a different year has no "same real month" to preserve the way
@@ -215,6 +230,19 @@ function Dashboard({ settings, onSettingsSaved }) {
       selectPill(null);
     }
     setReferenceYear(nextReferenceYear);
+  }
+
+  // A new start month regroups the months into different years, so none of
+  // the year or month selections made under the old one still mean anything:
+  // land every tab back on the period containing today.
+  function handleSettingsSaved(saved) {
+    if (saved.financial_year_start_month !== financialStartMonth) {
+      const nextPeriodType = effectivePeriodType(storedPeriodType, saved.financial_year_start_month);
+      setReferenceYear(currentReferenceYear(nextPeriodType, new Date(), saved.financial_year_start_month));
+      selectPill(null);
+      setBudgetSelected(currentMonth());
+    }
+    onSettingsSaved(saved);
   }
 
   return (
@@ -258,7 +286,8 @@ function Dashboard({ settings, onSettingsSaved }) {
         {tab === "Settings" && (
           <>
             <ThemeSwitcher />
-            <DisplayCurrency currency={settings.currency} onSaved={onSettingsSaved} />
+            <DisplayCurrency currency={settings.currency} onSaved={handleSettingsSaved} />
+            <FinancialYearStart startMonth={financialStartMonth} onSaved={handleSettingsSaved} />
             <CategoryManagement />
             <RecurringRules />
           </>

@@ -1,4 +1,5 @@
 import { monthsOfPeriod } from "../lib/period.js";
+import { useSettings } from "../lib/settings.jsx";
 
 // `selected` is null for Full year (the 13th pill, alongside the 12 months -
 // see ADR-0011) or `{ year, month }` for a specific month. Both the Overview
@@ -6,12 +7,14 @@ import { monthsOfPeriod } from "../lib/period.js";
 // `periodType` orders the 12 months July-first for a Financial Year,
 // January-first for a Calendar Year (ADR-0021).
 export default function MonthSelector({ referenceYear, periodType, selected, onSelect }) {
+  const { financial_year_start_month: financialStartMonth } = useSettings();
+
   return (
     <div className="months" role="group" aria-label="Select month">
       <button type="button" className="months__pill" aria-pressed={selected === null} onClick={() => onSelect(null)}>
         Full year
       </button>
-      {monthsOfPeriod(referenceYear, periodType).map(({ year, month, label }) => (
+      {monthsOfPeriod(referenceYear, periodType, financialStartMonth).map(({ year, month, label }) => (
         <button
           key={`${year}-${month}`}
           type="button"

@@ -24,8 +24,8 @@ export function categoryOptions(transactions) {
   return [...new Set(transactions.map((transaction) => transaction.category))].sort();
 }
 
-export function monthOptions(referenceYear, periodType) {
-  return monthsOfPeriod(referenceYear, periodType).map(({ year, month, label }) => ({
+export function monthOptions(referenceYear, periodType, financialStartMonth) {
+  return monthsOfPeriod(referenceYear, periodType, financialStartMonth).map(({ year, month, label }) => ({
     value: monthValue(year, month),
     label,
   }));

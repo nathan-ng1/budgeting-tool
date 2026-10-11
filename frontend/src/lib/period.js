@@ -10,24 +10,34 @@ import { MONTH_LABELS_SHORT } from "./months.js";
 
 export const PERIOD_TYPES = ["financial", "calendar"];
 
-const START_MONTH = { financial: 7, calendar: 1 };
+// The Financial Year starts in July until the Buyer saves another start month
+// in Settings (ADR-0027); the Calendar Year always starts in January. Every
+// function below takes the saved start month as a trailing argument.
+export const DEFAULT_FINANCIAL_START_MONTH = 7;
 
 // A device-local display preference, not domain data (ADR-0008) - persisted
 // the same way theme.js persists the colour theme.
 const STORAGE_KEY = "dashboard.periodType";
 const DEFAULT_PERIOD_TYPE = "financial";
 
-export function startMonthFor(periodType) {
-  return START_MONTH[periodType];
+export function startMonthFor(periodType, financialStartMonth = DEFAULT_FINANCIAL_START_MONTH) {
+  return periodType === "calendar" ? 1 : financialStartMonth;
 }
 
-export function periodFor(year, month, periodType) {
-  const startMonth = startMonthFor(periodType);
+// A January Financial Year is identical to the Calendar Year, so the switcher
+// is hidden and the Dashboard always uses the Financial Year framing, whatever
+// framing is stored in the browser (ADR-0027). The stored choice is left alone.
+export function effectivePeriodType(storedPeriodType, financialStartMonth = DEFAULT_FINANCIAL_START_MONTH) {
+  return financialStartMonth === 1 ? "financial" : storedPeriodType;
+}
+
+export function periodFor(year, month, periodType, financialStartMonth = DEFAULT_FINANCIAL_START_MONTH) {
+  const startMonth = startMonthFor(periodType, financialStartMonth);
   return month >= startMonth ? year : year - 1;
 }
 
-export function monthsOfPeriod(referenceYear, periodType) {
-  const startMonth = startMonthFor(periodType);
+export function monthsOfPeriod(referenceYear, periodType, financialStartMonth = DEFAULT_FINANCIAL_START_MONTH) {
+  const startMonth = startMonthFor(periodType, financialStartMonth);
   return Array.from({ length: 12 }, (_, offset) => {
     const monthIndex = startMonth - 1 + offset;
     return {
@@ -38,26 +48,41 @@ export function monthsOfPeriod(referenceYear, periodType) {
   });
 }
 
-export function periodLabel(referenceYear, periodType) {
-  return periodType === "calendar"
-    ? `Calendar Year ${referenceYear}`
+export function periodLabel(referenceYear, periodType, financialStartMonth = DEFAULT_FINANCIAL_START_MONTH) {
+  if (periodType === "calendar") {
+    return `Calendar Year ${referenceYear}`;
+  }
+  // A January start sits inside one calendar year, so naming two would mislead.
+  return financialStartMonth === 1
+    ? `${referenceYear} Financial Year`
     : `${referenceYear}-${referenceYear + 1} Financial Year`;
 }
 
 // The Financial Year's or Calendar Year's own bounds as bare ISO dates - the
 // Transactions tab's Export panel default date range (ADR-0021; was
 // Financial-Year-only until Issue #125).
-export function periodDateRange(referenceYear, periodType) {
-  return periodType === "calendar"
-    ? { start: `${referenceYear}-01-01`, end: `${referenceYear}-12-31` }
-    : { start: `${referenceYear}-07-01`, end: `${referenceYear + 1}-06-30` };
+export function periodDateRange(referenceYear, periodType, financialStartMonth = DEFAULT_FINANCIAL_START_MONTH) {
+  const startMonth = startMonthFor(periodType, financialStartMonth);
+  // The period ends on the last day of the month before its start month.
+  const endYear = startMonth === 1 ? referenceYear : referenceYear + 1;
+  const endMonth = startMonth === 1 ? 12 : startMonth - 1;
+  const endDay = new Date(endYear, endMonth, 0).getDate();
+
+  return {
+    start: `${referenceYear}-${String(startMonth).padStart(2, "0")}-01`,
+    end: `${endYear}-${String(endMonth).padStart(2, "0")}-${String(endDay).padStart(2, "0")}`,
+  };
 }
 
 // The Financial Year or Calendar Year containing `today` - the switcher's
 // default on a fresh load, and the upper bound its Next arrow stops at
 // (ADR-0021: the newest selectable year is whichever period contains today).
-export function currentReferenceYear(periodType, today = new Date()) {
-  return periodFor(today.getFullYear(), today.getMonth() + 1, periodType);
+export function currentReferenceYear(
+  periodType,
+  today = new Date(),
+  financialStartMonth = DEFAULT_FINANCIAL_START_MONTH,
+) {
+  return periodFor(today.getFullYear(), today.getMonth() + 1, periodType, financialStartMonth);
 }
 
 // Today as a `{ year, month }` pill selection - framing-agnostic (a real
@@ -75,9 +100,9 @@ export function currentMonth(today = new Date()) {
 // `new Date(isoDate)`, matching format.js's parts() - the latter reads a bare
 // ISO date as midnight UTC, which is the wrong calendar date in any timezone
 // behind UTC.
-export function referenceYearContaining(isoDate, periodType) {
+export function referenceYearContaining(isoDate, periodType, financialStartMonth = DEFAULT_FINANCIAL_START_MONTH) {
   const [year, month] = isoDate.split("-").map(Number);
-  return periodFor(year, month, periodType);
+  return periodFor(year, month, periodType, financialStartMonth);
 }
 
 // Where a `{ year, month }` selection (or Full year, as null) displays after
@@ -85,10 +110,15 @@ export function referenceYearContaining(isoDate, periodType) {
 // so flipping framing keeps it selected and only recomputes which
 // referenceYear/label it's shown under (ADR-0021). Full year has no such
 // anchor, so it falls back to the period containing today.
-export function remapReferenceYear(selected, periodType, today = new Date()) {
+export function remapReferenceYear(
+  selected,
+  periodType,
+  today = new Date(),
+  financialStartMonth = DEFAULT_FINANCIAL_START_MONTH,
+) {
   return selected === null
-    ? currentReferenceYear(periodType, today)
-    : periodFor(selected.year, selected.month, periodType);
+    ? currentReferenceYear(periodType, today, financialStartMonth)
+    : periodFor(selected.year, selected.month, periodType, financialStartMonth);
 }
 
 export function getStoredPeriodType() {

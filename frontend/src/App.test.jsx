@@ -1115,3 +1115,269 @@ describe("Display Currency setting", () => {
     expect(document.body.textContent).not.toContain("$");
   });
 });
+
+describe("Financial Year start month setting", () => {
+  const DEFAULT_SETTINGS = { currency: "AUD", financial_year_start_month: 7, date_order: "day-first" };
+  const FULL_YEAR_THEN = (months) => ["Full year", ...months];
+  const APR_TO_MAR = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
+  const JAN_TO_DEC = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const JUL_TO_JUN = ["Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun"];
+
+  // The settings endpoint as the real server behaves (see the Display
+  // Currency tests): a GET reads what was last saved, a PUT merges and answers
+  // with everything.
+  function respondWithStartMonth(startMonth, { earliest = "2025-12-17", extra = {} } = {}) {
+    let settings = { ...DEFAULT_SETTINGS, financial_year_start_month: startMonth };
+    const bodies = {
+      "/api/annual-overview": annualWithSpending(),
+      "/api/overview": monthWithSpending(2026, 8),
+      "/api/latest-transaction-date": { date: "2026-08-03" },
+      "/api/transaction-date-range": { earliest, latest: "2026-08-03" },
+      "/api/transactions": [
+        { id: 1, date: "2026-08-01", amount: 42.5, type: "Expense", category: "Groceries", notes: "Woolworths" },
+      ],
+      "/api/recurring-rules": [],
+      "/api/categories": [],
+      "/api/budget-editor": { Income: [{ category: "Salary", amount: null }], Expense: [], Debt: [] },
+      "/api/budget-grid": { Income: [{ category: "Salary", amounts: Array(12).fill(null) }], Expense: [], Debt: [] },
+      "/api/budget-suggestion": { write_up: null, generated_at: null },
+      ...extra,
+    };
+    fetchMock.mockImplementation(async (url, options = {}) => {
+      if (url.startsWith("/api/settings")) {
+        if (options.method === "PUT") {
+          settings = { ...settings, ...JSON.parse(options.body) };
+        }
+        return { ok: true, status: 200, json: async () => settings };
+      }
+      const match = Object.keys(bodies).find((path) => url.startsWith(path));
+      return { ok: true, status: 200, json: async () => bodies[match] };
+    });
+  }
+
+  function pillLabels() {
+    return within(screen.getByRole("group", { name: "Select month" }))
+      .getAllByRole("button")
+      .map((pill) => pill.textContent);
+  }
+
+  it("behaves exactly as before - July to June - when no start month has been saved", async () => {
+    respondWithStartMonth(7);
+    render(<App />);
+
+    expect(await screen.findByText("2026-2027 Financial Year")).toBeInTheDocument();
+    expect(pillLabels()).toEqual(FULL_YEAR_THEN(JUL_TO_JUN));
+    expect(screen.getByRole("group", { name: "Financial Year or Calendar Year" })).toBeInTheDocument();
+  });
+
+  it("orders the Overview's month pills April to March for an April start, labelled 2026-2027", async () => {
+    respondWithStartMonth(4);
+    render(<App />);
+
+    expect(await screen.findByText("2026-2027 Financial Year")).toBeInTheDocument();
+    expect(pillLabels()).toEqual(FULL_YEAR_THEN(APR_TO_MAR));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/annual-overview?year=2026&period=financial", expect.anything()),
+    );
+  });
+
+  it("names the Financial Year containing today by the saved start month", async () => {
+    // 21 August 2026 falls in the October-start year that began in October 2025.
+    respondWithStartMonth(10);
+    render(<App />);
+
+    expect(await screen.findByText("2025-2026 Financial Year")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/annual-overview?year=2025&period=financial", expect.anything()),
+    );
+  });
+
+  it("orders the Budget tab's pills and Full year grid April to March for an April start", async () => {
+    respondWithStartMonth(4);
+    render(<App />);
+    await screen.findByText("$8,000");
+    await userEvent.click(screen.getByRole("button", { name: "Budget" }));
+    await screen.findByText("Salary");
+
+    expect(pillLabels()).toEqual(FULL_YEAR_THEN(APR_TO_MAR));
+
+    await userEvent.click(screen.getByRole("button", { name: "Full year" }));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/budget-grid?year=2026&period=financial", expect.anything()),
+    );
+    const [headerRow] = await screen.findAllByRole("row");
+    const headers = within(headerRow).getAllByRole("columnheader").map((header) => header.textContent);
+    expect(headers).toEqual(["Category", ...APR_TO_MAR]);
+  });
+
+  it("starts Transactions at the saved start month: its request, month filter and Export default range", async () => {
+    respondWithStartMonth(4);
+    render(<App />);
+    await screen.findByText("$8,000");
+
+    await userEvent.click(screen.getByRole("button", { name: "Transactions" }));
+    await screen.findByText("Woolworths");
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/transactions?year=2026&month=4", expect.anything()),
+    );
+    const options = within(screen.getByLabelText("Month"))
+      .getAllByRole("option")
+      .map((option) => option.textContent);
+    expect(options).toEqual(["All months", ...APR_TO_MAR]);
+
+    await userEvent.click(screen.getByRole("button", { name: "More options" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Export transactions" }));
+    expect(screen.getByLabelText("Start date")).toHaveValue("2026-04-01");
+    expect(screen.getByLabelText("End date")).toHaveValue("2027-03-31");
+  });
+
+  it("bounds the Previous arrow at the year containing the earliest Transaction, by the saved start month", async () => {
+    // May 2026 starts the April-start 2026 year, but sits inside the July-start 2025 year.
+    respondWithStartMonth(4, { earliest: "2026-05-10" });
+    render(<App />);
+    await screen.findByText("2026-2027 Financial Year");
+
+    expect(screen.getByRole("button", { name: "Previous year" })).toBeDisabled();
+  });
+
+  it("labels a January start with a single year and hides the Financial Year/Calendar Year switcher", async () => {
+    respondWithStartMonth(1);
+    render(<App />);
+
+    expect(await screen.findByText("2026 Financial Year")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Select year" })).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Financial Year or Calendar Year" })).not.toBeInTheDocument();
+    expect(pillLabels()).toEqual(FULL_YEAR_THEN(JAN_TO_DEC));
+  });
+
+  it("steps through January-start Financial Years with the arrows, labelled with a single year", async () => {
+    respondWithStartMonth(1);
+    render(<App />);
+    await screen.findByText("2026 Financial Year");
+
+    await userEvent.click(screen.getByRole("button", { name: "Previous year" }));
+
+    expect(await screen.findByText("2025 Financial Year")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/annual-overview?year=2025&period=financial", expect.anything()),
+    );
+  });
+
+  it("ignores a Calendar Year framing stored in the browser while the start is January", async () => {
+    localStorage.setItem("dashboard.periodType", "calendar");
+    respondWithStartMonth(1);
+    render(<App />);
+
+    expect(await screen.findByText("2026 Financial Year")).toBeInTheDocument();
+    expect(screen.queryByText("Calendar Year 2026")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/annual-overview?year=2026&period=financial", expect.anything()),
+    );
+    expect(fetchMock).not.toHaveBeenCalledWith(expect.stringContaining("period=calendar"), expect.anything());
+  });
+
+  it("still offers Calendar Year with a start other than January", async () => {
+    respondWithStartMonth(4);
+    render(<App />);
+    await screen.findByText("2026-2027 Financial Year");
+
+    await userEvent.click(screen.getByRole("button", { name: "Calendar Year" }));
+
+    expect(await screen.findByText("Calendar Year 2026")).toBeInTheDocument();
+    expect(pillLabels()).toEqual(FULL_YEAR_THEN(JAN_TO_DEC));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/annual-overview?year=2026&period=calendar", expect.anything()),
+    );
+  });
+
+  it("brings the switcher back after the start moves off January, restoring the stored Calendar Year framing", async () => {
+    localStorage.setItem("dashboard.periodType", "calendar");
+    respondWithStartMonth(1);
+    render(<App />);
+    await screen.findByText("2026 Financial Year");
+
+    await chooseStartMonth("April");
+    await userEvent.click(screen.getByRole("button", { name: "Overview" }));
+
+    expect(await screen.findByText("Calendar Year 2026")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Financial Year or Calendar Year" })).toBeInTheDocument();
+  });
+
+  async function chooseStartMonth(monthName) {
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+    await userEvent.selectOptions(await screen.findByRole("combobox", { name: "Financial Year start month" }), monthName);
+    await userEvent.click(screen.getByRole("button", { name: "Save Financial Year start" }));
+  }
+
+  it("offers January to December in Settings, showing the saved start month", async () => {
+    respondWithStartMonth(4);
+    render(<App />);
+    await screen.findByText("$8,000");
+
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+
+    const dropdown = await screen.findByRole("combobox", { name: "Financial Year start month" });
+    expect(dropdown).toHaveValue("4");
+    expect(within(dropdown).getAllByRole("option").map((option) => option.textContent)).toEqual([
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ]);
+  });
+
+  it("saves the chosen start month to the settings endpoint", async () => {
+    respondWithStartMonth(7);
+    render(<App />);
+    await screen.findByText("$8,000");
+
+    await chooseStartMonth("April");
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/settings",
+        expect.objectContaining({ method: "PUT", body: JSON.stringify({ financial_year_start_month: 4 }) }),
+      ),
+    );
+  });
+
+  it("regroups the Dashboard as soon as a new start month is saved, landing on the year containing today", async () => {
+    respondWithStartMonth(7);
+    render(<App />);
+    await screen.findByText("2026-2027 Financial Year");
+
+    await chooseStartMonth("October");
+    await userEvent.click(screen.getByRole("button", { name: "Overview" }));
+
+    expect(await screen.findByText("2025-2026 Financial Year")).toBeInTheDocument();
+    expect(pillLabels()).toEqual(FULL_YEAR_THEN(["Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep"]));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/annual-overview?year=2025&period=financial", expect.anything()),
+    );
+  });
+
+  it("shows the server's message when a start month is refused", async () => {
+    respondWithStartMonth(7);
+    const answer = fetchMock.getMockImplementation();
+    fetchMock.mockImplementation(async (url, options = {}) =>
+      url.startsWith("/api/settings") && options.method === "PUT"
+        ? { ok: false, status: 400, json: async () => ({ error: "financial_year_start_month must be a month number from 1 to 12, got 13" }) }
+        : answer(url, options),
+    );
+    render(<App />);
+    await screen.findByText("$8,000");
+
+    await chooseStartMonth("April");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("month number from 1 to 12");
+  });
+});
