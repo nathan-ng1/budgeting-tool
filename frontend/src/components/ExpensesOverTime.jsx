@@ -1,11 +1,11 @@
 import { CHART_HEIGHT, CHART_WIDTH, cumulativeChart, plotGridlines } from "../lib/charts.js";
-import { dayMonth } from "../lib/format.js";
-import { useMoney } from "../lib/settings.jsx";
+import { useDateFormat, useMoney } from "../lib/settings.jsx";
 
 const X_LABEL_STRIDE = 7;
 
 export default function ExpensesOverTime({ overTime }) {
   const { money } = useMoney();
+  const { dayMonth } = useDateFormat();
   const chart = cumulativeChart(overTime.daily);
   const gridlines = plotGridlines(CHART_HEIGHT);
   const lastPoint = chart.points[chart.points.length - 1];

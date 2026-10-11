@@ -58,27 +58,38 @@ export function pct(value) {
   return `${Math.round(value)}%`;
 }
 
-export function dayMonth(isoDate) {
+// Date Order (ADR-0027): "day-first" writes "19 Aug", "month-first" writes
+// "Aug 19". Month names always come from the English month labels. An
+// unset or unknown order reads day-first, the default.
+export const DEFAULT_DATE_ORDER = "day-first";
+
+function dayAndMonth(day, monthName, order) {
+  return order === "month-first" ? `${monthName} ${day}` : `${day} ${monthName}`;
+}
+
+export function dayMonth(isoDate, order = DEFAULT_DATE_ORDER) {
   const { month, day } = parts(isoDate);
-  return `${MONTH_LABELS_SHORT[month - 1]} ${day}`;
+  return dayAndMonth(day, MONTH_LABELS_SHORT[month - 1], order);
 }
 
 // The mockup's "As at" line spells the month out: "As at 19 August".
-export function dayMonthLong(isoDate) {
+export function dayMonthLong(isoDate, order = DEFAULT_DATE_ORDER) {
   const { month, day } = parts(isoDate);
-  return `${day} ${MONTH_LABELS_LONG[month - 1]}`;
+  return dayAndMonth(day, MONTH_LABELS_LONG[month - 1], order);
 }
 
 // Unlike dayMonth/dayMonthLong above, this is a real instant (the Budget
 // Suggestion's generated_at), so `new Date()` is the correct way to read it,
 // not the plain-calendar-date pitfall those two avoid.
-export function generatedAt(isoDateTime) {
+export function generatedAt(isoDateTime, order = DEFAULT_DATE_ORDER) {
   const date = new Date(isoDateTime);
   const hours = date.getHours();
   const minutes = String(date.getMinutes()).padStart(2, "0");
   const period = hours < 12 ? "am" : "pm";
   const hour12 = ((hours + 11) % 12) + 1;
-  return `${date.getDate()} ${MONTH_LABELS_SHORT[date.getMonth()]} ${date.getFullYear()}, ${hour12}:${minutes}${period}`;
+  const dayMonthPart = dayAndMonth(date.getDate(), MONTH_LABELS_SHORT[date.getMonth()], order);
+  const datePart = order === "month-first" ? `${dayMonthPart}, ${date.getFullYear()}` : `${dayMonthPart} ${date.getFullYear()}`;
+  return `${datePart}, ${hour12}:${minutes}${period}`;
 }
 
 function parts(isoDate) {

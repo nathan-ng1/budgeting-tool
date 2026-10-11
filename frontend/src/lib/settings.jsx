@@ -37,3 +37,17 @@ export function useMoney() {
     [currency],
   );
 }
+
+// The date helpers bound to the saved Date Order (ADR-0027). Month names stay
+// English whichever order is chosen.
+export function useDateFormat() {
+  const { date_order: order } = useSettings();
+  return useMemo(
+    () => ({
+      dayMonth: (isoDate) => format.dayMonth(isoDate, order),
+      dayMonthLong: (isoDate) => format.dayMonthLong(isoDate, order),
+      generatedAt: (isoDateTime) => format.generatedAt(isoDateTime, order),
+    }),
+    [order],
+  );
+}

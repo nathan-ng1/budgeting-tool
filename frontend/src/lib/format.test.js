@@ -63,26 +63,29 @@ describe("pct", () => {
 
 describe("dayMonth", () => {
   it("renders an ISO date the way the Top 5 list shows it", () => {
-    expect(dayMonth("2026-05-01")).toBe("May 1");
-    expect(dayMonth("2026-05-30")).toBe("May 30");
+    expect(dayMonth("2026-05-01")).toBe("1 May");
+    expect(dayMonth("2026-05-30")).toBe("30 May");
+    expect(dayMonth("2026-05-30", "month-first")).toBe("May 30");
   });
 
   it("reads the ISO date as a plain calendar date, not a UTC instant", () => {
     // Parsing "2026-05-01" via `new Date()` yields midnight UTC, which is the
     // previous day in any behind-UTC timezone - the date must not shift.
-    expect(dayMonth("2026-01-01")).toBe("Jan 1");
+    expect(dayMonth("2026-01-01")).toBe("1 Jan");
   });
 });
 
 describe("dayMonthLong", () => {
   it("spells the month out, the way the mockup's 'As at' line reads", () => {
     expect(dayMonthLong("2026-08-19")).toBe("19 August");
+    expect(dayMonthLong("2026-08-19", "month-first")).toBe("August 19");
   });
 });
 
 describe("generatedAt", () => {
   it("renders a full timestamp with a 12-hour clock", () => {
     expect(generatedAt("2026-08-20T14:32:00")).toBe("20 Aug 2026, 2:32pm");
+    expect(generatedAt("2026-08-20T14:32:00", "month-first")).toBe("Aug 20, 2026, 2:32pm");
   });
 
   it("renders midnight and noon as 12, not 0", () => {
