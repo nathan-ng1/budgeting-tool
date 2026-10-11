@@ -1108,6 +1108,26 @@ button.nav__tab:hover {
   grid-area: wide;
 }
 
+/* Full year: two equal columns of stacked cards. The last card in each column
+   stretches to the bottom edge so the columns end flush. */
+.row--columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.row--columns__col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.row--columns__col > .card:last-child {
+  flex: 1;
+}
+
 /* "Where did my income go?" beside the Balance check card (#168). */
 .row--allocation {
   display: grid;
@@ -1122,6 +1142,7 @@ button.nav__tab:hover {
   }
 
   .row--split,
+  .row--columns,
   .row--allocation {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1421,10 +1442,43 @@ tbody:first-of-type .bva__section {
   color: var(--color-neutral-600);
 }
 
-.top5__date {
+/* Top merchants rows: rank, detail (name, Category, bar), optional count, total. */
+.top5__row--merchant {
+  grid-template-columns: 20px minmax(90px, 1fr) 84px;
+}
+
+.top5__row--merchant.top5__row--with-count {
+  grid-template-columns: 20px minmax(90px, 1fr) 52px 84px;
+}
+
+.top5__bar {
+  display: block;
+  height: 5px;
+  margin-top: 4px;
+  border-radius: 3px;
+  background: var(--color-neutral-200);
+  overflow: hidden;
+}
+
+.top5__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+}
+
+.top5__count {
   font-size: 13px;
-  color: var(--color-neutral-500);
+  text-align: right;
   white-space: nowrap;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--color-neutral-600);
+  cursor: pointer;
 }
 
 .top5__amount {

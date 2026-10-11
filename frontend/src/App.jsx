@@ -17,7 +17,7 @@ import RecurringRules from "./components/RecurringRules.jsx";
 import SpendingByCategory from "./components/SpendingByCategory.jsx";
 import StatTiles from "./components/StatTiles.jsx";
 import ThemeSwitcher from "./components/ThemeSwitcher.jsx";
-import TopExpenses from "./components/TopExpenses.jsx";
+import TopMerchants from "./components/TopMerchants.jsx";
 import Transactions from "./components/Transactions.jsx";
 import { fetchAnnualOverview, fetchLatestTransactionDate, fetchMonthOverview, fetchTransactionDateRange } from "./lib/api.js";
 import { fetchCategories } from "./lib/categoriesApi.js";
@@ -355,26 +355,31 @@ function Dashboard({ settings, onSettingsSaved }) {
                     </div>
                     <OutflowsBreakdown tiles={overview.stat_tiles} />
                     <div className="row--split">
-                      <TopExpenses expenses={overview.top_expenses} count={5} colourFor={colourFor} />
+                      <TopMerchants merchants={overview.top_merchants} count={5} colourFor={colourFor} />
                       <SpendingOverTime overTime={overview.spending_over_time} />
                     </div>
                   </>
                 ) : (
-                  // Full year pairs Month by Month with Budgeted vs Actual
-                  // rather than with the donut: over a whole Financial Year
-                  // the month-by-month shape is what the donut begs the
-                  // reader to ask about (ADR-0011), so Spending by Category
-                  // moves down to pair with Top expenses instead.
+                  // Full year runs two equal columns - Month by month over
+                  // Spending by Category on the left, Budgeted vs Actual over
+                  // Debt on the right (the last card in each stretches to the
+                  // bottom edge) - then a row for Top merchants. Over a whole
+                  // Financial Year the month-by-month shape is what the donut
+                  // begs the reader to ask about (ADR-0011).
                   <>
                     <IncomeVsExpensesByMonth months={overview.income_vs_expenses_by_month} />
-                    <div className="row--wide-pair row--wide-pair--even">
-                      <div className="row--wide-pair__top">
+                    <div className="row--columns">
+                      <div className="row--columns__col">
                         <MonthByMonth months={overview.month_by_month} />
+                        <SpendingByCategory
+                          spending={overview.spending_by_category}
+                          total={overview.stat_tiles.expenses + overview.stat_tiles.bills_subscriptions}
+                          categories={categories}
+                          colourFor={colourFor}
+                        />
                       </div>
-                      <div className="row--wide-pair__wide">
+                      <div className="row--columns__col">
                         <BudgetedVsActual rows={overview.budgeted_vs_actual} categories={categories} colourFor={colourFor} />
-                      </div>
-                      <div className="row--wide-pair__bottom">
                         <DebtSummary
                           debtSummary={overview.debt_summary}
                           total={overview.stat_tiles.debt}
@@ -383,13 +388,7 @@ function Dashboard({ settings, onSettingsSaved }) {
                       </div>
                     </div>
                     <div className="row--split">
-                      <SpendingByCategory
-                        spending={overview.spending_by_category}
-                        total={overview.stat_tiles.expenses + overview.stat_tiles.bills_subscriptions}
-                        categories={categories}
-                        colourFor={colourFor}
-                      />
-                      <TopExpenses expenses={overview.top_expenses} count={10} colourFor={colourFor} />
+                      <TopMerchants merchants={overview.top_merchants} count={10} colourFor={colourFor} />
                     </div>
                   </>
                 )}

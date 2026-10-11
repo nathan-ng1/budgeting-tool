@@ -28,7 +28,7 @@ function monthOverview({ year = 2026, month = 8, ...overrides } = {}) {
     spending_by_category: [],
     budgeted_vs_actual: [],
     debt_summary: [],
-    top_expenses: [],
+    top_merchants: [],
     spending_over_time: { daily: [], total: 0, daily_average: 0 },
     ...overrides,
   };
@@ -53,7 +53,7 @@ function monthWithSpending(year, month, overrides = {}) {
     },
     spending_by_category: [{ category: "Groceries", amount: 3667, pct_of_spending: 100 }],
     budgeted_vs_actual: [{ type: "Expense", category: "Groceries", budgeted: 650, actual: 3667, diff: -3017, pct: 564.2 }],
-    top_expenses: [{ notes: "Woolworths", category: "Groceries", date: `${year}-0${month}-05`, amount: 3667 }],
+    top_merchants: [{ merchant: "Woolworths", category: "Groceries", total: 3667, count: 4 }],
     spending_over_time: {
       daily: [
         { date: `${year}-0${month}-01`, cumulative: 0 },
@@ -81,7 +81,7 @@ function annualOverview(overrides = {}) {
     spending_by_category: [],
     budgeted_vs_actual: [],
     debt_summary: [],
-    top_expenses: [],
+    top_merchants: [],
     month_by_month: ZERO_MONTHS,
     income_vs_expenses_by_month: ZERO_MONTHS,
     ...overrides,
@@ -111,7 +111,7 @@ function annualWithSpending(overrides = {}) {
     spending_by_category: [{ category: "Groceries", amount: 6000, pct_of_spending: 100 }],
     // Full year's Budgeted is a real per-Category rollup across elapsed months (ADR-0013).
     budgeted_vs_actual: [{ type: "Expense", category: "Groceries", budgeted: 3000, actual: 6000, diff: -3000, pct: 200.0 }],
-    top_expenses: [{ notes: "Woolworths", category: "Groceries", date: "2026-07-05", amount: 6000 }],
+    top_merchants: [{ merchant: "Woolworths", category: "Groceries", total: 6000, count: 9 }],
     month_by_month: months,
     income_vs_expenses_by_month: months,
     ...overrides,
@@ -204,7 +204,7 @@ describe("App", () => {
     expect(screen.queryByText(/Left to Budget/)).not.toBeInTheDocument();
   });
 
-  it("renders Full year's Spending by Category, Budgeted vs Actual, Month by month, Cash Flow by Month, and Top 10 expenses", async () => {
+  it("renders Full year's Spending by Category, Budgeted vs Actual, Month by month, Cash Flow by Month, and Top merchants", async () => {
     respondWith();
     render(<App />);
     await screen.findByText("$8,000");
@@ -218,7 +218,7 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Month by month" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Cash Flow by Month" })).toBeInTheDocument();
 
-    expect(screen.getByRole("heading", { name: "Top 10 expenses" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Top merchants" })).toBeInTheDocument();
     expect(screen.getByText("Woolworths")).toBeInTheDocument();
 
     // Per-month-only sections stay off Full year.
@@ -239,7 +239,7 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Where did my income go?" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Spending by Category" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Budgeted vs Actual" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Top 5 expenses" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Top merchants" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Spending over time" })).toBeInTheDocument();
     expect(screen.getByText("Woolworths")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Aug" })).toHaveAttribute("aria-pressed", "true");
@@ -288,7 +288,7 @@ describe("App", () => {
           { type: "Bills & Subscriptions", category: "Insurance", budgeted: 600, actual: 600, diff: 0, pct: 100 },
           { type: "Debt", category: "Mortgage", budgeted: 2000, actual: 2000, diff: 0, pct: 100 },
         ],
-        top_expenses: [{ notes: "Woolworths", category: "Groceries", date: "2026-08-05", amount: 900 }],
+        top_merchants: [{ merchant: "Woolworths", category: "Groceries", total: 900, count: 2 }],
       }),
     });
     render(<App />);
@@ -375,7 +375,8 @@ describe("App", () => {
 
     // ...with zeroes and plain empty copy rather than a crash or blank panels.
     expect(screen.getAllByText("$0").length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/No expenses recorded/i)).toHaveLength(2);
+    expect(screen.getByText(/No expenses recorded/i)).toBeInTheDocument();
+    expect(screen.getByText("No spending recorded for this period.")).toBeInTheDocument();
     expect(screen.getByText(/No spending or Category Budgets/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Debt" })).toBeInTheDocument();
     expect(screen.getByText(/No Debt repayments recorded/i)).toBeInTheDocument();
@@ -397,7 +398,7 @@ describe("App", () => {
 
     const headings = screen.getAllByRole("heading").map((h) => h.textContent);
     expect(headings.indexOf("Budgeted vs Actual")).toBeLessThan(headings.indexOf("Debt"));
-    expect(headings.indexOf("Debt")).toBeLessThan(headings.indexOf("Top 5 expenses"));
+    expect(headings.indexOf("Debt")).toBeLessThan(headings.indexOf("Top merchants"));
     expect(screen.getByText("Werribee")).toBeInTheDocument();
     expect(screen.getAllByText("$875").length).toBeGreaterThan(0);
     expect(screen.queryByText(/month average/)).not.toBeInTheDocument();
@@ -463,7 +464,7 @@ describe("App", () => {
     expect(within(debtCard).getByText("$800 / month average")).toBeInTheDocument();
   });
 
-  it("groups Month by month, Budgeted vs Actual, and Debt into the wide-pair layout, and pairs Spending by Category with Top expenses, for Full year", async () => {
+  it("re-flows Full year into two equal columns, then a row for Top merchants, with no Top Expenses card", async () => {
     respondWith({
       annual: annualWithSpending({
         stat_tiles: { income: 8000, expenses: 6000, debt: 1600, available_to_save: 400, saved: 1000, unallocated: -600 },
@@ -474,15 +475,41 @@ describe("App", () => {
     render(<App />);
     await screen.findByText("$8,000");
 
-    const widePair = screen.getByRole("heading", { name: "Budgeted vs Actual" }).closest(".row--wide-pair");
-    expect(widePair).not.toBeNull();
-    expect(within(widePair).getByRole("heading", { name: "Month by month" })).toBeInTheDocument();
-    expect(within(widePair).getByRole("heading", { name: "Debt" })).toBeInTheDocument();
-    expect(within(widePair).queryByRole("heading", { name: "Spending by Category" })).not.toBeInTheDocument();
+    const columns = screen.getByRole("heading", { name: "Month by month" }).closest(".row--columns");
+    expect(columns).not.toBeNull();
+    const [left, right] = columns.querySelectorAll(":scope > .row--columns__col");
+    const cardTitles = (column) => [...column.querySelectorAll(":scope > .card h3")].map((h) => h.textContent);
+    expect(cardTitles(left)).toEqual(["Month by month", "Spending by Category"]);
+    expect(cardTitles(right)).toEqual(["Budgeted vs Actual", "Debt"]);
+    expect(columns.closest(".row--wide-pair")).toBeNull();
 
-    const split = screen.getByRole("heading", { name: "Spending by Category" }).closest(".row--split");
+    const split = screen.getByRole("heading", { name: "Top merchants" }).closest(".row--split");
     expect(split).not.toBeNull();
-    expect(within(split).getByRole("heading", { name: "Top 10 expenses" })).toBeInTheDocument();
+    expect(columns.nextElementSibling).toBe(split);
+    expect(screen.queryByText(/Top \d+ expenses/i)).not.toBeInTheDocument();
+  });
+
+  it("shows the ten largest merchants for Full year and five for a month", async () => {
+    const merchants = Array.from({ length: 10 }, (_, index) => ({
+      merchant: `Merchant ${"ABCDEFGHIJ"[index]}`,
+      category: "Groceries",
+      total: 1000 - index * 10,
+      count: 1,
+    }));
+    respondWith({
+      annual: annualWithSpending({ top_merchants: merchants }),
+      month: monthWithSpending(2026, 8, { top_merchants: merchants }),
+    });
+    render(<App />);
+    await screen.findByText("$8,000");
+
+    expect(screen.getAllByText(/^Merchant [A-J]$/)).toHaveLength(10);
+
+    await userEvent.click(screen.getByRole("button", { name: "Aug" }));
+    await screen.findByText("$5,240");
+
+    expect(screen.getAllByText(/^Merchant [A-J]$/)).toHaveLength(5);
+    expect(screen.queryByText(/Top \d+ expenses/i)).not.toBeInTheDocument();
   });
 
   it("surfaces a backend failure instead of rendering a half-empty page", async () => {
@@ -1312,11 +1339,9 @@ describe("Date Order setting", () => {
     render(<App />);
 
     expect(await screen.findByText("As at 19 August")).toBeInTheDocument();
-    expect(screen.getByText("5 Jul")).toBeInTheDocument(); // Top Expenses, Full year
 
     await userEvent.click(screen.getByRole("button", { name: "Aug" }));
-    expect(await screen.findByText("5 Aug")).toBeInTheDocument(); // Top Expenses
-    expect(screen.getByText("1 Aug")).toBeInTheDocument(); // Expenses Over Time axis
+    expect(await screen.findByText("1 Aug")).toBeInTheDocument(); // Spending Over Time axis
 
     await userEvent.click(screen.getByRole("button", { name: "Budget" }));
     expect(await screen.findByText("Generated 20 Aug 2026, 2:32pm")).toBeInTheDocument();
@@ -1343,7 +1368,7 @@ describe("Date Order setting", () => {
     );
   });
 
-  it("flips the As at header, Top Expenses, the Expenses Over Time axis and the Budget Suggestion time to month-first as soon as it is saved, with English month names", async () => {
+  it("flips the As at header, the Spending Over Time axis and the Budget Suggestion time to month-first as soon as it is saved, with English month names", async () => {
     respondWithSettings();
     render(<App />);
     await screen.findByText("As at 19 August");
@@ -1353,9 +1378,8 @@ describe("Date Order setting", () => {
     expect(await screen.findByText("As at August 19")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Overview" }));
     await userEvent.click(await screen.findByRole("button", { name: "Aug" }));
-    expect(await screen.findByText("Aug 5")).toBeInTheDocument();
-    expect(screen.getByText("Aug 1")).toBeInTheDocument();
-    expect(screen.queryByText("5 Aug")).not.toBeInTheDocument();
+    expect(await screen.findByText("Aug 1")).toBeInTheDocument();
+    expect(screen.queryByText("1 Aug")).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Budget" }));
     expect(await screen.findByText("Generated Aug 20, 2026, 2:32pm")).toBeInTheDocument();
@@ -1376,7 +1400,6 @@ describe("Date Order setting", () => {
     render(<App />);
 
     expect(await screen.findByText("As at August 19")).toBeInTheDocument();
-    expect(screen.getByText("Jul 5")).toBeInTheDocument();
   });
 });
 

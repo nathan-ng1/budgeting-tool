@@ -10,6 +10,7 @@ from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import date
 
+from categorisation.history import normalise_notes
 from transaction_log.categories import TYPE_ORDER, Category, categories_by_type, type_lookup
 from transaction_log.entries import Transaction
 
@@ -101,11 +102,11 @@ class DebtByNotes:
 
 
 @dataclass(frozen=True)
-class TopExpense:
-    notes: str
+class TopMerchant:
+    merchant: str
     category: str
-    date: str
-    amount: float
+    total: float
+    count: int
 
 
 @dataclass(frozen=True)
@@ -130,7 +131,7 @@ class MonthOverview:
     spending_by_category: list[CategorySpend]
     budgeted_vs_actual: list[BudgetVsActual]
     debt_summary: list[DebtByNotes]
-    top_expenses: list[TopExpense]
+    top_merchants: list[TopMerchant]
     spending_over_time: SpendingOverTime
 
 
@@ -156,7 +157,7 @@ class AnnualOverview:
     spending_by_category: list[CategorySpend]
     budgeted_vs_actual: list[BudgetVsActual]
     debt_summary: list[DebtByNotes]
-    top_expenses: list[TopExpense]
+    top_merchants: list[TopMerchant]
     month_by_month: list[MonthlyTotals]
     income_vs_expenses_by_month: list[MonthlyTotals]
 
@@ -175,7 +176,7 @@ def get_month_overview(store, year: int, month: int) -> MonthOverview:
             transactions, store.read_category_budgets(year, month), store.read_categories()
         ),
         debt_summary=_debt_summary(transactions, stat_tiles.debt),
-        top_expenses=_top_expenses(transactions, limit=5),
+        top_merchants=_top_merchants(transactions, limit=5),
         spending_over_time=_spending_over_time(transactions, year, month),
     )
 
@@ -203,7 +204,7 @@ def get_annual_overview(store, year: int, today: date | None = None, start_month
         spending_by_category=_spending_by_category(transactions, stat_tiles.expenses + stat_tiles.bills_subscriptions),
         budgeted_vs_actual=_annual_budgeted_vs_actual(store, transactions, start, elapsed_months),
         debt_summary=_debt_summary(transactions, stat_tiles.debt),
-        top_expenses=_top_expenses(transactions, limit=10),
+        top_merchants=_top_merchants(transactions, limit=10),
         # Two named series over the same rows, not two computations: the Month
         # by month table and the Income vs Expenses chart both need one row
         # per month, but are separate fields (rather than one field two
@@ -493,6 +494,7 @@ def _totals_by_category(transactions: list[Transaction], types: Collection[str])
 
 # Spending (GLOSSARY): Expense plus Bills & Subscriptions; Debt and Savings are out.
 SPENDING_TYPES = frozenset({"Expense", "Bills & Subscriptions"})
+BEEM_ADJUSTMENT = "Beem Adjustment"
 
 
 def _spending_by_category(transactions: list[Transaction], spending: float) -> list[CategorySpend]:
@@ -679,13 +681,33 @@ def _monthly_totals(transactions: list[Transaction], start: date) -> list[Monthl
     return rows
 
 
-def _top_expenses(transactions: list[Transaction], limit: int) -> list[TopExpense]:
-    expenses = [t for t in transactions if t.type == "Expense"]
-    ranked = sorted(expenses, key=lambda t: (-t.amount, t.date, t.notes))
-    return [
-        TopExpense(notes=t.notes, category=t.category, date=t.date.isoformat(), amount=_round(t.amount))
-        for t in ranked[:limit]
-    ]
+def _merchant_key(notes: str) -> str:
+    """The grouping key for a merchant: the History Match normaliser (ADR-0026).
+    Notes made only of digits normalise to nothing, so fall back to the
+    stripped, lower-cased Notes rather than lumping them all together."""
+    return normalise_notes(notes) or notes.strip().lower()
+
+
+def _top_merchants(transactions: list[Transaction], limit: int) -> list[TopMerchant]:
+    groups: dict[str, list[Transaction]] = {}
+    for t in transactions:
+        if t.type not in SPENDING_TYPES or t.category == BEEM_ADJUSTMENT:
+            continue
+        groups.setdefault(_merchant_key(t.notes), []).append(t)
+
+    merchants = []
+    for rows in groups.values():
+        latest = max(rows, key=lambda t: (t.date, t.id))
+        merchants.append(
+            TopMerchant(
+                merchant=latest.notes,
+                category=latest.category,
+                total=_round(sum(t.amount for t in rows)),
+                count=len(rows),
+            )
+        )
+    merchants.sort(key=lambda m: (-m.total, m.merchant.lower(), m.merchant))
+    return merchants[:limit]
 
 
 def _spending_over_time(transactions: list[Transaction], year: int, month: int) -> SpendingOverTime:
