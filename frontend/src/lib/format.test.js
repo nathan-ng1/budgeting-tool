@@ -19,9 +19,9 @@ describe("money", () => {
 
 describe("money in another Display Currency", () => {
   it("follows the entry's own separators and symbol position", () => {
-    expect(money(1234.56, "EUR-DE")).toBe("1.235\u00a0€");
-    expect(money(1234.56, "EUR-IE")).toBe("€1,235");
-    expect(money(-42, "EUR-DE")).toBe("-42\u00a0€");
+    expect(money(1234.56, "EUR")).toBe("1.235\u00a0€");
+    expect(money(1234.56, "GBP")).toBe("£1,235");
+    expect(money(-42, "EUR")).toBe("-42\u00a0€");
   });
 
   it("reads an unknown entry as the Australian dollar", () => {
@@ -32,7 +32,7 @@ describe("money in another Display Currency", () => {
 describe("preciseMoney", () => {
   it("keeps the currency's own decimals - two for most, none for yen", () => {
     expect(preciseMoney(1234.5)).toBe("$1,234.50");
-    expect(preciseMoney(1234.56, "EUR-DE")).toBe("1.234,56\u00a0€");
+    expect(preciseMoney(1234.56, "EUR")).toBe("1.234,56\u00a0€");
     expect(preciseMoney(1234.56, "JPY")).toBe("¥1,235");
   });
 });
@@ -42,8 +42,8 @@ describe("signedMoney", () => {
     expect(signedMoney(40)).toBe("+$40");
     expect(signedMoney(-38)).toBe("−$38");
     expect(signedMoney(0)).toBe("+$0");
-    expect(signedMoney(-3017, "EUR-DE")).toBe("−3.017\u00a0€");
-    expect(signedMoney(40, "EUR-IE")).toBe("+€40");
+    expect(signedMoney(-3017, "EUR")).toBe("−3.017\u00a0€");
+    expect(signedMoney(40, "GBP")).toBe("+£40");
   });
 });
 

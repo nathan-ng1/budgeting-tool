@@ -4,11 +4,9 @@ import BalanceCheck from "./components/BalanceCheck.jsx";
 import Budget from "./components/Budget.jsx";
 import BudgetedVsActual from "./components/BudgetedVsActual.jsx";
 import CategoryManagement from "./components/CategoryManagement.jsx";
-import DateOrder from "./components/DateOrder.jsx";
-import DisplayCurrency from "./components/DisplayCurrency.jsx";
+import DisplaySettings from "./components/DisplaySettings.jsx";
 import DebtSummary from "./components/DebtSummary.jsx";
 import ExpensesOverTime from "./components/ExpensesOverTime.jsx";
-import FinancialYearStart from "./components/FinancialYearStart.jsx";
 import IncomeAllocation from "./components/IncomeAllocation.jsx";
 import IncomeVsExpensesByMonth from "./components/IncomeVsExpensesByMonth.jsx";
 import MonthByMonth from "./components/MonthByMonth.jsx";
@@ -287,9 +285,7 @@ function Dashboard({ settings, onSettingsSaved }) {
         {tab === "Settings" && (
           <>
             <ThemeSwitcher />
-            <DisplayCurrency currency={settings.currency} onSaved={handleSettingsSaved} />
-            <FinancialYearStart startMonth={financialStartMonth} onSaved={handleSettingsSaved} />
-            <DateOrder dateOrder={settings.date_order} onSaved={handleSettingsSaved} />
+            <DisplaySettings saved={settings} onSaved={handleSettingsSaved} />
             <CategoryManagement />
             <RecurringRules />
           </>

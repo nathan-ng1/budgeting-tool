@@ -1519,6 +1519,32 @@ tbody:first-of-type .bva__section {
   color: var(--color-neutral-600);
 }
 
+/* Display Settings (ADR-0027): the currency, Financial Year start and Date
+   Order fields side by side in one tile, one Save underneath. */
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 18px 22px;
+  margin-top: 16px;
+}
+
+.settings-grid__item {
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-footer {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.settings-footer__dirty {
+  font-size: 13px;
+  color: var(--color-neutral-600);
+}
+
 .button {
   padding: 9px 16px;
   border: 1px solid var(--color-accent-600);

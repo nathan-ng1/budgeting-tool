@@ -908,7 +908,7 @@ describe("App", () => {
 describe("Display Currency setting", () => {
   const DEFAULT_SETTINGS = { currency: "AUD", financial_year_start_month: 7, date_order: "day-first" };
   const NBSP = " ";
-  const GERMAN_EURO_OPTION = `Euro (Germany) - 1.234,56${NBSP}€`;
+  const EURO_OPTION = `Euro - 1.234,56${NBSP}€`;
 
   // The settings endpoint as the real server behaves: a GET reads what was
   // last saved, a PUT merges the body in and answers with everything.
@@ -939,7 +939,7 @@ describe("Display Currency setting", () => {
   async function chooseCurrency(value) {
     await userEvent.click(screen.getByRole("button", { name: "Settings" }));
     await userEvent.selectOptions(await screen.findByRole("combobox", { name: "Display Currency" }), value);
-    await userEvent.click(screen.getByRole("button", { name: "Save Display Currency" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save settings" }));
   }
 
   it("shows every amount in Australian dollars when no setting has ever been saved", async () => {
@@ -967,8 +967,9 @@ describe("Display Currency setting", () => {
     const dropdown = await screen.findByRole("combobox", { name: "Display Currency" });
     expect(dropdown).toHaveValue("AUD");
     expect(within(dropdown).getByRole("option", { name: "Australian dollar - $1,234.56" })).toBeInTheDocument();
-    expect(within(dropdown).getByRole("option", { name: GERMAN_EURO_OPTION })).toBeInTheDocument();
-    expect(within(dropdown).getByRole("option", { name: "Euro (Ireland) - €1,234.56" })).toBeInTheDocument();
+    // One euro entry, not one per country.
+    expect(within(dropdown).getAllByRole("option", { name: /^Euro/ })).toHaveLength(1);
+    expect(within(dropdown).getByRole("option", { name: EURO_OPTION })).toBeInTheDocument();
     expect(within(dropdown).getByRole("option", { name: "Japanese yen - ¥1,235" })).toBeInTheDocument();
     expect(screen.getByText(/relabels existing amounts and never converts them/i)).toBeInTheDocument();
   });
@@ -978,12 +979,12 @@ describe("Display Currency setting", () => {
     render(<App />);
     await screen.findByText("$8,000");
 
-    await chooseCurrency("EUR-DE");
+    await chooseCurrency("EUR");
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
         "/api/settings",
-        expect.objectContaining({ method: "PUT", body: JSON.stringify({ currency: "EUR-DE" }) }),
+        expect.objectContaining({ method: "PUT", body: JSON.stringify({ currency: "EUR" }) }),
       ),
     );
   });
@@ -992,7 +993,7 @@ describe("Display Currency setting", () => {
     respondWithSettings();
     render(<App />);
     await screen.findByText("$8,000");
-    await chooseCurrency("EUR-DE");
+    await chooseCurrency("EUR");
 
     await userEvent.click(screen.getByRole("button", { name: "Overview" }));
 
@@ -1009,15 +1010,8 @@ describe("Display Currency setting", () => {
     expect(document.body.textContent).not.toContain("$");
   });
 
-  it("places the symbol before the number for a euro convention that writes it that way", async () => {
-    respondWithSettings({ currency: "EUR-IE" });
-    render(<App />);
-
-    expect(await screen.findByText("€8,000")).toBeInTheDocument();
-  });
-
   it("shows a month's amounts and signed differences in the chosen currency", async () => {
-    respondWithSettings({ currency: "EUR-DE" });
+    respondWithSettings({ currency: "EUR" });
     render(<App />);
     await screen.findByText(`8.000 €`);
 
@@ -1030,7 +1024,7 @@ describe("Display Currency setting", () => {
 
   it("shows Transactions' and Recurring rules' precise amounts with the currency's own decimals", async () => {
     respondWithSettings(
-      { currency: "EUR-DE" },
+      { currency: "EUR" },
       {
         transactions: [
           { id: 1, date: "2026-08-01", amount: 1234.56, type: "Expense", category: "Groceries", notes: "Woolworths" },
@@ -1094,7 +1088,7 @@ describe("Display Currency setting", () => {
       month_actual: 306,
     };
     respondWithSettings(
-      { currency: "EUR-DE" },
+      { currency: "EUR" },
       {
         extra: {
           "/api/budget-editor": { Income: [], Expense: [editorRow], Debt: [] },
@@ -1117,6 +1111,78 @@ describe("Display Currency setting", () => {
     await userEvent.click(screen.getByRole("button", { name: "Full year" }));
     expect(await screen.findAllByText(`650 €`)).not.toHaveLength(0);
     expect(document.body.textContent).not.toContain("$");
+  });
+
+  describe("as one Display Settings tile", () => {
+    async function openSettings() {
+      respondWithSettings();
+      render(<App />);
+      await screen.findByText("$8,000");
+      await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+      await screen.findByRole("combobox", { name: "Display Currency" });
+    }
+
+    function putBodies() {
+      return fetchMock.mock.calls
+        .filter(([url, options]) => url === "/api/settings" && options?.method === "PUT")
+        .map(([, options]) => JSON.parse(options.body));
+    }
+
+    it("holds the currency, Financial Year start and Date Order together under one 'Display Settings' heading", async () => {
+      await openSettings();
+
+      const tile = screen.getByRole("heading", { name: "Display Settings" }).closest("section");
+      expect(within(tile).getByRole("combobox", { name: "Display Currency" })).toBeInTheDocument();
+      expect(within(tile).getByRole("combobox", { name: "Financial Year start month" })).toBeInTheDocument();
+      expect(within(tile).getByRole("combobox", { name: "Date Order" })).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Display Currency" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Date Order" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Financial Year" })).not.toBeInTheDocument();
+    });
+
+    it("has one Save button, disabled until something changes", async () => {
+      await openSettings();
+
+      expect(screen.getAllByRole("button", { name: /^Save/ })).toHaveLength(1);
+      const save = screen.getByRole("button", { name: "Save settings" });
+      expect(save).toBeDisabled();
+
+      await userEvent.selectOptions(screen.getByRole("combobox", { name: "Date Order" }), "month-first");
+      expect(save).toBeEnabled();
+
+      await userEvent.selectOptions(screen.getByRole("combobox", { name: "Date Order" }), "day-first");
+      expect(save).toBeDisabled();
+    });
+
+    it("saves every changed setting in one request, and only the changed ones", async () => {
+      await openSettings();
+
+      await userEvent.selectOptions(screen.getByRole("combobox", { name: "Display Currency" }), "GBP");
+      await userEvent.selectOptions(screen.getByRole("combobox", { name: "Date Order" }), "month-first");
+      await userEvent.click(screen.getByRole("button", { name: "Save settings" }));
+
+      await waitFor(() => expect(putBodies()).toEqual([{ currency: "GBP", date_order: "month-first" }]));
+      await waitFor(() => expect(screen.getByRole("button", { name: "Save settings" })).toBeDisabled()); // now saved
+
+      await userEvent.click(screen.getByRole("button", { name: "Overview" }));
+      expect(await screen.findByText("£8,000")).toBeInTheDocument();
+      expect(screen.getByText("As at August 3")).toBeInTheDocument(); // month-first (latest Transaction is 3 Aug)
+    });
+
+    it("shows the server's refusal and leaves the choices in place", async () => {
+      await openSettings();
+      fetchMock.mockImplementationOnce(async () => ({
+        ok: false,
+        status: 400,
+        json: async () => ({ error: "currency 'XXX' is not an available Display Currency" }),
+      }));
+
+      await userEvent.selectOptions(screen.getByRole("combobox", { name: "Display Currency" }), "GBP");
+      await userEvent.click(screen.getByRole("button", { name: "Save settings" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("not an available Display Currency");
+      expect(screen.getByRole("combobox", { name: "Display Currency" })).toHaveValue("GBP");
+    });
   });
 });
 
@@ -1154,7 +1220,7 @@ describe("Date Order setting", () => {
   async function chooseDateOrder(value) {
     await userEvent.click(screen.getByRole("button", { name: "Settings" }));
     await userEvent.selectOptions(await screen.findByRole("combobox", { name: "Date Order" }), value);
-    await userEvent.click(screen.getByRole("button", { name: "Save Date Order" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save settings" }));
   }
 
   it("writes dates day-first everywhere when no Date Order has ever been saved", async () => {
@@ -1442,7 +1508,7 @@ describe("Financial Year start month setting", () => {
   async function chooseStartMonth(monthName) {
     await userEvent.click(screen.getByRole("button", { name: "Settings" }));
     await userEvent.selectOptions(await screen.findByRole("combobox", { name: "Financial Year start month" }), monthName);
-    await userEvent.click(screen.getByRole("button", { name: "Save Financial Year start" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save settings" }));
   }
 
   it("offers January to December in Settings, showing the saved start month", async () => {

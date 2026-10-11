@@ -1,8 +1,8 @@
 // The curated Display Currency list (ADR-0027, GLOSSARY.md). Each entry is an
 // ISO 4217 currency code plus the locale whose conventions format it (symbol
-// and its position, thousands and decimal separators). Where one currency
-// reads materially differently by country - notably the euro - there is one
-// entry per convention, so the picker stays a single dropdown.
+// and its position, thousands and decimal separators). One entry per
+// currency: the euro is written one way (1.234,56 €) even though countries
+// that use it differ, to keep the picker short.
 //
 // Only 0- and 2-decimal currencies are listed: every Amount is held to two
 // decimals, so a 3-decimal dinar could not be shown faithfully.
@@ -18,12 +18,7 @@ export const CURRENCIES = [
   { id: "USD", code: "USD", locale: "en-US", name: "US dollar" },
   { id: "CAD", code: "CAD", locale: "en-CA", name: "Canadian dollar" },
   { id: "GBP", code: "GBP", locale: "en-GB", name: "British pound" },
-  { id: "EUR-DE", code: "EUR", locale: "de-DE", name: "Euro (Germany)" },
-  { id: "EUR-FR", code: "EUR", locale: "fr-FR", name: "Euro (France)" },
-  { id: "EUR-IE", code: "EUR", locale: "en-IE", name: "Euro (Ireland)" },
-  { id: "EUR-NL", code: "EUR", locale: "nl-NL", name: "Euro (Netherlands)" },
-  { id: "EUR-ES", code: "EUR", locale: "es-ES", name: "Euro (Spain)" },
-  { id: "EUR-IT", code: "EUR", locale: "it-IT", name: "Euro (Italy)" },
+  { id: "EUR", code: "EUR", locale: "de-DE", name: "Euro" },
   { id: "CHF", code: "CHF", locale: "de-CH", name: "Swiss franc" },
   { id: "SEK", code: "SEK", locale: "sv-SE", name: "Swedish krona" },
   { id: "NOK", code: "NOK", locale: "nb-NO", name: "Norwegian krone" },

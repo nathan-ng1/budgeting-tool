@@ -19,8 +19,7 @@ DATE_ORDERS = ("day-first", "month-first")
 CURRENCY_IDS = frozenset(
     {
         "AUD", "NZD", "USD", "CAD", "GBP", "JPY", "CNY", "KRW", "INR", "SGD", "HKD", "ZAR", "AED",
-        "CHF", "SEK", "NOK", "DKK", "PLN", "CZK", "BRL", "MXN",
-        "EUR-DE", "EUR-FR", "EUR-IE", "EUR-NL", "EUR-ES", "EUR-IT",
+        "CHF", "SEK", "NOK", "DKK", "PLN", "CZK", "BRL", "MXN", "EUR",
     }
 )  # fmt: skip
 

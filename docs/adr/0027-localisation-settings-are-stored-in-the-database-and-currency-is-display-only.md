@@ -27,6 +27,12 @@ translated.
   total. Adding it later would be a data migration, which is why the decision is recorded.
 - **A separate number-format dropdown alongside the currency.** Rejected in favour of one list of
   currencies with predefined conventions, to keep Settings simple.
+- **One euro entry per country (Germany, France, Ireland, ...).** Tried first, then collapsed to a
+  single "Euro" entry written the German way (1.234,56 €): six near-identical rows made the list
+  long for little gain. A euro user who wants another convention is not served; revisit if asked.
+- **One Settings card per setting, each with its own Save.** Replaced by a single "Display Settings"
+  tile with one Save that sends only the settings that changed, since the three are chosen together
+  when setting the Dashboard up for a country.
 - **Translated UI text.** Rejected for now: the Dashboard's vocabulary is glossary terms (Available
   to Save, Unallocated, Left to Budget) that are expensive to translate well and to keep translated.
   Revisit if demand appears from a specific language.

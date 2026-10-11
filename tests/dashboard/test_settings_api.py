@@ -45,12 +45,12 @@ def test_a_fresh_database_reads_the_australian_defaults(running_server):
 def test_a_saved_currency_reads_back_and_leaves_the_other_settings_alone(running_server):
     _store, server = running_server
 
-    status, saved = call(server, "PUT", "/api/settings", {"currency": "EUR-DE"})
+    status, saved = call(server, "PUT", "/api/settings", {"currency": "EUR"})
     _status, body = call(server, "GET", "/api/settings")
 
     assert status == 200
-    assert saved == {**DEFAULTS, "currency": "EUR-DE"}
-    assert body == {**DEFAULTS, "currency": "EUR-DE"}
+    assert saved == {**DEFAULTS, "currency": "EUR"}
+    assert body == {**DEFAULTS, "currency": "EUR"}
 
 
 def test_all_three_settings_can_be_saved_and_read_back(running_server):
