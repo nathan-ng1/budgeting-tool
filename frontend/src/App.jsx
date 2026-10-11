@@ -4,6 +4,7 @@ import BalanceCheck from "./components/BalanceCheck.jsx";
 import Budget from "./components/Budget.jsx";
 import BudgetedVsActual from "./components/BudgetedVsActual.jsx";
 import CategoryManagement from "./components/CategoryManagement.jsx";
+import DateOrder from "./components/DateOrder.jsx";
 import DisplayCurrency from "./components/DisplayCurrency.jsx";
 import DebtSummary from "./components/DebtSummary.jsx";
 import ExpensesOverTime from "./components/ExpensesOverTime.jsx";
@@ -20,8 +21,7 @@ import TopExpenses from "./components/TopExpenses.jsx";
 import Transactions from "./components/Transactions.jsx";
 import { fetchAnnualOverview, fetchLatestTransactionDate, fetchMonthOverview, fetchTransactionDateRange } from "./lib/api.js";
 import { fetchCategories } from "./lib/categoriesApi.js";
-import { dayMonthLong } from "./lib/format.js";
-import { DEFAULT_SETTINGS, SettingsProvider } from "./lib/settings.jsx";
+import { DEFAULT_SETTINGS, SettingsProvider, useDateFormat } from "./lib/settings.jsx";
 import { fetchSettings } from "./lib/settingsApi.js";
 import { currentMonth, currentReferenceYear, getStoredPeriodType, remapReferenceYear } from "./lib/period.js";
 
@@ -65,6 +65,7 @@ export default function App() {
 }
 
 function Dashboard({ settings, onSettingsSaved }) {
+  const { dayMonthLong } = useDateFormat();
   const [tab, setTab] = useState("Overview");
   const [asAt, setAsAt] = useState(null);
   // null = Full year, the Overview tab's default on every load - no
@@ -259,6 +260,7 @@ function Dashboard({ settings, onSettingsSaved }) {
           <>
             <ThemeSwitcher />
             <DisplayCurrency currency={settings.currency} onSaved={onSettingsSaved} />
+            <DateOrder dateOrder={settings.date_order} onSaved={onSettingsSaved} />
             <CategoryManagement />
             <RecurringRules />
           </>

@@ -85,6 +85,11 @@ def test_a_saved_setting_survives_a_server_restart(serve, tmp_path):
         ({"financial_year_start_month": 13}, "financial_year_start_month"),
         ({"financial_year_start_month": "July"}, "financial_year_start_month"),
         ({"date_order": "year-first"}, "year-first"),
+        ({"date_order": "Day-First"}, "Day-First"),
+        ({"date_order": ""}, "date_order"),
+        ({"date_order": None}, "date_order"),
+        ({"date_order": 5}, "date_order"),
+        ({"date_order": ["day-first"]}, "date_order"),
         ({"surprise": 1}, "surprise"),
     ],
 )

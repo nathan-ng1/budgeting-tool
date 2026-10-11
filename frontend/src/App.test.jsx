@@ -1115,3 +1115,113 @@ describe("Display Currency setting", () => {
     expect(document.body.textContent).not.toContain("$");
   });
 });
+
+describe("Date Order setting", () => {
+  const DEFAULT_SETTINGS = { currency: "AUD", financial_year_start_month: 7, date_order: "day-first" };
+
+  // The settings endpoint as the real server behaves: a GET reads what was
+  // last saved, a PUT merges the body in and answers with everything.
+  function respondWithSettings(saved = {}) {
+    let settings = { ...DEFAULT_SETTINGS, ...saved };
+    const bodies = {
+      "/api/annual-overview": annualWithSpending(),
+      "/api/overview": monthWithSpending(2026, 8),
+      "/api/latest-transaction-date": { date: "2026-08-19" },
+      "/api/transaction-date-range": { earliest: "2025-12-17", latest: "2026-08-19" },
+      "/api/transactions": [],
+      "/api/recurring-rules": [],
+      "/api/categories": [],
+      "/api/budget-editor": { Income: [], Expense: [], Debt: [] },
+      "/api/budget-grid": { Income: [], Expense: [], Debt: [] },
+      "/api/budget-suggestion": { write_up: "- Trim groceries", generated_at: "2026-08-20T14:32:00" },
+    };
+    fetchMock.mockImplementation(async (url, options = {}) => {
+      if (url.startsWith("/api/settings")) {
+        if (options.method === "PUT") {
+          settings = { ...settings, ...JSON.parse(options.body) };
+        }
+        return { ok: true, status: 200, json: async () => settings };
+      }
+      const match = Object.keys(bodies).find((path) => url.startsWith(path));
+      return { ok: true, status: 200, json: async () => bodies[match] };
+    });
+  }
+
+  async function chooseDateOrder(value) {
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+    await userEvent.selectOptions(await screen.findByRole("combobox", { name: "Date Order" }), value);
+    await userEvent.click(screen.getByRole("button", { name: "Save Date Order" }));
+  }
+
+  it("writes dates day-first everywhere when no Date Order has ever been saved", async () => {
+    respondWithSettings();
+    render(<App />);
+
+    expect(await screen.findByText("As at 19 August")).toBeInTheDocument();
+    expect(screen.getByText("5 Jul")).toBeInTheDocument(); // Top Expenses, Full year
+
+    await userEvent.click(screen.getByRole("button", { name: "Aug" }));
+    expect(await screen.findByText("5 Aug")).toBeInTheDocument(); // Top Expenses
+    expect(screen.getByText("1 Aug")).toBeInTheDocument(); // Expenses Over Time axis
+
+    await userEvent.click(screen.getByRole("button", { name: "Budget" }));
+    expect(await screen.findByText("Generated 20 Aug 2026, 2:32pm")).toBeInTheDocument();
+  });
+
+  it("offers day-first and month-first in Settings, saved through the settings endpoint", async () => {
+    respondWithSettings();
+    render(<App />);
+    await screen.findByText("As at 19 August");
+
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+    const dropdown = await screen.findByRole("combobox", { name: "Date Order" });
+    expect(dropdown).toHaveValue("day-first");
+    expect(within(dropdown).getByRole("option", { name: "Day first (19 Aug)" })).toBeInTheDocument();
+    expect(within(dropdown).getByRole("option", { name: "Month first (Aug 19)" })).toBeInTheDocument();
+
+    await chooseDateOrder("month-first");
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/settings",
+        expect.objectContaining({ method: "PUT", body: JSON.stringify({ date_order: "month-first" }) }),
+      ),
+    );
+  });
+
+  it("flips the As at header, Top Expenses, the Expenses Over Time axis and the Budget Suggestion time to month-first as soon as it is saved, with English month names", async () => {
+    respondWithSettings();
+    render(<App />);
+    await screen.findByText("As at 19 August");
+
+    await chooseDateOrder("month-first");
+
+    expect(await screen.findByText("As at August 19")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Overview" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Aug" }));
+    expect(await screen.findByText("Aug 5")).toBeInTheDocument();
+    expect(screen.getByText("Aug 1")).toBeInTheDocument();
+    expect(screen.queryByText("5 Aug")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Budget" }));
+    expect(await screen.findByText("Generated Aug 20, 2026, 2:32pm")).toBeInTheDocument();
+  });
+
+  it("flips back to day-first when day-first is chosen again", async () => {
+    respondWithSettings({ date_order: "month-first" });
+    render(<App />);
+    expect(await screen.findByText("As at August 19")).toBeInTheDocument();
+
+    await chooseDateOrder("day-first");
+
+    expect(await screen.findByText("As at 19 August")).toBeInTheDocument();
+  });
+
+  it("starts up already writing dates in the saved order", async () => {
+    respondWithSettings({ date_order: "month-first" });
+    render(<App />);
+
+    expect(await screen.findByText("As at August 19")).toBeInTheDocument();
+    expect(screen.getByText("Jul 5")).toBeInTheDocument();
+  });
+});
