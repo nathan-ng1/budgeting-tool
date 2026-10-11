@@ -555,7 +555,7 @@ def _make_handler(store, static_root: Path):
             `period` is present but neither value."""
             period = params.get("period", ["financial"])[0]
             if period == "financial":
-                return settings.as_payload(store.read_settings())["financial_year_start_month"]
+                return settings.financial_year_start_month(store.read_settings())
             if period == "calendar":
                 return 1
             self._send_json(400, {"error": "period query parameter must be 'financial' or 'calendar'"})

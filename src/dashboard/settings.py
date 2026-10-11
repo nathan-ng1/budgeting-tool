@@ -5,7 +5,7 @@ router.
 Only the *identifiers* of the Display Currency entries live here, to validate
 a save. Each entry's symbol, separators and sample belong to the frontend's
 curated list (frontend/src/lib/currencies.js); the two lists must name the
-same entries.
+same entries (tests/dashboard/test_currency_parity.py fails when they drift).
 """
 
 DEFAULTS = {
@@ -30,6 +30,11 @@ def as_payload(saved: dict[str, str]) -> dict:
     merged = {**DEFAULTS, **saved}
     merged["financial_year_start_month"] = int(merged["financial_year_start_month"])
     return merged
+
+
+def financial_year_start_month(saved: dict[str, str]) -> int:
+    """The Financial Year start month (1-12), the default if never saved."""
+    return as_payload(saved)["financial_year_start_month"]
 
 
 def updates_from_payload(payload) -> dict:
