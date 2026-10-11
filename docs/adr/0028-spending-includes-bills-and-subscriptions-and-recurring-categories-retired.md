@@ -29,3 +29,13 @@ is used only where the full picture is wanted — the Outflows breakdown chart.
   replaces ADR-0024's "reconcile later" consequence.
 - Recurring Charges annualises from the observed cadence of each merchant's charges (typical charge ×
   365 ÷ median days between charges); a merchant with a single charge shows only what was paid.
+
+## Amendment: named cadences
+
+Recurring Charges names near-standard cadences instead of always showing "Every N days": a median
+gap of 6-8 days is Weekly, 12-16 Fortnightly, 28-33 Monthly, 88-94 Quarterly and 360-370 Yearly
+(the bands live in `NAMED_CADENCES` in `src/dashboard/queries.py`). A named cadence is projected with
+the standard number of charges per year (52, 26, 12, 4, 1) rather than typical × 365 ÷ gap, so a
+fortnightly $37.50 charge is $975 a year, not $978. Other gaps keep "Every N days" and the
+365 ÷ gap projection. This deviates from the spec's "Every N days" wording; the rows expose the label
+as `cadence` (null when not snapped) alongside `cadence_days`.

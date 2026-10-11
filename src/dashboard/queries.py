@@ -123,6 +123,25 @@ class TopMerchant:
     count: int
 
 
+# Recurring Charges names a cadence when the median gap between charges (in days,
+# un-rounded) falls in a band: (name, shortest gap, longest gap, charges per year).
+NAMED_CADENCES = (
+    ("Weekly", 6, 8, 52),
+    ("Fortnightly", 12, 16, 26),
+    ("Monthly", 28, 33, 12),
+    ("Quarterly", 88, 94, 4),
+    ("Yearly", 360, 370, 1),
+)
+
+
+def _named_cadence(median_gap: float) -> tuple[str, int] | None:
+    """The (name, charges per year) of the cadence `median_gap` days snaps to."""
+    for name, shortest, longest, per_year in NAMED_CADENCES:
+        if shortest <= median_gap <= longest:
+            return name, per_year
+    return None
+
+
 @dataclass(frozen=True)
 class RecurringCharge:
     merchant: str
@@ -132,6 +151,9 @@ class RecurringCharge:
     typical: float
     # Whole days between charges (median gap); None with fewer than two charge dates.
     cadence_days: int | None
+    # "Weekly", "Fortnightly", ... when the median gap is near-standard (see
+    # NAMED_CADENCES), else None (shown as "Every <cadence_days> days").
+    cadence: str | None
     per_year: float
 
 
@@ -798,9 +820,11 @@ def _recurring_charges(transactions: list[Transaction]) -> RecurringCharges:
     trailing-12-month window), grouped by the same merchant key as Top
     merchants so slightly varying charges stay one merchant. Typical charge is
     the median amount; cadence the median gap between distinct charge dates
-    (shown in whole days, but the yearly cost uses the un-rounded gap);
-    per-year = typical x 365 / median gap, or what was actually paid when there
-    is no cadence (all charges on a single date).
+    (shown in whole days, but snapping and the yearly cost use the un-rounded
+    gap). A near-standard gap is named (NAMED_CADENCES) and projected as typical
+    x that cadence's charges per year; any other gap projects as typical x 365 /
+    median gap. With no gap (all charges on a single date) per-year is what was
+    actually paid.
     """
     bills = (t for t in transactions if t.type == BILLS_SUBSCRIPTIONS)
 
@@ -811,7 +835,13 @@ def _recurring_charges(transactions: list[Transaction]) -> RecurringCharges:
         gaps = [(later - earlier).days for earlier, later in zip(charge_dates, charge_dates[1:])]
         median_gap = median(gaps) if gaps else None
         cadence = max(1, int(median_gap + 0.5)) if median_gap is not None else None
-        per_year = typical * DAYS_PER_YEAR / median_gap if median_gap is not None else sum(t.amount for t in group)
+        named = _named_cadence(median_gap) if median_gap is not None else None
+        if named is not None:
+            per_year = typical * named[1]
+        elif median_gap is not None:
+            per_year = typical * DAYS_PER_YEAR / median_gap
+        else:
+            per_year = sum(t.amount for t in group)
         rows.append(
             RecurringCharge(
                 merchant=latest.notes,
@@ -820,6 +850,7 @@ def _recurring_charges(transactions: list[Transaction]) -> RecurringCharges:
                 last_charged=latest.date.isoformat(),
                 typical=_round(typical),
                 cadence_days=cadence,
+                cadence=named[0] if named is not None else None,
                 per_year=_round(per_year),
             )
         )

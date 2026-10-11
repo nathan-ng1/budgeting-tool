@@ -2159,7 +2159,8 @@ def test_recurring_charges_project_a_fortnightly_charge_to_its_yearly_cost(fake_
     assert row.last_charged == "2026-09-21"
     assert row.typical == 37.5
     assert row.cadence_days == 14
-    assert row.per_year == 977.68  # 37.50 x 365 / 14, not the 412.50 paid so far
+    assert row.cadence == "Fortnightly"
+    assert row.per_year == 975.0  # 37.50 x 26 fortnights, not the 412.50 paid so far
 
 
 def test_recurring_charges_header_totals_are_per_year_and_a_twelfth_of_it(fake_store, make_transaction):
@@ -2170,8 +2171,8 @@ def test_recurring_charges_header_totals_are_per_year_and_a_twelfth_of_it(fake_s
 
     charges = get_month_overview(store, year=2026, month=9).recurring_charges
 
-    assert charges.per_year == 1097.68
-    assert charges.per_month == 91.47
+    assert charges.per_year == 1095.0
+    assert charges.per_month == 91.25
     assert [row.merchant for row in charges.rows] == ["Gym", "Insurer"]  # largest yearly cost first
 
 
@@ -2181,6 +2182,7 @@ def test_recurring_charges_single_charge_merchant_shows_what_was_paid_with_no_ca
     (row,) = get_month_overview(store, year=2026, month=9).recurring_charges.rows
 
     assert (row.charges, row.typical, row.cadence_days, row.per_year) == (1, 480.0, None, 480.0)
+    assert row.cadence is None
 
 
 def test_recurring_charges_typical_is_the_median_and_slightly_varying_amounts_group_as_one_merchant(
@@ -2199,8 +2201,9 @@ def test_recurring_charges_typical_is_the_median_and_slightly_varying_amounts_gr
     assert row.merchant == "Telstra Mobile 9"
     assert row.charges == 3
     assert row.typical == 64.0
-    assert row.cadence_days == 31  # gaps of 30 and 31 days: median 30.5 rounds half up to a whole day (display only)
-    assert row.per_year == 765.9  # 64.00 x 365 / 30.5 - the cost uses the un-rounded median gap
+    assert row.cadence_days == 31  # gaps of 30 and 31 days: median 30.5 rounds half up to a whole day
+    assert row.cadence == "Monthly"
+    assert row.per_year == 768.0  # 64.00 x 12 monthly charges
 
 
 def test_recurring_charges_several_charges_on_one_date_have_no_cadence_and_keep_the_count_and_sum_paid(
@@ -2217,6 +2220,64 @@ def test_recurring_charges_several_charges_on_one_date_have_no_cadence_and_keep_
     (row,) = get_month_overview(store, year=2026, month=9).recurring_charges.rows
 
     assert (row.charges, row.typical, row.cadence_days, row.per_year) == (3, 30.0, None, 90.0)
+    assert row.cadence is None
+
+
+@pytest.mark.parametrize(
+    ("gap_days", "cadence", "per_year"),
+    [
+        (5, None, round(3650 / 5, 2)),
+        (6, "Weekly", 52 * 10.0),
+        (8, "Weekly", 52 * 10.0),
+        (9, None, round(3650 / 9, 2)),
+        (11, None, round(3650 / 11, 2)),
+        (12, "Fortnightly", 26 * 10.0),
+        (16, "Fortnightly", 26 * 10.0),
+        (17, None, round(3650 / 17, 2)),
+        (27, None, round(3650 / 27, 2)),
+        (28, "Monthly", 12 * 10.0),
+        (33, "Monthly", 12 * 10.0),
+        (34, None, round(3650 / 34, 2)),
+        (87, None, round(3650 / 87, 2)),
+        (88, "Quarterly", 4 * 10.0),
+        (94, "Quarterly", 4 * 10.0),
+        (95, None, round(3650 / 95, 2)),
+        (359, None, round(3650 / 359, 2)),
+        (360, "Yearly", 10.0),
+    ],
+)
+def test_recurring_charges_name_a_near_standard_cadence_and_project_it_with_the_standard_charges_per_year(
+    fake_store, make_transaction, gap_days, cadence, per_year
+):
+    first = date(2025, 10, 1)
+    store = fake_store(
+        transactions=[
+            bs(make_transaction, date.fromordinal(first.toordinal() + gap_days * i), 10.0, id=i + 1) for i in range(2)
+        ]
+    )
+
+    (row,) = get_month_overview(store, year=2026, month=9).recurring_charges.rows
+
+    assert row.cadence_days == gap_days
+    assert row.cadence == cadence
+    assert row.per_year == per_year
+
+
+def test_recurring_charges_snap_on_the_unrounded_median_gap(fake_store, make_transaction):
+    # gaps of 8 and 9 days: the median 8.5 is outside Weekly (6-8) although the gap of 8 alone would be inside
+    store = fake_store(
+        transactions=[
+            bs(make_transaction, date(2026, 1, 1), 10.0, id=1),
+            bs(make_transaction, date(2026, 1, 9), 10.0, id=2),
+            bs(make_transaction, date(2026, 1, 18), 10.0, id=3),
+        ]
+    )
+
+    (row,) = get_month_overview(store, year=2026, month=9).recurring_charges.rows
+
+    assert row.cadence is None
+    assert row.cadence_days == 9
+    assert row.per_year == round(10.0 * 365 / 8.5, 2)
 
 
 def test_recurring_charges_window_is_the_twelve_months_ending_at_the_end_of_the_selected_month(

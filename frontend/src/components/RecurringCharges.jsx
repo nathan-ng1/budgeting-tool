@@ -28,7 +28,7 @@ export default function RecurringCharges({ recurring, colourFor = categoryColour
               <th className="recurring__num">Charges</th>
               <th>Last charged</th>
               <th className="recurring__num">Typical</th>
-              <th>Every</th>
+              <th>Cadence</th>
               <th className="recurring__num">Per year</th>
             </tr>
           </thead>
@@ -51,7 +51,7 @@ export default function RecurringCharges({ recurring, colourFor = categoryColour
                   {row.cadence_days === null ? (
                     <span className="muted">{row.charges === 1 ? "1 charge" : `${row.charges} charges`}</span>
                   ) : (
-                    `Every ${row.cadence_days} days`
+                    (row.cadence ?? `Every ${row.cadence_days} days`)
                   )}
                 </td>
                 <td className="recurring__num numeric">{money(row.per_year)}</td>

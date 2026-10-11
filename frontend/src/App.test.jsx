@@ -14,10 +14,10 @@ const DINING_MOVERS = {
   avg_12_months: [{ category: "Dining", actual: 300, comparison: 250, diff: 50, pct: 20 }],
 };
 const GYM_RECURRING = {
-  per_year: 977.68,
-  per_month: 81.47,
+  per_year: 975,
+  per_month: 81.25,
   rows: [
-    { merchant: "Anytime Fitness", category: "Gym", charges: 11, last_charged: "2026-08-17", typical: 37.5, cadence_days: 14, per_year: 977.68 },
+    { merchant: "Anytime Fitness", category: "Gym", charges: 11, last_charged: "2026-08-17", typical: 37.5, cadence_days: 14, cadence: "Fortnightly", per_year: 975 },
   ],
 };
 const ZERO_ALLOCATION = {
@@ -567,7 +567,7 @@ describe("App", () => {
     expect(row.firstElementChild).toContainElement(screen.getByRole("heading", { name: "Recurring Charges" }));
     expect(screen.getByRole("heading", { name: "Top merchants" }).closest(".row--split").nextElementSibling).toBe(row);
     expect(within(row).getByText("Anytime Fitness")).toBeInTheDocument();
-    expect(within(row).getByText("$978 / year")).toBeInTheDocument();
+    expect(within(row).getByText("$975 / year")).toBeInTheDocument();
   });
 
   it("places Movers in the right half beside Recurring Charges, for a month, and not at all for Full year", async () => {
@@ -602,7 +602,7 @@ describe("App", () => {
     const [left, right] = split.children;
     expect(within(left).getByRole("heading", { name: "Top merchants" })).toBeInTheDocument();
     expect(within(right).getByRole("heading", { name: "Recurring Charges" })).toBeInTheDocument();
-    expect(within(right).getByText("Every 14 days")).toBeInTheDocument();
+    expect(within(right).getByText("Fortnightly")).toBeInTheDocument();
   });
 
   it("shows the Recurring Charges empty state for a view with no Bills & Subscriptions", async () => {
