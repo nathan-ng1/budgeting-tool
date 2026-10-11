@@ -89,12 +89,20 @@ The local web app that's the primary interface for viewing budget data and editi
 _Avoid_: UI, frontend, web app, spreadsheet
 
 **Financial Year**:
-The July 1–June 30 window the Dashboard's Overview, Budget, and Transactions tabs can be organised around — the default framing, and one of the two options on the Financial Year/Calendar Year switcher shared across those three tabs (see [ADR-0021](./docs/adr/0021-financial-year-switcher-and-calendar-year-toggle.md)). Its selector shows the twelve months of one Financial Year plus a Full year option, matching the Australian financial year convention already implicit in this project's card issuers (ANZ, NAB).
+The twelve-month window the Dashboard's Overview, Budget, and Transactions tabs can be organised around — the default framing, and one of the two options on the Financial Year/Calendar Year switcher shared across those three tabs (see [ADR-0021](./docs/adr/0021-financial-year-switcher-and-calendar-year-toggle.md)). It begins on the first day of a month the user chooses in Settings, defaulting to July (the Australian convention, implicit in this project's card issuers ANZ and NAB, giving July 1–June 30); a start on any other day of the month, such as the UK's 6 April, is not supported. Its selector shows the twelve months of one Financial Year plus a Full year option.
 _Avoid_: FY
 
 **Calendar Year**:
-The January 1–December 31 window — the switcher's other framing, alongside Financial Year (see [ADR-0021](./docs/adr/0021-financial-year-switcher-and-calendar-year-toggle.md)). Reorders the twelve month pills to run Jan→Dec and changes what "Full year" aggregates, but doesn't change how any individual month's figures are computed.
+The January 1–December 31 window — the switcher's other framing, alongside Financial Year (see [ADR-0021](./docs/adr/0021-financial-year-switcher-and-calendar-year-toggle.md)). Reorders the twelve month pills to run Jan→Dec and changes what "Full year" aggregates, but doesn't change how any individual month's figures are computed. When the Financial Year is configured to start in January the two framings are identical, so the switcher is hidden.
 _Avoid_: CY
+
+**Display Currency**:
+The single currency the Dashboard shows every amount in, chosen in Settings from a single list of currencies, each carrying its own predefined conventions (symbol and its position, thousands and decimal separators) — the number format is not a separate choice. One per install, display only: no exchange rates, no conversion, and no Transaction carries a currency of its own. Changing it relabels existing amounts rather than converting them. Limited to currencies with 0 or 2 decimal places; the few with 3 (e.g. Kuwaiti dinar) are not offered, since every amount is held to two decimals. Defaults to the Australian dollar.
+_Avoid_: Currency (on its own — implies per-Transaction currency), Locale (the format rules are part of the Display Currency, not a separate choice)
+
+**Date Order**:
+Whether the Dashboard writes a date day-first ("19 Aug") or month-first ("Aug 19"), chosen in Settings. Month names are always English, since the Dashboard is English-only. There is no week-start-day setting: a Weekly Recurring Transactions Config rule stores a day of the week, which doesn't depend on which day a week begins.
+_Avoid_: Date format (implies a full format picker, which isn't offered), Locale
 
 **Full year**:
 The Overview tab's other selector state, alongside a specific month: aggregates every Transaction in the active Financial Year or Calendar Year to date, rather than one month. The Dashboard's default view on open. For the current, in-progress year, "to date" means elapsed months only, including the current month before it's finished — a month that hasn't happened yet contributes $0, it isn't skipped. See [ADR-0011](./docs/adr/0011-full-year-overview-is-a-selector-state-not-a-tab.md). The Budget tab reuses the same pill and label for its own, differently-scoped Full year state — see Budget tab, below.
@@ -123,6 +131,22 @@ _Avoid_: Budget screen, Budgeting tab
 **Installation Pack**:
 The `setup`/`update`/setup-guide bundle that takes a new user from nothing installed to a running Dashboard (and, if they hold an AI subscription, the Statement Export pipeline too) — `windows/setup.bat` + `windows/update.bat` + `docs/setup-guide.html` on Windows, `mac/setup.command` + `mac/update.command` + `docs/setup-guide-mac.html` on macOS (issue #117), both wrapping the same `src/setup` logic. `setup.bat`/`setup.command` is a standalone bootstrapper — runnable before Git or a clone exist — distributed as a GitHub Release asset; it branches on whether the user holds an AI subscription, since automated categorisation has no manual/null backend and so cannot be made to work without one. See [ADR-0017](./docs/adr/0017-installation-pack-is-a-bootstrapper-distributed-via-releases.md), [ADR-0018](./docs/adr/0018-non-ai-path-is-dashboard-only.md), [ADR-0019](./docs/adr/0019-update-checks-are-automatic-updates-are-manual.md).
 _Avoid_: Installer, setup script (for the pack as a whole — `setup.bat`/`setup.command` is fine for the script itself)
+
+**Collaborator**:
+Someone given access to the private repo who runs the Collaborator Edition, installed and updated via the Installation Pack.
+_Avoid_: User (ambiguous between Collaborator and Buyer), developer
+
+**Buyer**:
+A member of the public who purchased the Retail Edition (sold via Etsy). Never has repo access or sees source.
+_Avoid_: Customer, user, client
+
+**Collaborator Edition**:
+The full tool — Dashboard plus the Statement Export pipeline and other AI-backed flows — run from a clone of the repo.
+_Avoid_: Dev build, full version
+
+**Retail Edition**:
+The compiled, Dashboard-only build of the tool sold to Buyers; contains none of the Statement Export pipeline or AI-backed flows.
+_Avoid_: Paid version, public version, packaged app
 
 **Budget Suggestion**:
 A written analysis of how actual spend has tracked against Category Budgets recently, covering Expense and Debt Categories only (Income is excluded — under/over-earning isn't the kind of thing this advises on). One standing write-up at a time, not tied to any particular month: regenerating it replaces the previous write-up outright, no history kept. Produced by a scripted, deliberately non-interactive flow — the same shape as Categorising a Transaction (see [ADR-0004](./docs/adr/0004-categorisation-backend-is-pluggable-and-scripted.md)), not something triggered live from the Dashboard. See [ADR-0014](./docs/adr/0014-budget-suggestion-is-a-scripted-flow-not-a-live-dashboard-call.md).
