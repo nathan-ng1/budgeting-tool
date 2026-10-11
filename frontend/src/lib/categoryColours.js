@@ -1,33 +1,24 @@
-// A fixed palette keyed by Category name, so a Category keeps the same colour
-// in the donut, the legend, the Budgeted vs Actual dots and the Top 5 dots -
-// and keeps it from month to month, where its rank by spend moves around.
+// Rank-based Category colours. For each Overview period the Spending
+// Categories (Expense and Bills & Subscriptions) are ranked by spend, largest
+// first, and handed the active theme's palette slots in that order, wrapping
+// around after the last slot. A Category's colour therefore follows its rank
+// in the period, not its name: it can change from month to month (spec #177).
+// 12 slots suffice - a wrapped Category repeats the colour of one ranked 12
+// places above it, which is far down the long tail, and every card that draws
+// a Category dot also prints its name beside the dot.
 //
 // The ramps are the mockup's "Organic" design-system tokens: the accent (warm)
 // ramp, then the accent-2 (green) ramp, then neutrals.
-//
-// This list mirrors the Expense Categories in src/transaction_log/categories.py
-// (which holds them in a `set`, so it has no order of its own to follow - the
-// order here is this file's own, and only decides which ramp step a Category
-// gets). Adding a Category there without adding it here is not a breakage: it
-// falls through to the hashed fallback below and still renders a stable colour,
-// just not a hand-picked one.
 
 import { getCurrentTheme } from "./theme.js";
+import { TYPE_COLOURS } from "./typeColours.js";
 
-export const EXPENSE_CATEGORIES = [
-  "Groceries",
-  "Dining & Takeaway",
-  "Transport",
-  "Shopping & Retail",
-  "Holidays & Travel",
-  "Entertainment & Leisure",
-  "Health & Medical",
-  "Donations & Giving",
-  "Subscriptions",
-  "Insurance & Bills",
-  "Rental Expense",
-  "Mortgage Repayment",
-];
+const SPENDING_TYPES = ["Expense", "Bills & Subscriptions"];
+
+// Income has no entry in TYPE_COLOURS (it is the axis of the allocation bar),
+// but a Category dot on an Income row still needs a fill.
+const INCOME_COLOUR = "var(--color-positive)";
+const NEUTRAL_COLOUR = "var(--color-neutral-400)";
 
 // Slots 4-7 (the accent-2/green ramp) were re-derived in Issue #111
 // alongside --color-positive's move off a hand-picked literal onto a
@@ -71,7 +62,7 @@ const PALETTE = [
 // each band running dark-to-light (S=65%, L=26/42/58/74 - the same >=16%
 // per-step lightness delta pass 6 established for telling adjacent chart
 // segments apart). All fill-only (donut segments, legend/list dots - see
-// colourForCategory's callers), so none of these are held to the 4.5:1
+// categoryColours' callers), so none of these are held to the 4.5:1
 // text bar. Band 3's second step (index 9, H=278/L=42) lands on
 // #7e25b1 - the exact same value as --color-accent-2-500 - confirming the
 // derivation lines up with the CSS tokens it's ramping between, not a
@@ -121,18 +112,20 @@ function activePalette() {
   return THEME_PALETTES[getCurrentTheme()] ?? PALETTE;
 }
 
-export function colourForCategory(category) {
+// Builds the period's Category colour mapping once, from the Overview's
+// spending_by_category rows, and returns `colourFor(category, type)`. Share the
+// one function between every card that draws a Category dot so a Category is
+// one colour across the page. A Spending Category with a rank gets its palette
+// slot; any other Category (Income, Debt, Savings, or a Spending Category with
+// no spend this period) gets its Type's colour.
+export function categoryColours(spendingByCategory) {
   const palette = activePalette();
-  const index = EXPENSE_CATEGORIES.indexOf(category);
-  if (index !== -1) {
-    return palette[index % palette.length];
-  }
+  const ranked = spendingByCategory
+    .filter(({ type }) => SPENDING_TYPES.includes(type))
+    .sort((a, b) => b.amount - a.amount || a.category.localeCompare(b.category));
+  const slots = new Map(ranked.map(({ category }, rank) => [category, palette[rank % palette.length]]));
 
-  // An unrecognised Category still needs a colour that is stable across
-  // renders, so derive one from the name rather than from render order.
-  let hash = 0;
-  for (let i = 0; i < category.length; i += 1) {
-    hash = (hash * 31 + category.charCodeAt(i)) % 1000003;
-  }
-  return palette[hash % palette.length];
+  return function colourFor(category, type) {
+    return slots.get(category) ?? (type === "Income" ? INCOME_COLOUR : TYPE_COLOURS[type]) ?? NEUTRAL_COLOUR;
+  };
 }

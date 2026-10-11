@@ -1,99 +1,120 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { EXPENSE_CATEGORIES, colourForCategory } from "./categoryColours.js";
+import { categoryColours } from "./categoryColours.js";
+import { TYPE_COLOURS } from "./typeColours.js";
 
-describe("colourForCategory", () => {
-  it("gives every known Expense Category its own colour", () => {
-    const colours = EXPENSE_CATEGORIES.map(colourForCategory);
+const HEX = /^#[0-9a-f]{6}$/i;
 
-    expect(new Set(colours).size).toBe(EXPENSE_CATEGORIES.length);
-    colours.forEach((colour) => expect(colour).toMatch(/^#[0-9a-f]{6}$/i));
-  });
+// Slot literals of each theme's palette (the first two slots, then the last).
+const THEMES = {
+  terracotta: { first: "#8c491a", second: "#b2622d", last: "#c0b6a5" },
+  orchid: { first: "#6d1742", second: "#b1256b", last: "#c892e8" },
+  midnight: { first: "#2e719e", second: "#4192c8", last: "#a8bbc7" },
+};
 
-  it("keys the colour to the Category name, not to its rank in a list", () => {
-    // The same Category has to keep its colour across the donut, the legend,
-    // the Budgeted vs Actual dots and the Top 5 dots - and across months, where
-    // its rank by spend changes.
-    const groceries = colourForCategory("Groceries");
+function spendingRows(...names) {
+  // Listed in descending spend: the first name is the biggest.
+  return names.map((category, index) => ({
+    category,
+    type: "Expense",
+    amount: 1000 - index * 10,
+  }));
+}
 
-    expect(colourForCategory("Groceries")).toBe(groceries);
-    expect(colourForCategory("Transport")).not.toBe(groceries);
-  });
+function selectTheme(theme) {
+  if (theme === "terracotta") {
+    delete document.documentElement.dataset.theme;
+  } else {
+    document.documentElement.dataset.theme = theme;
+  }
+}
 
-  it("gives an unknown Category a stable colour rather than undefined", () => {
-    // Categories are added lazily as real cases occur (GLOSSARY.md), so the
-    // frontend must not break on one it was not built with.
-    const first = colourForCategory("Some Future Category");
-
-    expect(first).toMatch(/^#[0-9a-f]{6}$/i);
-    expect(colourForCategory("Some Future Category")).toBe(first);
-  });
-});
-
-describe("colourForCategory under the Orchid theme", () => {
+describe.each(Object.entries(THEMES))("categoryColours under the %s theme", (theme, slots) => {
   afterEach(() => {
     delete document.documentElement.dataset.theme;
   });
 
-  it("gives every known Expense Category its own colour, distinct from Terracotta's", () => {
-    const terracottaColours = EXPENSE_CATEGORIES.map(colourForCategory);
+  it("gives the largest-spend Category the first slot and follows spend downwards", () => {
+    selectTheme(theme);
+    const colourFor = categoryColours([
+      { category: "Transport", type: "Expense", amount: 200 },
+      { category: "Groceries", type: "Expense", amount: 900 },
+    ]);
 
-    document.documentElement.dataset.theme = "orchid";
-    const orchidColours = EXPENSE_CATEGORIES.map(colourForCategory);
-
-    expect(new Set(orchidColours).size).toBe(EXPENSE_CATEGORIES.length);
-    orchidColours.forEach((colour) => expect(colour).toMatch(/^#[0-9a-f]{6}$/i));
-    // An Orchid-specific palette (Issue #102 follow-up #2), not Terracotta's
-    // colours relabelled - every slot differs, including indices 4-7, which
-    // moved from Blossom's gold ramp to a lavender ramp (Orchid's positive/
-    // Income hue - gold doesn't exist in Orchid's source palette).
-    expect(orchidColours).not.toEqual(terracottaColours);
+    expect(colourFor("Groceries", "Expense")).toBe(slots.first);
+    expect(colourFor("Transport", "Expense")).toBe(slots.second);
   });
 
-  it("keeps a Category in the same relative slot across themes", () => {
-    // Same rank in each theme's palette, so switching themes doesn't also
-    // reshuffle which Categories look alike or different from each other.
-    document.documentElement.dataset.theme = "orchid";
-    const groceriesOrchid = colourForCategory("Groceries");
+  it("wraps around to the first slot after the last", () => {
+    selectTheme(theme);
+    const names = Array.from({ length: 13 }, (_, i) => `Category ${String(i).padStart(2, "0")}`);
+    const colourFor = categoryColours(spendingRows(...names));
 
-    delete document.documentElement.dataset.theme;
-    const groceriesTerracotta = colourForCategory("Groceries");
-
-    document.documentElement.dataset.theme = "orchid";
-    expect(colourForCategory("Groceries")).toBe(groceriesOrchid);
-    expect(groceriesOrchid).not.toBe(groceriesTerracotta);
+    expect(colourFor(names[11], "Expense")).toBe(slots.last);
+    expect(colourFor(names[12], "Expense")).toBe(slots.first);
+    names.slice(0, 12).forEach((name) => expect(colourFor(name, "Expense")).toMatch(HEX));
+    expect(new Set(names.slice(0, 12).map((name) => colourFor(name, "Expense"))).size).toBe(12);
   });
 });
 
-describe("colourForCategory under the Midnight theme", () => {
-  afterEach(() => {
-    delete document.documentElement.dataset.theme;
+describe("categoryColours", () => {
+  it("breaks a spend tie by Category name", () => {
+    const colourFor = categoryColours([
+      { category: "Zoo", type: "Expense", amount: 100 },
+      { category: "Aquarium", type: "Expense", amount: 100 },
+    ]);
+
+    expect(colourFor("Aquarium", "Expense")).toBe(THEMES.terracotta.first);
+    expect(colourFor("Zoo", "Expense")).toBe(THEMES.terracotta.second);
   });
 
-  it("gives every known Expense Category its own colour, distinct from Terracotta's and Orchid's", () => {
-    const terracottaColours = EXPENSE_CATEGORIES.map(colourForCategory);
+  it("ranks Expense and Bills & Subscriptions Categories together as Spending", () => {
+    const colourFor = categoryColours([
+      { category: "Groceries", type: "Expense", amount: 300 },
+      { category: "Internet", type: "Bills & Subscriptions", amount: 500 },
+    ]);
+
+    expect(colourFor("Internet", "Bills & Subscriptions")).toBe(THEMES.terracotta.first);
+    expect(colourFor("Groceries", "Expense")).toBe(THEMES.terracotta.second);
+  });
+
+  it("does not let a Category outside Spending take a slot", () => {
+    const colourFor = categoryColours([
+      { category: "Groceries", type: "Expense", amount: 300 },
+      { category: "Mortgage", type: "Debt", amount: 2000 },
+    ]);
+
+    expect(colourFor("Groceries", "Expense")).toBe(THEMES.terracotta.first);
+  });
+
+  it("gives a Category outside Spending its Type's colour", () => {
+    const colourFor = categoryColours(spendingRows("Groceries"));
+
+    expect(colourFor("Mortgage", "Debt")).toBe(TYPE_COLOURS.Debt);
+    expect(colourFor("Emergency Fund", "Savings")).toBe(TYPE_COLOURS.Savings);
+    expect(colourFor("Salary", "Income")).toMatch(/^var\(--/);
+  });
+
+  it("gives a Spending Category with no spend this period its Type's colour", () => {
+    const colourFor = categoryColours(spendingRows("Groceries"));
+
+    expect(colourFor("Dining & Takeaway", "Expense")).toBe(TYPE_COLOURS.Expense);
+  });
+
+  it("gives an unrecognised Category with no Type a neutral colour rather than undefined", () => {
+    const colourFor = categoryColours([]);
+
+    expect(colourFor("Whatever")).toMatch(/^var\(--/);
+  });
+
+  it("reads the palette of the theme active when the mapping is built", () => {
+    const rows = spendingRows("Groceries");
+    const terracotta = categoryColours(rows)("Groceries", "Expense");
 
     document.documentElement.dataset.theme = "orchid";
-    const orchidColours = EXPENSE_CATEGORIES.map(colourForCategory);
-
-    document.documentElement.dataset.theme = "midnight";
-    const midnightColours = EXPENSE_CATEGORIES.map(colourForCategory);
-
-    expect(new Set(midnightColours).size).toBe(EXPENSE_CATEGORIES.length);
-    midnightColours.forEach((colour) => expect(colour).toMatch(/^#[0-9a-f]{6}$/i));
-    expect(midnightColours).not.toEqual(terracottaColours);
-    expect(midnightColours).not.toEqual(orchidColours);
-  });
-
-  it("keeps a Category in the same relative slot as under Terracotta", () => {
-    document.documentElement.dataset.theme = "midnight";
-    const groceriesMidnight = colourForCategory("Groceries");
-
+    const orchid = categoryColours(rows)("Groceries", "Expense");
     delete document.documentElement.dataset.theme;
-    const groceriesTerracotta = colourForCategory("Groceries");
 
-    document.documentElement.dataset.theme = "midnight";
-    expect(colourForCategory("Groceries")).toBe(groceriesMidnight);
-    expect(groceriesMidnight).not.toBe(groceriesTerracotta);
+    expect(orchid).not.toBe(terracotta);
   });
 });

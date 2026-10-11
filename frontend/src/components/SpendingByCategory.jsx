@@ -4,9 +4,11 @@ import { useMoney } from "../lib/settings.jsx";
 
 const DONUT_THICKNESS = 22;
 
-export default function SpendingByCategory({ spending, total, categories = [] }) {
+// `colourFor` is the period's shared Category colour mapping (categoryColours);
+// by default one is built from `spending` itself.
+export default function SpendingByCategory({ spending, total, categories = [], colourFor }) {
   const { money } = useMoney();
-  const segments = donutSegments(spending);
+  const segments = donutSegments(spending, colourFor);
   const emoji = emojiLookup(categories);
 
   return (

@@ -17,10 +17,11 @@ describe("donutSegments", () => {
     expect(segments[1].offset).toBeCloseTo(-CIRCUMFERENCE * 0.75, 5);
   });
 
-  it("carries each Category's own colour, not a rank-ordered one", () => {
-    const [transport] = donutSegments([{ category: "Transport", amount: 10, pct_of_spending: 100 }]);
+  it("colours each arc with the colour the period's mapping gives that Category", () => {
+    const rows = [{ category: "Transport", type: "Expense", amount: 10, pct_of_spending: 100 }];
+    const [transport] = donutSegments(rows, (category, type) => `${type}:${category}`);
 
-    expect(transport.colour).toBe("#d67f48");
+    expect(transport.colour).toBe("Expense:Transport");
   });
 
   it("renders a month with no spending as no arcs at all", () => {
