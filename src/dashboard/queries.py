@@ -86,7 +86,7 @@ class BudgetEditorRow:
 class BudgetGridRow:
     type: str
     category: str
-    # 12 entries, July through June (matching the Budget tab's Full year
+    # 12 entries, from the Financial Year start month (matching the Budget tab's Full year
     # column order) - None where that month has no Category Budget set
     # (unset != $0, GLOSSARY.md's Category Budget entry).
     amounts: list[float | None]

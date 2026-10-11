@@ -1,4 +1,5 @@
-import { generatedAt, signedPct } from "../lib/format.js";
+import { signedPct } from "../lib/format.js";
+import { useDateFormat } from "../lib/settings.jsx";
 import { toneFor } from "../lib/tone.js";
 
 // Top 6 Expense/Debt rows by trailing variance magnitude, Income excluded -
@@ -35,6 +36,7 @@ function bulletsFrom(writeUp) {
 // variance chips only - the write-up itself is unaffected by month
 // selection. `suggestion` is null when the script has never been run.
 export default function BudgetSuggestion({ suggestion, editor }) {
+  const { generatedAt } = useDateFormat();
   if (suggestion === null) {
     return (
       <section className="card budget-suggestion">

@@ -1,10 +1,12 @@
-import { money, pct } from "../lib/format.js";
+import { pct } from "../lib/format.js";
+import { useMoney } from "../lib/settings.jsx";
 
 // `average` is the Full year view's per-month figure (already divided by
 // elapsed months by the backend - see ADR-0011). It is omitted for the
 // per-month Overview, where a monthly average makes no sense - same
 // convention as StatTiles.
 export default function DebtSummary({ debtSummary, total, average }) {
+  const { money } = useMoney();
   return (
     <section className="card">
       <div className="card__head">

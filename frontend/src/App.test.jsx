@@ -257,7 +257,7 @@ describe("App", () => {
     }));
     render(<App />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Aug" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Aug" }));
     expect(await screen.findByText("$5,240")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Sep" }));
@@ -290,7 +290,7 @@ describe("App", () => {
     });
     render(<App />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Aug" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Aug" }));
     expect(await screen.findByText("$5,240")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Sep" }));
 
@@ -544,7 +544,7 @@ describe("App", () => {
     respondWith();
     render(<App />);
 
-    const nav = screen.getByRole("navigation");
+    const nav = await screen.findByRole("navigation");
 
     expect(within(nav).getByText("Transactions")).toBeInTheDocument();
     expect(within(nav).getByText("Budget")).toBeInTheDocument();
@@ -902,5 +902,683 @@ describe("App", () => {
       // own figures, not Full year's.
       expect(await screen.findByText("$5,240")).toBeInTheDocument();
     });
+  });
+});
+
+describe("Display Currency setting", () => {
+  const DEFAULT_SETTINGS = { currency: "AUD", financial_year_start_month: 7, date_order: "day-first" };
+  const NBSP = " ";
+  const EURO_OPTION = `EUR - 1.234,56${NBSP}€`;
+
+  // The settings endpoint as the real server behaves: a GET reads what was
+  // last saved, a PUT merges the body in and answers with everything.
+  function respondWithSettings(saved = {}, { transactions = [], rules = [], extra = {} } = {}) {
+    let settings = { ...DEFAULT_SETTINGS, ...saved };
+    const bodies = {
+      "/api/annual-overview": annualWithSpending(),
+      "/api/overview": monthWithSpending(2026, 8),
+      "/api/latest-transaction-date": { date: "2026-08-03" },
+      "/api/transaction-date-range": { earliest: "2025-12-17", latest: "2026-08-03" },
+      "/api/transactions": transactions,
+      "/api/recurring-rules": rules,
+      "/api/categories": [],
+      ...extra,
+    };
+    fetchMock.mockImplementation(async (url, options = {}) => {
+      if (url.startsWith("/api/settings")) {
+        if (options.method === "PUT") {
+          settings = { ...settings, ...JSON.parse(options.body) };
+        }
+        return { ok: true, status: 200, json: async () => settings };
+      }
+      const match = Object.keys(bodies).find((path) => url.startsWith(path));
+      return { ok: true, status: 200, json: async () => bodies[match] };
+    });
+  }
+
+  async function chooseCurrency(value) {
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+    await userEvent.selectOptions(await screen.findByRole("combobox", { name: "Display Currency" }), value);
+    await userEvent.click(screen.getByRole("button", { name: "Save settings" }));
+  }
+
+  it("shows every amount in Australian dollars when no setting has ever been saved", async () => {
+    respondWithSettings();
+    render(<App />);
+
+    expect(await screen.findByText("$8,000")).toBeInTheDocument();
+  });
+
+  it("falls back to Australian dollars when the settings can't be read", async () => {
+    // No /api/settings route at all: the stub answers with an empty body.
+    respondWith();
+    render(<App />);
+
+    expect(await screen.findByText("$8,000")).toBeInTheDocument();
+  });
+
+  it("offers a dropdown of currencies, each with a sample of its format, and says changing it relabels and never converts", async () => {
+    respondWithSettings();
+    render(<App />);
+    await screen.findByText("$8,000");
+
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+
+    const dropdown = await screen.findByRole("combobox", { name: "Display Currency" });
+    expect(dropdown).toHaveValue("AUD");
+    expect(within(dropdown).getByRole("option", { name: "AUD - $1,234.56" })).toBeInTheDocument();
+    // One euro entry, not one per country.
+    expect(within(dropdown).getAllByRole("option", { name: /^EUR/ })).toHaveLength(1);
+    expect(within(dropdown).getByRole("option", { name: EURO_OPTION })).toBeInTheDocument();
+    expect(within(dropdown).getByRole("option", { name: "JPY - ¥1,235" })).toBeInTheDocument();
+    expect(screen.getByText(/relabels existing amounts and never converts them/i)).toBeInTheDocument();
+  });
+
+  it("saves the chosen currency to the settings endpoint", async () => {
+    respondWithSettings();
+    render(<App />);
+    await screen.findByText("$8,000");
+
+    await chooseCurrency("EUR");
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/settings",
+        expect.objectContaining({ method: "PUT", body: JSON.stringify({ currency: "EUR" }) }),
+      ),
+    );
+  });
+
+  it("re-renders the Overview in a comma-decimal euro convention as soon as it is saved, with no $ left", async () => {
+    respondWithSettings();
+    render(<App />);
+    await screen.findByText("$8,000");
+    await chooseCurrency("EUR");
+
+    await userEvent.click(screen.getByRole("button", { name: "Overview" }));
+
+    expect(await screen.findByText(`8.000 €`)).toBeInTheDocument(); // Real Income tile
+    expect(screen.getByText(`4.000 € / month average`)).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("$");
+  });
+
+  it("starts up already showing the saved currency", async () => {
+    respondWithSettings({ currency: "GBP" });
+    render(<App />);
+
+    expect(await screen.findByText("£8,000")).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("$");
+  });
+
+  it("shows a month's amounts and signed differences in the chosen currency", async () => {
+    respondWithSettings({ currency: "EUR" });
+    render(<App />);
+    await screen.findByText(`8.000 €`);
+
+    await userEvent.click(screen.getByRole("button", { name: "Aug" }));
+
+    expect(await screen.findByText(`5.240 €`)).toBeInTheDocument(); // Real Income tile
+    expect(screen.getAllByText(`+3.017 €`).length).toBeGreaterThan(0); // Budgeted vs Actual overspend, signed
+    expect(document.body.textContent).not.toContain("$");
+  });
+
+  it("shows Transactions' and Recurring rules' precise amounts with the currency's own decimals", async () => {
+    respondWithSettings(
+      { currency: "EUR" },
+      {
+        transactions: [
+          { id: 1, date: "2026-08-01", amount: 1234.56, type: "Expense", category: "Groceries", notes: "Woolworths" },
+        ],
+        rules: [
+          {
+            id: 1,
+            amount: 1234.56,
+            type: "Expense",
+            category: "Subscriptions",
+            notes: "Streaming service",
+            frequency: "Weekly",
+            interval: 1,
+            day: "Wednesday",
+            start_date: "2026-08-05",
+            end_date: null,
+          },
+        ],
+      },
+    );
+    render(<App />);
+    await screen.findByText(`8.000 €`);
+
+    await userEvent.click(screen.getByRole("button", { name: "Transactions" }));
+    expect(await screen.findByText(`1.234,56 €`)).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("$");
+
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+    expect(await screen.findByText(`1.234,56 €`)).toBeInTheDocument();
+    // Scoped to the Recurring section: the currency picker above it samples $ for the dollar entries.
+    const recurring = screen.getByRole("heading", { name: "Recurring Transactions" }).closest("section");
+    expect(recurring.textContent).not.toContain("$");
+  });
+
+  it("shows yen without decimal places, including precise amounts", async () => {
+    respondWithSettings(
+      { currency: "JPY" },
+      {
+        transactions: [
+          { id: 1, date: "2026-08-01", amount: 1234.56, type: "Expense", category: "Groceries", notes: "Woolworths" },
+        ],
+      },
+    );
+    render(<App />);
+    expect(await screen.findByText("¥8,000")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Transactions" }));
+
+    expect(await screen.findByText("¥1,235")).toBeInTheDocument();
+    expect(screen.queryByText(/\.\d\d/)).not.toBeInTheDocument();
+  });
+
+  it("shows the Budget tab's editor, Type Totals and Full year grid in the chosen currency too", async () => {
+    const editorRow = {
+      category: "Groceries",
+      amount: 650,
+      last_month_actual: 620,
+      last_month_budgeted: 600,
+      trailing_average_actual: 590,
+      average_variance_pct: 12.3,
+      month_actual: 306,
+    };
+    respondWithSettings(
+      { currency: "EUR" },
+      {
+        extra: {
+          "/api/budget-editor": { Income: [], Expense: [editorRow], Debt: [] },
+          "/api/budget-grid": {
+            Income: [],
+            Expense: [{ category: "Groceries", amounts: [650, ...Array(11).fill(null)] }],
+            Debt: [],
+          },
+          "/api/budget-suggestion": { write_up: null, generated_at: null },
+        },
+      },
+    );
+    render(<App />);
+    await screen.findByText(`8.000 €`);
+
+    await userEvent.click(screen.getByRole("button", { name: "Budget" }));
+    expect(await screen.findByText(`620 €`)).toBeInTheDocument(); // Last month actual
+    expect(document.body.textContent).not.toContain("$");
+
+    await userEvent.click(screen.getByRole("button", { name: "Full year" }));
+    expect(await screen.findAllByText(`650 €`)).not.toHaveLength(0);
+    expect(document.body.textContent).not.toContain("$");
+  });
+
+  describe("as one Display Settings tile", () => {
+    async function openSettings() {
+      respondWithSettings();
+      render(<App />);
+      await screen.findByText("$8,000");
+      await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+      await screen.findByRole("combobox", { name: "Display Currency" });
+    }
+
+    function putBodies() {
+      return fetchMock.mock.calls
+        .filter(([url, options]) => url === "/api/settings" && options?.method === "PUT")
+        .map(([, options]) => JSON.parse(options.body));
+    }
+
+    it("holds the currency, Financial Year start and Date Order together under one 'Display Settings' heading", async () => {
+      await openSettings();
+
+      const tile = screen.getByRole("heading", { name: "Display Settings" }).closest("section");
+      expect(within(tile).getByRole("combobox", { name: "Display Currency" })).toBeInTheDocument();
+      expect(within(tile).getByRole("combobox", { name: "Financial Year start month" })).toBeInTheDocument();
+      expect(within(tile).getByRole("combobox", { name: "Date Order" })).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Display Currency" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Date Order" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Financial Year" })).not.toBeInTheDocument();
+    });
+
+    it("has one Save button, disabled until something changes", async () => {
+      await openSettings();
+
+      expect(screen.getAllByRole("button", { name: /^Save/ })).toHaveLength(1);
+      const save = screen.getByRole("button", { name: "Save settings" });
+      expect(save).toBeDisabled();
+
+      await userEvent.selectOptions(screen.getByRole("combobox", { name: "Date Order" }), "month-first");
+      expect(save).toBeEnabled();
+
+      await userEvent.selectOptions(screen.getByRole("combobox", { name: "Date Order" }), "day-first");
+      expect(save).toBeDisabled();
+    });
+
+    it("saves every changed setting in one request, and only the changed ones", async () => {
+      await openSettings();
+
+      await userEvent.selectOptions(screen.getByRole("combobox", { name: "Display Currency" }), "GBP");
+      await userEvent.selectOptions(screen.getByRole("combobox", { name: "Date Order" }), "month-first");
+      await userEvent.click(screen.getByRole("button", { name: "Save settings" }));
+
+      await waitFor(() => expect(putBodies()).toEqual([{ currency: "GBP", date_order: "month-first" }]));
+      await waitFor(() => expect(screen.getByRole("button", { name: "Save settings" })).toBeDisabled()); // now saved
+
+      await userEvent.click(screen.getByRole("button", { name: "Overview" }));
+      expect(await screen.findByText("£8,000")).toBeInTheDocument();
+      expect(screen.getByText("As at August 3")).toBeInTheDocument(); // month-first (latest Transaction is 3 Aug)
+    });
+
+    it("shows the server's refusal and leaves the choices in place", async () => {
+      await openSettings();
+      fetchMock.mockImplementationOnce(async () => ({
+        ok: false,
+        status: 400,
+        json: async () => ({ error: "currency 'XXX' is not an available Display Currency" }),
+      }));
+
+      await userEvent.selectOptions(screen.getByRole("combobox", { name: "Display Currency" }), "GBP");
+      await userEvent.click(screen.getByRole("button", { name: "Save settings" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("not an available Display Currency");
+      expect(screen.getByRole("combobox", { name: "Display Currency" })).toHaveValue("GBP");
+    });
+  });
+});
+
+describe("Date Order setting", () => {
+  const DEFAULT_SETTINGS = { currency: "AUD", financial_year_start_month: 7, date_order: "day-first" };
+
+  // The settings endpoint as the real server behaves: a GET reads what was
+  // last saved, a PUT merges the body in and answers with everything.
+  function respondWithSettings(saved = {}) {
+    let settings = { ...DEFAULT_SETTINGS, ...saved };
+    const bodies = {
+      "/api/annual-overview": annualWithSpending(),
+      "/api/overview": monthWithSpending(2026, 8),
+      "/api/latest-transaction-date": { date: "2026-08-19" },
+      "/api/transaction-date-range": { earliest: "2025-12-17", latest: "2026-08-19" },
+      "/api/transactions": [],
+      "/api/recurring-rules": [],
+      "/api/categories": [],
+      "/api/budget-editor": { Income: [], Expense: [], Debt: [] },
+      "/api/budget-grid": { Income: [], Expense: [], Debt: [] },
+      "/api/budget-suggestion": { write_up: "- Trim groceries", generated_at: "2026-08-20T14:32:00" },
+    };
+    fetchMock.mockImplementation(async (url, options = {}) => {
+      if (url.startsWith("/api/settings")) {
+        if (options.method === "PUT") {
+          settings = { ...settings, ...JSON.parse(options.body) };
+        }
+        return { ok: true, status: 200, json: async () => settings };
+      }
+      const match = Object.keys(bodies).find((path) => url.startsWith(path));
+      return { ok: true, status: 200, json: async () => bodies[match] };
+    });
+  }
+
+  async function chooseDateOrder(value) {
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+    await userEvent.selectOptions(await screen.findByRole("combobox", { name: "Date Order" }), value);
+    await userEvent.click(screen.getByRole("button", { name: "Save settings" }));
+  }
+
+  it("writes dates day-first everywhere when no Date Order has ever been saved", async () => {
+    respondWithSettings();
+    render(<App />);
+
+    expect(await screen.findByText("As at 19 August")).toBeInTheDocument();
+    expect(screen.getByText("5 Jul")).toBeInTheDocument(); // Top Expenses, Full year
+
+    await userEvent.click(screen.getByRole("button", { name: "Aug" }));
+    expect(await screen.findByText("5 Aug")).toBeInTheDocument(); // Top Expenses
+    expect(screen.getByText("1 Aug")).toBeInTheDocument(); // Expenses Over Time axis
+
+    await userEvent.click(screen.getByRole("button", { name: "Budget" }));
+    expect(await screen.findByText("Generated 20 Aug 2026, 2:32pm")).toBeInTheDocument();
+  });
+
+  it("offers day-first and month-first in Settings, saved through the settings endpoint", async () => {
+    respondWithSettings();
+    render(<App />);
+    await screen.findByText("As at 19 August");
+
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+    const dropdown = await screen.findByRole("combobox", { name: "Date Order" });
+    expect(dropdown).toHaveValue("day-first");
+    expect(within(dropdown).getByRole("option", { name: "Day first (19 Aug)" })).toBeInTheDocument();
+    expect(within(dropdown).getByRole("option", { name: "Month first (Aug 19)" })).toBeInTheDocument();
+
+    await chooseDateOrder("month-first");
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/settings",
+        expect.objectContaining({ method: "PUT", body: JSON.stringify({ date_order: "month-first" }) }),
+      ),
+    );
+  });
+
+  it("flips the As at header, Top Expenses, the Expenses Over Time axis and the Budget Suggestion time to month-first as soon as it is saved, with English month names", async () => {
+    respondWithSettings();
+    render(<App />);
+    await screen.findByText("As at 19 August");
+
+    await chooseDateOrder("month-first");
+
+    expect(await screen.findByText("As at August 19")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Overview" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Aug" }));
+    expect(await screen.findByText("Aug 5")).toBeInTheDocument();
+    expect(screen.getByText("Aug 1")).toBeInTheDocument();
+    expect(screen.queryByText("5 Aug")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Budget" }));
+    expect(await screen.findByText("Generated Aug 20, 2026, 2:32pm")).toBeInTheDocument();
+  });
+
+  it("flips back to day-first when day-first is chosen again", async () => {
+    respondWithSettings({ date_order: "month-first" });
+    render(<App />);
+    expect(await screen.findByText("As at August 19")).toBeInTheDocument();
+
+    await chooseDateOrder("day-first");
+
+    expect(await screen.findByText("As at 19 August")).toBeInTheDocument();
+  });
+
+  it("starts up already writing dates in the saved order", async () => {
+    respondWithSettings({ date_order: "month-first" });
+    render(<App />);
+
+    expect(await screen.findByText("As at August 19")).toBeInTheDocument();
+    expect(screen.getByText("Jul 5")).toBeInTheDocument();
+  });
+});
+
+describe("Financial Year start month setting", () => {
+  const DEFAULT_SETTINGS = { currency: "AUD", financial_year_start_month: 7, date_order: "day-first" };
+  const FULL_YEAR_THEN = (months) => ["Full year", ...months];
+  const APR_TO_MAR = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
+  const JAN_TO_DEC = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const JUL_TO_JUN = ["Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun"];
+
+  // The settings endpoint as the real server behaves (see the Display
+  // Currency tests): a GET reads what was last saved, a PUT merges and answers
+  // with everything.
+  function respondWithStartMonth(startMonth, { earliest = "2025-12-17", extra = {} } = {}) {
+    let settings = { ...DEFAULT_SETTINGS, financial_year_start_month: startMonth };
+    const bodies = {
+      "/api/annual-overview": annualWithSpending(),
+      "/api/overview": monthWithSpending(2026, 8),
+      "/api/latest-transaction-date": { date: "2026-08-03" },
+      "/api/transaction-date-range": { earliest, latest: "2026-08-03" },
+      "/api/transactions": [
+        { id: 1, date: "2026-08-01", amount: 42.5, type: "Expense", category: "Groceries", notes: "Woolworths" },
+      ],
+      "/api/recurring-rules": [],
+      "/api/categories": [],
+      "/api/budget-editor": { Income: [{ category: "Salary", amount: null }], Expense: [], Debt: [] },
+      "/api/budget-grid": { Income: [{ category: "Salary", amounts: Array(12).fill(null) }], Expense: [], Debt: [] },
+      "/api/budget-suggestion": { write_up: null, generated_at: null },
+      ...extra,
+    };
+    fetchMock.mockImplementation(async (url, options = {}) => {
+      if (url.startsWith("/api/settings")) {
+        if (options.method === "PUT") {
+          settings = { ...settings, ...JSON.parse(options.body) };
+        }
+        return { ok: true, status: 200, json: async () => settings };
+      }
+      const match = Object.keys(bodies).find((path) => url.startsWith(path));
+      return { ok: true, status: 200, json: async () => bodies[match] };
+    });
+  }
+
+  function pillLabels() {
+    return within(screen.getByRole("group", { name: "Select month" }))
+      .getAllByRole("button")
+      .map((pill) => pill.textContent);
+  }
+
+  it("behaves exactly as before - July to June - when no start month has been saved", async () => {
+    respondWithStartMonth(7);
+    render(<App />);
+
+    expect(await screen.findByText("2026-2027 Financial Year")).toBeInTheDocument();
+    expect(pillLabels()).toEqual(FULL_YEAR_THEN(JUL_TO_JUN));
+    expect(screen.getByRole("group", { name: "Financial Year or Calendar Year" })).toBeInTheDocument();
+  });
+
+  it("orders the Overview's month pills April to March for an April start, labelled 2026-2027", async () => {
+    respondWithStartMonth(4);
+    render(<App />);
+
+    expect(await screen.findByText("2026-2027 Financial Year")).toBeInTheDocument();
+    expect(pillLabels()).toEqual(FULL_YEAR_THEN(APR_TO_MAR));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/annual-overview?year=2026&period=financial", expect.anything()),
+    );
+  });
+
+  it("names the Financial Year containing today by the saved start month", async () => {
+    // 21 August 2026 falls in the October-start year that began in October 2025.
+    respondWithStartMonth(10);
+    render(<App />);
+
+    expect(await screen.findByText("2025-2026 Financial Year")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/annual-overview?year=2025&period=financial", expect.anything()),
+    );
+  });
+
+  it("orders the Budget tab's pills and Full year grid April to March for an April start", async () => {
+    respondWithStartMonth(4);
+    render(<App />);
+    await screen.findByText("$8,000");
+    await userEvent.click(screen.getByRole("button", { name: "Budget" }));
+    await screen.findByText("Salary");
+
+    expect(pillLabels()).toEqual(FULL_YEAR_THEN(APR_TO_MAR));
+
+    await userEvent.click(screen.getByRole("button", { name: "Full year" }));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/budget-grid?year=2026&period=financial", expect.anything()),
+    );
+    const [headerRow] = await screen.findAllByRole("row");
+    const headers = within(headerRow).getAllByRole("columnheader").map((header) => header.textContent);
+    expect(headers).toEqual(["Category", ...APR_TO_MAR]);
+  });
+
+  it.each([
+    [4, "2026-2027 Financial Year", "2025-2026 Financial Year"],
+    [10, "2025-2026 Financial Year", "2024-2025 Financial Year"],
+  ])(
+    "stops the Next arrow at the year containing today for a start month of %i",
+    async (startMonth, currentLabel, previousLabel) => {
+      respondWithStartMonth(startMonth, { earliest: "2024-01-01" });
+      render(<App />);
+      await screen.findByText(currentLabel);
+      expect(screen.getByRole("button", { name: "Next year" })).toBeDisabled();
+
+      await userEvent.click(screen.getByRole("button", { name: "Previous year" }));
+      await screen.findByText(previousLabel);
+      expect(screen.getByRole("button", { name: "Next year" })).toBeEnabled();
+
+      await userEvent.click(screen.getByRole("button", { name: "Next year" }));
+      await screen.findByText(currentLabel);
+      expect(screen.getByRole("button", { name: "Next year" })).toBeDisabled();
+    },
+  );
+
+  it("starts Transactions at the saved start month: its request, month filter and Export default range", async () => {
+    respondWithStartMonth(4);
+    render(<App />);
+    await screen.findByText("$8,000");
+
+    await userEvent.click(screen.getByRole("button", { name: "Transactions" }));
+    await screen.findByText("Woolworths");
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/transactions?year=2026&month=4", expect.anything()),
+    );
+    const options = within(screen.getByLabelText("Month"))
+      .getAllByRole("option")
+      .map((option) => option.textContent);
+    expect(options).toEqual(["All months", ...APR_TO_MAR]);
+
+    await userEvent.click(screen.getByRole("button", { name: "More options" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Export transactions" }));
+    expect(screen.getByLabelText("Start date")).toHaveValue("2026-04-01");
+    expect(screen.getByLabelText("End date")).toHaveValue("2027-03-31");
+  });
+
+  it("bounds the Previous arrow at the year containing the earliest Transaction, by the saved start month", async () => {
+    // May 2026 starts the April-start 2026 year, but sits inside the July-start 2025 year.
+    respondWithStartMonth(4, { earliest: "2026-05-10" });
+    render(<App />);
+    await screen.findByText("2026-2027 Financial Year");
+
+    expect(screen.getByRole("button", { name: "Previous year" })).toBeDisabled();
+  });
+
+  it("labels a January start with a single year and hides the Financial Year/Calendar Year switcher", async () => {
+    respondWithStartMonth(1);
+    render(<App />);
+
+    expect(await screen.findByText("2026 Financial Year")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Select year" })).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Financial Year or Calendar Year" })).not.toBeInTheDocument();
+    expect(pillLabels()).toEqual(FULL_YEAR_THEN(JAN_TO_DEC));
+  });
+
+  it("steps through January-start Financial Years with the arrows, labelled with a single year", async () => {
+    respondWithStartMonth(1);
+    render(<App />);
+    await screen.findByText("2026 Financial Year");
+
+    await userEvent.click(screen.getByRole("button", { name: "Previous year" }));
+
+    expect(await screen.findByText("2025 Financial Year")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/annual-overview?year=2025&period=financial", expect.anything()),
+    );
+  });
+
+  it("ignores a Calendar Year framing stored in the browser while the start is January", async () => {
+    localStorage.setItem("dashboard.periodType", "calendar");
+    respondWithStartMonth(1);
+    render(<App />);
+
+    expect(await screen.findByText("2026 Financial Year")).toBeInTheDocument();
+    expect(screen.queryByText("Calendar Year 2026")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/annual-overview?year=2026&period=financial", expect.anything()),
+    );
+    expect(fetchMock).not.toHaveBeenCalledWith(expect.stringContaining("period=calendar"), expect.anything());
+  });
+
+  it("still offers Calendar Year with a start other than January", async () => {
+    respondWithStartMonth(4);
+    render(<App />);
+    await screen.findByText("2026-2027 Financial Year");
+
+    await userEvent.click(screen.getByRole("button", { name: "Calendar Year" }));
+
+    expect(await screen.findByText("Calendar Year 2026")).toBeInTheDocument();
+    expect(pillLabels()).toEqual(FULL_YEAR_THEN(JAN_TO_DEC));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/annual-overview?year=2026&period=calendar", expect.anything()),
+    );
+  });
+
+  it("brings the switcher back after the start moves off January, restoring the stored Calendar Year framing", async () => {
+    localStorage.setItem("dashboard.periodType", "calendar");
+    respondWithStartMonth(1);
+    render(<App />);
+    await screen.findByText("2026 Financial Year");
+
+    await chooseStartMonth("April");
+    await userEvent.click(screen.getByRole("button", { name: "Overview" }));
+
+    expect(await screen.findByText("Calendar Year 2026")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Financial Year or Calendar Year" })).toBeInTheDocument();
+  });
+
+  async function chooseStartMonth(monthName) {
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+    await userEvent.selectOptions(await screen.findByRole("combobox", { name: "Financial Year start month" }), monthName);
+    await userEvent.click(screen.getByRole("button", { name: "Save settings" }));
+  }
+
+  it("offers January to December in Settings, showing the saved start month", async () => {
+    respondWithStartMonth(4);
+    render(<App />);
+    await screen.findByText("$8,000");
+
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+
+    const dropdown = await screen.findByRole("combobox", { name: "Financial Year start month" });
+    expect(dropdown).toHaveValue("4");
+    expect(within(dropdown).getAllByRole("option").map((option) => option.textContent)).toEqual([
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ]);
+  });
+
+  it("saves the chosen start month to the settings endpoint", async () => {
+    respondWithStartMonth(7);
+    render(<App />);
+    await screen.findByText("$8,000");
+
+    await chooseStartMonth("April");
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/settings",
+        expect.objectContaining({ method: "PUT", body: JSON.stringify({ financial_year_start_month: 4 }) }),
+      ),
+    );
+  });
+
+  it("regroups the Dashboard as soon as a new start month is saved, landing on the year containing today", async () => {
+    respondWithStartMonth(7);
+    render(<App />);
+    await screen.findByText("2026-2027 Financial Year");
+
+    await chooseStartMonth("October");
+    await userEvent.click(screen.getByRole("button", { name: "Overview" }));
+
+    expect(await screen.findByText("2025-2026 Financial Year")).toBeInTheDocument();
+    expect(pillLabels()).toEqual(FULL_YEAR_THEN(["Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep"]));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/annual-overview?year=2025&period=financial", expect.anything()),
+    );
+  });
+
+  it("shows the server's message when a start month is refused", async () => {
+    respondWithStartMonth(7);
+    const answer = fetchMock.getMockImplementation();
+    fetchMock.mockImplementation(async (url, options = {}) =>
+      url.startsWith("/api/settings") && options.method === "PUT"
+        ? { ok: false, status: 400, json: async () => ({ error: "financial_year_start_month must be a month number from 1 to 12, got 13" }) }
+        : answer(url, options),
+    );
+    render(<App />);
+    await screen.findByText("$8,000");
+
+    await chooseStartMonth("April");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("month number from 1 to 12");
   });
 });

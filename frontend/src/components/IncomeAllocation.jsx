@@ -1,5 +1,5 @@
 import { allocationBar } from "../lib/allocationBar.js";
-import { money } from "../lib/format.js";
+import { useMoney } from "../lib/settings.jsx";
 import { TYPE_COLOURS } from "../lib/typeColours.js";
 
 // The outflow segments take their Type's shared fill; Unallocated and Over
@@ -14,6 +14,7 @@ const SEGMENT_COLOURS = {
 };
 
 export default function IncomeAllocation({ allocation, income }) {
+  const { money } = useMoney();
   const bar = allocationBar(allocation);
 
   // With no Income there is nothing to take a share of, so the endpoint zeroes

@@ -1,4 +1,5 @@
 import { currentReferenceYear, periodLabel, referenceYearContaining, storePeriodType } from "../lib/period.js";
+import { useSettings } from "../lib/settings.jsx";
 
 // The header row (ADR-0021) that replaces the old static Financial Year
 // subtitle - prev/next arrows around a label naming the active year and
@@ -12,10 +13,11 @@ export default function PeriodSwitcher({
   onPeriodTypeChange,
   onReferenceYearChange,
 }) {
+  const { financial_year_start_month: financialStartMonth } = useSettings();
   const minReferenceYear = earliestTransactionDate
-    ? referenceYearContaining(earliestTransactionDate, periodType)
+    ? referenceYearContaining(earliestTransactionDate, periodType, financialStartMonth)
     : null;
-  const maxReferenceYear = currentReferenceYear(periodType);
+  const maxReferenceYear = currentReferenceYear(periodType, new Date(), financialStartMonth);
 
   const canGoBack = minReferenceYear === null || referenceYear > minReferenceYear;
   const canGoForward = referenceYear < maxReferenceYear;
@@ -40,7 +42,7 @@ export default function PeriodSwitcher({
         >
           ‹
         </button>
-        <span className="period-switcher__label">{periodLabel(referenceYear, periodType)}</span>
+        <span className="period-switcher__label">{periodLabel(referenceYear, periodType, financialStartMonth)}</span>
         <button
           type="button"
           className="period-switcher__arrow"
@@ -51,24 +53,27 @@ export default function PeriodSwitcher({
           ›
         </button>
       </div>
-      <div className="period-switcher__toggle" role="group" aria-label="Financial Year or Calendar Year">
-        <button
-          type="button"
-          className="period-switcher__toggle-option"
-          aria-pressed={periodType === "financial"}
-          onClick={() => selectPeriodType("financial")}
-        >
-          Financial Year
-        </button>
-        <button
-          type="button"
-          className="period-switcher__toggle-option"
-          aria-pressed={periodType === "calendar"}
-          onClick={() => selectPeriodType("calendar")}
-        >
-          Calendar Year
-        </button>
-      </div>
+      {/* A January Financial Year is the Calendar Year, so there is nothing to switch (ADR-0027). */}
+      {financialStartMonth !== 1 && (
+        <div className="period-switcher__toggle" role="group" aria-label="Financial Year or Calendar Year">
+          <button
+            type="button"
+            className="period-switcher__toggle-option"
+            aria-pressed={periodType === "financial"}
+            onClick={() => selectPeriodType("financial")}
+          >
+            Financial Year
+          </button>
+          <button
+            type="button"
+            className="period-switcher__toggle-option"
+            aria-pressed={periodType === "calendar"}
+            onClick={() => selectPeriodType("calendar")}
+          >
+            Calendar Year
+          </button>
+        </div>
+      )}
     </div>
   );
 }

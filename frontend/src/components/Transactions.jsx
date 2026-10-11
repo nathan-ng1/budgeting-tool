@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { categoryLabel, emojiLookup, groupByType } from "../lib/categories.js";
-import { preciseMoney } from "../lib/format.js";
+import { useMoney, useSettings } from "../lib/settings.jsx";
 import { periodDateRange, periodFor, periodLabel, startMonthFor } from "../lib/period.js";
 import { blankValues, toPayload, valuesFrom, withType } from "../lib/transactionForm.js";
 import {
@@ -53,6 +53,8 @@ function ariaSortFor(sort, key) {
 // `selected`), just a local month filter that's reset below whenever the
 // active year/framing changes.
 export default function Transactions({ periodType, referenceYear }) {
+  const { preciseMoney } = useMoney();
+  const { financial_year_start_month: financialStartMonth } = useSettings();
   const [transactions, setTransactions] = useState(null);
   const [categories, setCategories] = useState({});
   const [categoryList, setCategoryList] = useState([]);
@@ -95,13 +97,13 @@ export default function Transactions({ periodType, referenceYear }) {
 
   const load = useCallback(async (signal) => {
     const [loadedTransactions, loadedCategories] = await Promise.all([
-      fetchTransactions({ year: referenceYear, month: startMonthFor(periodType) }, { signal }),
+      fetchTransactions({ year: referenceYear, month: startMonthFor(periodType, financialStartMonth) }, { signal }),
       fetchCategories({ signal }),
     ]);
     setTransactions(loadedTransactions);
     setCategories(groupByType(loadedCategories));
     setCategoryList(loadedCategories);
-  }, [periodType, referenceYear]);
+  }, [periodType, referenceYear, financialStartMonth]);
 
   // The same flat list `categories` above was grouped from, kept around
   // separately so the table/filter/form can show a Category's emoji (Issue
@@ -130,7 +132,7 @@ export default function Transactions({ periodType, referenceYear }) {
   }, [load]);
 
   const categoryFilterOptions = useMemo(() => categoryOptions(transactions ?? []), [transactions]);
-  const months = useMemo(() => monthOptions(referenceYear, periodType), [referenceYear, periodType]);
+  const months = useMemo(() => monthOptions(referenceYear, periodType, financialStartMonth), [referenceYear, periodType, financialStartMonth]);
   // Everything below derives from the already-fetched array - no filter,
   // search, or sort change ever triggers another fetchTransactions call.
   const visible = useMemo(
@@ -195,9 +197,9 @@ export default function Transactions({ periodType, referenceYear }) {
     setPanel(null);
     const outsideCount = written.filter((row) => {
       const [year, month] = row.date.split("-").map(Number);
-      return periodFor(year, month, periodType) !== referenceYear;
+      return periodFor(year, month, periodType, financialStartMonth) !== referenceYear;
     }).length;
-    setImportMessage(importSummary(written.length, outsideCount, periodLabel(referenceYear, periodType)));
+    setImportMessage(importSummary(written.length, outsideCount, periodLabel(referenceYear, periodType, financialStartMonth)));
     await load();
   }
 
@@ -288,7 +290,7 @@ export default function Transactions({ periodType, referenceYear }) {
       )}
 
       {panel === "export" && (
-        <ExportPanel initial={periodDateRange(referenceYear, periodType)} onCancel={closePanel} />
+        <ExportPanel initial={periodDateRange(referenceYear, periodType, financialStartMonth)} onCancel={closePanel} />
       )}
 
       {panel === "import" && <ImportPanel onCancel={closePanel} onImported={handleImportComplete} />}

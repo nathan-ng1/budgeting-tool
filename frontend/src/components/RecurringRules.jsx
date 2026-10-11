@@ -10,7 +10,7 @@ import {
   runRecurringRules,
   updateRecurringRule,
 } from "../lib/recurringApi.js";
-import { preciseMoney } from "../lib/format.js";
+import { useMoney } from "../lib/settings.jsx";
 import {
   FREQUENCIES,
   blankValues,
@@ -34,7 +34,7 @@ function schedule(rule) {
 
 // The hint under Total Amount: what's still needed, or what the Total works out
 // to per occurrence once the schedule has an end to count up to.
-function describeSplit(split, endDate) {
+function describeSplit(split, endDate, preciseMoney) {
   if (endDate === "") {
     return "Enter an End Date to split the Total across.";
   }
@@ -56,6 +56,7 @@ function describeRun(written) {
 }
 
 export default function RecurringRules() {
+  const { preciseMoney } = useMoney();
   const [rules, setRules] = useState(null);
   const [categories, setCategories] = useState({});
   const [categoryList, setCategoryList] = useState([]);
@@ -241,6 +242,7 @@ export default function RecurringRules() {
 }
 
 function RuleForm({ initial, categories, emoji, onCancel, onSave }) {
+  const { preciseMoney } = useMoney();
   const [values, setValues] = useState(initial);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -339,7 +341,7 @@ function RuleForm({ initial, categories, emoji, onCancel, onSave }) {
               onChange={(event) => setTotal(event.target.value)}
             />
             <span id={splitHintId} className={`field__hint${split?.error ? " field__hint--error" : ""}`}>
-              {describeSplit(split, values.end_date)}
+              {describeSplit(split, values.end_date, preciseMoney)}
             </span>
           </div>
         ) : (

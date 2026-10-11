@@ -11,7 +11,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
-from dashboard import budgets, categories, queries, recurring, transactions
+from dashboard import budgets, categories, queries, recurring, settings, transactions
 from database.store import CategoryNotFound, RecurringRuleNotFound, TransactionNotFound
 from statement_export import pipeline
 from transaction_log.categories import type_lookup
@@ -43,6 +43,7 @@ BUDGET_EDITOR_PATH = "/api/budget-editor"
 BUDGET_GRID_PATH = "/api/budget-grid"
 BUDGET_SUGGESTION_PATH = "/api/budget-suggestion"
 CATEGORIES_PATH = "/api/categories"
+SETTINGS_PATH = "/api/settings"
 
 BUILD_INSTRUCTIONS = (
     "The Dashboard has not been built yet. Run `npm install` and `npm run build` "
@@ -136,6 +137,8 @@ def _make_handler(store, static_root: Path):
                 # a Type/Category select derive it from this flat list
                 # themselves.
                 self._send_json(200, [categories.as_payload(c) for c in store.read_categories()])
+            elif parsed.path == SETTINGS_PATH:
+                self._send_json(200, settings.as_payload(store.read_settings()))
             elif parsed.path.startswith("/api/"):
                 self._send_json(404, {"error": "Not found"})
             else:
@@ -178,6 +181,10 @@ def _make_handler(store, static_root: Path):
             category_id = self._id_after(CATEGORIES_PATH)
             if category_id is not None:
                 self._update_category(category_id)
+                return
+
+            if urlparse(self.path).path == SETTINGS_PATH:
+                self._save_settings()
                 return
 
             category = self._category_after(BUDGET_EDITOR_PATH)
@@ -375,6 +382,18 @@ def _make_handler(store, static_root: Path):
 
             self._send_json(200, {"written": [transactions.as_candidate_payload(c) for c in to_write]})
 
+        def _save_settings(self) -> None:
+            """Save any subset of the localisation settings (ADR-0027) and
+            answer with all of them - or with why the save was refused."""
+            try:
+                updates = settings.updates_from_payload(self._read_json())
+            except ValueError as cause:
+                self._send_json(400, {"error": str(cause)})
+                return
+
+            store.write_settings(updates)
+            self._send_json(200, settings.as_payload(store.read_settings()))
+
         def _update_category(self, category_id: int) -> None:
             try:
                 name, emoji = categories.update_from_payload(self._read_json())
@@ -529,14 +548,14 @@ def _make_handler(store, static_root: Path):
             return year
 
         def _period_start_month(self, params) -> int | None:
-            """The `period` query param translated to a start month (7 for
+            """The `period` query param translated to a start month (the saved
+            Financial Year start month - July until one is saved - for
             `financial`, 1 for `calendar`) - defaulting to `financial` when
-            omitted, matching today's unchanged behaviour (ADR-0021). None -
-            with a 400 already sent - if `period` is present but neither
-            value."""
+            omitted (ADR-0021, ADR-0027). None - with a 400 already sent - if
+            `period` is present but neither value."""
             period = params.get("period", ["financial"])[0]
             if period == "financial":
-                return 7
+                return settings.financial_year_start_month(store.read_settings())
             if period == "calendar":
                 return 1
             self._send_json(400, {"error": "period query parameter must be 'financial' or 'calendar'"})

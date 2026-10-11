@@ -140,3 +140,24 @@ describe("periodType persistence", () => {
     expect(getStoredPeriodType()).toBe("calendar");
   });
 });
+
+describe("a saved Financial Year start month", () => {
+  it("shifts the months, the year a month belongs to and the label", () => {
+    expect(monthsOfPeriod(2026, "financial", 4).map((m) => m.label).join(" ")).toBe(
+      "Apr May Jun Jul Aug Sep Oct Nov Dec Jan Feb Mar",
+    );
+    expect(periodFor(2027, 3, "financial", 4)).toBe(2026);
+    expect(periodFor(2026, 4, "financial", 4)).toBe(2026);
+    expect(periodLabel(2026, "financial", 4)).toBe("2026-2027 Financial Year");
+    expect(periodLabel(2026, "financial", 1)).toBe("2026 Financial Year");
+    expect(periodLabel(2026, "calendar", 4)).toBe("Calendar Year 2026");
+  });
+
+  it("bounds the date range at the last day of the month before the start", () => {
+    expect(periodDateRange(2026, "financial", 4)).toEqual({ start: "2026-04-01", end: "2027-03-31" });
+    expect(periodDateRange(2026, "financial", 3)).toEqual({ start: "2026-03-01", end: "2027-02-28" });
+    expect(periodDateRange(2023, "financial", 3)).toEqual({ start: "2023-03-01", end: "2024-02-29" });
+    expect(periodDateRange(2026, "financial", 1)).toEqual({ start: "2026-01-01", end: "2026-12-31" });
+    expect(periodDateRange(2026, "calendar", 4)).toEqual({ start: "2026-01-01", end: "2026-12-31" });
+  });
+});

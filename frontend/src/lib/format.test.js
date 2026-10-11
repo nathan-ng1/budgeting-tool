@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { dayMonth, dayMonthLong, generatedAt, money, pct, signedMoney, signedPct } from "./format.js";
+import { dayMonth, dayMonthLong, generatedAt, money, pct, preciseMoney, signedMoney, signedPct } from "./format.js";
 
 describe("money", () => {
   it("renders whole dollars with a thousands separator", () => {
@@ -17,11 +17,33 @@ describe("money", () => {
   });
 });
 
+describe("money in another Display Currency", () => {
+  it("follows the entry's own separators and symbol position", () => {
+    expect(money(1234.56, "EUR")).toBe("1.235\u00a0€");
+    expect(money(1234.56, "GBP")).toBe("£1,235");
+    expect(money(-42, "EUR")).toBe("-42\u00a0€");
+  });
+
+  it("reads an unknown entry as the Australian dollar", () => {
+    expect(money(5240, "NOPE")).toBe("$5,240");
+  });
+});
+
+describe("preciseMoney", () => {
+  it("keeps the currency's own decimals - two for most, none for yen", () => {
+    expect(preciseMoney(1234.5)).toBe("$1,234.50");
+    expect(preciseMoney(1234.56, "EUR")).toBe("1.234,56\u00a0€");
+    expect(preciseMoney(1234.56, "JPY")).toBe("¥1,235");
+  });
+});
+
 describe("signedMoney", () => {
   it("always carries an explicit sign, using a real minus glyph", () => {
     expect(signedMoney(40)).toBe("+$40");
     expect(signedMoney(-38)).toBe("−$38");
     expect(signedMoney(0)).toBe("+$0");
+    expect(signedMoney(-3017, "EUR")).toBe("−3.017\u00a0€");
+    expect(signedMoney(40, "GBP")).toBe("+£40");
   });
 });
 
@@ -41,26 +63,29 @@ describe("pct", () => {
 
 describe("dayMonth", () => {
   it("renders an ISO date the way the Top 5 list shows it", () => {
-    expect(dayMonth("2026-05-01")).toBe("May 1");
-    expect(dayMonth("2026-05-30")).toBe("May 30");
+    expect(dayMonth("2026-05-01")).toBe("1 May");
+    expect(dayMonth("2026-05-30")).toBe("30 May");
+    expect(dayMonth("2026-05-30", "month-first")).toBe("May 30");
   });
 
   it("reads the ISO date as a plain calendar date, not a UTC instant", () => {
     // Parsing "2026-05-01" via `new Date()` yields midnight UTC, which is the
     // previous day in any behind-UTC timezone - the date must not shift.
-    expect(dayMonth("2026-01-01")).toBe("Jan 1");
+    expect(dayMonth("2026-01-01")).toBe("1 Jan");
   });
 });
 
 describe("dayMonthLong", () => {
   it("spells the month out, the way the mockup's 'As at' line reads", () => {
     expect(dayMonthLong("2026-08-19")).toBe("19 August");
+    expect(dayMonthLong("2026-08-19", "month-first")).toBe("August 19");
   });
 });
 
 describe("generatedAt", () => {
   it("renders a full timestamp with a 12-hour clock", () => {
     expect(generatedAt("2026-08-20T14:32:00")).toBe("20 Aug 2026, 2:32pm");
+    expect(generatedAt("2026-08-20T14:32:00", "month-first")).toBe("Aug 20, 2026, 2:32pm");
   });
 
   it("renders midnight and noon as 12, not 0", () => {

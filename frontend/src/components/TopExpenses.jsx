@@ -1,7 +1,9 @@
 import { colourForCategory } from "../lib/categoryColours.js";
-import { dayMonth, money } from "../lib/format.js";
+import { useDateFormat, useMoney } from "../lib/settings.jsx";
 
 export default function TopExpenses({ expenses, count }) {
+  const { money } = useMoney();
+  const { dayMonth } = useDateFormat();
   const rows = expenses.slice(0, count);
 
   return (

@@ -63,6 +63,13 @@ CREATE TABLE IF NOT EXISTS budget_suggestion (
     write_up TEXT NOT NULL,
     generated_at TEXT NOT NULL
 );
+
+-- Localisation settings (ADR-0027): only what has been saved. A setting with
+-- no row reads as its default, which dashboard.settings owns.
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 """
 
 
@@ -462,6 +469,19 @@ class LocalStore:
 
         write_up, generated_at = row
         return BudgetSuggestion(write_up=write_up, generated_at=datetime.fromisoformat(generated_at))
+
+    def read_settings(self) -> dict[str, str]:
+        """The settings that have been saved, as text - a setting never saved
+        is simply absent (its default is the caller's concern)."""
+        return dict(self._connection.execute("SELECT key, value FROM settings").fetchall())
+
+    def write_settings(self, updates: dict) -> None:
+        """Upsert each given setting, all or none."""
+        self._connection.executemany(
+            "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            [(key, str(value)) for key, value in updates.items()],
+        )
+        self._connection.commit()
 
 
 def _as_transaction(transaction_id: int, candidate: Candidate) -> Transaction:

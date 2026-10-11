@@ -1,8 +1,9 @@
 import { MONTH_CHART_HEIGHT, MONTH_CHART_WIDTH, monthlyComparisonChart, plotGridlines } from "../lib/charts.js";
-import { money } from "../lib/format.js";
+import { useMoney } from "../lib/settings.jsx";
 import { MONTH_LABELS_SHORT } from "../lib/months.js";
 
 export default function IncomeVsExpensesByMonth({ months }) {
+  const { money } = useMoney();
   const chart = monthlyComparisonChart(months);
   const gridlines = plotGridlines(MONTH_CHART_HEIGHT);
 

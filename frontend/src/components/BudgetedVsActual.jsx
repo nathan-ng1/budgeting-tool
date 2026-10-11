@@ -1,6 +1,7 @@
 import { TYPE_ORDER, categoryLabel, emojiLookup } from "../lib/categories.js";
 import { colourForCategory } from "../lib/categoryColours.js";
-import { UNSET, money, signedMoney, signedPct } from "../lib/format.js";
+import { UNSET, signedPct } from "../lib/format.js";
+import { useMoney } from "../lib/settings.jsx";
 import { toneFor } from "../lib/tone.js";
 
 // The budgetable Types, in GLOSSARY.md's order - the table's section order,
@@ -41,6 +42,7 @@ function toneForType(type, diff) {
 }
 
 function SignedCells({ type, diff, pct }) {
+  const { signedMoney } = useMoney();
   if (diff === null) {
     return (
       <>
@@ -76,6 +78,7 @@ function subtotal(rows) {
 }
 
 function Section({ type, rows, emoji }) {
+  const { money } = useMoney();
   if (rows.length === 0) {
     return null;
   }
@@ -118,6 +121,7 @@ function Section({ type, rows, emoji }) {
 }
 
 export default function BudgetedVsActual({ rows, categories = [] }) {
+  const { money, signedMoney } = useMoney();
   // The header's total Diff badge is the same subtotal() shape the per-Type
   // rows already use, just applied across every row rather than one
   // Section's - so it inherits the same "budgeted Categories only" exclusion
