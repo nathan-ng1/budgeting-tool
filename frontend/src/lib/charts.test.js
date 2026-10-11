@@ -5,8 +5,8 @@ import { CIRCUMFERENCE, cumulativeChart, donutSegments, monthlyComparisonChart, 
 describe("donutSegments", () => {
   it("lays each Category's arc end to end around the ring, largest first", () => {
     const segments = donutSegments([
-      { category: "Groceries", amount: 750, pct_of_expenses: 75 },
-      { category: "Transport", amount: 250, pct_of_expenses: 25 },
+      { category: "Groceries", amount: 750, pct_of_spending: 75 },
+      { category: "Transport", amount: 250, pct_of_spending: 25 },
     ]);
 
     expect(segments).toHaveLength(2);
@@ -18,7 +18,7 @@ describe("donutSegments", () => {
   });
 
   it("carries each Category's own colour, not a rank-ordered one", () => {
-    const [transport] = donutSegments([{ category: "Transport", amount: 10, pct_of_expenses: 100 }]);
+    const [transport] = donutSegments([{ category: "Transport", amount: 10, pct_of_spending: 100 }]);
 
     expect(transport.colour).toBe("#d67f48");
   });
@@ -29,8 +29,8 @@ describe("donutSegments", () => {
 
   it("gives a negative-amount Category (e.g. Beem Adjustment, ADR-0015) a zero-length arc instead of a broken negative one, while still returning it for the legend", () => {
     const segments = donutSegments([
-      { category: "Groceries", amount: 800, pct_of_expenses: 125 },
-      { category: "Beem Adjustment", amount: -200, pct_of_expenses: -31.25 },
+      { category: "Groceries", amount: 800, pct_of_spending: 125 },
+      { category: "Beem Adjustment", amount: -200, pct_of_spending: -31.25 },
     ]);
 
     expect(segments).toHaveLength(2);

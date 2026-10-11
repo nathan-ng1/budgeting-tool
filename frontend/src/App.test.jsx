@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App.jsx";
 
-const ZERO_STAT_TILES = { income: 0, expenses: 0, debt: 0, available_to_save: 0, saved: 0, unallocated: 0 };
-const ZERO_MONTH_TOTALS = { income: 0, expenses: 0, debt: 0, available_to_save: 0, saved: 0 };
+const ZERO_STAT_TILES = { income: 0, expenses: 0, bills_subscriptions: 0, debt: 0, available_to_save: 0, saved: 0, unallocated: 0 };
+const ZERO_MONTH_TOTALS = { income: 0, expenses: 0, bills_subscriptions: 0, debt: 0, available_to_save: 0, saved: 0 };
 const ZERO_ALLOCATION = {
   expenses_amount: 0,
   expenses_pct: 0,
@@ -29,7 +29,7 @@ function monthOverview({ year = 2026, month = 8, ...overrides } = {}) {
     budgeted_vs_actual: [],
     debt_summary: [],
     top_expenses: [],
-    expenses_over_time: { daily: [], total: 0, daily_average: 0 },
+    spending_over_time: { daily: [], total: 0, daily_average: 0 },
     ...overrides,
   };
 }
@@ -38,7 +38,7 @@ function monthWithSpending(year, month, overrides = {}) {
   return monthOverview({
     year,
     month,
-    stat_tiles: { income: 5240, expenses: 3667, debt: 0, available_to_save: 1573, saved: 900, unallocated: 673 },
+    stat_tiles: { income: 5240, expenses: 3667, bills_subscriptions: 0, debt: 0, available_to_save: 1573, saved: 900, unallocated: 673 },
     income_allocation: {
       expenses_amount: 3667,
       expenses_pct: 70,
@@ -51,10 +51,10 @@ function monthWithSpending(year, month, overrides = {}) {
       over_income_amount: 0,
       over_income_pct: 0,
     },
-    spending_by_category: [{ category: "Groceries", amount: 3667, pct_of_expenses: 100 }],
+    spending_by_category: [{ category: "Groceries", amount: 3667, pct_of_spending: 100 }],
     budgeted_vs_actual: [{ type: "Expense", category: "Groceries", budgeted: 650, actual: 3667, diff: -3017, pct: 564.2 }],
     top_expenses: [{ notes: "Woolworths", category: "Groceries", date: `${year}-0${month}-05`, amount: 3667 }],
-    expenses_over_time: {
+    spending_over_time: {
       daily: [
         { date: `${year}-0${month}-01`, cumulative: 0 },
         { date: `${year}-0${month}-05`, cumulative: 3667 },
@@ -94,8 +94,8 @@ function annualWithSpending(overrides = {}) {
   );
 
   return annualOverview({
-    stat_tiles: { income: 8000, expenses: 6000, debt: 0, available_to_save: 2000, saved: 1000, unallocated: 1000 },
-    monthly_average: { income: 4000, expenses: 3000, debt: 0, available_to_save: 1000, saved: 500, unallocated: 500 },
+    stat_tiles: { income: 8000, expenses: 6000, bills_subscriptions: 0, debt: 0, available_to_save: 2000, saved: 1000, unallocated: 1000 },
+    monthly_average: { income: 4000, expenses: 3000, bills_subscriptions: 0, debt: 0, available_to_save: 1000, saved: 500, unallocated: 500 },
     income_allocation: {
       expenses_amount: 6000,
       expenses_pct: 75,
@@ -108,7 +108,7 @@ function annualWithSpending(overrides = {}) {
       over_income_amount: 0,
       over_income_pct: 0,
     },
-    spending_by_category: [{ category: "Groceries", amount: 6000, pct_of_expenses: 100 }],
+    spending_by_category: [{ category: "Groceries", amount: 6000, pct_of_spending: 100 }],
     // Full year's Budgeted is a real per-Category rollup across elapsed months (ADR-0013).
     budgeted_vs_actual: [{ type: "Expense", category: "Groceries", budgeted: 3000, actual: 6000, diff: -3000, pct: 200.0 }],
     top_expenses: [{ notes: "Woolworths", category: "Groceries", date: "2026-07-05", amount: 6000 }],
@@ -222,7 +222,7 @@ describe("App", () => {
     expect(screen.getByText("Woolworths")).toBeInTheDocument();
 
     // Per-month-only sections stay off Full year.
-    expect(screen.queryByRole("heading", { name: "Expenses over time" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Spending over time" })).not.toBeInTheDocument();
   });
 
   it("selecting a month pill still shows the existing per-month Overview, unchanged", async () => {
@@ -240,9 +240,40 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Spending by Category" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Budgeted vs Actual" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Top 5 expenses" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Expenses over time" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Spending over time" })).toBeInTheDocument();
     expect(screen.getByText("Woolworths")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Aug" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("totals the Spending by Category card as Expenses plus Bills & Subscriptions, for a month", async () => {
+    respondWith({
+      month: monthWithSpending(2026, 8, {
+        stat_tiles: { ...ZERO_STAT_TILES, income: 5240, expenses: 3667, bills_subscriptions: 620 },
+        spending_by_category: [
+          { category: "Groceries", type: "Expense", amount: 3667, pct_of_spending: 85.5 },
+          { category: "Insurance", type: "Bills & Subscriptions", amount: 620, pct_of_spending: 14.5 },
+        ],
+      }),
+    });
+    render(<App />);
+    await userEvent.click(await screen.findByRole("button", { name: "Aug" }));
+
+    expect(await screen.findByRole("img", { name: "Spending by Category, $4,287 total" })).toBeInTheDocument();
+  });
+
+  it("totals the Spending by Category card as Expenses plus Bills & Subscriptions, for Full year", async () => {
+    respondWith({
+      annual: annualWithSpending({
+        stat_tiles: { ...ZERO_STAT_TILES, income: 8000, expenses: 6000, bills_subscriptions: 1000 },
+        spending_by_category: [
+          { category: "Groceries", type: "Expense", amount: 6000, pct_of_spending: 85.7 },
+          { category: "Insurance", type: "Bills & Subscriptions", amount: 1000, pct_of_spending: 14.3 },
+        ],
+      }),
+    });
+    render(<App />);
+
+    expect(await screen.findByRole("img", { name: "Spending by Category, $7,000 total" })).toBeInTheDocument();
   });
 
   it("re-fetches and re-renders every section when the month changes", async () => {
@@ -309,7 +340,7 @@ describe("App", () => {
     // Every section is still on the page...
     expect(await screen.findByRole("heading", { name: "Spending by Category" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Budgeted vs Actual" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Expenses over time" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Spending over time" })).toBeInTheDocument();
 
     // ...with zeroes and plain empty copy rather than a crash or blank panels.
     expect(screen.getAllByText("$0").length).toBeGreaterThan(0);
@@ -320,7 +351,7 @@ describe("App", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("renders the Debt card between Spending by Category/Budgeted vs Actual and Top 5/Expenses over time, for a month with Debt", async () => {
+  it("renders the Debt card between Spending by Category/Budgeted vs Actual and Top 5/Spending over time, for a month with Debt", async () => {
     respondWith({
       month: monthWithSpending(2026, 8, {
         stat_tiles: { income: 5240, expenses: 3667, debt: 875, available_to_save: 698, saved: 900, unallocated: -202 },
@@ -639,7 +670,7 @@ describe("App", () => {
       );
       // Full year's own sections show, not Aug's per-month-only ones.
       expect(await screen.findByRole("heading", { name: "Month by month" })).toBeInTheDocument();
-      expect(screen.queryByRole("heading", { name: "Expenses over time" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Spending over time" })).not.toBeInTheDocument();
     });
 
     it("switches to Calendar Year framing, relabelling the header and reordering the month pills", async () => {

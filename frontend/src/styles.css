@@ -147,7 +147,7 @@
 
   /* PROTOTYPE (prototype/orchid-pastel-palette, pass 8) - IncomeAllocation's
      "expenses" segment, IncomeVsExpensesByMonth's Expense bars/dot and
-     ExpensesOverTime's line/gradient/marker all used to read
+     SpendingOverTime's line/gradient/marker all used to read
      var(--color-accent-600) directly, like the genuine text/white-on-bg
      uses of that token (.figure--adverse, .button backgrounds). Orchid
      wants its Expenses fills pushed to a vivid hot pink well past what
@@ -470,7 +470,7 @@
      around it again: --color-negative-fill (new token, see :root) takes
      over every Expenses-only *fill* role (IncomeAllocation's "expenses"
      segment, IncomeVsExpensesByMonth's Expense bars/dot,
-     ExpensesOverTime's line/gradient/marker) that used to read
+     SpendingOverTime's line/gradient/marker) that used to read
      --color-accent-600 directly. --color-accent/-600/--color-negative
      stay at pass 7's #ae095c - still the token for buttons, the active
      month pill and .figure--adverse text, all genuinely AA-constrained -
