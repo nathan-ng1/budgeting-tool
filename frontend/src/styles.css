@@ -147,7 +147,7 @@
 
   /* PROTOTYPE (prototype/orchid-pastel-palette, pass 8) - IncomeAllocation's
      "expenses" segment, IncomeVsExpensesByMonth's Expense bars/dot and
-     ExpensesOverTime's line/gradient/marker all used to read
+     SpendingOverTime's line/gradient/marker all used to read
      var(--color-accent-600) directly, like the genuine text/white-on-bg
      uses of that token (.figure--adverse, .button backgrounds). Orchid
      wants its Expenses fills pushed to a vivid hot pink well past what
@@ -470,7 +470,7 @@
      around it again: --color-negative-fill (new token, see :root) takes
      over every Expenses-only *fill* role (IncomeAllocation's "expenses"
      segment, IncomeVsExpensesByMonth's Expense bars/dot,
-     ExpensesOverTime's line/gradient/marker) that used to read
+     SpendingOverTime's line/gradient/marker) that used to read
      --color-accent-600 directly. --color-accent/-600/--color-negative
      stay at pass 7's #ae095c - still the token for buttons, the active
      month pill and .figure--adverse text, all genuinely AA-constrained -
@@ -1012,6 +1012,26 @@ button.nav__tab:hover {
 
 .allocation__segment {
   flex: none;
+}
+
+/* Outflows breakdown reuses the allocation bar but is taller and carries the
+   amount inside each wide segment. White on the Type fills needs the soft
+   shadow to stay legible on the lighter fills across themes. */
+.outflows__bar {
+  height: 40px;
+  border-radius: var(--radius-md);
+}
+
+.outflows__segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .allocation__marker {

@@ -6,8 +6,9 @@ import BudgetedVsActual from "./components/BudgetedVsActual.jsx";
 import CategoryManagement from "./components/CategoryManagement.jsx";
 import DisplaySettings from "./components/DisplaySettings.jsx";
 import DebtSummary from "./components/DebtSummary.jsx";
-import ExpensesOverTime from "./components/ExpensesOverTime.jsx";
+import SpendingOverTime from "./components/SpendingOverTime.jsx";
 import IncomeAllocation from "./components/IncomeAllocation.jsx";
+import OutflowsBreakdown from "./components/OutflowsBreakdown.jsx";
 import IncomeVsExpensesByMonth from "./components/IncomeVsExpensesByMonth.jsx";
 import MonthByMonth from "./components/MonthByMonth.jsx";
 import MonthSelector from "./components/MonthSelector.jsx";
@@ -335,7 +336,7 @@ function Dashboard({ settings, onSettingsSaved }) {
                       <div className="row--wide-pair__top">
                         <SpendingByCategory
                           spending={overview.spending_by_category}
-                          total={overview.stat_tiles.expenses}
+                          total={overview.stat_tiles.expenses + overview.stat_tiles.bills_subscriptions}
                           categories={categories}
                         />
                       </div>
@@ -346,9 +347,10 @@ function Dashboard({ settings, onSettingsSaved }) {
                         <DebtSummary debtSummary={overview.debt_summary} total={overview.stat_tiles.debt} />
                       </div>
                     </div>
+                    <OutflowsBreakdown tiles={overview.stat_tiles} />
                     <div className="row--split">
                       <TopExpenses expenses={overview.top_expenses} count={5} />
-                      <ExpensesOverTime overTime={overview.expenses_over_time} />
+                      <SpendingOverTime overTime={overview.spending_over_time} />
                     </div>
                   </>
                 ) : (
@@ -377,7 +379,7 @@ function Dashboard({ settings, onSettingsSaved }) {
                     <div className="row--split">
                       <SpendingByCategory
                         spending={overview.spending_by_category}
-                        total={overview.stat_tiles.expenses}
+                        total={overview.stat_tiles.expenses + overview.stat_tiles.bills_subscriptions}
                         categories={categories}
                       />
                       <TopExpenses expenses={overview.top_expenses} count={10} />

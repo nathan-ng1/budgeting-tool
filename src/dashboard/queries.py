@@ -56,8 +56,9 @@ class IncomeAllocation:
 @dataclass(frozen=True)
 class CategorySpend:
     category: str
+    type: str
     amount: float
-    pct_of_expenses: float
+    pct_of_spending: float
 
 
 @dataclass(frozen=True)
@@ -114,7 +115,7 @@ class DailyCumulative:
 
 
 @dataclass(frozen=True)
-class ExpensesOverTime:
+class SpendingOverTime:
     daily: list[DailyCumulative]
     total: float
     daily_average: float
@@ -130,7 +131,7 @@ class MonthOverview:
     budgeted_vs_actual: list[BudgetVsActual]
     debt_summary: list[DebtByNotes]
     top_expenses: list[TopExpense]
-    expenses_over_time: ExpensesOverTime
+    spending_over_time: SpendingOverTime
 
 
 @dataclass(frozen=True)
@@ -169,13 +170,13 @@ def get_month_overview(store, year: int, month: int) -> MonthOverview:
         month=month,
         stat_tiles=stat_tiles,
         income_allocation=_income_allocation(stat_tiles),
-        spending_by_category=_spending_by_category(transactions, stat_tiles.expenses),
+        spending_by_category=_spending_by_category(transactions, stat_tiles.expenses + stat_tiles.bills_subscriptions),
         budgeted_vs_actual=_budgeted_vs_actual(
             transactions, store.read_category_budgets(year, month), store.read_categories()
         ),
         debt_summary=_debt_summary(transactions, stat_tiles.debt),
         top_expenses=_top_expenses(transactions, limit=5),
-        expenses_over_time=_expenses_over_time(transactions, year, month),
+        spending_over_time=_spending_over_time(transactions, year, month),
     )
 
 
@@ -199,7 +200,7 @@ def get_annual_overview(store, year: int, today: date | None = None, start_month
         stat_tiles=stat_tiles,
         monthly_average=_monthly_average(stat_tiles, elapsed_months),
         income_allocation=_income_allocation(stat_tiles),
-        spending_by_category=_spending_by_category(transactions, stat_tiles.expenses),
+        spending_by_category=_spending_by_category(transactions, stat_tiles.expenses + stat_tiles.bills_subscriptions),
         budgeted_vs_actual=_annual_budgeted_vs_actual(store, transactions, start, elapsed_months),
         debt_summary=_debt_summary(transactions, stat_tiles.debt),
         top_expenses=_top_expenses(transactions, limit=10),
@@ -490,16 +491,20 @@ def _totals_by_category(transactions: list[Transaction], types: Collection[str])
     return totals
 
 
-def _expense_totals_by_category(transactions: list[Transaction]) -> dict[str, float]:
-    return _totals_by_category(transactions, {"Expense"})
+# Spending (GLOSSARY): Expense plus Bills & Subscriptions; Debt and Savings are out.
+SPENDING_TYPES = frozenset({"Expense", "Bills & Subscriptions"})
 
 
-def _spending_by_category(transactions: list[Transaction], expenses: float) -> list[CategorySpend]:
-    totals = _expense_totals_by_category(transactions)
+def _spending_by_category(transactions: list[Transaction], spending: float) -> list[CategorySpend]:
+    totals: dict[tuple[str, str], float] = {}
+    for t in transactions:
+        if t.type in SPENDING_TYPES:
+            key = (t.category, t.type)
+            totals[key] = totals.get(key, 0.0) + t.amount
 
     rows = [
-        CategorySpend(category=category, amount=_round(amount), pct_of_expenses=_pct(amount, expenses))
-        for category, amount in totals.items()
+        CategorySpend(category=category, type=type_, amount=_round(amount), pct_of_spending=_pct(amount, spending))
+        for (category, type_), amount in totals.items()
         if amount != 0
     ]
     return sorted(rows, key=lambda row: (-row.amount, row.category))
@@ -683,12 +688,12 @@ def _top_expenses(transactions: list[Transaction], limit: int) -> list[TopExpens
     ]
 
 
-def _expenses_over_time(transactions: list[Transaction], year: int, month: int) -> ExpensesOverTime:
+def _spending_over_time(transactions: list[Transaction], year: int, month: int) -> SpendingOverTime:
     days_in_month = monthrange(year, month)[1]
 
     daily_totals: dict[date, float] = {}
     for t in transactions:
-        if t.type != "Expense":
+        if t.type not in SPENDING_TYPES:
             continue
         daily_totals[t.date] = daily_totals.get(t.date, 0.0) + t.amount
 
@@ -700,7 +705,7 @@ def _expenses_over_time(transactions: list[Transaction], year: int, month: int) 
         daily.append(DailyCumulative(date=current_date.isoformat(), cumulative=_round(running_total)))
 
     total = _round(running_total)
-    return ExpensesOverTime(daily=daily, total=total, daily_average=_round(total / days_in_month))
+    return SpendingOverTime(daily=daily, total=total, daily_average=_round(total / days_in_month))
 
 
 def _pct(part: float, whole: float | None) -> float:
