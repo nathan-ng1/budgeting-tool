@@ -53,7 +53,7 @@ echo "Installed version: $LOCAL_VERSION"
 echo "Latest version:    $NEW_VERSION"
 echo
 echo "What's new:"
-git log --oneline "HEAD..$LATEST_TAG"
+git --no-pager log --oneline "HEAD..$LATEST_TAG"
 echo
 
 read -r -p "Update now? [Y/n] " confirm
