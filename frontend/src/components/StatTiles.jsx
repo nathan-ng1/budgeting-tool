@@ -1,4 +1,4 @@
-import { money } from "../lib/format.js";
+import { useMoney } from "../lib/settings.jsx";
 import { toneFor } from "../lib/tone.js";
 import { balanceText, isBalanced } from "./BalanceStatus.jsx";
 
@@ -9,6 +9,8 @@ import { balanceText, isBalanced } from "./BalanceStatus.jsx";
 // already divided by elapsed months by the backend - see ADR-0011). It is
 // omitted for the per-month Overview, where a monthly average makes no sense.
 export default function StatTiles({ tiles, average }) {
+  const formatters = useMoney();
+  const { money } = formatters;
   const availableToSave = tiles.available_to_save;
 
   return (
@@ -28,7 +30,7 @@ export default function StatTiles({ tiles, average }) {
         // unstyled $0 (the same "counts as $0" rule as Unallocated, spec
         // #164). Note the flipped sign against Budgeted vs Actual: there a
         // positive figure is overspend, here it is Income still available.
-        value={balanceText(availableToSave)}
+        value={balanceText(availableToSave, formatters)}
         tone={isBalanced(availableToSave) ? "" : toneFor(-availableToSave)}
         average={average && money(average.available_to_save)}
       />

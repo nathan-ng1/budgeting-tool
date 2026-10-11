@@ -4,6 +4,7 @@ import BalanceCheck from "./components/BalanceCheck.jsx";
 import Budget from "./components/Budget.jsx";
 import BudgetedVsActual from "./components/BudgetedVsActual.jsx";
 import CategoryManagement from "./components/CategoryManagement.jsx";
+import DisplayCurrency from "./components/DisplayCurrency.jsx";
 import DebtSummary from "./components/DebtSummary.jsx";
 import ExpensesOverTime from "./components/ExpensesOverTime.jsx";
 import IncomeAllocation from "./components/IncomeAllocation.jsx";
@@ -20,6 +21,8 @@ import Transactions from "./components/Transactions.jsx";
 import { fetchAnnualOverview, fetchLatestTransactionDate, fetchMonthOverview, fetchTransactionDateRange } from "./lib/api.js";
 import { fetchCategories } from "./lib/categoriesApi.js";
 import { dayMonthLong } from "./lib/format.js";
+import { DEFAULT_SETTINGS, SettingsProvider } from "./lib/settings.jsx";
+import { fetchSettings } from "./lib/settingsApi.js";
 import { currentMonth, currentReferenceYear, getStoredPeriodType, remapReferenceYear } from "./lib/period.js";
 
 // Settings holds the Recurring Transactions Config editor (Issue #29);
@@ -28,7 +31,40 @@ import { currentMonth, currentReferenceYear, getStoredPeriodType, remapReference
 const TABS = ["Overview", "Transactions", "Budget", "Settings"];
 const WIRED_TABS = ["Overview", "Transactions", "Budget", "Settings"];
 
+// Loads the localisation settings (ADR-0027) once and hands them to the whole
+// Dashboard through context, so every amount is drawn in the saved Display
+// Currency. Nothing is drawn until the load settles, so no amount ever flashes
+// in a currency that is about to be replaced; a failed load settles on the
+// Australian defaults rather than an error banner over figures that are fine.
 export default function App() {
+  const [settings, setSettings] = useState(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    fetchSettings({ signal: controller.signal })
+      .then((loaded) => setSettings({ ...DEFAULT_SETTINGS, ...loaded }))
+      .catch((cause) => {
+        if (cause.name !== "AbortError") {
+          setSettings(DEFAULT_SETTINGS);
+        }
+      });
+
+    return () => controller.abort();
+  }, []);
+
+  if (settings === null) {
+    return null;
+  }
+
+  return (
+    <SettingsProvider settings={settings}>
+      <Dashboard settings={settings} onSettingsSaved={setSettings} />
+    </SettingsProvider>
+  );
+}
+
+function Dashboard({ settings, onSettingsSaved }) {
   const [tab, setTab] = useState("Overview");
   const [asAt, setAsAt] = useState(null);
   // null = Full year, the Overview tab's default on every load - no
@@ -222,6 +258,7 @@ export default function App() {
         {tab === "Settings" && (
           <>
             <ThemeSwitcher />
+            <DisplayCurrency currency={settings.currency} onSaved={onSettingsSaved} />
             <CategoryManagement />
             <RecurringRules />
           </>

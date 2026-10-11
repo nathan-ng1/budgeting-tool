@@ -257,7 +257,7 @@ describe("App", () => {
     }));
     render(<App />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Aug" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Aug" }));
     expect(await screen.findByText("$5,240")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Sep" }));
@@ -290,7 +290,7 @@ describe("App", () => {
     });
     render(<App />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Aug" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Aug" }));
     expect(await screen.findByText("$5,240")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Sep" }));
 
@@ -544,7 +544,7 @@ describe("App", () => {
     respondWith();
     render(<App />);
 
-    const nav = screen.getByRole("navigation");
+    const nav = await screen.findByRole("navigation");
 
     expect(within(nav).getByText("Transactions")).toBeInTheDocument();
     expect(within(nav).getByText("Budget")).toBeInTheDocument();
@@ -902,5 +902,216 @@ describe("App", () => {
       // own figures, not Full year's.
       expect(await screen.findByText("$5,240")).toBeInTheDocument();
     });
+  });
+});
+
+describe("Display Currency setting", () => {
+  const DEFAULT_SETTINGS = { currency: "AUD", financial_year_start_month: 7, date_order: "day-first" };
+  const NBSP = " ";
+  const GERMAN_EURO_OPTION = `Euro (Germany) - 1.234,56${NBSP}€`;
+
+  // The settings endpoint as the real server behaves: a GET reads what was
+  // last saved, a PUT merges the body in and answers with everything.
+  function respondWithSettings(saved = {}, { transactions = [], rules = [], extra = {} } = {}) {
+    let settings = { ...DEFAULT_SETTINGS, ...saved };
+    const bodies = {
+      "/api/annual-overview": annualWithSpending(),
+      "/api/overview": monthWithSpending(2026, 8),
+      "/api/latest-transaction-date": { date: "2026-08-03" },
+      "/api/transaction-date-range": { earliest: "2025-12-17", latest: "2026-08-03" },
+      "/api/transactions": transactions,
+      "/api/recurring-rules": rules,
+      "/api/categories": [],
+      ...extra,
+    };
+    fetchMock.mockImplementation(async (url, options = {}) => {
+      if (url.startsWith("/api/settings")) {
+        if (options.method === "PUT") {
+          settings = { ...settings, ...JSON.parse(options.body) };
+        }
+        return { ok: true, status: 200, json: async () => settings };
+      }
+      const match = Object.keys(bodies).find((path) => url.startsWith(path));
+      return { ok: true, status: 200, json: async () => bodies[match] };
+    });
+  }
+
+  async function chooseCurrency(value) {
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+    await userEvent.selectOptions(await screen.findByRole("combobox", { name: "Display Currency" }), value);
+    await userEvent.click(screen.getByRole("button", { name: "Save Display Currency" }));
+  }
+
+  it("shows every amount in Australian dollars when no setting has ever been saved", async () => {
+    respondWithSettings();
+    render(<App />);
+
+    expect(await screen.findByText("$8,000")).toBeInTheDocument();
+  });
+
+  it("falls back to Australian dollars when the settings can't be read", async () => {
+    // No /api/settings route at all: the stub answers with an empty body.
+    respondWith();
+    render(<App />);
+
+    expect(await screen.findByText("$8,000")).toBeInTheDocument();
+  });
+
+  it("offers a dropdown of currencies, each with a sample of its format, and says changing it relabels and never converts", async () => {
+    respondWithSettings();
+    render(<App />);
+    await screen.findByText("$8,000");
+
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+
+    const dropdown = await screen.findByRole("combobox", { name: "Display Currency" });
+    expect(dropdown).toHaveValue("AUD");
+    expect(within(dropdown).getByRole("option", { name: "Australian dollar - $1,234.56" })).toBeInTheDocument();
+    expect(within(dropdown).getByRole("option", { name: GERMAN_EURO_OPTION })).toBeInTheDocument();
+    expect(within(dropdown).getByRole("option", { name: "Euro (Ireland) - €1,234.56" })).toBeInTheDocument();
+    expect(within(dropdown).getByRole("option", { name: "Japanese yen - ¥1,235" })).toBeInTheDocument();
+    expect(screen.getByText(/relabels existing amounts and never converts them/i)).toBeInTheDocument();
+  });
+
+  it("saves the chosen currency to the settings endpoint", async () => {
+    respondWithSettings();
+    render(<App />);
+    await screen.findByText("$8,000");
+
+    await chooseCurrency("EUR-DE");
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/settings",
+        expect.objectContaining({ method: "PUT", body: JSON.stringify({ currency: "EUR-DE" }) }),
+      ),
+    );
+  });
+
+  it("re-renders the Overview in a comma-decimal euro convention as soon as it is saved, with no $ left", async () => {
+    respondWithSettings();
+    render(<App />);
+    await screen.findByText("$8,000");
+    await chooseCurrency("EUR-DE");
+
+    await userEvent.click(screen.getByRole("button", { name: "Overview" }));
+
+    expect(await screen.findByText(`8.000 €`)).toBeInTheDocument(); // Real Income tile
+    expect(screen.getByText(`4.000 € / month average`)).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("$");
+  });
+
+  it("starts up already showing the saved currency", async () => {
+    respondWithSettings({ currency: "GBP" });
+    render(<App />);
+
+    expect(await screen.findByText("£8,000")).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("$");
+  });
+
+  it("places the symbol before the number for a euro convention that writes it that way", async () => {
+    respondWithSettings({ currency: "EUR-IE" });
+    render(<App />);
+
+    expect(await screen.findByText("€8,000")).toBeInTheDocument();
+  });
+
+  it("shows a month's amounts and signed differences in the chosen currency", async () => {
+    respondWithSettings({ currency: "EUR-DE" });
+    render(<App />);
+    await screen.findByText(`8.000 €`);
+
+    await userEvent.click(screen.getByRole("button", { name: "Aug" }));
+
+    expect(await screen.findByText(`5.240 €`)).toBeInTheDocument(); // Real Income tile
+    expect(screen.getAllByText(`+3.017 €`).length).toBeGreaterThan(0); // Budgeted vs Actual overspend, signed
+    expect(document.body.textContent).not.toContain("$");
+  });
+
+  it("shows Transactions' and Recurring rules' precise amounts with the currency's own decimals", async () => {
+    respondWithSettings(
+      { currency: "EUR-DE" },
+      {
+        transactions: [
+          { id: 1, date: "2026-08-01", amount: 1234.56, type: "Expense", category: "Groceries", notes: "Woolworths" },
+        ],
+        rules: [
+          {
+            id: 1,
+            amount: 1234.56,
+            type: "Expense",
+            category: "Subscriptions",
+            notes: "Streaming service",
+            frequency: "Weekly",
+            interval: 1,
+            day: "Wednesday",
+            start_date: "2026-08-05",
+            end_date: null,
+          },
+        ],
+      },
+    );
+    render(<App />);
+    await screen.findByText(`8.000 €`);
+
+    await userEvent.click(screen.getByRole("button", { name: "Transactions" }));
+    expect(await screen.findByText(`1.234,56 €`)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+    expect(await screen.findByText(`1.234,56 €`)).toBeInTheDocument();
+  });
+
+  it("shows yen without decimal places, including precise amounts", async () => {
+    respondWithSettings(
+      { currency: "JPY" },
+      {
+        transactions: [
+          { id: 1, date: "2026-08-01", amount: 1234.56, type: "Expense", category: "Groceries", notes: "Woolworths" },
+        ],
+      },
+    );
+    render(<App />);
+    expect(await screen.findByText("¥8,000")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Transactions" }));
+
+    expect(await screen.findByText("¥1,235")).toBeInTheDocument();
+    expect(screen.queryByText(/\.\d\d/)).not.toBeInTheDocument();
+  });
+
+  it("shows the Budget tab's editor, Type Totals and Full year grid in the chosen currency too", async () => {
+    const editorRow = {
+      category: "Groceries",
+      amount: 650,
+      last_month_actual: 620,
+      last_month_budgeted: 600,
+      trailing_average_actual: 590,
+      average_variance_pct: 12.3,
+      month_actual: 306,
+    };
+    respondWithSettings(
+      { currency: "EUR-DE" },
+      {
+        extra: {
+          "/api/budget-editor": { Income: [], Expense: [editorRow], Debt: [] },
+          "/api/budget-grid": {
+            Income: [],
+            Expense: [{ category: "Groceries", amounts: [650, ...Array(11).fill(null)] }],
+            Debt: [],
+          },
+          "/api/budget-suggestion": { write_up: null, generated_at: null },
+        },
+      },
+    );
+    render(<App />);
+    await screen.findByText(`8.000 €`);
+
+    await userEvent.click(screen.getByRole("button", { name: "Budget" }));
+    expect(await screen.findByText(`620 €`)).toBeInTheDocument(); // Last month actual
+    expect(document.body.textContent).not.toContain("$");
+
+    await userEvent.click(screen.getByRole("button", { name: "Full year" }));
+    expect(await screen.findAllByText(`650 €`)).not.toHaveLength(0);
+    expect(document.body.textContent).not.toContain("$");
   });
 });

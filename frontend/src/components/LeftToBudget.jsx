@@ -1,5 +1,5 @@
 import { OUTFLOW_TYPES, gridMonthTotals, leftToBudget } from "../lib/budgetTotals.js";
-import { money } from "../lib/format.js";
+import { useMoney } from "../lib/settings.jsx";
 import { TYPE_COLOURS } from "../lib/typeColours.js";
 import { BalanceChip, BalanceFigure, isShort } from "./BalanceStatus.jsx";
 
@@ -10,6 +10,7 @@ import { BalanceChip, BalanceFigure, isShort } from "./BalanceStatus.jsx";
 // The per-month editor's block, right of the month pills. `totals` is
 // totalsByType's live output, so it moves as the user types, before Save.
 export function LeftToBudgetSummary({ totals }) {
+  const { money } = useMoney();
   const { income, outflows, left } = leftToBudget(totals);
   // The axis spans whichever is larger, so an over-budgeted plan's segments
   // run past the Income marker instead of being clipped at it. The floor of 1

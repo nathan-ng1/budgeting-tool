@@ -1,6 +1,6 @@
 import { gridTotalsByType } from "../lib/budgetTotals.js";
 import { monthsOfPeriod } from "../lib/period.js";
-import { money } from "../lib/format.js";
+import { useMoney } from "../lib/settings.jsx";
 import { LeftToBudgetGridRow } from "./LeftToBudget.jsx";
 
 // The Budget tab's Full year read-only grid (Issue #64) - every Category's
@@ -10,6 +10,7 @@ import { LeftToBudgetGridRow } from "./LeftToBudget.jsx";
 // this view has no editing surface at all, unlike Budget.jsx's per-month
 // editor table it sits alongside.
 export default function BudgetGrid({ referenceYear, periodType, grid }) {
+  const { money } = useMoney();
   const totals = gridTotalsByType(grid);
   const months = monthsOfPeriod(referenceYear, periodType);
 

@@ -2,6 +2,7 @@
 // computed and rounded by the Month Overview endpoint (see Issue #27) - nothing
 // here derives a new figure, it only decides how an existing one reads.
 
+import { DEFAULT_CURRENCY_ID, currencyEntry } from "./currencies.js";
 import { MONTH_LABELS_LONG, MONTH_LABELS_SHORT } from "./months.js";
 
 // The mockup uses a typographic minus (U+2212) for signed figures - it lines up
@@ -13,23 +14,40 @@ const MINUS = "−";
 // than each component picking its own dash.
 export const UNSET = "—";
 
-function dollars(value) {
-  return `$${Math.abs(Math.round(value)).toLocaleString("en-AU")}`;
+// Every amount is formatted by the browser's Intl.NumberFormat, driven by the
+// chosen Display Currency entry (see currencies.js): its symbol, symbol
+// position and separators. Display only - the number is never converted.
+// `currency` is the entry's id; an unknown one reads as the default.
+const formatters = new Map();
+
+function formatter(currencyId, roundedToUnits) {
+  const key = `${currencyId}|${roundedToUnits}`;
+  if (!formatters.has(key)) {
+    const { code, locale } = currencyEntry(currencyId);
+    const rounding = roundedToUnits ? { minimumFractionDigits: 0, maximumFractionDigits: 0 } : {};
+    formatters.set(key, new Intl.NumberFormat(locale, { style: "currency", currency: code, ...rounding }));
+  }
+  return formatters.get(key);
 }
 
-export function money(value) {
-  return Math.round(value) < 0 ? `-${dollars(value)}` : dollars(value);
+// Whole units, sign left to the caller so money() and signedMoney() share it.
+function wholeUnits(value, currency) {
+  return formatter(currency, true).format(Math.abs(Math.round(value)));
 }
 
-// Cents-precision, unlike money() above - for editable/raw figures (a
-// Recurring Rule's Amount, a Transaction's Amount) rather than the Overview's
-// rounded-to-the-dollar summaries.
-export function preciseMoney(value) {
-  return `$${Number(value).toFixed(2)}`;
+export function money(value, currency = DEFAULT_CURRENCY_ID) {
+  return Math.round(value) < 0 ? `-${wholeUnits(value, currency)}` : wholeUnits(value, currency);
 }
 
-export function signedMoney(value) {
-  return `${Math.round(value) < 0 ? MINUS : "+"}${dollars(value)}`;
+// The currency's own decimals (two for most, none for yen), unlike money()
+// above - for editable/raw figures (a Recurring Rule's Amount, a
+// Transaction's Amount) rather than the Overview's rounded summaries.
+export function preciseMoney(value, currency = DEFAULT_CURRENCY_ID) {
+  return formatter(currency, false).format(Number(value));
+}
+
+export function signedMoney(value, currency = DEFAULT_CURRENCY_ID) {
+  return `${Math.round(value) < 0 ? MINUS : "+"}${wholeUnits(value, currency)}`;
 }
 
 export function signedPct(value) {

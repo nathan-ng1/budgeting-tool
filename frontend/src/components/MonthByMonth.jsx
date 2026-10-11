@@ -1,5 +1,5 @@
 import { MONTH_LABELS_LONG } from "../lib/months.js";
-import { money } from "../lib/format.js";
+import { useMoney } from "../lib/settings.jsx";
 import { toneFor } from "../lib/tone.js";
 import { balanceText, isBalanced } from "./BalanceStatus.jsx";
 
@@ -8,11 +8,13 @@ import { balanceText, isBalanced } from "./BalanceStatus.jsx";
 // Available to Save tile. isBalanced matters most for the Total, a client-side
 // float sum that can land a hair off 0 for a balanced year.
 function AvailableToSaveCell({ value }) {
+  const formatters = useMoney();
   const tone = isBalanced(value) ? "" : toneFor(-value);
-  return <td className={`mbm__num numeric ${tone}`}>{balanceText(value)}</td>;
+  return <td className={`mbm__num numeric ${tone}`}>{balanceText(value, formatters)}</td>;
 }
 
 export default function MonthByMonth({ months }) {
+  const { money } = useMoney();
   const totalIncome = months.reduce((sum, m) => sum + m.income, 0);
   const totalExpenses = months.reduce((sum, m) => sum + m.expenses, 0);
   const totalBillsSubscriptions = months.reduce((sum, m) => sum + m.bills_subscriptions, 0);

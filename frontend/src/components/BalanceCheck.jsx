@@ -1,4 +1,4 @@
-import { money, signedMoney } from "../lib/format.js";
+import { useMoney } from "../lib/settings.jsx";
 import { BalanceChip, BalanceFigure, balanceText, isBalanced, isShort } from "./BalanceStatus.jsx";
 
 // The Balance check card beside "Where did my income go?" (#168): Unallocated
@@ -9,6 +9,8 @@ import { BalanceChip, BalanceFigure, balanceText, isBalanced, isShort } from "./
 // `tiles` / `average` are the Overview's stat tiles and (Full year only) the
 // backend's per-month average, the same shapes StatTiles takes.
 export default function BalanceCheck({ tiles, average }) {
+  const formatters = useMoney();
+  const { money, signedMoney } = formatters;
   const available = tiles.available_to_save;
   // With nothing available to save there is no share to show - the meter
   // stays empty and the caption drops its percentage.
@@ -26,7 +28,7 @@ export default function BalanceCheck({ tiles, average }) {
         <BalanceChip value={tiles.unallocated} shortLabel="Over income" />
       </div>
       {average && (
-        <div className="tile__average numeric">{balanceText(average.unallocated)} / month average</div>
+        <div className="tile__average numeric">{balanceText(average.unallocated, formatters)} / month average</div>
       )}
       <div className="balance-check__meter" aria-hidden="true">
         <div className="balance-check__fill" style={{ width: `${Math.min(share ?? 0, 1) * 100}%` }} />

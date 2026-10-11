@@ -1,10 +1,11 @@
 import { CIRCUMFERENCE, DONUT_RADIUS, donutSegments } from "../lib/charts.js";
 import { categoryLabel, emojiLookup } from "../lib/categories.js";
-import { money } from "../lib/format.js";
+import { useMoney } from "../lib/settings.jsx";
 
 const DONUT_THICKNESS = 22;
 
 export default function SpendingByCategory({ spending, total, categories = [] }) {
+  const { money } = useMoney();
   const segments = donutSegments(spending);
   const emoji = emojiLookup(categories);
 

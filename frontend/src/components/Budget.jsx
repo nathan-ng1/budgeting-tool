@@ -11,7 +11,8 @@ import {
   saveCategoryBudget,
 } from "../lib/budgetsApi.js";
 import { totalsByType } from "../lib/budgetTotals.js";
-import { UNSET, money, signedPct } from "../lib/format.js";
+import { UNSET, signedPct } from "../lib/format.js";
+import { useMoney } from "../lib/settings.jsx";
 import BudgetGrid from "./BudgetGrid.jsx";
 import BudgetSuggestion from "./BudgetSuggestion.jsx";
 import { LeftToBudgetSummary } from "./LeftToBudget.jsx";
@@ -31,6 +32,7 @@ const TRAILING_WINDOWS = [3, 6, 12];
 // current month, rather than Overview's Full year default, is unchanged from
 // before this tab was wired to the switcher.
 export default function Budget({ periodType, referenceYear, selected, onSelect }) {
+  const { money } = useMoney();
   // 3 matches dashboard.budgets.DEFAULT_TRAILING_WINDOW - kept in sync by
   // hand since the two live either side of the HTTP boundary.
   const [trailingWindow, setTrailingWindow] = useState(3);

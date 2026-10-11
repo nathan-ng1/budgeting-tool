@@ -1,4 +1,4 @@
-import { money, signedMoney } from "../lib/format.js";
+import { useMoney } from "../lib/settings.jsx";
 import { ADVERSE } from "../lib/tone.js";
 
 // The display rule shared by every "did every dollar get a job?" figure -
@@ -16,15 +16,16 @@ export function isShort(value) {
 }
 
 // The figure as text: signed, except that $0 is neither a surplus nor a
-// shortfall so it reads unsigned.
-export function balanceText(value) {
+// shortfall so it reads unsigned. `formatters` is useMoney()'s result.
+export function balanceText(value, { money, signedMoney }) {
   return isBalanced(value) ? money(0) : signedMoney(value);
 }
 
 // Adverse only when negative. A positive figure stays neutral rather than
 // favourable: the goal is $0, so unassigned money isn't a win.
 export function BalanceFigure({ value }) {
-  return <span className={`numeric ${isShort(value) ? ADVERSE : ""}`.trim()}>{balanceText(value)}</span>;
+  const formatters = useMoney();
+  return <span className={`numeric ${isShort(value) ? ADVERSE : ""}`.trim()}>{balanceText(value, formatters)}</span>;
 }
 
 // Balanced at $0; `shortLabel` when negative ("Over income" for Unallocated,

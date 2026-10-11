@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { categoryLabel, emojiLookup, groupByType } from "../lib/categories.js";
-import { preciseMoney } from "../lib/format.js";
+import { useMoney } from "../lib/settings.jsx";
 import { periodDateRange, periodFor, periodLabel, startMonthFor } from "../lib/period.js";
 import { blankValues, toPayload, valuesFrom, withType } from "../lib/transactionForm.js";
 import {
@@ -53,6 +53,7 @@ function ariaSortFor(sort, key) {
 // `selected`), just a local month filter that's reset below whenever the
 // active year/framing changes.
 export default function Transactions({ periodType, referenceYear }) {
+  const { preciseMoney } = useMoney();
   const [transactions, setTransactions] = useState(null);
   const [categories, setCategories] = useState({});
   const [categoryList, setCategoryList] = useState([]);

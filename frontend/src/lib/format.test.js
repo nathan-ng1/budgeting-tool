@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { dayMonth, dayMonthLong, generatedAt, money, pct, signedMoney, signedPct } from "./format.js";
+import { dayMonth, dayMonthLong, generatedAt, money, pct, preciseMoney, signedMoney, signedPct } from "./format.js";
 
 describe("money", () => {
   it("renders whole dollars with a thousands separator", () => {
@@ -17,11 +17,33 @@ describe("money", () => {
   });
 });
 
+describe("money in another Display Currency", () => {
+  it("follows the entry's own separators and symbol position", () => {
+    expect(money(1234.56, "EUR-DE")).toBe("1.235\u00a0€");
+    expect(money(1234.56, "EUR-IE")).toBe("€1,235");
+    expect(money(-42, "EUR-DE")).toBe("-42\u00a0€");
+  });
+
+  it("reads an unknown entry as the Australian dollar", () => {
+    expect(money(5240, "NOPE")).toBe("$5,240");
+  });
+});
+
+describe("preciseMoney", () => {
+  it("keeps the currency's own decimals - two for most, none for yen", () => {
+    expect(preciseMoney(1234.5)).toBe("$1,234.50");
+    expect(preciseMoney(1234.56, "EUR-DE")).toBe("1.234,56\u00a0€");
+    expect(preciseMoney(1234.56, "JPY")).toBe("¥1,235");
+  });
+});
+
 describe("signedMoney", () => {
   it("always carries an explicit sign, using a real minus glyph", () => {
     expect(signedMoney(40)).toBe("+$40");
     expect(signedMoney(-38)).toBe("−$38");
     expect(signedMoney(0)).toBe("+$0");
+    expect(signedMoney(-3017, "EUR-DE")).toBe("−3.017\u00a0€");
+    expect(signedMoney(40, "EUR-IE")).toBe("+€40");
   });
 });
 
