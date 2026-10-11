@@ -233,7 +233,7 @@ def test_read_recurring_rules_round_trips_a_weekly_rule_with_an_end_date(tmp_pat
         database_path,
         amount=100.0,
         type="Expense",
-        category="Subscriptions",
+        category="Entertainment & Leisure",
         notes="Streaming service",
         frequency="Weekly",
         interval=2,
@@ -424,6 +424,32 @@ def test_read_categories_on_a_fresh_database_seeds_bills_and_subscriptions_unloc
 
     assert {c.name for c in bills} == {"Insurance", "Car Registration", "Phone Plan", "Internet"}
     assert all(not c.locked for c in bills)
+
+
+def test_a_fresh_database_is_not_seeded_with_the_retired_recurring_expense_categories(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    names = {c.name for c in store.read_categories()}
+
+    assert "Subscriptions" not in names
+    assert "Insurance & Bills" not in names
+
+
+def test_an_existing_installs_retired_categories_stay_ordinary_editable_and_deletable(tmp_path: Path, make_candidate):
+    # ADR-0028 ships no migration: an install that still has Subscriptions
+    # keeps it as an ordinary, unlocked Category - write paths validate
+    # against the live categories table, not the predefined list.
+    store = connect(tmp_path / "budget.db")
+    subscriptions = store.create_category("Expense", "Subscriptions", None)
+    assert subscriptions.locked is False
+
+    created = store.create_transaction(make_candidate(type="Expense", category="Subscriptions"))
+    store.update_transaction(created.id, make_candidate(type="Expense", category="Groceries"))
+    assert [t.category for t in store.read_transactions()] == ["Groceries"]
+
+    store.delete_category(subscriptions.id)
+
+    assert "Subscriptions" not in {c.name for c in store.read_categories()}
 
 
 def test_read_categories_seeds_beem_adjustment_as_locked(tmp_path: Path):
@@ -803,7 +829,7 @@ def test_update_recurring_rule_changes_what_the_expansion_path_reads(tmp_path: P
 
 def test_update_recurring_rule_leaves_the_rule_alone_when_the_replacement_is_invalid(tmp_path: Path, make_rule):
     store = connect(tmp_path / "budget.db")
-    original = make_rule(category="Subscriptions")
+    original = make_rule(category="Entertainment & Leisure")
     stored = store.create_recurring_rule(original)
 
     with pytest.raises(ValueError):

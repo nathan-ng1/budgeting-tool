@@ -24,6 +24,9 @@ class Category:
 # some form of savings account and some recurring bills. A new predefined
 # Category reaches an existing install via its own one-off migration under
 # src/migration/, never by database.store reseeding a non-empty table.
+# The Expense Categories Subscriptions and Insurance & Bills were retired by
+# ADR-0028 (Bills & Subscriptions is the home of recurring charges): new installs
+# are seeded without them, and existing installs keep them as ordinary Categories.
 CATEGORIES_BY_TYPE = {
     "Income": {
         "Salary",
@@ -38,8 +41,6 @@ CATEGORIES_BY_TYPE = {
         "Entertainment & Leisure",
         "Health & Medical",
         "Donations & Giving",
-        "Subscriptions",
-        "Insurance & Bills",
         "Rental Expense",
         "Beem Adjustment",
     },

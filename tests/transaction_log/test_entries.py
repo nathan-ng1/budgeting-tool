@@ -11,7 +11,7 @@ from transaction_log.entries import Candidate
 
 
 def test_candidate_with_valid_type_and_category_pair_is_accepted(make_candidate):
-    make_candidate(type="Expense", category="Subscriptions")
+    make_candidate(type="Expense", category="Entertainment & Leisure")
 
 
 def test_candidate_with_zero_amount_is_rejected(make_candidate):

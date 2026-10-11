@@ -17,13 +17,15 @@ is used only where the full picture is wanted — the Outflows breakdown chart.
 
 - Expenses over time becomes **Spending over time** (Expense + Bills & Subscriptions, one cumulative
   line), Spending by Category gains Bills & Subscriptions Categories, and Top Expenses is replaced by
-  Top merchants (Spending, grouped by normalised Notes, Beem Adjustment excluded). All three
-  previously Expense-only views in ADR-0012 are superseded.
+  Top merchants (Spending grouped by merchant, by normalised Notes, ranked by total; Debt and Beem
+  Adjustment excluded). All three previously Expense-only views in ADR-0012 are superseded.
+- Movers, the new single-month comparison of Categories against a prior period, covers Spending
+  Categories only: Debt stays out of ranked lists here too, so a repayment doesn't dominate the bars.
 - The Dashboard labels Types by name only. "Committed" and "discretionary" are glossary-only
   reasoning aids, never Dashboard copy, so users aren't asked to learn a second vocabulary.
 - Subscriptions and Insurance & Bills stop being seeded for new installs. No migration is shipped:
   existing installs keep any rows and rules in them as ordinary, deletable Expense Categories, which
-  Recurring charges (Bills & Subscriptions only) won't show until they are moved. This deliberately
+  Recurring Charges (Bills & Subscriptions only) won't show until they are moved. This deliberately
   replaces ADR-0024's "reconcile later" consequence.
-- Recurring charges annualises from the observed cadence of each merchant's charges (typical charge ×
+- Recurring Charges annualises from the observed cadence of each merchant's charges (typical charge ×
   365 ÷ median days between charges); a merchant with a single charge shows only what was paid.

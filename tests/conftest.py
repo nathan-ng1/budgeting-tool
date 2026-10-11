@@ -320,7 +320,7 @@ def make_rule():
         defaults = dict(
             amount=100.0,
             type="Expense",
-            category="Subscriptions",
+            category="Entertainment & Leisure",
             notes="Test rule",
             frequency="Weekly",
             interval=1,

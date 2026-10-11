@@ -24,7 +24,7 @@ function ok(body, status = 200) {
   fetchMock.mockResolvedValue({ ok: true, status, json: async () => body });
 }
 
-const RULE = { amount: 100, type: "Expense", category: "Subscriptions", frequency: "Weekly" };
+const RULE = { amount: 100, type: "Expense", category: "Entertainment & Leisure", frequency: "Weekly" };
 
 describe("recurringApi", () => {
   it("lists the rules the endpoint returns", async () => {
@@ -35,7 +35,7 @@ describe("recurringApi", () => {
   });
 
   it("fetches every Category the form offers", async () => {
-    const categories = [{ id: 1, type: "Expense", name: "Subscriptions", emoji: null, locked: false }];
+    const categories = [{ id: 1, type: "Expense", name: "Entertainment & Leisure", emoji: null, locked: false }];
     ok(categories);
 
     expect(await fetchCategories()).toEqual(categories);

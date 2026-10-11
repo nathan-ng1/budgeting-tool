@@ -1034,7 +1034,7 @@ describe("Display Currency setting", () => {
             id: 1,
             amount: 1234.56,
             type: "Expense",
-            category: "Subscriptions",
+            category: "Entertainment & Leisure",
             notes: "Streaming service",
             frequency: "Weekly",
             interval: 1,

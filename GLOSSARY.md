@@ -30,7 +30,7 @@ The top-level classification of a Transaction: Income, Expense, Bills & Subscrip
 _Avoid_: Category (retired for this meaning), Group, Real Income (Dashboard tile copy for the Income Type — no distinct concept, just "Income")
 
 **Category**:
-The specific budget label for a Transaction — e.g. Groceries, Subscriptions, Salary. Flat: there's no grouping layer between Category and Type (the old Bills & Subscriptions / Expenses / Debt / Savings / Investments split is gone — Bills & Subscriptions now exists only as a Type, see below). Each Category has one fixed Type, never determined per-Transaction:
+The specific budget label for a Transaction — e.g. Groceries, Rental Expense, Salary. Flat: there's no grouping layer between Category and Type (the old Bills & Subscriptions / Expenses / Debt / Savings / Investments split is gone — Bills & Subscriptions now exists only as a Type, see below). Each Category has one fixed Type, never determined per-Transaction:
 - **Income**: Salary, Rental
 - **Expense**: Groceries, Dining & Takeaway, Transport, Shopping & Retail, Holidays & Travel, Entertainment & Leisure, Health & Medical, Donations & Giving, Rental Expense, Beem Adjustment
 - **Debt**: Mortgage Repayment — populated lazily like Rental and Rental Expense above; the first real non-mortgage Debt (e.g. a car or personal loan) adds its own Category rather than one being speculatively predefined. Unlike Bills & Subscriptions and Savings, no further Categories are predefined ahead of a real case.
