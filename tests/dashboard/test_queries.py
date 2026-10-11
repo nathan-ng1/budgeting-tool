@@ -2100,3 +2100,150 @@ def test_annual_spending_by_category_lists_bills_and_subscriptions_with_shares_o
         CategorySpend(category="Groceries", type="Expense", amount=300.0, pct_of_spending=75.0),
         CategorySpend(category="Internet", type="Bills & Subscriptions", amount=100.0, pct_of_spending=25.0),
     ]
+
+
+def bs(make_transaction, when, amount, notes="Gym", category="Gym", id=1, type="Bills & Subscriptions"):
+    return make_transaction(id=id, date=when, amount=amount, type=type, category=category, notes=notes)
+
+
+def fortnightly_gym(make_transaction, first=date(2026, 5, 4), count=11, amount=37.5, id_start=100):
+    return [
+        bs(make_transaction, date.fromordinal(first.toordinal() + 14 * i), amount, id=id_start + i)
+        for i in range(count)
+    ]
+
+
+def test_recurring_charges_project_a_fortnightly_charge_to_its_yearly_cost(fake_store, make_transaction):
+    store = fake_store(transactions=fortnightly_gym(make_transaction))  # 11 x 37.50 = 412.50, 4 May - 21 Sep
+
+    overview = get_month_overview(store, year=2026, month=9)
+
+    (row,) = overview.recurring_charges.rows
+    assert row.merchant == "Gym"
+    assert row.category == "Gym"
+    assert row.charges == 11
+    assert row.last_charged == "2026-09-21"
+    assert row.typical == 37.5
+    assert row.cadence_days == 14
+    assert row.per_year == 977.68  # 37.50 x 365 / 14, not the 412.50 paid so far
+
+
+def test_recurring_charges_header_totals_are_per_year_and_a_twelfth_of_it(fake_store, make_transaction):
+    store = fake_store(
+        transactions=fortnightly_gym(make_transaction)
+        + [bs(make_transaction, date(2026, 9, 1), 120.0, notes="Insurer", category="Insurance", id=1)]
+    )
+
+    charges = get_month_overview(store, year=2026, month=9).recurring_charges
+
+    assert charges.per_year == 1097.68
+    assert charges.per_month == 91.47
+    assert [row.merchant for row in charges.rows] == ["Gym", "Insurer"]  # largest yearly cost first
+
+
+def test_recurring_charges_single_charge_merchant_shows_what_was_paid_with_no_cadence(fake_store, make_transaction):
+    store = fake_store(transactions=[bs(make_transaction, date(2026, 3, 10), 480.0, notes="Car Insurance", category="Insurance")])
+
+    (row,) = get_month_overview(store, year=2026, month=9).recurring_charges.rows
+
+    assert (row.charges, row.typical, row.cadence_days, row.per_year) == (1, 480.0, None, 480.0)
+
+
+def test_recurring_charges_typical_is_the_median_and_slightly_varying_amounts_group_as_one_merchant(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            bs(make_transaction, date(2026, 6, 1), 60.0, notes="Telstra Mobile 1234", id=1),
+            bs(make_transaction, date(2026, 7, 1), 64.0, notes="TELSTRA MOBILE 5678", id=2),
+            bs(make_transaction, date(2026, 8, 1), 90.0, notes="Telstra Mobile 9", id=3),
+        ]
+    )
+
+    (row,) = get_month_overview(store, year=2026, month=9).recurring_charges.rows
+
+    assert row.merchant == "Telstra Mobile 9"
+    assert row.charges == 3
+    assert row.typical == 64.0
+    assert row.cadence_days == 31  # gaps of 30 and 31 days: median 30.5 rounds half up to a whole day
+    assert row.per_year == 753.55  # 64.00 x 365 / 31
+
+
+def test_recurring_charges_window_is_the_twelve_months_ending_at_the_end_of_the_selected_month(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            bs(make_transaction, date(2025, 9, 30), 1.0, notes="Too early", id=1),
+            bs(make_transaction, date(2025, 10, 1), 2.0, notes="First day in", id=2),
+            bs(make_transaction, date(2026, 9, 30), 3.0, notes="Last day in", id=3),
+            bs(make_transaction, date(2026, 10, 1), 4.0, notes="Too late", id=4),
+        ]
+    )
+
+    rows = get_month_overview(store, year=2026, month=9).recurring_charges.rows
+
+    assert sorted(row.merchant for row in rows) == ["First day in", "Last day in"]
+
+
+def test_recurring_charges_only_cover_bills_and_subscriptions(fake_store, make_transaction):
+    store = fake_store(
+        transactions=[
+            bs(make_transaction, date(2026, 9, 1), 50.0, notes="Netflix", id=1),
+            bs(make_transaction, date(2026, 9, 2), 20.0, notes="Cafe", category="Dining", type="Expense", id=2),
+            bs(make_transaction, date(2026, 9, 3), 900.0, notes="Loan", category="Loan", type="Debt", id=3),
+        ]
+    )
+
+    rows = get_month_overview(store, year=2026, month=9).recurring_charges.rows
+
+    assert [row.merchant for row in rows] == ["Netflix"]
+
+
+def test_recurring_charges_are_empty_when_there_are_no_bills_and_subscriptions(fake_store):
+    charges = get_month_overview(fake_store(transactions=[]), year=2026, month=9).recurring_charges
+
+    assert (charges.per_year, charges.per_month, charges.rows) == (0.0, 0.0, [])
+
+
+def test_the_month_view_reads_earlier_months_for_recurring_charges_without_widening_its_other_figures(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            bs(make_transaction, date(2026, 8, 5), 30.0, notes="Streaming", id=1),
+            bs(make_transaction, date(2026, 9, 5), 30.0, notes="Streaming", id=2),
+        ]
+    )
+
+    overview = get_month_overview(store, year=2026, month=9)
+
+    assert overview.stat_tiles.bills_subscriptions == 30.0
+    assert [(m.merchant, m.total, m.count) for m in overview.top_merchants] == [("Streaming", 30.0, 1)]
+    assert overview.recurring_charges.rows[0].charges == 2
+
+
+def test_annual_recurring_charges_cover_the_twelve_months_ending_at_the_last_elapsed_month(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            bs(make_transaction, date(2025, 8, 31), 1.0, notes="Too early", id=1),
+            bs(make_transaction, date(2025, 9, 1), 2.0, notes="Before the year", id=2),
+            bs(make_transaction, date(2026, 8, 31), 3.0, notes="Last elapsed day", id=3),
+            bs(make_transaction, date(2026, 9, 1), 4.0, notes="Not yet elapsed", id=4),
+        ]
+    )
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 8, 15))
+
+    assert sorted(row.merchant for row in overview.recurring_charges.rows) == ["Before the year", "Last elapsed day"]
+    assert overview.stat_tiles.bills_subscriptions == 3.0
+
+
+def test_annual_recurring_charges_are_empty_before_the_year_starts(fake_store, make_transaction):
+    store = fake_store(transactions=[bs(make_transaction, date(2026, 3, 1), 5.0, id=1)])
+
+    overview = get_annual_overview(store, year=2026, today=date(2026, 3, 1))
+
+    assert overview.recurring_charges.rows == []

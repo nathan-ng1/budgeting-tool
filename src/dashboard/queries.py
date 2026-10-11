@@ -9,6 +9,7 @@ from calendar import monthrange
 from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import date
+from statistics import median
 
 from categorisation.history import normalise_notes
 from transaction_log.categories import TYPE_ORDER, Category, categories_by_type, type_lookup
@@ -23,6 +24,10 @@ BUDGETABLE_TYPES = TYPE_ORDER
 
 # The trailing window sizes the Budget tab's editor dropdown offers - Issue #63.
 TRAILING_WINDOWS = (3, 6, 12)
+
+# How far back the Overview's look-back cards read: twelve whole months ending
+# with the viewed month (Recurring Charges; Movers' longest basis).
+TRAILING_WINDOW_MONTHS = 12
 
 
 @dataclass(frozen=True)
@@ -110,6 +115,25 @@ class TopMerchant:
 
 
 @dataclass(frozen=True)
+class RecurringCharge:
+    merchant: str
+    category: str
+    charges: int
+    last_charged: str
+    typical: float
+    # Whole days between charges (median gap); None with fewer than two charge dates.
+    cadence_days: int | None
+    per_year: float
+
+
+@dataclass(frozen=True)
+class RecurringCharges:
+    per_year: float
+    per_month: float
+    rows: list[RecurringCharge]
+
+
+@dataclass(frozen=True)
 class DailyCumulative:
     date: str
     cumulative: float
@@ -133,6 +157,7 @@ class MonthOverview:
     debt_summary: list[DebtByNotes]
     top_merchants: list[TopMerchant]
     spending_over_time: SpendingOverTime
+    recurring_charges: RecurringCharges
 
 
 @dataclass(frozen=True)
@@ -158,12 +183,19 @@ class AnnualOverview:
     budgeted_vs_actual: list[BudgetVsActual]
     debt_summary: list[DebtByNotes]
     top_merchants: list[TopMerchant]
+    recurring_charges: RecurringCharges
     month_by_month: list[MonthlyTotals]
     income_vs_expenses_by_month: list[MonthlyTotals]
 
 
 def get_month_overview(store, year: int, month: int) -> MonthOverview:
-    transactions = [t for t in store.read_transactions() if t.date.year == year and t.date.month == month]
+    # Read the wider window once: cards that look back (Recurring Charges, 12
+    # months) take their slice of `window`; every selected-month-only figure
+    # below keeps using `transactions`, the selected month alone.
+    month_start = date(year, month, 1)
+    window_end = _add_months(month_start, 1)
+    window = _transactions_between(store.read_transactions(), _add_months(window_end, -TRAILING_WINDOW_MONTHS), window_end)
+    transactions = _transactions_between(window, month_start, window_end)
     stat_tiles = _stat_tiles(transactions)
 
     return MonthOverview(
@@ -178,6 +210,7 @@ def get_month_overview(store, year: int, month: int) -> MonthOverview:
         debt_summary=_debt_summary(transactions, stat_tiles.debt),
         top_merchants=_top_merchants(transactions, limit=5),
         spending_over_time=_spending_over_time(transactions, year, month),
+        recurring_charges=_recurring_charges(window),
     )
 
 
@@ -191,7 +224,11 @@ def get_annual_overview(store, year: int, today: date | None = None, start_month
     elapsed_months = _elapsed_months(year, today, start_month)
     start = date(year, start_month, 1)
     end = _add_months(start, elapsed_months)
-    transactions = [t for t in store.read_transactions() if start <= t.date < end]
+    all_transactions = store.read_transactions()
+    transactions = _transactions_between(all_transactions, start, end)
+    # The trailing window ends with the last elapsed month, so it can reach
+    # back before the year's own start; none of it before a month has elapsed.
+    trailing = _transactions_between(all_transactions, _add_months(end, -TRAILING_WINDOW_MONTHS), end) if elapsed_months else []
     stat_tiles = _stat_tiles(transactions)
     monthly_totals = _monthly_totals(transactions, start)
 
@@ -205,6 +242,7 @@ def get_annual_overview(store, year: int, today: date | None = None, start_month
         budgeted_vs_actual=_annual_budgeted_vs_actual(store, transactions, start, elapsed_months),
         debt_summary=_debt_summary(transactions, stat_tiles.debt),
         top_merchants=_top_merchants(transactions, limit=10),
+        recurring_charges=_recurring_charges(trailing),
         # Two named series over the same rows, not two computations: the Month
         # by month table and the Income vs Expenses chart both need one row
         # per month, but are separate fields (rather than one field two
@@ -708,6 +746,48 @@ def _top_merchants(transactions: list[Transaction], limit: int) -> list[TopMerch
         )
     merchants.sort(key=lambda m: (-m.total, m.merchant.lower(), m.merchant))
     return merchants[:limit]
+
+
+def _transactions_between(transactions: list[Transaction], start: date, end: date) -> list[Transaction]:
+    """The Transactions dated from `start` up to but not including `end`."""
+    return [t for t in transactions if start <= t.date < end]
+
+
+def _recurring_charges(transactions: list[Transaction]) -> RecurringCharges:
+    """Every Bills & Subscriptions merchant in `transactions` (already the
+    trailing-12-month window), grouped by the same merchant key as Top
+    merchants so slightly varying charges stay one merchant. Typical charge is
+    the median amount; cadence the median gap in whole days between distinct
+    charge dates; per-year = typical x 365 / cadence, or what was actually
+    paid when there is no cadence (a single charge date).
+    """
+    groups: dict[str, list[Transaction]] = {}
+    for t in transactions:
+        if t.type == "Bills & Subscriptions":
+            groups.setdefault(_merchant_key(t.notes), []).append(t)
+
+    rows = []
+    for group in groups.values():
+        latest = max(group, key=lambda t: (t.date, t.id))
+        typical = median(t.amount for t in group)
+        charge_dates = sorted({t.date for t in group})
+        gaps = [(later - earlier).days for earlier, later in zip(charge_dates, charge_dates[1:])]
+        cadence = max(1, int(median(gaps) + 0.5)) if gaps else None
+        per_year = typical * 365 / cadence if cadence else sum(t.amount for t in group)
+        rows.append(
+            RecurringCharge(
+                merchant=latest.notes,
+                category=latest.category,
+                charges=len(group),
+                last_charged=latest.date.isoformat(),
+                typical=_round(typical),
+                cadence_days=cadence,
+                per_year=_round(per_year),
+            )
+        )
+    rows.sort(key=lambda r: (-r.per_year, r.merchant.lower(), r.merchant))
+    per_year_total = _round(sum(r.per_year for r in rows))
+    return RecurringCharges(per_year=per_year_total, per_month=_round(per_year_total / 12), rows=rows)
 
 
 def _spending_over_time(transactions: list[Transaction], year: int, month: int) -> SpendingOverTime:
