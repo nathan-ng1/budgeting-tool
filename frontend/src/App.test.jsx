@@ -908,7 +908,7 @@ describe("App", () => {
 describe("Display Currency setting", () => {
   const DEFAULT_SETTINGS = { currency: "AUD", financial_year_start_month: 7, date_order: "day-first" };
   const NBSP = " ";
-  const EURO_OPTION = `Euro - 1.234,56${NBSP}€`;
+  const EURO_OPTION = `EUR - 1.234,56${NBSP}€`;
 
   // The settings endpoint as the real server behaves: a GET reads what was
   // last saved, a PUT merges the body in and answers with everything.
@@ -966,11 +966,11 @@ describe("Display Currency setting", () => {
 
     const dropdown = await screen.findByRole("combobox", { name: "Display Currency" });
     expect(dropdown).toHaveValue("AUD");
-    expect(within(dropdown).getByRole("option", { name: "Australian dollar - $1,234.56" })).toBeInTheDocument();
+    expect(within(dropdown).getByRole("option", { name: "AUD - $1,234.56" })).toBeInTheDocument();
     // One euro entry, not one per country.
-    expect(within(dropdown).getAllByRole("option", { name: /^Euro/ })).toHaveLength(1);
+    expect(within(dropdown).getAllByRole("option", { name: /^EUR/ })).toHaveLength(1);
     expect(within(dropdown).getByRole("option", { name: EURO_OPTION })).toBeInTheDocument();
-    expect(within(dropdown).getByRole("option", { name: "Japanese yen - ¥1,235" })).toBeInTheDocument();
+    expect(within(dropdown).getByRole("option", { name: "JPY - ¥1,235" })).toBeInTheDocument();
     expect(screen.getByText(/relabels existing amounts and never converts them/i)).toBeInTheDocument();
   });
 

@@ -36,7 +36,7 @@ export default function DisplaySettings({ saved, onSaved }) {
             <select value={draft.currency} onChange={(event) => set("currency")(event.target.value)} aria-describedby={currencyNoteId}>
               {CURRENCIES.map((entry) => (
                 <option key={entry.id} value={entry.id}>
-                  {`${entry.name} - ${preciseMoney(SAMPLE_AMOUNT, entry.id)}`}
+                  {`${entry.code} - ${preciseMoney(SAMPLE_AMOUNT, entry.id)}`}
                 </option>
               ))}
             </select>
