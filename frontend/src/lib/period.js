@@ -1,6 +1,6 @@
 // The switcher shared by Overview, Budget, and Transactions (ADR-0021) offers
-// two framings for "a year": a Financial Year (July 1 - June 30, named by the
-// calendar year it starts in) or a Calendar Year (January 1 - December 31,
+// two framings for "a year": a Financial Year (twelve months from the saved
+// start month - July by default - named by the calendar year it starts in) or a Calendar Year (January 1 - December 31,
 // named by the calendar year it is). This module generalises what used to be
 // financialYear.js's Financial-Year-only logic to either framing via a
 // caller-supplied start month, so the two read the same rather than existing
@@ -10,7 +10,7 @@ import { MONTH_LABELS_SHORT } from "./months.js";
 
 export const PERIOD_TYPES = ["financial", "calendar"];
 
-// The Financial Year starts in July until the Buyer saves another start month
+// The Financial Year starts in July until the user saves another start month
 // in Settings (ADR-0027); the Calendar Year always starts in January. Every
 // function below takes the saved start month as a trailing argument.
 export const DEFAULT_FINANCIAL_START_MONTH = 7;

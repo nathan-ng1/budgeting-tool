@@ -17,7 +17,7 @@ export const UNSET = "—";
 // Every amount is formatted by the browser's Intl.NumberFormat, driven by the
 // chosen Display Currency entry (see currencies.js): its symbol, symbol
 // position and separators. Display only - the number is never converted.
-// `currency` is the entry's id; an unknown one reads as the default.
+// `currencyId` is the entry's id; an unknown one reads as the default.
 const formatters = new Map();
 
 function formatter(currencyId, roundedToUnits) {
@@ -31,23 +31,23 @@ function formatter(currencyId, roundedToUnits) {
 }
 
 // Whole units, sign left to the caller so money() and signedMoney() share it.
-function wholeUnits(value, currency) {
-  return formatter(currency, true).format(Math.abs(Math.round(value)));
+function wholeUnits(value, currencyId) {
+  return formatter(currencyId, true).format(Math.abs(Math.round(value)));
 }
 
-export function money(value, currency = DEFAULT_CURRENCY_ID) {
-  return Math.round(value) < 0 ? `-${wholeUnits(value, currency)}` : wholeUnits(value, currency);
+export function money(value, currencyId = DEFAULT_CURRENCY_ID) {
+  return Math.round(value) < 0 ? `-${wholeUnits(value, currencyId)}` : wholeUnits(value, currencyId);
 }
 
 // The currency's own decimals (two for most, none for yen), unlike money()
 // above - for editable/raw figures (a Recurring Rule's Amount, a
 // Transaction's Amount) rather than the Overview's rounded summaries.
-export function preciseMoney(value, currency = DEFAULT_CURRENCY_ID) {
-  return formatter(currency, false).format(Number(value));
+export function preciseMoney(value, currencyId = DEFAULT_CURRENCY_ID) {
+  return formatter(currencyId, false).format(Number(value));
 }
 
-export function signedMoney(value, currency = DEFAULT_CURRENCY_ID) {
-  return `${Math.round(value) < 0 ? MINUS : "+"}${wholeUnits(value, currency)}`;
+export function signedMoney(value, currencyId = DEFAULT_CURRENCY_ID) {
+  return `${Math.round(value) < 0 ? MINUS : "+"}${wholeUnits(value, currencyId)}`;
 }
 
 export function signedPct(value) {
@@ -63,8 +63,25 @@ export function pct(value) {
 // unset or unknown order reads day-first, the default.
 export const DEFAULT_DATE_ORDER = "day-first";
 
+// The one place the two orders differ: how a day and month name join, and how
+// a year follows them.
+const LAYOUTS = {
+  "day-first": {
+    dayAndMonth: (day, monthName) => `${day} ${monthName}`,
+    withYear: (dayAndMonthText, year) => `${dayAndMonthText} ${year}`,
+  },
+  "month-first": {
+    dayAndMonth: (day, monthName) => `${monthName} ${day}`,
+    withYear: (dayAndMonthText, year) => `${dayAndMonthText}, ${year}`,
+  },
+};
+
+function layout(order) {
+  return LAYOUTS[order] ?? LAYOUTS[DEFAULT_DATE_ORDER];
+}
+
 function dayAndMonth(day, monthName, order) {
-  return order === "month-first" ? `${monthName} ${day}` : `${day} ${monthName}`;
+  return layout(order).dayAndMonth(day, monthName);
 }
 
 export function dayMonth(isoDate, order = DEFAULT_DATE_ORDER) {
@@ -88,7 +105,7 @@ export function generatedAt(isoDateTime, order = DEFAULT_DATE_ORDER) {
   const period = hours < 12 ? "am" : "pm";
   const hour12 = ((hours + 11) % 12) + 1;
   const dayMonthPart = dayAndMonth(date.getDate(), MONTH_LABELS_SHORT[date.getMonth()], order);
-  const datePart = order === "month-first" ? `${dayMonthPart}, ${date.getFullYear()}` : `${dayMonthPart} ${date.getFullYear()}`;
+  const datePart = layout(order).withYear(dayMonthPart, date.getFullYear());
   return `${datePart}, ${hour12}:${minutes}${period}`;
 }
 

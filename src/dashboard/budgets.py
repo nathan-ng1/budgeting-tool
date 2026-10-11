@@ -43,7 +43,7 @@ def as_editor_payload(rows: list[BudgetEditorRow]) -> dict[str, list[dict]]:
 def as_grid_payload(rows: list[BudgetGridRow]) -> dict[str, list[dict]]:
     """The Budget tab's Full year read-only grid (Issue #64), grouped by Type
     like as_editor_payload - each Category carries its 12 Category Budget
-    amounts (None where unset) in the same July-to-June order the frontend's
+    amounts (None where unset) in the same start-month order the frontend's
     MonthSelector already renders month pills in, so the frontend can zip
     them together positionally rather than matching by (year, month).
     """

@@ -7,11 +7,14 @@ import { createContext, useContext, useMemo } from "react";
 
 import { DEFAULT_CURRENCY_ID } from "./currencies.js";
 import * as format from "./format.js";
+import { DEFAULT_FINANCIAL_START_MONTH } from "./period.js";
 
+// Each default is owned by the module that interprets it (currencies.js,
+// period.js, format.js); this just gathers them into the settings shape.
 export const DEFAULT_SETTINGS = {
   currency: DEFAULT_CURRENCY_ID,
-  financial_year_start_month: 7,
-  date_order: "day-first",
+  financial_year_start_month: DEFAULT_FINANCIAL_START_MONTH,
+  date_order: format.DEFAULT_DATE_ORDER,
 };
 
 const SettingsContext = createContext(DEFAULT_SETTINGS);

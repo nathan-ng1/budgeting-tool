@@ -4,7 +4,7 @@ import { CURRENCIES } from "../lib/currencies.js";
 import { preciseMoney } from "../lib/format.js";
 import { saveSettings } from "../lib/settingsApi.js";
 
-// The sample every dropdown entry shows, so a Buyer can tell which entry
+// The sample every dropdown entry shows, so a user can tell which entry
 // matches their own conventions before choosing it.
 const SAMPLE_AMOUNT = 1234.56;
 

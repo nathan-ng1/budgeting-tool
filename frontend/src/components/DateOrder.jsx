@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import { saveSettings } from "../lib/settingsApi.js";
 
-// The two orders, each with a sample so a Buyer can tell which one they mean.
+// The two orders, each with a sample so a user can tell which one they mean.
 const ORDERS = [
   { id: "day-first", label: "Day first (19 Aug)" },
   { id: "month-first", label: "Month first (Aug 19)" },

@@ -18,8 +18,8 @@ export function totalsByType(editor, values) {
 
 // The Full year grid's Type totals: one array per Type, summing each of its
 // Categories' Category Budget amounts per month column (in the same
-// July-to-June order BudgetGridRow.amounts already uses) - an unset month
-// contributes $0.
+// period order BudgetGridRow.amounts already uses) - an unset month
+// contributes zero.
 export function gridTotalsByType(grid) {
   const totals = {};
   for (const [type, rows] of Object.entries(grid)) {

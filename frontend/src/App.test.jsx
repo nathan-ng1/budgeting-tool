@@ -1056,9 +1056,13 @@ describe("Display Currency setting", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Transactions" }));
     expect(await screen.findByText(`1.234,56 €`)).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("$");
 
     await userEvent.click(screen.getByRole("button", { name: "Settings" }));
     expect(await screen.findByText(`1.234,56 €`)).toBeInTheDocument();
+    // Scoped to the Recurring section: the currency picker above it samples $ for the dollar entries.
+    const recurring = screen.getByRole("heading", { name: "Recurring Transactions" }).closest("section");
+    expect(recurring.textContent).not.toContain("$");
   });
 
   it("shows yen without decimal places, including precise amounts", async () => {
@@ -1319,6 +1323,27 @@ describe("Financial Year start month setting", () => {
     const headers = within(headerRow).getAllByRole("columnheader").map((header) => header.textContent);
     expect(headers).toEqual(["Category", ...APR_TO_MAR]);
   });
+
+  it.each([
+    [4, "2026-2027 Financial Year", "2025-2026 Financial Year"],
+    [10, "2025-2026 Financial Year", "2024-2025 Financial Year"],
+  ])(
+    "stops the Next arrow at the year containing today for a start month of %i",
+    async (startMonth, currentLabel, previousLabel) => {
+      respondWithStartMonth(startMonth, { earliest: "2024-01-01" });
+      render(<App />);
+      await screen.findByText(currentLabel);
+      expect(screen.getByRole("button", { name: "Next year" })).toBeDisabled();
+
+      await userEvent.click(screen.getByRole("button", { name: "Previous year" }));
+      await screen.findByText(previousLabel);
+      expect(screen.getByRole("button", { name: "Next year" })).toBeEnabled();
+
+      await userEvent.click(screen.getByRole("button", { name: "Next year" }));
+      await screen.findByText(currentLabel);
+      expect(screen.getByRole("button", { name: "Next year" })).toBeDisabled();
+    },
+  );
 
   it("starts Transactions at the saved start month: its request, month filter and Export default range", async () => {
     respondWithStartMonth(4);

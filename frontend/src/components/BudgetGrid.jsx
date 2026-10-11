@@ -5,8 +5,8 @@ import { LeftToBudgetGridRow } from "./LeftToBudget.jsx";
 
 // The Budget tab's Full year read-only grid (Issue #64) - every Category's
 // Category Budget across the shared referenceYear's 12 months, in the shared
-// periodType's framing (ADR-0021: Jul-Jun for Financial Year, Jan-Dec for
-// Calendar Year), grouped by Type. Deliberately plain <td> cells, not inputs:
+// periodType's framing (ADR-0021, ADR-0027: from the saved start month for a
+// Financial Year, Jan-Dec for a Calendar Year), grouped by Type. Deliberately plain <td> cells, not inputs:
 // this view has no editing surface at all, unlike Budget.jsx's per-month
 // editor table it sits alongside.
 export default function BudgetGrid({ referenceYear, periodType, grid }) {
