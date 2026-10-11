@@ -18,6 +18,7 @@ import RecurringRules from "./components/RecurringRules.jsx";
 import SpendingByCategory from "./components/SpendingByCategory.jsx";
 import StatTiles from "./components/StatTiles.jsx";
 import ThemeSwitcher from "./components/ThemeSwitcher.jsx";
+import RecurringCharges from "./components/RecurringCharges.jsx";
 import TopMerchants from "./components/TopMerchants.jsx";
 import Transactions from "./components/Transactions.jsx";
 import { fetchAnnualOverview, fetchLatestTransactionDate, fetchMonthOverview, fetchTransactionDateRange } from "./lib/api.js";
@@ -359,6 +360,10 @@ function Dashboard({ settings, onSettingsSaved }) {
                       <TopMerchants merchants={overview.top_merchants} count={5} colourFor={colourFor} />
                       <SpendingOverTime overTime={overview.spending_over_time} />
                     </div>
+                    {/* Movers (#185) takes the right half. */}
+                    <div className="row--split">
+                      <RecurringCharges recurring={overview.recurring_charges} colourFor={colourFor} />
+                    </div>
                   </>
                 ) : (
                   // Full year runs two equal columns - Month by month over
@@ -390,7 +395,8 @@ function Dashboard({ settings, onSettingsSaved }) {
                     </div>
                     <OutflowsByMonth months={overview.outflows_by_month} />
                     <div className="row--split">
-                      <TopMerchants merchants={overview.top_merchants} count={10}colourFor={colourFor} />
+                      <TopMerchants merchants={overview.top_merchants} count={10} colourFor={colourFor} />
+                      <RecurringCharges recurring={overview.recurring_charges} colourFor={colourFor} />
                     </div>
                   </>
                 )}

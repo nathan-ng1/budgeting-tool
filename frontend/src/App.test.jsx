@@ -6,6 +6,14 @@ import App from "./App.jsx";
 
 const ZERO_STAT_TILES = { income: 0, expenses: 0, bills_subscriptions: 0, debt: 0, available_to_save: 0, saved: 0, unallocated: 0 };
 const ZERO_MONTH_TOTALS = { income: 0, expenses: 0, bills_subscriptions: 0, debt: 0, available_to_save: 0, saved: 0 };
+const NO_RECURRING = { per_year: 0, per_month: 0, rows: [] };
+const GYM_RECURRING = {
+  per_year: 977.68,
+  per_month: 81.47,
+  rows: [
+    { merchant: "Anytime Fitness", category: "Gym", charges: 11, last_charged: "2026-08-17", typical: 37.5, cadence_days: 14, per_year: 977.68 },
+  ],
+};
 const ZERO_ALLOCATION = {
   expenses_amount: 0,
   expenses_pct: 0,
@@ -30,6 +38,7 @@ function monthOverview({ year = 2026, month = 8, ...overrides } = {}) {
     debt_summary: [],
     top_merchants: [],
     spending_over_time: { daily: [], total: 0, daily_average: 0 },
+    recurring_charges: NO_RECURRING,
     ...overrides,
   };
 }
@@ -82,6 +91,7 @@ function annualOverview(overrides = {}) {
     budgeted_vs_actual: [],
     debt_summary: [],
     top_merchants: [],
+    recurring_charges: NO_RECURRING,
     month_by_month: ZERO_MONTHS,
     income_vs_expenses_by_month: ZERO_MONTHS,
     outflows_by_month: ZERO_MONTHS,
@@ -511,6 +521,44 @@ describe("App", () => {
     await screen.findByText("$5,240");
     expect(screen.queryByTestId("outflows-columns-legend")).not.toBeInTheDocument();
     expect(screen.queryByRole("img", { name: /Outflows by Type for every month/ })).not.toBeInTheDocument();
+  });
+
+  it("places Recurring Charges in the left half of a new bottom row after Top merchants | Spending over time, for a month", async () => {
+    respondWith({ month: monthWithSpending(2026, 8, { recurring_charges: GYM_RECURRING }) });
+    render(<App />);
+    await screen.findByText("$8,000");
+    expect(screen.getAllByRole("heading", { name: "Recurring Charges" })).toHaveLength(1);
+
+    await userEvent.click(screen.getByRole("button", { name: "Aug" }));
+    await screen.findByText("$5,240");
+
+    const row = screen.getByRole("heading", { name: "Recurring Charges" }).closest(".row--split");
+    expect(row).not.toBeNull();
+    expect(within(row).queryByRole("heading", { name: "Top merchants" })).not.toBeInTheDocument();
+    expect(row.firstElementChild).toContainElement(screen.getByRole("heading", { name: "Recurring Charges" }));
+    expect(screen.getByRole("heading", { name: "Top merchants" }).closest(".row--split").nextElementSibling).toBe(row);
+    expect(within(row).getByText("Anytime Fitness")).toBeInTheDocument();
+    expect(within(row).getByText("$978 / year")).toBeInTheDocument();
+  });
+
+  it("places Recurring Charges beside Top merchants, for Full year", async () => {
+    respondWith({ annual: annualWithSpending({ recurring_charges: GYM_RECURRING }) });
+    render(<App />);
+    await screen.findByText("$8,000");
+
+    const split = screen.getByRole("heading", { name: "Top merchants" }).closest(".row--split");
+    const [left, right] = split.children;
+    expect(within(left).getByRole("heading", { name: "Top merchants" })).toBeInTheDocument();
+    expect(within(right).getByRole("heading", { name: "Recurring Charges" })).toBeInTheDocument();
+    expect(within(right).getByText("Every 14 days")).toBeInTheDocument();
+  });
+
+  it("shows the Recurring Charges empty state for a view with no Bills & Subscriptions", async () => {
+    respondWith({});
+    render(<App />);
+    await screen.findByText("$8,000");
+
+    expect(screen.getByText(/No Bills & Subscriptions recorded/)).toBeInTheDocument();
   });
 
   it("shows the ten largest merchants for Full year and five for a month", async () => {
