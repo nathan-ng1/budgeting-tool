@@ -13,7 +13,7 @@
 import { getCurrentTheme } from "./theme.js";
 import { TYPE_COLOURS } from "./typeColours.js";
 
-const SPENDING_TYPES = ["Expense", "Bills & Subscriptions"];
+export const SPENDING_TYPES = ["Expense", "Bills & Subscriptions"];
 
 // Income has no entry in TYPE_COLOURS (it is the axis of the allocation bar),
 // but a Category dot on an Income row still needs a fill.
@@ -116,14 +116,21 @@ function activePalette() {
 // spending_by_category rows, and returns `colourFor(category, type)`. Share the
 // one function between every card that draws a Category dot so a Category is
 // one colour across the page. A Spending Category with a rank gets its palette
-// slot; any other Category (Income, Debt, Savings, or a Spending Category with
-// no spend this period) gets its Type's colour.
-export function categoryColours(spendingByCategory) {
+// slot. `otherSpendingCategories` are names of Spending Categories the cards
+// show that have no spend this period (a Recurring Charge from earlier in the
+// trailing year, a budgeted Category): they take the slots after the ranked
+// ones, in name order, so none of them falls back to the Type's grey. Any other
+// Category (Income, Debt, Savings) gets its Type's colour.
+export function categoryColours(spendingByCategory, otherSpendingCategories = []) {
   const palette = activePalette();
   const ranked = spendingByCategory
     .filter(({ type }) => SPENDING_TYPES.includes(type))
     .sort((a, b) => b.amount - a.amount || a.category.localeCompare(b.category));
-  const slots = new Map(ranked.map(({ category }, rank) => [category, palette[rank % palette.length]]));
+  const rankedNames = ranked.map(({ category }) => category);
+  const unranked = [...new Set(otherSpendingCategories)]
+    .filter((category) => !rankedNames.includes(category))
+    .sort((a, b) => a.localeCompare(b));
+  const slots = new Map([...rankedNames, ...unranked].map((category, index) => [category, palette[index % palette.length]]));
 
   return function colourFor(category, type) {
     return slots.get(category) ?? (type === "Income" ? INCOME_COLOUR : TYPE_COLOURS[type]) ?? NEUTRAL_COLOUR;

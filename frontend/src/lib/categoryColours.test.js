@@ -95,10 +95,27 @@ describe("categoryColours", () => {
     expect(colourFor("Salary", "Income")).toMatch(/^var\(--/);
   });
 
-  it("gives a Spending Category with no spend this period its Type's colour", () => {
+  it("gives a Spending Category with no spend this period its Type's colour when no other card names it", () => {
     const colourFor = categoryColours(spendingRows("Groceries"));
 
     expect(colourFor("Dining & Takeaway", "Expense")).toBe(TYPE_COLOURS.Expense);
+  });
+
+  it("gives other Spending Categories the cards show the slots after the ranked ones, in name order", () => {
+    const colourFor = categoryColours(spendingRows("Groceries", "Transport"), ["Zoo Pass", "Gym", "Groceries"]);
+
+    expect(colourFor("Groceries", "Expense")).toBe(THEMES.terracotta.first);
+    expect(colourFor("Transport", "Expense")).toBe(THEMES.terracotta.second);
+    expect(colourFor("Gym", "Bills & Subscriptions")).toBe("#d67f48");
+    expect(colourFor("Zoo Pass", "Bills & Subscriptions")).toBe("#f6a06b");
+  });
+
+  it("wraps the other Spending Categories' slots around the palette", () => {
+    const names = Array.from({ length: 12 }, (_, i) => `Category ${String(i).padStart(2, "0")}`);
+    const colourFor = categoryColours(spendingRows("Groceries"), names);
+
+    expect(colourFor(names[10], "Expense")).toBe(THEMES.terracotta.last);
+    expect(colourFor(names[11], "Expense")).toBe(THEMES.terracotta.first);
   });
 
   it("gives an unrecognised Category with no Type a neutral colour rather than undefined", () => {

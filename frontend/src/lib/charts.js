@@ -3,6 +3,7 @@
 // into coordinates - no totalling or re-deriving happens here.
 
 import { categoryColours } from "./categoryColours.js";
+import { OUTFLOW_SERIES } from "./typeColours.js";
 
 // Donut: the mockup's ring is r=70 in a 200x200 viewBox, drawn with
 // stroke-dasharray, so arc lengths are fractions of the circumference.
@@ -143,7 +144,7 @@ export const OUTFLOWS_CHART_WIDTH = 720;
 export const OUTFLOWS_CHART_HEIGHT = 240;
 export const OUTFLOWS_MIN_LABEL_HEIGHT = 16;
 const OUTFLOWS_BAR_WIDTH = 36;
-const OUTFLOW_KEYS = ["expenses", "bills_subscriptions", "debt"];
+const OUTFLOW_KEYS = OUTFLOW_SERIES.map((series) => series.key);
 
 export function outflowsColumnsChart(monthlyTotals) {
   const totalOf = (m) => OUTFLOW_KEYS.reduce((sum, key) => sum + m[key], 0);

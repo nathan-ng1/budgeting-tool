@@ -6,15 +6,8 @@ import {
 } from "../lib/charts.js";
 import { MONTH_LABELS_SHORT } from "../lib/months.js";
 import { useMoney } from "../lib/settings.jsx";
-import { TYPE_COLOURS } from "../lib/typeColours.js";
-
-// The three Types that make up Outflows (GLOSSARY.md); Savings is deliberately
-// absent. Same series and colours as the single-month OutflowsBreakdown.
-const SERIES = [
-  { key: "expenses", label: "Expenses", colour: TYPE_COLOURS.Expense },
-  { key: "bills_subscriptions", label: "Bills & Subscriptions", colour: TYPE_COLOURS["Bills & Subscriptions"] },
-  { key: "debt", label: "Debt", colour: TYPE_COLOURS.Debt },
-];
+import { OUTFLOW_SERIES as SERIES } from "../lib/typeColours.js";
+import { OutflowsEmptyCard, OutflowsLegend } from "./OutflowsLegend.jsx";
 
 // Full year Outflows breakdown: one stacked column per month, each segment
 // labelled with its share of that month's Outflows. The legend gives each
@@ -25,14 +18,7 @@ export default function OutflowsByMonth({ months }) {
   const yearTotal = SERIES.reduce((sum, s) => sum + months.reduce((acc, m) => acc + m[s.key], 0), 0);
 
   if (yearTotal <= 0) {
-    return (
-      <section className="card">
-        <div className="card__head">
-          <h3>Outflows breakdown</h3>
-        </div>
-        <p className="state">No outflows recorded for this period.</p>
-      </section>
-    );
+    return <OutflowsEmptyCard message="No outflows recorded for this period." />;
   }
 
   const legend = SERIES.map((s) => ({
@@ -45,14 +31,7 @@ export default function OutflowsByMonth({ months }) {
     <section className="card card--chart">
       <div className="card__head">
         <h3>Outflows breakdown</h3>
-        <div className="allocation__legend" data-testid="outflows-columns-legend">
-          {legend.map((item) => (
-            <span key={item.key} className="allocation__legend-item">
-              <span className="dot dot--lg" style={{ background: item.colour }} />
-              {item.label} <span className="muted">{item.pct.toFixed(1)}%</span>
-            </span>
-          ))}
-        </div>
+        <OutflowsLegend items={legend} testId="outflows-columns-legend" />
       </div>
 
       <div className="outflows-cols">
@@ -89,7 +68,10 @@ export default function OutflowsByMonth({ months }) {
                   width={segment.width}
                   height={segment.height}
                   fill={seriesByKey[segment.key].colour}
-                />
+                >
+                  {/* Every segment, labelled or not, says its Type and amount on hover. */}
+                  <title>{`${seriesByKey[segment.key].label} ${money(segment.amount)}`}</title>
+                </rect>
               )),
             )}
             <line
@@ -113,7 +95,6 @@ export default function OutflowsByMonth({ months }) {
                   key={`${column.year}-${column.month}-${segment.key}`}
                   data-testid="outflows-columns-pct"
                   className="outflows-cols__pct numeric"
-                  title={`${seriesByKey[segment.key].label} ${money(segment.amount)}`}
                   style={{
                     left: `${(column.centreX / OUTFLOWS_CHART_WIDTH) * 100}%`,
                     top: `${(segment.centreY / OUTFLOWS_CHART_HEIGHT) * 100}%`,

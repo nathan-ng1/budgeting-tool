@@ -325,6 +325,28 @@ describe("App", () => {
     expect(dotColour(bvaRow("Mortgage"))).toBe("var(--color-debt)");
   });
 
+  it("gives a Spending Category with no spend this month, but on another card, a palette colour rather than grey", async () => {
+    respondWith({
+      month: monthWithSpending(2026, 8, {
+        spending_by_category: [{ category: "Groceries", type: "Expense", amount: 900, pct_of_spending: 100 }],
+        budgeted_vs_actual: [
+          { type: "Expense", category: "Groceries", budgeted: 800, actual: 900, diff: -100, pct: 112.5 },
+          { type: "Bills & Subscriptions", category: "Gym", budgeted: 40, actual: 0, diff: 40, pct: 0 },
+        ],
+        recurring_charges: GYM_RECURRING,
+      }),
+    });
+    render(<App />);
+    await userEvent.click(await screen.findByRole("button", { name: "Aug" }));
+    const recurringRow = (await screen.findByText("Anytime Fitness")).closest("tr");
+
+    const dotColour = (row) => row.querySelector(".dot").style.background;
+    const gymBudgetRow = screen.getByText("Gym", { selector: ".bva__row td" }).closest("tr");
+    expect(dotColour(recurringRow)).toMatch(/^rgb\(/);
+    expect(dotColour(recurringRow)).not.toBe("var(--color-bills-subscriptions)");
+    expect(dotColour(gymBudgetRow)).toBe(dotColour(recurringRow));
+  });
+
   it("re-fetches and re-renders every section when the month changes", async () => {
     fetchMock.mockImplementation(async (url) => ({
       ok: true,
@@ -393,7 +415,7 @@ describe("App", () => {
 
     // ...with zeroes and plain empty copy rather than a crash or blank panels.
     expect(screen.getAllByText("$0").length).toBeGreaterThan(0);
-    expect(screen.getByText(/No expenses recorded/i)).toBeInTheDocument();
+    expect(screen.getByText(/No spending recorded for this month/i)).toBeInTheDocument();
     expect(screen.getByText("No spending recorded for this period.")).toBeInTheDocument();
     expect(screen.getByText(/No spending or Category Budgets/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Debt" })).toBeInTheDocument();

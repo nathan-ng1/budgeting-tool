@@ -6,7 +6,7 @@ No HTTP or browser dependency here - callable directly against any store
 """
 
 from calendar import monthrange
-from collections.abc import Collection
+from collections.abc import Collection, Iterable
 from dataclasses import dataclass
 from datetime import date
 from statistics import median
@@ -32,6 +32,11 @@ TRAILING_WINDOW_MONTHS = 12
 # Movers' comparison bases: the previous month, or the average of the 3 or 12
 # months preceding the viewed one (the Budget editor's trailing-average convention).
 MOVERS_AVERAGE_MONTHS = (3, 12)
+
+MONTHS_PER_YEAR = 12
+DAYS_PER_YEAR = 365
+
+BILLS_SUBSCRIPTIONS = "Bills & Subscriptions"
 
 
 @dataclass(frozen=True)
@@ -451,7 +456,7 @@ def get_transaction_date_range(store) -> tuple[date | None, date | None]:
 def _stat_tiles(transactions: list[Transaction]) -> StatTiles:
     income = _round(sum(t.amount for t in transactions if t.type == "Income"))
     expenses = _round(sum(t.amount for t in transactions if t.type == "Expense"))
-    bills_subscriptions = _round(sum(t.amount for t in transactions if t.type == "Bills & Subscriptions"))
+    bills_subscriptions = _round(sum(t.amount for t in transactions if t.type == BILLS_SUBSCRIPTIONS))
     debt = _round(sum(t.amount for t in transactions if t.type == "Debt"))
     saved = _round(sum(t.amount for t in transactions if t.type == "Savings"))
     # Savings is never subtracted - see GLOSSARY.md's Available to Save entry
@@ -561,7 +566,7 @@ def _totals_by_category(transactions: list[Transaction], types: Collection[str])
 
 
 # Spending (GLOSSARY): Expense plus Bills & Subscriptions; Debt and Savings are out.
-SPENDING_TYPES = frozenset({"Expense", "Bills & Subscriptions"})
+SPENDING_TYPES = frozenset({"Expense", BILLS_SUBSCRIPTIONS})
 BEEM_ADJUSTMENT = "Beem Adjustment"
 
 
@@ -756,16 +761,21 @@ def _merchant_key(notes: str) -> str:
     return normalise_notes(notes) or notes.strip().lower()
 
 
-def _top_merchants(transactions: list[Transaction], limit: int) -> list[TopMerchant]:
+def _merchant_groups(transactions: Iterable[Transaction]) -> list[tuple[Transaction, list[Transaction]]]:
+    """`transactions` grouped by merchant key, each group paired with its latest
+    Transaction (by date, then id) - the one whose Notes and Category name the
+    merchant. Shared by Top merchants and Recurring Charges."""
     groups: dict[str, list[Transaction]] = {}
     for t in transactions:
-        if t.type not in SPENDING_TYPES or t.category == BEEM_ADJUSTMENT:
-            continue
         groups.setdefault(_merchant_key(t.notes), []).append(t)
+    return [(max(rows, key=lambda t: (t.date, t.id)), rows) for rows in groups.values()]
+
+
+def _top_merchants(transactions: list[Transaction], limit: int) -> list[TopMerchant]:
+    spending = (t for t in transactions if t.type in SPENDING_TYPES and t.category != BEEM_ADJUSTMENT)
 
     merchants = []
-    for rows in groups.values():
-        latest = max(rows, key=lambda t: (t.date, t.id))
+    for latest, rows in _merchant_groups(spending):
         merchants.append(
             TopMerchant(
                 merchant=latest.notes,
@@ -787,23 +797,21 @@ def _recurring_charges(transactions: list[Transaction]) -> RecurringCharges:
     """Every Bills & Subscriptions merchant in `transactions` (already the
     trailing-12-month window), grouped by the same merchant key as Top
     merchants so slightly varying charges stay one merchant. Typical charge is
-    the median amount; cadence the median gap in whole days between distinct
-    charge dates; per-year = typical x 365 / cadence, or what was actually
-    paid when there is no cadence (a single charge date).
+    the median amount; cadence the median gap between distinct charge dates
+    (shown in whole days, but the yearly cost uses the un-rounded gap);
+    per-year = typical x 365 / median gap, or what was actually paid when there
+    is no cadence (all charges on a single date).
     """
-    groups: dict[str, list[Transaction]] = {}
-    for t in transactions:
-        if t.type == "Bills & Subscriptions":
-            groups.setdefault(_merchant_key(t.notes), []).append(t)
+    bills = (t for t in transactions if t.type == BILLS_SUBSCRIPTIONS)
 
     rows = []
-    for group in groups.values():
-        latest = max(group, key=lambda t: (t.date, t.id))
+    for latest, group in _merchant_groups(bills):
         typical = median(t.amount for t in group)
         charge_dates = sorted({t.date for t in group})
         gaps = [(later - earlier).days for earlier, later in zip(charge_dates, charge_dates[1:])]
-        cadence = max(1, int(median(gaps) + 0.5)) if gaps else None
-        per_year = typical * 365 / cadence if cadence else sum(t.amount for t in group)
+        median_gap = median(gaps) if gaps else None
+        cadence = max(1, int(median_gap + 0.5)) if median_gap is not None else None
+        per_year = typical * DAYS_PER_YEAR / median_gap if median_gap is not None else sum(t.amount for t in group)
         rows.append(
             RecurringCharge(
                 merchant=latest.notes,
@@ -817,7 +825,7 @@ def _recurring_charges(transactions: list[Transaction]) -> RecurringCharges:
         )
     rows.sort(key=lambda r: (-r.per_year, r.merchant.lower(), r.merchant))
     per_year_total = _round(sum(r.per_year for r in rows))
-    return RecurringCharges(per_year=per_year_total, per_month=_round(per_year_total / 12), rows=rows)
+    return RecurringCharges(per_year=per_year_total, per_month=_round(per_year_total / MONTHS_PER_YEAR), rows=rows)
 
 
 def _movers(window: list[Transaction], month_start: date) -> Movers:
@@ -852,10 +860,11 @@ def _movers(window: list[Transaction], month_start: date) -> Movers:
             )
         return sorted(rows, key=lambda row: (-abs(row.diff), row.category))
 
+    # The `avg_<n>_months` fields are named from MOVERS_AVERAGE_MONTHS itself, so
+    # the windows and the wire names cannot drift apart.
     return Movers(
         previous_month=rows_against(1),
-        avg_3_months=rows_against(MOVERS_AVERAGE_MONTHS[0]),
-        avg_12_months=rows_against(MOVERS_AVERAGE_MONTHS[1]),
+        **{f"avg_{months_back}_months": rows_against(months_back) for months_back in MOVERS_AVERAGE_MONTHS},
     )
 
 

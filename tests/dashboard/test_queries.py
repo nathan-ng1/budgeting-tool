@@ -2199,8 +2199,24 @@ def test_recurring_charges_typical_is_the_median_and_slightly_varying_amounts_gr
     assert row.merchant == "Telstra Mobile 9"
     assert row.charges == 3
     assert row.typical == 64.0
-    assert row.cadence_days == 31  # gaps of 30 and 31 days: median 30.5 rounds half up to a whole day
-    assert row.per_year == 753.55  # 64.00 x 365 / 31
+    assert row.cadence_days == 31  # gaps of 30 and 31 days: median 30.5 rounds half up to a whole day (display only)
+    assert row.per_year == 765.9  # 64.00 x 365 / 30.5 - the cost uses the un-rounded median gap
+
+
+def test_recurring_charges_several_charges_on_one_date_have_no_cadence_and_keep_the_count_and_sum_paid(
+    fake_store, make_transaction
+):
+    store = fake_store(
+        transactions=[
+            bs(make_transaction, date(2026, 3, 10), 30.0, notes="Double Billed", category="Insurance", id=1),
+            bs(make_transaction, date(2026, 3, 10), 30.0, notes="Double Billed", category="Insurance", id=2),
+            bs(make_transaction, date(2026, 3, 10), 30.0, notes="Double Billed", category="Insurance", id=3),
+        ]
+    )
+
+    (row,) = get_month_overview(store, year=2026, month=9).recurring_charges.rows
+
+    assert (row.charges, row.typical, row.cadence_days, row.per_year) == (3, 30.0, None, 90.0)
 
 
 def test_recurring_charges_window_is_the_twelve_months_ending_at_the_end_of_the_selected_month(

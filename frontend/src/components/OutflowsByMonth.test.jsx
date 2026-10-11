@@ -27,6 +27,12 @@ function twoElapsedMonths() {
   ];
 }
 
+// Every segment's hover text is the <title> of its SVG rect (getByTitle only
+// sees <title> children of the <svg> itself).
+function segmentHoverTitles(container) {
+  return [...container.querySelectorAll("rect > title")].map((title) => title.textContent);
+}
+
 describe("OutflowsByMonth", () => {
   it("shows each tall segment's share of its month's Outflows inside it", () => {
     render(<OutflowsByMonth months={twoElapsedMonths()} />);
@@ -48,9 +54,19 @@ describe("OutflowsByMonth", () => {
   });
 
   it("puts the Type and amount on a segment's hover title", () => {
-    render(<OutflowsByMonth months={twoElapsedMonths()} />);
+    const { container } = render(<OutflowsByMonth months={twoElapsedMonths()} />);
 
-    expect(screen.getByTitle("Bills & Subscriptions $300")).toHaveTextContent("30%");
+    expect(segmentHoverTitles(container)).toContain("Bills & Subscriptions $300");
+  });
+
+  it("puts the Type and amount on hover for a segment too short to carry a percentage", () => {
+    const { container } = render(<OutflowsByMonth months={twoElapsedMonths()} />);
+
+    // August's Bills & Subscriptions and Debt segments are 2% = 4.8px tall: no label, still a hover.
+    expect(screen.getAllByTestId("outflows-columns-pct")).toHaveLength(4);
+    const titles = segmentHoverTitles(container);
+    expect(titles).toContain("Bills & Subscriptions $20");
+    expect(titles).toContain("Debt $20");
   });
 
   it("shows each Type with its year-to-date share and no dollar amounts in the legend", () => {
@@ -73,13 +89,13 @@ describe("OutflowsByMonth", () => {
   });
 
   it("uses the Display Currency for the axis and hover amounts", () => {
-    render(
+    const { container } = render(
       <SettingsProvider settings={{ currency: "GBP", financial_year_start_month: 7, date_order: "day-first" }}>
         <OutflowsByMonth months={twoElapsedMonths()} />
       </SettingsProvider>,
     );
 
-    expect(screen.getByTitle("Bills & Subscriptions £300")).toBeInTheDocument();
+    expect(segmentHoverTitles(container)).toContain("Bills & Subscriptions £300");
     expect(screen.getByText("£1,000")).toBeInTheDocument();
   });
 

@@ -1753,6 +1753,8 @@ tbody:first-of-type .bva__section {
   font-weight: 600;
   text-shadow: 0 0 3px rgba(0, 0, 0, 0.45);
   white-space: nowrap;
+  /* Hover falls through to the segment's own <title> underneath. */
+  pointer-events: none;
 }
 
 /* — states — */

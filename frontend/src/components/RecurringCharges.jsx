@@ -48,7 +48,11 @@ export default function RecurringCharges({ recurring, colourFor = categoryColour
                 <td className="numeric">{dayMonth(row.last_charged)}</td>
                 <td className="recurring__num numeric">{preciseMoney(row.typical)}</td>
                 <td>
-                  {row.cadence_days === null ? <span className="muted">1 charge</span> : `Every ${row.cadence_days} days`}
+                  {row.cadence_days === null ? (
+                    <span className="muted">{row.charges === 1 ? "1 charge" : `${row.charges} charges`}</span>
+                  ) : (
+                    `Every ${row.cadence_days} days`
+                  )}
                 </td>
                 <td className="recurring__num numeric">{money(row.per_year)}</td>
               </tr>

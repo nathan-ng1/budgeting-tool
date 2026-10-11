@@ -40,6 +40,17 @@ describe("RecurringCharges", () => {
     expect(within(screen.getByText("Car Insurance").closest("tr")).getByText("1 charge")).toBeInTheDocument();
   });
 
+  it("shows the charge count, not 1 charge, when several charges share one date", () => {
+    const sameDay = {
+      per_year: 90,
+      per_month: 7.5,
+      rows: [{ merchant: "Double Billed", category: "Insurance", charges: 3, last_charged: "2026-03-10", typical: 30, cadence_days: null, per_year: 90 }],
+    };
+    render(<RecurringCharges recurring={sameDay} />);
+
+    expect(within(screen.getByText("Double Billed").closest("tr")).getByText("3 charges")).toBeInTheDocument();
+  });
+
   it("keeps the rows in the order the backend ranked them", () => {
     render(<RecurringCharges recurring={RECURRING} />);
 

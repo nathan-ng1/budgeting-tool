@@ -45,12 +45,12 @@ export default function SpendingByCategory({ spending, total, categories = [], c
         </svg>
         <div className="donut__centre">
           <div className="donut__total numeric">{money(total)}</div>
-          <div className="donut__caption">total spend</div>
+          <div className="donut__caption">total spending</div>
         </div>
       </div>
 
       {segments.length === 0 ? (
-        <p className="state">No expenses recorded for this month.</p>
+        <p className="state">No spending recorded for this month.</p>
       ) : (
         <div className="legend">
           {segments.map((segment) => (

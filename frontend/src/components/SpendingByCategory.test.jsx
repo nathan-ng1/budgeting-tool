@@ -27,4 +27,16 @@ describe("SpendingByCategory", () => {
 
     expect(screen.getByText("Groceries")).toBeInTheDocument();
   });
+
+  it("captions the donut total as spending", () => {
+    render(<SpendingByCategory spending={[{ category: "Groceries", amount: 612, pct_of_spending: 100 }]} total={612} />);
+
+    expect(screen.getByText("total spending")).toBeInTheDocument();
+  });
+
+  it("says no spending was recorded, in Spending terms, when there is none", () => {
+    render(<SpendingByCategory spending={[]} total={0} />);
+
+    expect(screen.getByText("No spending recorded for this month.")).toBeInTheDocument();
+  });
 });
