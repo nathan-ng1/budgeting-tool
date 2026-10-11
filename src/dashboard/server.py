@@ -548,14 +548,14 @@ def _make_handler(store, static_root: Path):
             return year
 
         def _period_start_month(self, params) -> int | None:
-            """The `period` query param translated to a start month (7 for
+            """The `period` query param translated to a start month (the saved
+            Financial Year start month - July until one is saved - for
             `financial`, 1 for `calendar`) - defaulting to `financial` when
-            omitted, matching today's unchanged behaviour (ADR-0021). None -
-            with a 400 already sent - if `period` is present but neither
-            value."""
+            omitted (ADR-0021, ADR-0027). None - with a 400 already sent - if
+            `period` is present but neither value."""
             period = params.get("period", ["financial"])[0]
             if period == "financial":
-                return 7
+                return settings.as_payload(store.read_settings())["financial_year_start_month"]
             if period == "calendar":
                 return 1
             self._send_json(400, {"error": "period query parameter must be 'financial' or 'calendar'"})
