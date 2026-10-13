@@ -15,6 +15,7 @@ import MonthByMonth from "./components/MonthByMonth.jsx";
 import MonthSelector from "./components/MonthSelector.jsx";
 import PeriodSwitcher from "./components/PeriodSwitcher.jsx";
 import RecurringRules from "./components/RecurringRules.jsx";
+import DeleteData from "./components/DeleteData.jsx";
 import YourData from "./components/YourData.jsx";
 import SpendingByCategory from "./components/SpendingByCategory.jsx";
 import StatTiles from "./components/StatTiles.jsx";
@@ -360,6 +361,7 @@ function Dashboard({ settings, onSettingsSaved }) {
             <CategoryManagement />
             <RecurringRules />
             <YourData />
+            <DeleteData />
           </>
         )}
 

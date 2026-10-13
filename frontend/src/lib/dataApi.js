@@ -54,3 +54,20 @@ export async function downloadBackup() {
 export function fetchDatabaseLocation({ signal } = {}) {
   return request(BASE, { signal });
 }
+
+/** What a reset would delete, live: the path, row counts and pre-migration file count (Issue #201). */
+export function fetchResetSummary({ signal } = {}) {
+  return request(`${BASE}/reset-summary`, { signal });
+}
+
+/**
+ * Delete the Database and its pre-migration copies and start a fresh one at the
+ * same path (Issue #201). The server refuses unless `confirmation` is `DELETE`.
+ */
+export function resetDatabase(confirmation) {
+  return request(`${BASE}/reset`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ confirmation }),
+  });
+}
