@@ -7,12 +7,18 @@ add cases without reshaping the flow:
 1. `inspect_folder` - what does the chosen folder hold? It reports an
    `outcome`: "move" (no Database there - the current one will be moved in),
    "current" (it is the folder the Database already lives in) or "existing"
-   (a Database is already there - #199 switches to it).
-2. `apply_folder` - act on that outcome. Only "move" is implemented here;
-   the other outcomes are refused until their tickets land.
+   (a Database is already there - the Dashboard switches to it, Issue #199).
+2. `apply_folder` - act on that outcome: "move" copies the Database in,
+   "existing" starts using the one already there and leaves the current one
+   where it is (this is also how a Backup is restored).
 
-A failure at any step of a move leaves the live Database, its files and
-`.env` exactly as they were; whatever was copied is cleaned up.
+A foreign file is judged by `check_foreign_database` on a plain, read-only
+sqlite3 connection - never by `open_connection`, which would create tables,
+seed Categories and mark migrations in a file that isn't ours to change.
+
+A failure at any step leaves the live Database, its files and `.env` exactly
+as they were; whatever a move copied is cleaned up, and a Database that was
+already in the folder is never removed.
 """
 
 import os
@@ -25,6 +31,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from database.store import connect
+from migration.registry import MIGRATIONS
+from migration.runner import pending, unknown_applied
 from setup.env_file import write_env
 
 OUTCOME_MOVE = "move"
@@ -56,6 +64,32 @@ def check_writable(folder: Path) -> None:
         raise FolderUnusable(f"Can't write to {folder}: {cause.strerror or cause}") from cause
 
 
+def check_foreign_database(path: Path) -> None:
+    """Raise FolderUnusable unless `path` is a Database this Dashboard can switch to.
+
+    Opened read-only on a plain connection, so nothing is written to it. This
+    is the seam for Issue #200: older and newer Databases are refused here
+    for now; #200 replaces those two refusals with the migrate-then-switch
+    and "update the Dashboard" paths (and a new `inspect_folder` outcome).
+    """
+    refusal = f"{path.name} in that folder isn't a Budgeting Tool Database"
+    try:
+        with closing(sqlite3.connect(f"{path.as_uri()}?mode=ro", uri=True)) as connection:
+            has_transactions = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'transactions'"
+            ).fetchone()
+            if has_transactions is None:
+                raise FolderUnusable(refusal)
+            behind = pending(connection, MIGRATIONS)
+            ahead = unknown_applied(connection, MIGRATIONS)
+    except sqlite3.DatabaseError as cause:  # not a SQLite file, or unreadable
+        raise FolderUnusable(refusal) from cause
+    if ahead:
+        raise FolderUnusable(f"{path.name} was written by a newer version of the Dashboard, which can't use it yet")
+    if behind:
+        raise FolderUnusable(f"{path.name} is from an older version of the Dashboard, which can't use it yet")
+
+
 def inspect_folder(
     chosen: str,
     current_database: Path,
@@ -72,8 +106,10 @@ def inspect_folder(
         return FolderReport(folder, OUTCOME_CURRENT, target)
 
     ensure_writable(folder)
-    outcome = OUTCOME_EXISTING if target.exists() else OUTCOME_MOVE
-    return FolderReport(folder, outcome, target)
+    if not target.exists():
+        return FolderReport(folder, OUTCOME_MOVE, target)
+    check_foreign_database(target)
+    return FolderReport(folder, OUTCOME_EXISTING, target)
 
 
 def report_payload(report: FolderReport) -> dict:
@@ -116,8 +152,27 @@ def apply_folder(
     if report.outcome == OUTCOME_CURRENT:
         raise FolderUnusable("The Database is already in that folder")
     if report.outcome == OUTCOME_EXISTING:
-        raise FolderUnusable("That folder already holds a Database")  # #199 replaces this
+        _switch(handle, report, env_path, open_store, write_location)
+        return
     _move(handle, report, env_path, verify_copy, open_store, write_location)
+
+
+def _switch(handle, report, env_path, open_store, write_location) -> None:
+    """Start using the Database already in the folder. Nothing is copied or
+    overwritten, and the current Database stays exactly where it is."""
+    try:
+        new_store = open_store(report.target)
+    except Exception as cause:
+        raise MoveFailed(f"Couldn't open {report.target.name}: {cause}") from cause
+    try:
+        # `.env` only after the new connection opened; the swap comes last.
+        write_location(env_path, {"DATABASE_PATH": str(report.target)})
+    except OSError as cause:
+        new_store.close()
+        raise MoveFailed(f"Couldn't update .env: {cause}") from cause
+    os.environ["DATABASE_PATH"] = str(report.target)
+    # The old file is kept, so it is closed only to release it, not to delete it.
+    handle.swap(new_store).close()
 
 
 def _move(handle, report, env_path, verify_copy, open_store, write_location) -> None:
