@@ -206,9 +206,9 @@
      taupe/brown to a mauve/rose-grey hue-locked to --color-accent, matching
      the convention Terracotta (warm tan) and Midnight (blue) already use.
    - --color-positive (+ --color-accent-2-500 for Income/Unallocated, + its
-     tint) moves off purple to sage green: purple is reserved for a planned
-     future dark-purple theme, so Orchid needed to stop using it everywhere,
-     not just here.
+     tint) moves off purple to sage green: purple is reserved for the
+     dark-purple Plum theme (Issue #205, below), so Orchid needed to stop
+     using it everywhere, not just here.
    - --color-negative (+ its tint) moves from wine to a rose-red derived from
      a user-supplied seed (#DC7386).
    - --color-danger is now Orchid's own (previously fell through to
@@ -734,6 +734,85 @@
   --color-card: #f9fbf7;
   --color-shadow: #1f2a24;
   --color-chart-line: var(--color-neutral-700);
+}
+
+/* "Plum" (Issue #205) - a dark, purple theme. Settled via /prototype (see
+   prototype/nebula-theme-palettes, kept as the primary source, not merged;
+   it was called "Nebula" there): three palettes were compared live and
+   "Variant B, Aubergine" won. Variant A ("Faithful": deep indigo page, neon
+   magenta) and C ("Inset panel": violet page, deepest-indigo card, hot
+   magenta) lost.
+
+   Seeds, sampled from the user's reference screenshot: panel deep indigo
+   #2a1569, surround muted violet #6b58a6, neon magenta #d23be7, secondary
+   violet #7b5cff, lavender text/labels #c9c0ee, dim labels #8f84c8. Plum
+   deliberately departs from them: the page and cards are near-black plum
+   rather than the screenshot's indigo, and the accent is a softer
+   orchid-violet (#b97cf0) rather than neon magenta.
+
+   Follows Midnight's dark-theme conventions: --color-neutral-100..700 run
+   dark to light, --color-background is --color-neutral-100, accent-700/800
+   are lighter than accent-600 (hover lifts toward light), --color-shadow
+   stays dark so card shadows don't glow, and text-bearing semantic tokens
+   are light with dark tints.
+
+   - Contrast (all measured; card #261739, page #120a20): --color-text 14.6:1
+     on the card; neutral-500/600/700 6.2/8.1/11.8:1 on the card and
+     7.1/9.4/13.6:1 on the page (nav tabs, "As at" line and Version sit on the
+     page); --color-positive/-negative/-danger 10.8/8.7/7.1:1 on the card;
+     positive and negative 7.6:1 and 7.4:1 on their own tints;
+     --color-on-accent 6.6:1 on --color-accent and 9.0:1 on the hover fill;
+     --color-accent 5.7:1 on the card (focus outlines). Card vs page is a
+     deliberately gentle 1.16:1 step.
+   - The selected month pill and Financial Year/Calendar Year toggle read
+     --color-neutral-100 (#120a20) for their text, which is also
+     --color-on-accent, so no Plum-scoped override is needed.
+   - The five fills on the "Where did my income go?" bar - Expenses magenta,
+     Bills & Subscriptions amber (the one hue off the purple axis), Debt
+     violet, Savings pale lavender, Income/Unallocated teal - plus
+     --color-danger (Over income) were run through the dataviz skill's
+     validator (Issue #149's convention): every pair clears >=15 dE (normal
+     vision) and >=8 dE (protan/deutan). The prototype's by-eye values missed
+     in three places, so Expenses (#e252f0 -> #e774f7, lighter, to separate
+     from Debt under protan), Savings (#cfc6f7 -> #e5e1fb, paler, to
+     separate from Income teal) and Danger (#ff8f8f -> #ff8589, redder, to
+     separate from amber) were nudged. Plum's category chart palette lives
+     separately, in lib/categoryColours.js. */
+[data-theme="plum"] {
+  --color-text: #f3eefa;
+  --color-accent: #b97cf0;
+
+  --color-neutral-100: #120a20;
+  --color-neutral-200: #2b1b45;
+  --color-neutral-300: #3d2a5e;
+  --color-neutral-400: #5e4789;
+  --color-neutral-500: #a595cd;
+  --color-neutral-600: #bbaede;
+  --color-neutral-700: #ddd5f1;
+
+  --color-accent-300: #4a2a70;
+  --color-accent-600: #b97cf0;
+  --color-accent-700: #cf9df5;
+  --color-accent-800: #e1c1fa;
+
+  --color-accent-2-500: #3fd0d4;
+  --color-debt: #8863f2;
+  --color-savings: #e5e1fb;
+  --color-bills-subscriptions: #f5b94a;
+  --color-negative-fill: #e774f7;
+
+  --color-positive: #7fe3c0;
+  --color-positive-tint: #123f3a;
+  --color-negative: #ff9fc4;
+  --color-negative-tint: #4d1738;
+  --color-danger: #ff8589;
+
+  --color-card: #261739;
+  --color-on-accent: #120a20;
+  --color-button-hover: var(--color-accent-700);
+  --color-background: var(--color-neutral-100);
+  --color-shadow: #07031a;
+  --color-chart-line: #ffffff;
 }
 
 *,

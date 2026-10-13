@@ -11,6 +11,7 @@ const THEMES = {
   orchid: { first: "#6d1742", second: "#b1256b", last: "#c892e8" },
   midnight: { first: "#2e719e", second: "#4192c8", last: "#a8bbc7" },
   sage: { first: "#3d6a4b", second: "#5f8a6b", last: "#e3bfb2" },
+  plum: { first: "#a8279f", second: "#d046c8", last: "#c1f0f1" },
 };
 
 function spendingRows(...names) {

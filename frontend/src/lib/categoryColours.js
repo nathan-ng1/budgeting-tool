@@ -123,10 +123,32 @@ const SAGE_PALETTE = [
   "#e3bfb2",
 ];
 
+// Plum's own palette (Issue #205): same slot-per-Category convention. Four
+// shades each of magenta (the --color-negative-fill family), violet (the
+// --color-debt family) and teal (the --color-accent-2-500 family), bright
+// enough to read as fills on Plum's dark card - settled via /prototype (see
+// prototype/nebula-theme-palettes; Variant B, "Aubergine" won the three-variant
+// comparison, then named Plum).
+const PLUM_PALETTE = [
+  "#a8279f",
+  "#d046c8",
+  "#e774f7",
+  "#f4b8fb",
+  "#6a4fd6",
+  "#8863f2",
+  "#a692f2",
+  "#cbbff8",
+  "#1f8f98",
+  "#3fd0d4",
+  "#8ae3e6",
+  "#c1f0f1",
+];
+
 const THEME_PALETTES = {
   orchid: ORCHID_PALETTE,
   midnight: MIDNIGHT_PALETTE,
   sage: SAGE_PALETTE,
+  plum: PLUM_PALETTE,
 };
 
 function activePalette() {

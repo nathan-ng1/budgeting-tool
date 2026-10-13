@@ -13,16 +13,17 @@ describe("ThemeSwitcher", () => {
     delete document.documentElement.dataset.theme;
   });
 
-  it("offers Terracotta, Orchid, Midnight and Sage, in that order", () => {
+  it("offers Terracotta, Orchid, Midnight, Sage and Plum, in that order", () => {
     render(<ThemeSwitcher />);
 
     const options = screen.getAllByRole("button");
 
-    expect(options).toHaveLength(4);
+    expect(options).toHaveLength(5);
     expect(options[0]).toHaveTextContent("Terracotta");
     expect(options[1]).toHaveTextContent("Orchid");
     expect(options[2]).toHaveTextContent("Midnight");
     expect(options[3]).toHaveTextContent("Sage");
+    expect(options[4]).toHaveTextContent("Plum");
   });
 
   it("marks Terracotta as pressed when no theme is stored yet", () => {
@@ -31,6 +32,7 @@ describe("ThemeSwitcher", () => {
     expect(screen.getByRole("button", { name: /Terracotta/ })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: /Orchid/ })).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByRole("button", { name: /Sage/ })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: /Plum/ })).toHaveAttribute("aria-pressed", "false");
   });
 
   it("marks the previously stored theme as pressed on load", () => {
@@ -47,7 +49,7 @@ describe("ThemeSwitcher", () => {
     render(<ThemeSwitcher />);
 
     expect(screen.getByRole("button", { name: /Sage/ })).toHaveAttribute("aria-pressed", "true");
-    ["Terracotta", "Orchid", "Midnight"].forEach((name) =>
+    ["Terracotta", "Orchid", "Midnight", "Plum"].forEach((name) =>
       expect(screen.getByRole("button", { name: new RegExp(name) })).toHaveAttribute("aria-pressed", "false"),
     );
   });
@@ -60,7 +62,31 @@ describe("ThemeSwitcher", () => {
     expect(document.documentElement.dataset.theme).toBe("sage");
     expect(localStorage.getItem("dashboard.theme")).toBe("sage");
     expect(screen.getByRole("button", { name: /Sage/ })).toHaveAttribute("aria-pressed", "true");
-    ["Terracotta", "Orchid", "Midnight"].forEach((name) =>
+    ["Terracotta", "Orchid", "Midnight", "Plum"].forEach((name) =>
+      expect(screen.getByRole("button", { name: new RegExp(name) })).toHaveAttribute("aria-pressed", "false"),
+    );
+  });
+
+  it("marks a previously stored Plum theme as pressed on load and no other option", () => {
+    localStorage.setItem("dashboard.theme", "plum");
+
+    render(<ThemeSwitcher />);
+
+    expect(screen.getByRole("button", { name: /Plum/ })).toHaveAttribute("aria-pressed", "true");
+    ["Terracotta", "Orchid", "Midnight", "Sage"].forEach((name) =>
+      expect(screen.getByRole("button", { name: new RegExp(name) })).toHaveAttribute("aria-pressed", "false"),
+    );
+  });
+
+  it("applies and persists Plum on click, with no separate Save step", async () => {
+    render(<ThemeSwitcher />);
+
+    await userEvent.click(screen.getByRole("button", { name: /Plum/ }));
+
+    expect(document.documentElement.dataset.theme).toBe("plum");
+    expect(localStorage.getItem("dashboard.theme")).toBe("plum");
+    expect(screen.getByRole("button", { name: /Plum/ })).toHaveAttribute("aria-pressed", "true");
+    ["Terracotta", "Orchid", "Midnight", "Sage"].forEach((name) =>
       expect(screen.getByRole("button", { name: new RegExp(name) })).toHaveAttribute("aria-pressed", "false"),
     );
   });
