@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { fetchDatabaseLocation } from "../lib/dataApi.js";
+import ChangeLocation from "./ChangeLocation.jsx";
 
 // "Your data" (Issue #196, ADR-0030): the bottom of the Settings tab. For now
 // it only shows where the Database lives and its size on disk; changing the
@@ -52,6 +53,7 @@ export default function YourData() {
           <dd>{formatSize(location.size_bytes)}</dd>
         </dl>
       )}
+      <ChangeLocation />
     </section>
   );
 }
