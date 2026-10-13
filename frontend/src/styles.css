@@ -761,10 +761,10 @@ h3 {
   cursor: pointer;
 }
 
-/* In the header the link sits level with the Version line, just above the
-   period switcher, rather than at the very top. */
+/* In the header the link is vertically centred on the title block: lower than
+   the very top, but not crowding the period switcher below. */
 .header > .link-button {
-  align-self: flex-end;
+  align-self: center;
 }
 
 .link-button:hover {
