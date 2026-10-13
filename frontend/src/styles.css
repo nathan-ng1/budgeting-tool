@@ -2736,3 +2736,20 @@ tbody:first-of-type .table th.table__section {
 .your-data__path {
   overflow-wrap: anywhere;
 }
+
+/* — Change location (Issue #198) — */
+
+.change-location {
+  margin-top: 14px;
+}
+
+.change-location__confirm p {
+  margin: 0 0 10px;
+  font-size: 13.5px;
+  overflow-wrap: anywhere;
+}
+
+.change-location__actions {
+  display: flex;
+  gap: 8px;
+}

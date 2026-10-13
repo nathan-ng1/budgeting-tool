@@ -1,4 +1,29 @@
-from setup.env_file import merge_env
+from setup.env_file import merge_env, write_env
+
+
+def test_write_env_rewrites_one_key_in_a_file_and_keeps_every_other_line(tmp_path):
+    env = tmp_path / ".env"
+    env.write_text("# mine\nTRANSACTIONS_INBOX=C:\\In\nDATABASE_PATH= .data/budget.db\nBEEM_USERNAME=nathan\n", encoding="utf-8")
+
+    write_env(env, {"DATABASE_PATH": r"D:\Data\budget.db"})
+
+    assert env.read_text(encoding="utf-8") == (
+        "# mine\nTRANSACTIONS_INBOX=C:\\In\nDATABASE_PATH=D:\\Data\\budget.db\nBEEM_USERNAME=nathan\n"
+    )
+
+
+def test_write_env_creates_the_file_when_there_is_none(tmp_path):
+    env = tmp_path / ".env"
+
+    write_env(env, {"DATABASE_PATH": "/data/budget.db"})
+
+    assert env.read_text(encoding="utf-8") == "DATABASE_PATH=/data/budget.db\n"
+
+
+def test_write_env_leaves_no_temporary_file_behind(tmp_path):
+    write_env(tmp_path / ".env", {"DATABASE_PATH": "x"})
+
+    assert [p.name for p in tmp_path.iterdir()] == [".env"]
 
 
 def test_merge_into_empty_content_writes_every_value():
