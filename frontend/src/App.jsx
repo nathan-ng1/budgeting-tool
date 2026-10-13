@@ -22,6 +22,7 @@ import RecurringCharges from "./components/RecurringCharges.jsx";
 import Movers from "./components/Movers.jsx";
 import TopMerchants from "./components/TopMerchants.jsx";
 import Transactions from "./components/Transactions.jsx";
+import VersionHistory from "./components/VersionHistory.jsx";
 import {
   fetchAnnualOverview,
   fetchLatestTransactionDate,
@@ -104,9 +105,15 @@ function Dashboard({ settings, onSettingsSaved }) {
   // is cosmetic, so a stale/empty list just means name-only labels, never a
   // page-blocking error.
   const [categories, setCategories] = useState([]);
-  // The running Version (ADR-0029), shown under the title. Fetched once; null
-  // until it lands or if it can't be read, in which case the line is omitted.
+  // The running Version (ADR-0029), shown under the title, and its Version
+  // History. Fetched once; the Version is null until it lands or if it can't be
+  // read (the line is then omitted), and the history is null when the changelog
+  // is unavailable. `showingHistory` swaps the Version History view in for the
+  // tabs without unmounting any of the state above, so Back lands exactly where
+  // the reader left.
   const [version, setVersion] = useState(null);
+  const [history, setHistory] = useState(null);
+  const [showingHistory, setShowingHistory] = useState(false);
 
   // The Financial Year/Calendar Year switcher's shared state (ADR-0021),
   // consumed by the Overview, Budget, and Transactions tabs below.
@@ -172,7 +179,10 @@ function Dashboard({ settings, onSettingsSaved }) {
     const controller = new AbortController();
 
     fetchVersion({ signal: controller.signal })
-      .then((loaded) => setVersion(loaded?.version ?? null))
+      .then((loaded) => {
+        setVersion(loaded?.version ?? null);
+        setHistory(loaded?.history ?? null);
+      })
       .catch(() => {
         // As above: a missing Version line is a smaller problem than an error
         // banner over a Dashboard that otherwise works.
@@ -286,6 +296,10 @@ function Dashboard({ settings, onSettingsSaved }) {
     [overview],
   );
 
+  // The tab whose body is on screen: none while the Version History view has
+  // taken its place, though `tab` itself is kept for Back to Dashboard.
+  const visibleTab = showingHistory ? null : tab;
+
   return (
     <div className="page">
       <div className="page__inner">
@@ -294,9 +308,16 @@ function Dashboard({ settings, onSettingsSaved }) {
             <h1>Budgeting Dashboard</h1>
             {version !== null && <p className="header__version">v{version}</p>}
           </div>
+          <button type="button" className="link-button" onClick={() => setShowingHistory(true)}>
+            Version history
+          </button>
         </header>
 
-        {tab !== "Settings" && (
+        {showingHistory && (
+          <VersionHistory history={history} currentVersion={version} onBack={() => setShowingHistory(false)} />
+        )}
+
+        {!showingHistory && tab !== "Settings" && (
           <PeriodSwitcher
             periodType={periodType}
             referenceYear={referenceYear}
@@ -306,28 +327,30 @@ function Dashboard({ settings, onSettingsSaved }) {
           />
         )}
 
-        <nav className="nav">
-          {TABS.map((name) => {
-            const className = `nav__tab ${name === tab ? "nav__tab--active" : ""}`;
-            const current = name === tab ? "page" : undefined;
+        {!showingHistory && (
+          <nav className="nav">
+            {TABS.map((name) => {
+              const className = `nav__tab ${name === tab ? "nav__tab--active" : ""}`;
+              const current = name === tab ? "page" : undefined;
+  
+              // An unwired tab stays a span rather than a disabled button: it is
+              // a label for a screen that doesn't exist yet, not a control that
+              // happens to be unavailable.
+              return WIRED_TABS.includes(name) ? (
+                <button key={name} type="button" className={className} aria-current={current} onClick={() => setTab(name)}>
+                  {name}
+                </button>
+              ) : (
+                <span key={name} className={className}>
+                  {name}
+                </span>
+              );
+            })}
+            {asAt !== null && <span className="nav__asat">As at {dayMonthLong(asAt)}</span>}
+          </nav>
+        )}
 
-            // An unwired tab stays a span rather than a disabled button: it is
-            // a label for a screen that doesn't exist yet, not a control that
-            // happens to be unavailable.
-            return WIRED_TABS.includes(name) ? (
-              <button key={name} type="button" className={className} aria-current={current} onClick={() => setTab(name)}>
-                {name}
-              </button>
-            ) : (
-              <span key={name} className={className}>
-                {name}
-              </span>
-            );
-          })}
-          {asAt !== null && <span className="nav__asat">As at {dayMonthLong(asAt)}</span>}
-        </nav>
-
-        {tab === "Settings" && (
+        {visibleTab === "Settings" && (
           <>
             <ThemeSwitcher />
             <DisplaySettings saved={settings} onSaved={handleSettingsSaved} />
@@ -336,9 +359,9 @@ function Dashboard({ settings, onSettingsSaved }) {
           </>
         )}
 
-        {tab === "Transactions" && <Transactions periodType={periodType} referenceYear={referenceYear} />}
+        {visibleTab === "Transactions" && <Transactions periodType={periodType} referenceYear={referenceYear} />}
 
-        {tab === "Budget" && (
+        {visibleTab === "Budget" && (
           <Budget
             periodType={periodType}
             referenceYear={referenceYear}
@@ -347,7 +370,7 @@ function Dashboard({ settings, onSettingsSaved }) {
           />
         )}
 
-        {tab === "Overview" && (
+        {visibleTab === "Overview" && (
           <>
             <MonthSelector referenceYear={referenceYear} periodType={periodType} selected={selected} onSelect={selectPill} />
 

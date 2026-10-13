@@ -14,6 +14,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
 from dashboard import budgets, categories, queries, recurring, settings, transactions
+from dashboard.changelog import read_history
 from database.store import CategoryNotFound, RecurringRuleNotFound, TransactionNotFound
 from statement_export import pipeline
 from transaction_log.categories import type_lookup
@@ -22,6 +23,9 @@ from transaction_log.categories import type_lookup
 # directory is a build artefact, so it is absent in a fresh clone until the
 # frontend has been built once.
 STATIC_ROOT = Path(__file__).resolve().parent / "static"
+
+# The hand-curated Version History at the repo root (ADR-0029).
+CHANGELOG_PATH = Path(__file__).resolve().parents[2] / "CHANGELOG.md"
 
 # Only what the build actually emits - see frontend/ (a page, its JS/CSS bundle,
 # and the vendored fonts).
@@ -61,7 +65,13 @@ def _installed_version() -> str | None:
         return None
 
 
-def build_server(store, host: str = "127.0.0.1", port: int = 0, static_root: Path = STATIC_ROOT) -> ThreadingHTTPServer:
+def build_server(
+    store,
+    host: str = "127.0.0.1",
+    port: int = 0,
+    static_root: Path = STATIC_ROOT,
+    changelog_path: Path = CHANGELOG_PATH,
+) -> ThreadingHTTPServer:
     # Threaded, but one request at a time: `store_lock` serialises every
     # handler, so the sqlite connection on `store` is still only ever touched
     # by one request at once.
@@ -71,13 +81,13 @@ def build_server(store, host: str = "127.0.0.1", port: int = 0, static_root: Pat
     # single-connection server accepts one, blocks reading a request line that
     # never arrives, and queues every real request behind it - index.html
     # arrives, its JS and CSS never do, and the page renders empty (Issue #45).
-    server = ThreadingHTTPServer((host, port), _make_handler(store, static_root))
+    server = ThreadingHTTPServer((host, port), _make_handler(store, static_root, changelog_path))
     # Idle preconnect sockets must not keep the process alive at shutdown.
     server.daemon_threads = True
     return server
 
 
-def _make_handler(store, static_root: Path):
+def _make_handler(store, static_root: Path, changelog_path: Path):
     # Serialises the handlers, so they keep the single-request-at-a-time access
     # to `store` that its sqlite connection needs.
     store_lock = threading.Lock()
@@ -153,8 +163,9 @@ def _make_handler(store, static_root: Path):
                 # The installed package's version (the `pyproject.toml` one,
                 # refreshed by the update scripts' re-sync), so between
                 # releases it is the last released Version (ADR-0029).
-                # `history` is always null until the changelog is wired in.
-                self._send_json(200, {"version": _installed_version(), "history": None})
+                # `history` is the parsed CHANGELOG.md, or null (still 200)
+                # when it is missing or malformed.
+                self._send_json(200, {"version": _installed_version(), "history": read_history(changelog_path)})
             elif parsed.path.startswith("/api/"):
                 self._send_json(404, {"error": "Not found"})
             else:

@@ -12,12 +12,15 @@ def serve():
     """Run a Dashboard server on a background thread for the duration of a test.
 
     Yields a factory so a test can choose its own `static_root` - in
-    particular, one that has no built frontend in it.
+    particular, one that has no built frontend in it, or a `changelog_path`
+    pointing at a temporary file.
     """
     running = []
 
-    def _serve(store, static_root: Path | None = None):
+    def _serve(store, static_root: Path | None = None, changelog_path: Path | None = None):
         kwargs = {} if static_root is None else {"static_root": static_root}
+        if changelog_path is not None:
+            kwargs["changelog_path"] = changelog_path
         server = build_server(store, **kwargs)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()

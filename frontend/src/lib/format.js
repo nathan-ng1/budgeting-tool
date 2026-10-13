@@ -95,6 +95,13 @@ export function dayMonthLong(isoDate, order = DEFAULT_DATE_ORDER) {
   return dayAndMonth(day, MONTH_LABELS_LONG[month - 1], order);
 }
 
+// A calendar date with its year ("11 Oct 2026" / "Oct 11, 2026"), for dates
+// like a release date that are not read against the current year.
+export function dayMonthYear(isoDate, order = DEFAULT_DATE_ORDER) {
+  const [year] = isoDate.split("-");
+  return layout(order).withYear(dayMonth(isoDate, order), year);
+}
+
 // Unlike dayMonth/dayMonthLong above, this is a real instant (the Budget
 // Suggestion's generated_at), so `new Date()` is the correct way to read it,
 // not the plain-calendar-date pitfall those two avoid.
