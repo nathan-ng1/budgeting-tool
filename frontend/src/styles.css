@@ -1869,6 +1869,13 @@ tbody:first-of-type .bva__section {
   color: var(--color-accent-700);
 }
 
+.state--warning {
+  padding: 8px 0 12px;
+  text-align: left;
+  color: var(--color-danger);
+  word-break: break-all;
+}
+
 /* — Recurring Transactions (Settings tab) — */
 
 .card__note {

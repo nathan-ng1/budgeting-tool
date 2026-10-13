@@ -50,6 +50,7 @@ export default function ChangeLocation({ onMoved = () => window.location.reload(
   const [choice, setChoice] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [leftBehind, setLeftBehind] = useState([]);
 
   async function choose() {
     setBusy(true);
@@ -68,14 +69,43 @@ export default function ChangeLocation({ onMoved = () => window.location.reload(
     setBusy(true);
     setError(null);
     try {
-      await applyDatabaseFolder(choice.folder);
-      onMoved();
+      const result = await applyDatabaseFolder(choice.folder);
+      if (result?.left_behind?.length) {
+        // The move worked; tell the user what is still on disk before reloading.
+        setLeftBehind(result.left_behind);
+      } else {
+        onMoved();
+      }
     } catch (cause) {
       setError(cause.message);
       setChoice(null);
     } finally {
       setBusy(false);
     }
+  }
+
+  if (leftBehind.length > 0) {
+    return (
+      <div className="change-location">
+        <div className="state state--warning" role="status">
+          <p>
+            The Database was moved, but {leftBehind.length === 1 ? "this old file" : "these old files"} couldn't be
+            deleted (it may be open in another program). You can delete {leftBehind.length === 1 ? "it" : "them"}{" "}
+            yourself:
+          </p>
+          <ul>
+            {leftBehind.map((file) => (
+              <li key={file}>{file}</li>
+            ))}
+          </ul>
+        </div>
+        <div className="change-location__actions">
+          <button type="button" className="button" onClick={onMoved}>
+            Continue
+          </button>
+        </div>
+      </div>
+    );
   }
 
   const confirmation = choice ? (CONFIRMATIONS[choice.outcome] ?? FALLBACK) : null;
