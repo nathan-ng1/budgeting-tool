@@ -14,8 +14,9 @@ def backup_to(connection: sqlite3.Connection, target_path: Path) -> None:
 
 
 def pre_migration_backup(connection: sqlite3.Connection, database_path: Path) -> Path:
-    """Copy the Database to `<name>.pre-migration-<timestamp>.db` beside it
-    (`python -m migration` and switching to an older Database, Issue #200)."""
+    """Make a pre-migration copy (not a Backup - that is the downloaded file):
+    `<name>.pre-migration-<timestamp>.db` beside the Database, for
+    `python -m migration` and switching to an older Database (Issue #200)."""
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     backup_path = database_path.with_name(f"{database_path.stem}.pre-migration-{stamp}{database_path.suffix}")
     backup_to(connection, backup_path)

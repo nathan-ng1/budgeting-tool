@@ -1,6 +1,6 @@
 // Changing the Database's location (Issue #198, ADR-0030): a two-step flow so
-// the user confirms between them. Later tickets (switch to an existing
-// Database, migrate) add outcomes to the first step's answer, not new calls.
+// the user confirms between them. The first step's answer carries the
+// `outcome` (move, current, existing, migrate); the second step is one call.
 
 const BASE = "/api/database";
 
@@ -33,7 +33,7 @@ async function failureMessage(response) {
 /**
  * Open the native folder picker and report what the chosen folder holds:
  * `{ cancelled: true }`, or `{ cancelled: false, folder, outcome, target }`
- * where `outcome` is "move" (no Database there), "current" or "existing".
+ * where `outcome` is "move" (no Database there), "current", "existing" or "migrate".
  */
 export function chooseDatabaseFolder() {
   return post(`${BASE}/choose-folder`);

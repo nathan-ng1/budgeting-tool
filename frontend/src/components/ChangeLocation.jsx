@@ -4,16 +4,16 @@ import { applyDatabaseFolder, chooseDatabaseFolder } from "../lib/databaseLocati
 
 // "Change location…" in Your data (Issue #198, ADR-0030). Step one opens the
 // native folder picker and learns what the chosen folder holds; step two, the
-// confirmation, depends on that `outcome`. New outcomes (switching to an
-// existing Database (#199), migrating it (#200)) add an entry to CONFIRMATIONS rather than
-// reshaping the flow.
+// confirmation, depends on that `outcome` ("move", "current", "existing" (#199)
+// or "migrate" (#200)). A new outcome adds an entry to CONFIRMATIONS rather
+// than reshaping the flow.
 
 /** What to tell the user, and whether to offer a move, for each outcome. */
 const CONFIRMATIONS = {
   move: {
     describe: (choice) => (
       <>
-        The current Database and its pre-migration backups will be moved to <strong>{choice.folder}</strong>. The old
+        The current Database and its pre-migration copies will be moved to <strong>{choice.folder}</strong>. The old
         files are deleted once the move has succeeded.
       </>
     ),
@@ -26,7 +26,8 @@ const CONFIRMATIONS = {
     describe: (choice) => (
       <>
         The Dashboard will start using the Database in <strong>{choice.folder}</strong>. Your current Database stays
-        where it is - nothing is copied or overwritten. Use this to restore a Backup.
+        where it is - nothing is copied or overwritten. This is also how you restore a Backup: put it in a folder on
+        its own and choose that folder.
       </>
     ),
     confirmLabel: "Switch to this Database",

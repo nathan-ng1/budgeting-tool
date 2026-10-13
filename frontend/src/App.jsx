@@ -4,8 +4,9 @@ import BalanceCheck from "./components/BalanceCheck.jsx";
 import Budget from "./components/Budget.jsx";
 import BudgetedVsActual from "./components/BudgetedVsActual.jsx";
 import CategoryManagement from "./components/CategoryManagement.jsx";
-import DisplaySettings from "./components/DisplaySettings.jsx";
 import DebtSummary from "./components/DebtSummary.jsx";
+import DeleteData from "./components/DeleteData.jsx";
+import DisplaySettings from "./components/DisplaySettings.jsx";
 import SpendingOverTime from "./components/SpendingOverTime.jsx";
 import IncomeAllocation from "./components/IncomeAllocation.jsx";
 import OutflowsBreakdown from "./components/OutflowsBreakdown.jsx";
@@ -15,8 +16,6 @@ import MonthByMonth from "./components/MonthByMonth.jsx";
 import MonthSelector from "./components/MonthSelector.jsx";
 import PeriodSwitcher from "./components/PeriodSwitcher.jsx";
 import RecurringRules from "./components/RecurringRules.jsx";
-import DeleteData from "./components/DeleteData.jsx";
-import YourData from "./components/YourData.jsx";
 import SpendingByCategory from "./components/SpendingByCategory.jsx";
 import StatTiles from "./components/StatTiles.jsx";
 import ThemeSwitcher from "./components/ThemeSwitcher.jsx";
@@ -25,6 +24,7 @@ import Movers from "./components/Movers.jsx";
 import TopMerchants from "./components/TopMerchants.jsx";
 import Transactions from "./components/Transactions.jsx";
 import VersionHistory from "./components/VersionHistory.jsx";
+import YourData from "./components/YourData.jsx";
 import {
   fetchAnnualOverview,
   fetchLatestTransactionDate,

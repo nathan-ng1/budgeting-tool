@@ -194,3 +194,61 @@ def test_a_sqlite_file_without_our_tables_is_refused_untouched(serve, store, env
     assert "isn't a Budgeting Tool Database" in message
     assert (new_folder / "budget.db").read_bytes() == before  # no tables created or migrations marked
     assert env.read_text(encoding="utf-8") == ENV
+
+
+# --- restoring a downloaded Backup under its default name (Issue #199) ---
+
+
+def download_backup(server, folder: Path) -> Path:
+    """GET the Backup the way the browser would and save it under its default name."""
+    with urlopen(f"http://127.0.0.1:{server.server_port}/api/database/backup") as response:
+        disposition = response.headers["Content-Disposition"]
+        body = response.read()
+    name = disposition.split('filename="')[1].rstrip('"')
+    (folder / name).write_bytes(body)
+    return folder / name
+
+
+def test_a_backup_saved_under_its_default_name_can_be_switched_to(serve, store, env, new_folder, tmp_path):
+    store.write_settings({"currency": "EUR"})
+    server = serve(store, env_path=env, pick_folder=lambda: str(new_folder))
+    backup = download_backup(server, new_folder)
+    assert backup.name != "budget.db"
+    store.write_settings({"currency": "GBP"})
+
+    chosen = call(server, "POST", "/api/database/choose-folder")[1]
+    status, body = call(server, "POST", "/api/database/location", {"folder": str(new_folder)})
+
+    assert chosen["outcome"] == "existing"
+    assert chosen["target"] == str(backup.resolve())
+    assert status == 200
+    assert body["path"] == str(backup.resolve())
+    assert call(server, "GET", "/api/settings")[1]["currency"] == "EUR"
+    assert (tmp_path / "budget.db").exists()  # the live Database stays where it was
+    assert not (new_folder / "budget.db").exists()
+    assert env.read_text(encoding="utf-8") == f"# mine\nDATABASE_PATH={backup.resolve()}\nBEEM_USERNAME=nathan\n"
+
+
+def test_two_backups_in_one_folder_are_refused_asking_for_just_one(serve, store, env, new_folder, tmp_path):
+    server = serve(store, env_path=env, pick_folder=lambda: str(new_folder))
+    first = download_backup(server, new_folder)
+    second = new_folder / "budget-backup-20200101-000000.db"
+    second.write_bytes(first.read_bytes())
+
+    for request in (
+        lambda: failure(server, "POST", "/api/database/choose-folder"),
+        lambda: failure(server, "POST", "/api/database/location", {"folder": str(new_folder)}),
+    ):
+        status, message = request()
+        assert status == 400
+        assert "just one" in message
+    assert (tmp_path / "budget.db").exists()
+    assert env.read_text(encoding="utf-8") == ENV
+    assert call(server, "GET", "/api/database")[1]["path"] == str((tmp_path / "budget.db").resolve())
+
+
+def test_a_file_named_like_the_database_wins_over_a_backup_beside_it(serve, store, env, new_folder, restored):
+    server = serve(store, env_path=env, pick_folder=lambda: str(new_folder))
+    download_backup(server, new_folder)
+
+    assert call(server, "POST", "/api/database/choose-folder")[1]["target"] == str(restored.resolve())

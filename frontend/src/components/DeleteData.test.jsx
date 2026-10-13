@@ -77,7 +77,7 @@ describe("DeleteData", () => {
     expect(within(dialog).getByText(/40 Category Budgets/)).toBeInTheDocument();
     expect(within(dialog).getByText(/3 custom Categories/)).toBeInTheDocument();
     expect(within(dialog).getByText(/2 Display Settings/)).toBeInTheDocument();
-    expect(within(dialog).getByText(/2 pre-migration backup files/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/2 pre-migration copies/)).toBeInTheDocument();
     expect(within(dialog).getByText(/Processed archive/)).toHaveTextContent(/not touched/i);
     expect(within(dialog).getByText(/Transactions Inbox/)).toBeInTheDocument();
     expect(within(dialog).getByText(/saved theme and Financial Year/)).toBeInTheDocument();
@@ -95,7 +95,7 @@ describe("DeleteData", () => {
     const dialog = await openDialog();
 
     expect(await within(dialog).findByText(/1 Transaction\b(?!s)/)).toBeInTheDocument();
-    expect(within(dialog).getByText(/1 pre-migration backup file\b(?!s)/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/1 pre-migration copy\b/)).toBeInTheDocument();
   });
 
   describe("the final button", () => {

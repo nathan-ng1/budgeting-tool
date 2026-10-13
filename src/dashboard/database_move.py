@@ -5,15 +5,20 @@ Two steps, so the confirmation UI can sit between them and later tickets can
 add cases without reshaping the flow:
 
 1. `inspect_folder` - what does the chosen folder hold? It reports an
-   `outcome`: "move" (no Database there - the current one will be moved in),
-   "current" (it is the folder the Database already lives in) or "existing"
-   (a Database is already there - the Dashboard switches to it, Issue #199)
-   or "migrate" (one is there, but from an older version: it is copied to a
-   `.pre-migration-` file, migrated, then switched to, Issue #200). A Database
-   from a newer version is refused with "update the tool first".
+   `outcome`:
+   - "move": no Database there; the current one will be moved in.
+   - "current": it is the folder the Database already lives in.
+   - "existing": a Database is already there; the Dashboard switches to it
+     (Issue #199). That is the file named like the current Database or, failing
+     that, a single downloaded Backup saved under its default name - so a
+     Backup can be restored without renaming it. Several Backups and no
+     Database is refused: the user is asked to leave just one.
+   - "migrate": as "existing", but from an older version; it is copied to a
+     `.pre-migration-` file, migrated, then switched to (Issue #200).
+   A Database from a newer version is refused with "update the tool first".
 2. `apply_folder` - act on that outcome: "move" copies the Database in,
-   "existing" starts using the one already there and leaves the current one
-   where it is (this is also how a Backup is restored).
+   "existing" and "migrate" start using the one already there (keeping its
+   file name) and leave the current one where it is.
 
 A foreign file is judged by `check_foreign_database` on a plain, read-only
 sqlite3 connection - never by `open_connection`, which would create tables,
@@ -25,6 +30,7 @@ already in the folder is never removed.
 """
 
 import os
+import re
 import shutil
 import sqlite3
 import tempfile
@@ -97,6 +103,13 @@ def check_foreign_database(path: Path) -> bool:
     return bool(behind)
 
 
+def backup_files(folder: Path, current_database: Path) -> list[Path]:
+    """The downloaded Backups in `folder`, recognised by their default file name
+    (`<name>-backup-<date>-<time>.db`, see `database_info.backup_file_name`)."""
+    pattern = re.compile(rf"^.+-backup-\d{{8}}-\d{{6}}{re.escape(current_database.suffix)}$")
+    return sorted(f for f in folder.iterdir() if f.is_file() and pattern.match(f.name))
+
+
 def inspect_folder(
     chosen: str,
     current_database: Path,
@@ -114,7 +127,16 @@ def inspect_folder(
 
     ensure_writable(folder)
     if not target.exists():
-        return FolderReport(folder, OUTCOME_MOVE, target)
+        backups = backup_files(folder, current_database)
+        if len(backups) > 1:
+            raise FolderUnusable(
+                f"That folder holds {len(backups)} Backups ({', '.join(b.name for b in backups)}). "
+                "Leave just one in the folder to switch to it."
+            )
+        if not backups:
+            return FolderReport(folder, OUTCOME_MOVE, target)
+        # A Backup saved under its default name: use that file as it is.
+        target = backups[0]
     needs_migrating = check_foreign_database(target)
     return FolderReport(folder, OUTCOME_MIGRATE if needs_migrating else OUTCOME_EXISTING, target)
 
@@ -187,7 +209,7 @@ def _switch(handle, report, env_path, open_store, write_location) -> None:
 
 
 def _migrate(path: Path) -> None:
-    """Copy `path` to a `.pre-migration-` file, then run the pending migrations
+    """Copy `path` to a `.pre-migration-` copy, then run the pending migrations
     on a plain connection - the order `python -m migration` uses. If one fails,
     the file is put back as it was and the copy removed."""
     with closing(sqlite3.connect(path)) as connection:

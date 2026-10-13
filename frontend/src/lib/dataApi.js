@@ -1,6 +1,5 @@
 // The "Your data" endpoint (Issue #196, ADR-0030): where the Database lives and
-// how big it is. Later "Your data" actions (backup, move, switch, delete) add
-// their calls here - mirrors categoriesApi.js.
+// how big it is, plus Backup download and delete-and-reset. Mirrors categoriesApi.js.
 
 const BASE = "/api/database";
 
