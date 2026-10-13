@@ -15,6 +15,7 @@ from contextlib import closing
 from datetime import datetime
 from pathlib import Path
 
+from database.backup import backup_to
 from database.store import open_connection, resolve_database_path
 from migration.registry import MIGRATIONS
 from migration.runner import MigrationFailed, pending, run_pending
@@ -23,8 +24,7 @@ from migration.runner import MigrationFailed, pending, run_pending
 def backup(connection: sqlite3.Connection, database_path: Path) -> Path:
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     backup_path = database_path.with_name(f"{database_path.stem}.pre-migration-{stamp}{database_path.suffix}")
-    with closing(sqlite3.connect(backup_path)) as target:
-        connection.backup(target)
+    backup_to(connection, backup_path)
     return backup_path
 
 

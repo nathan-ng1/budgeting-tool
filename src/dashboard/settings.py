@@ -25,8 +25,10 @@ CURRENCY_IDS = frozenset(
 
 
 def as_payload(saved: dict[str, str]) -> dict:
-    """Every setting, with the default filled in for any never saved."""
-    merged = {**DEFAULTS, **saved}
+    """Every setting, with the default filled in for any never saved. Other
+    rows in the `settings` table (e.g. `last_backed_up`, Issue #197) are not
+    user settings and stay out."""
+    merged = {key: saved.get(key, default) for key, default in DEFAULTS.items()}
     merged["financial_year_start_month"] = int(merged["financial_year_start_month"])
     return merged
 

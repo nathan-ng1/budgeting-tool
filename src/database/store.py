@@ -4,9 +4,13 @@ from datetime import date, datetime
 from pathlib import Path
 
 from budget_suggestions.suggestion import BudgetSuggestion
+from database.backup import backup_to
 from recurring.rules import RecurringRule, StoredRecurringRule
 from transaction_log.categories import CATEGORIES_BY_TYPE, TYPE_ORDER, Category
 from transaction_log.entries import Candidate, ExistingRow, Transaction
+
+# The `settings` row recording the latest Backup (Issue #197).
+LAST_BACKED_UP_KEY = "last_backed_up"
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -477,6 +481,19 @@ class LocalStore:
 
         write_up, generated_at = row
         return BudgetSuggestion(write_up=write_up, generated_at=datetime.fromisoformat(generated_at))
+
+    def backup_to(self, target_path: Path) -> None:
+        """Write a consistent copy of the live Database to `target_path`
+        (Issue #197)."""
+        backup_to(self._connection, target_path)
+
+    def read_last_backed_up(self) -> str | None:
+        """When a Backup was last generated (ISO text), None if never.
+        Kept in `settings` but apart from the user-facing settings payload."""
+        return self.read_settings().get(LAST_BACKED_UP_KEY)
+
+    def record_backup(self, when: str) -> None:
+        self.write_settings({LAST_BACKED_UP_KEY: when})
 
     def read_settings(self) -> dict[str, str]:
         """The settings that have been saved, as text - a setting never saved
