@@ -761,6 +761,12 @@ h3 {
   cursor: pointer;
 }
 
+/* In the header the link sits level with the Version line, just above the
+   period switcher, rather than at the very top. */
+.header > .link-button {
+  align-self: flex-end;
+}
+
 .link-button:hover {
   color: var(--color-text);
 }
