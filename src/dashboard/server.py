@@ -14,7 +14,7 @@ from collections.abc import Callable
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
-from dashboard import budgets, categories, database_info, database_move, queries, recurring, settings, transactions
+from dashboard import budgets, categories, database_info, database_move, database_reset, queries, recurring, settings, transactions
 from dashboard.changelog import read_history
 from dashboard.database_handle import DatabaseHandle
 from dashboard.folder_picker import FolderPickerError
@@ -48,6 +48,8 @@ DATABASE_PATH = "/api/database"
 DATABASE_CHOOSE_FOLDER_PATH = f"{DATABASE_PATH}/choose-folder"
 DATABASE_LOCATION_PATH = f"{DATABASE_PATH}/location"
 DATABASE_BACKUP_PATH = "/api/database/backup"
+DATABASE_RESET_SUMMARY_PATH = f"{DATABASE_PATH}/reset-summary"
+DATABASE_RESET_PATH = f"{DATABASE_PATH}/reset"
 RECURRING_RULES_PATH = "/api/recurring-rules"
 RECURRING_RULES_RUN_PATH = f"{RECURRING_RULES_PATH}/run"
 RECURRING_RULES_SPLIT_PATH = f"{RECURRING_RULES_PATH}/split"
@@ -184,6 +186,8 @@ def _make_handler(store, static_root: Path, changelog_path: Path):
                 self._send_json(200, database_info.as_payload(store.path, store.read_last_backed_up()))
             elif parsed.path == DATABASE_BACKUP_PATH:
                 self._download_backup()
+            elif parsed.path == DATABASE_RESET_SUMMARY_PATH:
+                self._send_json(200, database_reset.summary_payload(store))
             elif parsed.path == VERSION_PATH:
                 # The installed package's version (the `pyproject.toml` one,
                 # refreshed by the update scripts' re-sync), so between
@@ -203,6 +207,8 @@ def _make_handler(store, static_root: Path, changelog_path: Path):
                 self._choose_database_folder()
             elif path == DATABASE_LOCATION_PATH:
                 self._apply_database_folder()
+            elif path == DATABASE_RESET_PATH:
+                self._reset_database()
             elif path == RECURRING_RULES_RUN_PATH:
                 self._run_recurring_rules()
             elif path == RECURRING_RULES_SPLIT_PATH:
@@ -469,6 +475,24 @@ def _make_handler(store, static_root: Path, changelog_path: Path):
                 self._send_json(400, {"error": str(cause)})
                 return
             except database_move.MoveFailed as cause:
+                self._send_json(500, {"error": str(cause)})
+                return
+
+            self._send_json(200, database_info.as_payload(store.path))
+
+        def _reset_database(self) -> None:
+            """Delete all data and serve a fresh empty Database at the same
+            path - but only with the typed confirmation (Issue #201)."""
+            try:
+                database_reset.check_confirmation(self._read_json())
+            except ValueError as cause:
+                # ConfirmationMissing, or an unreadable body.
+                self._send_json(400, {"error": str(cause)})
+                return
+
+            try:
+                database_reset.reset(store)
+            except database_reset.ResetFailed as cause:
                 self._send_json(500, {"error": str(cause)})
                 return
 

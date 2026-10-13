@@ -668,7 +668,9 @@ describe("App", () => {
 
     expect(await screen.findByText("C:\Budget\budget.db")).toBeInTheDocument();
     const headings = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
-    expect(headings.at(-1)).toBe("Your data");
+    // The danger area (Issue #201) is the very bottom, just after Your data.
+    expect(headings.slice(-2)).toEqual(["Your data", "Danger area"]);
+    expect(screen.getByRole("button", { name: "Delete data and reset dashboard" })).toBeInTheDocument();
   });
 
   it("puts the Overview's month selector away while Settings is open", async () => {

@@ -487,6 +487,25 @@ class LocalStore:
         (Issue #197)."""
         backup_to(self._connection, target_path)
 
+    def count_data(self) -> dict[str, int]:
+        """How much the user has put in the Database, for the delete flow's
+        "what will be lost" list (Issue #201): rows in each user-owned table,
+        Categories beyond the predefined ones, and saved Display Settings
+        (the `settings` row recording the latest Backup is not one)."""
+
+        def count(table: str) -> int:
+            return self._connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+
+        predefined = {(kind, name) for kind, names in CATEGORIES_BY_TYPE.items() for name in names}
+        categories = self._connection.execute("SELECT type, name FROM categories").fetchall()
+        return {
+            "transactions": count("transactions"),
+            "recurring_rules": count("recurring_rules"),
+            "category_budgets": count("category_budgets"),
+            "custom_categories": sum(1 for row in categories if tuple(row) not in predefined),
+            "display_settings": len(set(self.read_settings()) - {LAST_BACKED_UP_KEY}),
+        }
+
     def read_last_backed_up(self) -> str | None:
         """When a Backup was last generated (ISO text), None if never.
         Kept in `settings` but apart from the user-facing settings payload."""
