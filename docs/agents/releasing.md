@@ -10,7 +10,9 @@ without assets leaves new installs nothing to download.
    heading is `## vX.Y.Z — YYYY-MM-DD` (release date), followed by a flat bullet list of plain-language
    changes a Collaborator would notice, including Installation Pack changes. Leave out release PRs,
    refactors and test-only changes. There is no Unreleased section. A test fails if the newest entry's
-   version doesn't match `pyproject.toml`.
+   version doesn't match the installed package's version (what the Dashboard reports as the running
+   Version). That tracks `pyproject.toml` only once the environment is re-synced, so run `uv sync` after
+   bumping `version` and before running the tests.
 2. Tag and publish from `master`, attaching the Installation Pack:
 
    ```sh

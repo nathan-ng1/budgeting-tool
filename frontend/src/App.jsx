@@ -109,8 +109,9 @@ function Dashboard({ settings, onSettingsSaved }) {
   // History. Fetched once; the Version is null until it lands or if it can't be
   // read (the line is then omitted), and the history is null when the changelog
   // is unavailable. `showingHistory` swaps the Version History view in for the
-  // tabs without unmounting any of the state above, so Back lands exactly where
-  // the reader left.
+  // tabs. The tab bodies do unmount while it shows (so a tab's own local state,
+  // such as the Transactions filters, starts fresh on Back), but the state above
+  // lives here and survives: Back lands on the same tab and year/month selection.
   const [version, setVersion] = useState(null);
   const [history, setHistory] = useState(null);
   const [showingHistory, setShowingHistory] = useState(false);
@@ -297,7 +298,8 @@ function Dashboard({ settings, onSettingsSaved }) {
   );
 
   // The tab whose body is on screen: none while the Version History view has
-  // taken its place, though `tab` itself is kept for Back to Dashboard.
+  // taken its place, though `tab` itself is kept for Back to Dashboard. The
+  // period switcher, the nav and every tab body are all gated on this one value.
   const visibleTab = showingHistory ? null : tab;
 
   return (
@@ -317,7 +319,7 @@ function Dashboard({ settings, onSettingsSaved }) {
           <VersionHistory history={history} currentVersion={version} onBack={() => setShowingHistory(false)} />
         )}
 
-        {!showingHistory && tab !== "Settings" && (
+        {visibleTab !== null && visibleTab !== "Settings" && (
           <PeriodSwitcher
             periodType={periodType}
             referenceYear={referenceYear}
@@ -327,12 +329,12 @@ function Dashboard({ settings, onSettingsSaved }) {
           />
         )}
 
-        {!showingHistory && (
+        {visibleTab !== null && (
           <nav className="nav">
             {TABS.map((name) => {
               const className = `nav__tab ${name === tab ? "nav__tab--active" : ""}`;
               const current = name === tab ? "page" : undefined;
-  
+
               // An unwired tab stays a span rather than a disabled button: it is
               // a label for a screen that doesn't exist yet, not a control that
               // happens to be unavailable.

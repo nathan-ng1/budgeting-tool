@@ -1960,14 +1960,21 @@ describe("Version History", () => {
     expect(await screen.findByText("11 Oct 2026")).toBeInTheDocument();
   });
 
-  it("returns to the same tab and month selection from Back to Dashboard", async () => {
+  it("returns to the same tab, year and month selection from Back to Dashboard", async () => {
     respondWith();
     render(<App />);
-    await userEvent.click(await screen.findByRole("button", { name: "Aug" }));
+    // Step back a year, then pick a month that is neither the default (Full
+    // year) nor the month of the latest Transaction (Aug), so a reset to either
+    // would be noticed.
+    await userEvent.click(await screen.findByRole("button", { name: "Previous year" }));
+    await screen.findByText("2025-2026 Financial Year");
+    await userEvent.click(screen.getByRole("button", { name: "Dec" }));
     await openHistory();
     await userEvent.click(await screen.findByRole("button", { name: "Back to Dashboard" }));
 
-    expect(screen.getByRole("button", { name: "Aug" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("2025-2026 Financial Year")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Dec" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Overview" })).toHaveAttribute("aria-current", "page");
     expect(screen.queryByText("Current")).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Transactions" }));
@@ -1975,6 +1982,12 @@ describe("Version History", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Back to Dashboard" }));
 
     expect(screen.getByRole("button", { name: "Transactions" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByText("2025-2026 Financial Year")).toBeInTheDocument();
+
+    // The Overview month survives a trip through another tab and the history.
+    await userEvent.click(screen.getByRole("button", { name: "Overview" }));
+
+    expect(screen.getByRole("button", { name: "Dec" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("says the history isn't available, and still shows the Version, when there is none", async () => {
