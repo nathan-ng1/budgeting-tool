@@ -42,6 +42,13 @@ def pending(connection: sqlite3.Connection, migrations: list[Migration]) -> list
     return [migration for migration in migrations if migration.name not in applied]
 
 
+def unknown_applied(connection: sqlite3.Connection, migrations: list[Migration]) -> list[str]:
+    """Names recorded as applied that this version doesn't know - a Database
+    written by a newer version of the Dashboard. Read-only, like `pending`."""
+    known = {migration.name for migration in migrations}
+    return sorted(_applied_names(connection) - known)
+
+
 def run_pending(connection: sqlite3.Connection, migrations: list[Migration]) -> list[str]:
     """Run every not-yet-applied migration in registry order, recording each
     as soon as it succeeds. Returns the names it ran.
