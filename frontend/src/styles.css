@@ -2744,10 +2744,35 @@ tbody:first-of-type .table th.table__section {
   overflow-wrap: anywhere;
 }
 
+/* Download Backup and Change location… sit side by side at one size, below the
+   facts. .change-location is display: contents while idle so its button joins
+   this row; its confirmation panels take a full row underneath. */
+.your-data__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.your-data__actions > .button,
+.your-data__actions .change-location > .button {
+  box-sizing: border-box;
+  width: 180px;
+  padding: 9px 16px;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.your-data__actions .change-location > :not(.button) {
+  flex-basis: 100%;
+}
+
 /* — Change location (Issue #198) — */
 
 .change-location {
-  margin-top: 14px;
+  display: contents;
 }
 
 .change-location__confirm p {
@@ -2767,7 +2792,6 @@ tbody:first-of-type .table th.table__section {
    border, headings and button outline; on hover the button fills with it. */
 
 .danger-zone {
-  margin-top: 40px;
   padding: 22px 26px 26px;
   border: 2px solid var(--color-danger);
   border-radius: var(--radius-md);

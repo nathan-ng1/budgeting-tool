@@ -74,13 +74,15 @@ export default function YourData() {
           <dd>{formatLastBackedUp(location.last_backed_up)}</dd>
         </dl>
       )}
-      <button type="button" className="button" onClick={backUp} disabled={backingUp}>
-        Download Backup
-      </button>
+      <div className="your-data__actions">
+        <button type="button" className="button" onClick={backUp} disabled={backingUp}>
+          Download Backup
+        </button>
+        <ChangeLocation />
+      </div>
       <p className="card__note">
         A copy of your Database you can keep somewhere safe. Your browser saves it wherever you choose.
       </p>
-      <ChangeLocation />
     </section>
   );
 }
