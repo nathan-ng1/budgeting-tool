@@ -3,10 +3,10 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_THEME, THEMES, applyTheme, getCurrentTheme, getStoredTheme, storeTheme } from "./theme.js";
 
 describe("THEMES", () => {
-  it("lists Terracotta, Orchid, Midnight and Sage, each with a key, label and swatch", () => {
+  it("lists Terracotta, Orchid, Midnight, Sage and Plum, each with a key, label and swatch", () => {
     const keys = THEMES.map((theme) => theme.key);
 
-    expect(keys).toEqual(["terracotta", "orchid", "midnight", "sage"]);
+    expect(keys).toEqual(["terracotta", "orchid", "midnight", "sage", "plum"]);
     THEMES.forEach((theme) => {
       expect(theme.label).toEqual(expect.any(String));
       expect(theme.swatch).toMatch(/^#[0-9a-f]{6}$/i);
@@ -33,6 +33,12 @@ describe("getStoredTheme", () => {
     localStorage.setItem("dashboard.theme", "sage");
 
     expect(getStoredTheme()).toBe("sage");
+  });
+
+  it("returns a previously stored Plum theme", () => {
+    localStorage.setItem("dashboard.theme", "plum");
+
+    expect(getStoredTheme()).toBe("plum");
   });
 
   it("falls back to the default theme for a value that isn't a known theme", () => {
@@ -71,6 +77,13 @@ describe("applyTheme", () => {
 
     expect(document.documentElement.dataset.theme).toBe("sage");
     expect(getCurrentTheme()).toBe("sage");
+  });
+
+  it("sets the data-theme attribute to plum for the Plum theme", () => {
+    applyTheme("plum");
+
+    expect(document.documentElement.dataset.theme).toBe("plum");
+    expect(getCurrentTheme()).toBe("plum");
   });
 
   it("leaves the data-theme attribute unset for the default theme", () => {
