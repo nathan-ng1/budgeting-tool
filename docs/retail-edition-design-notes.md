@@ -71,6 +71,16 @@ and spec #172. Etsy and tax research, with sources, is in
   browser's own storage; the source becomes readable, which undercuts Q2). Ask testers whether the
   install step was a barrier before reopening this.
 
+## Version and Version History (2026-10-13)
+
+A `/grill-with-docs` session on showing the Version under the Dashboard title, with a Version History
+link, decided the feature ships in **both** editions. The frontend only asks the backend for its
+Version and its history; where those come from is edition-specific. The Collaborator Edition reads
+them from the installed package metadata and `CHANGELOG.md`. The Retail Edition can't assume either
+(Nuitka build, no clone, and Buyers shouldn't see Collaborator-only items such as the Statement
+Export pipeline), so its Version source, its history content, and how that history is shipped with
+each release (likely alongside `latest.json`, Q16) are still to be decided here.
+
 ## Not yet discussed
 
 - Build pipeline: Nuitka standalone per platform, plus bundled built frontend assets.

@@ -729,15 +729,110 @@ h3 {
 
 .header {
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 24px;
   flex-wrap: wrap;
+  /* Tighten the page's 26px section gap below the header to 16px. */
+  margin-bottom: -10px;
 }
 
 .header h1 {
   font-size: 34px;
   letter-spacing: -0.02em;
+}
+
+.header__version {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--color-neutral-500);
+}
+
+/* A button that reads as a text link - the header's Version history link and
+   the Version History view's Back to Dashboard. */
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--color-neutral-700);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* In the header the link is vertically centred on the title block: lower than
+   the very top, but not crowding the period switcher below. */
+.header > .link-button {
+  align-self: center;
+}
+
+.link-button:hover {
+  color: var(--color-text);
+}
+
+/* — Version History view — */
+
+.version-history {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.version-history__list,
+.version-history__entries {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.version-history__list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.version-history__head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.version-history__date {
+  font-size: 13px;
+  color: var(--color-neutral-500);
+}
+
+.version-history__current {
+  padding: 1px 8px;
+  border: 1px solid var(--color-neutral-300);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-neutral-700);
+}
+
+.version-history__entries {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.version-history__entries li {
+  padding-left: 16px;
+  text-indent: -16px;
+}
+
+.version-history__entries li::before {
+  content: "•";
+  display: inline-block;
+  width: 16px;
+  text-indent: 0;
+  color: var(--color-neutral-500);
 }
 
 /* — period switcher — */

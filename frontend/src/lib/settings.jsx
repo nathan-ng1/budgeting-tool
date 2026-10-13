@@ -49,6 +49,7 @@ export function useDateFormat() {
     () => ({
       dayMonth: (isoDate) => format.dayMonth(isoDate, order),
       dayMonthLong: (isoDate) => format.dayMonthLong(isoDate, order),
+      dayMonthYear: (isoDate) => format.dayMonthYear(isoDate, order),
       generatedAt: (isoDateTime) => format.generatedAt(isoDateTime, order),
     }),
     [order],

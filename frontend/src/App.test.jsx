@@ -1813,3 +1813,199 @@ describe("Financial Year start month setting", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("month number from 1 to 12");
   });
 });
+
+describe("Version", () => {
+  const VERSION = { version: "0.4.1", history: null };
+
+  // Every endpoint the tabs touch, plus the Version endpoint. `version` is the
+  // whole response, or null for a backend that fails the request.
+  function respondWithVersion(version = VERSION) {
+    const bodies = {
+      "/api/annual-overview": annualWithSpending(),
+      "/api/overview": monthWithSpending(2026, 8),
+      "/api/latest-transaction-date": { date: "2026-08-03" },
+      "/api/transaction-date-range": { earliest: "2025-12-17", latest: "2026-08-03" },
+      "/api/transactions": [],
+      "/api/budget-editor": { Income: [], Expense: [], Debt: [] },
+      "/api/budget-grid": { Income: [], Expense: [], Debt: [] },
+      "/api/budget-suggestion": { write_up: null, generated_at: null },
+      "/api/recurring-rules": [],
+      "/api/categories": [],
+    };
+    fetchMock.mockImplementation(async (url) => {
+      if (url.startsWith("/api/version")) {
+        return version === null
+          ? { ok: false, status: 500, json: async () => ({ error: "boom" }) }
+          : { ok: true, status: 200, json: async () => version };
+      }
+      const match = Object.keys(bodies).find((path) => url.startsWith(path));
+      return { ok: true, status: 200, json: async () => bodies[match] };
+    });
+  }
+
+  it("shows the Version as v<version> directly under the Dashboard title", async () => {
+    respondWithVersion();
+    render(<App />);
+
+    const version = await screen.findByText("v0.4.1");
+    const title = screen.getByRole("heading", { name: "Budgeting Dashboard" });
+
+    expect(title.nextElementSibling).toBe(version);
+  });
+
+  it("keeps the Version under the title on every tab", async () => {
+    respondWithVersion();
+    render(<App />);
+    await screen.findByText("v0.4.1");
+
+    for (const tab of ["Transactions", "Budget", "Settings", "Overview"]) {
+      await userEvent.click(screen.getByRole("button", { name: tab }));
+      expect(screen.getByText("v0.4.1")).toBeInTheDocument();
+    }
+  });
+
+  it("still renders the Dashboard, without a Version line, when the Version can't be read", async () => {
+    respondWithVersion(null);
+    render(<App />);
+
+    expect(await screen.findByText("$8,000")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Budgeting Dashboard" })).toBeInTheDocument();
+    expect(screen.queryByText(/^v\d/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+});
+
+describe("Version History", () => {
+  const HISTORY = [
+    { version: "0.4.1", date: "2026-10-11", entries: ["Updating no longer stops on leftover files."] },
+    { version: "0.4.0", date: "2026-10-04", entries: ["Added a thing.", "Fixed another thing."] },
+  ];
+
+  // Every endpoint the tabs touch, with the Version, its history and the saved
+  // settings chosen per test. `history` null is a changelog that can't be read.
+  function respondWith({ version = "0.4.1", history = HISTORY, settings = {} } = {}) {
+    const bodies = {
+      "/api/annual-overview": annualWithSpending(),
+      "/api/overview": monthWithSpending(2026, 8),
+      "/api/latest-transaction-date": { date: "2026-08-03" },
+      "/api/transaction-date-range": { earliest: "2025-12-17", latest: "2026-08-03" },
+      "/api/transactions": [],
+      "/api/budget-editor": { Income: [], Expense: [], Debt: [] },
+      "/api/budget-grid": { Income: [], Expense: [], Debt: [] },
+      "/api/budget-suggestion": { write_up: null, generated_at: null },
+      "/api/recurring-rules": [],
+      "/api/categories": [],
+      "/api/settings": { currency: "AUD", financial_year_start_month: 7, date_order: "day-first", ...settings },
+      "/api/version": { version, history },
+    };
+    fetchMock.mockImplementation(async (url) => {
+      const match = Object.keys(bodies).find((path) => url.startsWith(path));
+      return { ok: true, status: 200, json: async () => bodies[match] };
+    });
+  }
+
+  async function openHistory() {
+    await userEvent.click(await screen.findByRole("button", { name: "Version history" }));
+  }
+
+  it("puts a Version history link in the header on every tab, including Settings", async () => {
+    respondWith();
+    render(<App />);
+
+    for (const tab of ["Overview", "Transactions", "Budget", "Settings"]) {
+      await userEvent.click(await screen.findByRole("button", { name: tab }));
+      expect(within(screen.getByRole("banner")).getByRole("button", { name: "Version history" })).toBeInTheDocument();
+    }
+  });
+
+  it("keeps the link, above the period switcher, when the switcher is shown", async () => {
+    respondWith();
+    render(<App />);
+
+    const link = await screen.findByRole("button", { name: "Version history" });
+    const switcher = screen.getByRole("group", { name: "Select year" });
+
+    expect(link.compareDocumentPosition(switcher) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("keeps the link when the period switcher is hidden by a January Financial Year start", async () => {
+    respondWith({ settings: { financial_year_start_month: 1 } });
+    render(<App />);
+
+    expect(await screen.findByRole("button", { name: "Version history" })).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Financial Year or Calendar Year" })).not.toBeInTheDocument();
+  });
+
+  it("lists the Versions newest-first, with dates in the Date Order, marking the running Version Current", async () => {
+    respondWith({ settings: { date_order: "month-first" } });
+    render(<App />);
+    await openHistory();
+
+    const versions = await screen.findAllByRole("listitem", { name: /^v\d/ });
+
+    expect(versions.map((item) => item.getAttribute("aria-label"))).toEqual(["v0.4.1", "v0.4.0"]);
+    expect(within(versions[0]).getByText("Oct 11, 2026")).toBeInTheDocument();
+    expect(within(versions[0]).getByText("Current")).toBeInTheDocument();
+    expect(within(versions[0]).getByText("Updating no longer stops on leftover files.")).toBeInTheDocument();
+    expect(within(versions[1]).getByText("Oct 4, 2026")).toBeInTheDocument();
+    expect(within(versions[1]).queryByText("Current")).not.toBeInTheDocument();
+    expect(within(versions[1]).getByText("Fixed another thing.")).toBeInTheDocument();
+  });
+
+  it("writes the dates day-first by default", async () => {
+    respondWith();
+    render(<App />);
+    await openHistory();
+
+    expect(await screen.findByText("11 Oct 2026")).toBeInTheDocument();
+  });
+
+  it("returns to the same tab, year and month selection from Back to Dashboard", async () => {
+    respondWith();
+    render(<App />);
+    // Step back a year, then pick a month that is neither the default (Full
+    // year) nor the month of the latest Transaction (Aug), so a reset to either
+    // would be noticed.
+    await userEvent.click(await screen.findByRole("button", { name: "Previous year" }));
+    await screen.findByText("2025-2026 Financial Year");
+    await userEvent.click(screen.getByRole("button", { name: "Dec" }));
+    await openHistory();
+    await userEvent.click(await screen.findByRole("button", { name: "Back to Dashboard" }));
+
+    expect(screen.getByText("2025-2026 Financial Year")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Dec" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Overview" })).toHaveAttribute("aria-current", "page");
+    expect(screen.queryByText("Current")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Transactions" }));
+    await openHistory();
+    await userEvent.click(await screen.findByRole("button", { name: "Back to Dashboard" }));
+
+    expect(screen.getByRole("button", { name: "Transactions" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByText("2025-2026 Financial Year")).toBeInTheDocument();
+
+    // The Overview month survives a trip through another tab and the history.
+    await userEvent.click(screen.getByRole("button", { name: "Overview" }));
+
+    expect(screen.getByRole("button", { name: "Dec" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("says the history isn't available, and still shows the Version, when there is none", async () => {
+    respondWith({ history: null });
+    render(<App />);
+    await openHistory();
+
+    expect(await screen.findByText("Version history isn't available")).toBeInTheDocument();
+    expect(screen.getByText("v0.4.1")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("lists the Versions with no Current marker when the running Version has no entry", async () => {
+    respondWith({ version: "0.9.9" });
+    render(<App />);
+    await openHistory();
+
+    expect(await screen.findAllByRole("listitem", { name: /^v\d/ })).toHaveLength(2);
+    expect(screen.queryByText("Current")).not.toBeInTheDocument();
+  });
+});

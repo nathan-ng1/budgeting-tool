@@ -92,6 +92,14 @@ _Avoid_: Scheduled transaction, generated transaction
 The local web app that's the primary interface for viewing budget data and editing the Recurring Transactions Config — replaces Google Sheets as the interface. Runs locally (a small backend plus a browser frontend) against the local database; Transaction data never leaves the machine. Does not handle Needs Review resolution (that stays the terminal prompt flow) or Statement Export processing — those remain scripted, chat-adjacent flows separate from the Dashboard. See [ADR-0008](./docs/adr/0008-dashboard-is-a-local-web-app-not-a-hosted-artifact.md).
 _Avoid_: UI, frontend, web app, spreadsheet
 
+**Version**:
+The number of a tagged release of the tool (e.g. `0.4.1`), shown on the Dashboard as `v0.4.1` directly under its title. It changes only when a release is cut, so unreleased commits still report the last released Version. Shown in both the Collaborator Edition and the Retail Edition.
+_Avoid_: Build number, Release (that's the GitHub object that carries the Installation Pack)
+
+**Version History**:
+The Dashboard page, linked from the top right of its header, listing every Version newest-first with its release date and a short plain-language summary of what changed. Distinct from GitHub's auto-generated release notes, which list raw PR titles and are not shown in the Dashboard. Both editions have one, but the content and how it ships with a release differ by edition.
+_Avoid_: Changelog (that's the Collaborator Edition's source file, not the page), Release notes
+
 **Financial Year**:
 The twelve-month window the Dashboard's Overview, Budget, and Transactions tabs can be organised around — the default framing, and one of the two options on the Financial Year/Calendar Year switcher shared across those three tabs (see [ADR-0021](./docs/adr/0021-financial-year-switcher-and-calendar-year-toggle.md)). It begins on the first day of a month the user chooses in Settings, defaulting to July (the Australian convention, implicit in this project's card issuers ANZ and NAB, giving July 1–June 30); a start on any other day of the month, such as the UK's 6 April, is not supported. Its selector shows the twelve months of one Financial Year plus a Full year option.
 _Avoid_: FY

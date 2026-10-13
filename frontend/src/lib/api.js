@@ -52,3 +52,16 @@ export async function fetchTransactionDateRange({ signal } = {}) {
 
   return response.json();
 }
+
+// The running Version and its Version History (ADR-0029): { version, history },
+// where history is null when it can't be read. Where either comes from is the
+// backend's concern, so the frontend only asks.
+export async function fetchVersion({ signal } = {}) {
+  const response = await fetch("/api/version", { signal });
+
+  if (!response.ok) {
+    throw new Error(`The Dashboard backend returned ${response.status} for the Version.`);
+  }
+
+  return response.json();
+}
