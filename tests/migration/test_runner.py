@@ -2,7 +2,7 @@ import sqlite3
 
 import pytest
 
-from migration.runner import Migration, MigrationFailed, mark_all_applied, pending, run_pending
+from migration.runner import Migration, MigrationFailed, mark_all_applied, pending, run_pending, unknown_applied
 
 
 def recording(name: str, calls: list[str]) -> Migration:
@@ -87,3 +87,12 @@ def test_pending_does_not_write_to_the_database():
 
     assert [m.name for m in pending(connection, [recording("first", [])])] == ["first"]
     assert connection.execute("SELECT name FROM sqlite_master").fetchall() == []
+
+
+def test_unknown_applied_lists_recorded_names_the_registry_does_not_know():
+    connection = sqlite3.connect(":memory:")
+    known = Migration("known", lambda c: None)
+    run_pending(connection, [known, Migration("from_the_future", lambda c: None)])
+
+    assert unknown_applied(connection, [known]) == ["from_the_future"]
+    assert unknown_applied(sqlite3.connect(":memory:"), [known]) == []

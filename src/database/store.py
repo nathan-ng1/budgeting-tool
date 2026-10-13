@@ -4,9 +4,13 @@ from datetime import date, datetime
 from pathlib import Path
 
 from budget_suggestions.suggestion import BudgetSuggestion
+from database.backup import backup_to
 from recurring.rules import RecurringRule, StoredRecurringRule
 from transaction_log.categories import CATEGORIES_BY_TYPE, TYPE_ORDER, Category
 from transaction_log.entries import Candidate, ExistingRow, Transaction
+
+# The `settings` row recording the latest Backup (Issue #197).
+LAST_BACKED_UP_KEY = "last_backed_up"
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -126,8 +130,16 @@ class LocalStore:
     Mirrors FakeStore's shape (see tests/conftest.py).
     """
 
-    def __init__(self, connection: sqlite3.Connection):
+    def __init__(self, connection: sqlite3.Connection, database_path: Path | None = None):
         self._connection = connection
+        # Where the Database file lives, for Settings to show (ADR-0030). None
+        # for a store built straight from a connection, e.g. in a unit test.
+        self.path = database_path
+
+    def close(self) -> None:
+        """Release the Database file, so it can be moved or deleted -
+        Windows won't let an open SQLite file go (ADR-0030)."""
+        self._connection.close()
 
     def read_existing_rows(self) -> list[ExistingRow]:
         rows = self._connection.execute("SELECT date, amount, notes FROM transactions").fetchall()
@@ -470,6 +482,38 @@ class LocalStore:
         write_up, generated_at = row
         return BudgetSuggestion(write_up=write_up, generated_at=datetime.fromisoformat(generated_at))
 
+    def backup_to(self, target_path: Path) -> None:
+        """Write a consistent copy of the live Database to `target_path`
+        (Issue #197)."""
+        backup_to(self._connection, target_path)
+
+    def count_data(self) -> dict[str, int]:
+        """How much the user has put in the Database, for the delete flow's
+        "what will be lost" list (Issue #201): rows in each user-owned table,
+        Categories beyond the predefined ones, and saved Display Settings
+        (the `settings` row recording the latest Backup is not one)."""
+
+        def count(table: str) -> int:
+            return self._connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+
+        predefined = {(kind, name) for kind, names in CATEGORIES_BY_TYPE.items() for name in names}
+        categories = self._connection.execute("SELECT type, name FROM categories").fetchall()
+        return {
+            "transactions": count("transactions"),
+            "recurring_rules": count("recurring_rules"),
+            "category_budgets": count("category_budgets"),
+            "custom_categories": sum(1 for row in categories if tuple(row) not in predefined),
+            "display_settings": len(set(self.read_settings()) - {LAST_BACKED_UP_KEY}),
+        }
+
+    def read_last_backed_up(self) -> str | None:
+        """When a Backup was last generated (ISO text), None if never.
+        Kept in `settings` but apart from the user-facing settings payload."""
+        return self.read_settings().get(LAST_BACKED_UP_KEY)
+
+    def record_backup(self, when: str) -> None:
+        self.write_settings({LAST_BACKED_UP_KEY: when})
+
     def read_settings(self) -> dict[str, str]:
         """The settings that have been saved, as text - a setting never saved
         is simply absent (its default is the caller's concern)."""
@@ -601,4 +645,5 @@ def connect(database_path: Path | None = None) -> LocalStore:
     """Build a LocalStore against the local SQLite database - see
     open_connection.
     """
-    return LocalStore(connection=open_connection(database_path))
+    database_path = resolve_database_path(database_path).resolve()
+    return LocalStore(connection=open_connection(database_path), database_path=database_path)

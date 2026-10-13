@@ -1869,6 +1869,13 @@ tbody:first-of-type .bva__section {
   color: var(--color-accent-700);
 }
 
+.state--warning {
+  padding: 8px 0 12px;
+  text-align: left;
+  color: var(--color-danger);
+  word-break: break-all;
+}
+
 /* — Recurring Transactions (Settings tab) — */
 
 .card__note {
@@ -2713,4 +2720,163 @@ tbody:first-of-type .table th.table__section {
 
 .menu__item:hover {
   background: var(--color-neutral-200);
+}
+
+/* — Your data (Settings tab, Issue #196) — */
+
+.your-data {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 20px;
+  margin: 10px 0 0;
+  font-size: 13.5px;
+}
+
+.your-data dt {
+  color: var(--color-neutral-600);
+}
+
+.your-data dd {
+  margin: 0;
+}
+
+.your-data__path {
+  overflow-wrap: anywhere;
+}
+
+/* Download Backup and Change location… sit side by side at one size, below the
+   facts. .change-location is display: contents while idle so its button joins
+   this row; its confirmation panels take a full row underneath. */
+.your-data__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.your-data__actions > .button,
+.your-data__actions .change-location > .button {
+  box-sizing: border-box;
+  width: 180px;
+  padding: 9px 16px;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.your-data__actions .change-location > :not(.button) {
+  flex-basis: 100%;
+}
+
+/* — Change location (Issue #198) — */
+
+.change-location {
+  display: contents;
+}
+
+.change-location__confirm p {
+  margin: 0 0 10px;
+  font-size: 13.5px;
+  overflow-wrap: anywhere;
+}
+
+.change-location__actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* — Danger area: Delete data and reset dashboard (Issue #201) —
+   Set apart from the cards above by a warning-coloured frame. --color-danger
+   is the theme's contrast-checked warning text colour, so it is used for the
+   border, headings and button outline; on hover the button fills with it. */
+
+.danger-zone {
+  padding: 22px 26px 26px;
+  border: 2px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  background: var(--color-card);
+}
+
+.danger-zone > h3 {
+  margin: 0 0 6px;
+  color: var(--color-danger);
+}
+
+.danger-zone .button--warning {
+  border-color: var(--color-danger);
+  background: transparent;
+  color: var(--color-danger);
+}
+
+.danger-zone .button--warning:hover:not(:disabled) {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: var(--color-card);
+}
+
+.danger-zone .button--warning:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.danger-zone__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgb(0 0 0 / 0.5);
+}
+
+.danger-zone__dialog {
+  width: min(560px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 22px 24px;
+  border: 2px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  background: var(--color-card);
+  color: var(--color-text);
+  font-size: 13.5px;
+}
+
+.danger-zone__dialog h4 {
+  margin: 0 0 12px;
+  color: var(--color-danger);
+}
+
+.danger-zone__dialog ul {
+  margin: 0 0 12px;
+  padding-left: 20px;
+}
+
+.danger-zone__path {
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+.danger-zone__step,
+.danger-zone__check,
+.danger-zone__confirm {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.danger-zone__confirm {
+  flex-wrap: wrap;
+}
+
+.danger-zone__done {
+  color: var(--color-positive);
+}
+
+.danger-zone__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 18px;
 }
