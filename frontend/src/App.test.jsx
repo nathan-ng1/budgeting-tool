@@ -654,6 +654,23 @@ describe("App", () => {
     expect(screen.getByText("Settings")).toHaveAttribute("aria-current", "page");
   });
 
+  it("shows the Database's location in a Your data section at the bottom of Settings", async () => {
+    routeTo({
+      "/api/annual-overview": annualWithSpending(),
+      "/api/recurring-rules": [],
+      "/api/categories": [],
+      "/api/database": { path: "C:\Budget\budget.db", size_bytes: 53248 },
+    });
+    render(<App />);
+    expect(await screen.findByText("$8,000")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+
+    expect(await screen.findByText("C:\Budget\budget.db")).toBeInTheDocument();
+    const headings = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
+    expect(headings.at(-1)).toBe("Your data");
+  });
+
   it("puts the Overview's month selector away while Settings is open", async () => {
     routeTo({ "/api/annual-overview": annualWithSpending(), "/api/recurring-rules": [], "/api/categories": [] });
     render(<App />);
