@@ -76,6 +76,15 @@ def inspect_folder(
     return FolderReport(folder, outcome, target)
 
 
+def report_payload(report: FolderReport) -> dict:
+    return {
+        "cancelled": False,
+        "folder": str(report.folder),
+        "outcome": report.outcome,
+        "target": str(report.target),
+    }
+
+
 def pre_migration_files(database: Path) -> list[Path]:
     """The `*.pre-migration-*.db` copies beside `database` (see `python -m migration`)."""
     return sorted(database.parent.glob(f"{database.stem}.pre-migration-*{database.suffix}"))

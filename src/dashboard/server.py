@@ -14,9 +14,10 @@ from collections.abc import Callable
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
-from dashboard import budgets, categories, database_info, queries, recurring, settings, transactions
+from dashboard import budgets, categories, database_info, database_move, queries, recurring, settings, transactions
 from dashboard.changelog import read_history
 from dashboard.database_handle import DatabaseHandle
+from dashboard.folder_picker import FolderPickerError
 from dashboard.folder_picker import pick_folder as real_pick_folder
 from database.store import CategoryNotFound, RecurringRuleNotFound, TransactionNotFound
 from statement_export import pipeline
@@ -44,6 +45,8 @@ CONTENT_TYPES = {
 ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
 
 DATABASE_PATH = "/api/database"
+DATABASE_CHOOSE_FOLDER_PATH = f"{DATABASE_PATH}/choose-folder"
+DATABASE_LOCATION_PATH = f"{DATABASE_PATH}/location"
 RECURRING_RULES_PATH = "/api/recurring-rules"
 RECURRING_RULES_RUN_PATH = f"{RECURRING_RULES_PATH}/run"
 RECURRING_RULES_SPLIT_PATH = f"{RECURRING_RULES_PATH}/split"
@@ -193,7 +196,11 @@ def _make_handler(store, static_root: Path, changelog_path: Path):
         @serialised
         def do_POST(self):
             path = urlparse(self.path).path
-            if path == RECURRING_RULES_RUN_PATH:
+            if path == DATABASE_CHOOSE_FOLDER_PATH:
+                self._choose_database_folder()
+            elif path == DATABASE_LOCATION_PATH:
+                self._apply_database_folder()
+            elif path == RECURRING_RULES_RUN_PATH:
                 self._run_recurring_rules()
             elif path == RECURRING_RULES_SPLIT_PATH:
                 self._preview_split()
@@ -427,6 +434,42 @@ def _make_handler(store, static_root: Path, changelog_path: Path):
                 return
 
             self._send_json(200, {"written": [transactions.as_candidate_payload(c) for c in to_write]})
+
+        def _choose_database_folder(self) -> None:
+            """Open the native folder picker and report what the chosen folder
+            holds (ADR-0030). Changes nothing: the user confirms first."""
+            try:
+                chosen = self.server.pick_folder()
+                if chosen is None:
+                    self._send_json(200, {"cancelled": True})
+                    return
+                report = database_move.inspect_folder(chosen, Path(store.path))
+            except FolderPickerError as cause:
+                self._send_json(500, {"error": str(cause)})
+                return
+            except database_move.FolderUnusable as cause:
+                self._send_json(400, {"error": str(cause)})
+                return
+
+            self._send_json(200, database_move.report_payload(report))
+
+        def _apply_database_folder(self) -> None:
+            """Carry out the confirmed choice of folder - for now, moving the
+            Database there - and answer with the Database's new location."""
+            try:
+                folder = self._read_json().get("folder")
+                if not isinstance(folder, str) or not folder:
+                    raise database_move.FolderUnusable("Choose a folder first")
+                database_move.apply_folder(store, folder, self.server.env_path)
+            except (ValueError, AttributeError) as cause:
+                # FolderUnusable is a ValueError, like an unreadable body.
+                self._send_json(400, {"error": str(cause)})
+                return
+            except database_move.MoveFailed as cause:
+                self._send_json(500, {"error": str(cause)})
+                return
+
+            self._send_json(200, database_info.as_payload(store.path))
 
         def _save_settings(self) -> None:
             """Save any subset of the localisation settings (ADR-0027) and
