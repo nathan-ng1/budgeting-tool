@@ -30,6 +30,7 @@ describe("ThemeSwitcher", () => {
 
     expect(screen.getByRole("button", { name: /Terracotta/ })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: /Orchid/ })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: /Sage/ })).toHaveAttribute("aria-pressed", "false");
   });
 
   it("marks the previously stored theme as pressed on load", () => {
@@ -46,7 +47,9 @@ describe("ThemeSwitcher", () => {
     render(<ThemeSwitcher />);
 
     expect(screen.getByRole("button", { name: /Sage/ })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: /Terracotta/ })).toHaveAttribute("aria-pressed", "false");
+    ["Terracotta", "Orchid", "Midnight"].forEach((name) =>
+      expect(screen.getByRole("button", { name: new RegExp(name) })).toHaveAttribute("aria-pressed", "false"),
+    );
   });
 
   it("applies and persists Sage on click, with no separate Save step", async () => {
@@ -57,7 +60,9 @@ describe("ThemeSwitcher", () => {
     expect(document.documentElement.dataset.theme).toBe("sage");
     expect(localStorage.getItem("dashboard.theme")).toBe("sage");
     expect(screen.getByRole("button", { name: /Sage/ })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: /Midnight/ })).toHaveAttribute("aria-pressed", "false");
+    ["Terracotta", "Orchid", "Midnight"].forEach((name) =>
+      expect(screen.getByRole("button", { name: new RegExp(name) })).toHaveAttribute("aria-pressed", "false"),
+    );
   });
 
   it("applies and persists a theme immediately on click, with no separate Save step", async () => {
