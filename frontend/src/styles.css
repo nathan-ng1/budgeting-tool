@@ -668,6 +668,74 @@
   color: var(--color-text);
 }
 
+/* "Sage" (Issue #203) - a light, green theme. Settled via /prototype (see
+   prototype/sage-theme-palettes, kept as the primary source, not merged):
+   three palettes were compared live and "Variant B, Sage wash" won. Variant A
+   ("Faithful": cool near-white page, white cards) and C ("Bold band": sage
+   page, slate accent) lost.
+
+   Seeds, sampled from the user's reference screenshot: sidebar sage #738276,
+   section band #bec8b7, page #f6f6fa, selected chip periwinkle #cfd4e7, slate
+   button #5d6772.
+
+   - --color-background is a pale sage and --color-card a warmer off-white, so
+     green is everywhere but quiet (Terracotta's cream-on-cream idea, in
+     green). --color-neutral-100..700 are one sage-tinted ramp (hue ~105-115deg),
+     the way Terracotta's is warm tan and Midnight's is blue.
+   - --color-neutral-500..700 are stepped darker than the prototype's ramp
+     because nav tabs, the "As at" line and the header Version sit directly on
+     --color-background rather than on a card, and the prototype's neutral-600
+     measured ~4.07:1 there. All three now clear 4.5:1 on both the page and the
+     card.
+   - --color-accent derives from the sidebar sage, darkened until the selected
+     pills' --color-neutral-100 text clears 4.5:1 (4.8:1).
+   - --color-accent-2-500 (Income/Unallocated fills) is the screenshot's
+     periwinkle, deepened to read as a fill. --color-positive/-negative/
+     -danger are text-bearing tokens, each contrast-checked >=4.5:1 against
+     --color-card (6.0:1/6.4:1/8.5:1).
+   - The five fills on the "Where did my income go?" bar - Expenses clay, Bills
+     & Subscriptions ochre, Debt deep teal, Savings pale sage, Income/
+     Unallocated periwinkle - plus --color-danger (Over income) were picked by
+     the dataviz skill's validator (Issue #149's convention) to clear >=15 dE
+     (normal vision) and >=8 dE (protan/deutan) against every other fill, not
+     only their neighbours. Savings is deliberately pale and low-contrast
+     against the card, like Terracotta's; the bar and its legend label it. Sage's
+     category chart palette lives separately, in lib/categoryColours.js. */
+[data-theme="sage"] {
+  --color-text: #2b3530;
+  --color-accent: #5f6f63;
+
+  --color-neutral-100: #f1f4f0;
+  --color-neutral-200: #e2e8e0;
+  --color-neutral-300: #ccd5c9;
+  --color-neutral-400: #aebaab;
+  --color-neutral-500: #596857;
+  --color-neutral-600: #4d5b4c;
+  --color-neutral-700: #3b473a;
+
+  --color-accent-300: #bec8b7;
+  --color-accent-600: #5f6f63;
+  --color-accent-700: #4a5a4d;
+  --color-accent-800: #34413a;
+
+  --color-accent-2-500: #8c97c9;
+  --color-debt: #2a6470;
+  --color-savings: #c9dcb8;
+  --color-bills-subscriptions: #d1a93f;
+  --color-negative-fill: #b0654f;
+
+  --color-positive: #3d6a4b;
+  --color-positive-tint: #dbe8d8;
+  --color-negative: #8a4a3e;
+  --color-negative-tint: #efdcd7;
+  --color-danger: #86283a;
+
+  --color-background: #e6ece3;
+  --color-card: #f9fbf7;
+  --color-shadow: #1f2a24;
+  --color-chart-line: var(--color-neutral-700);
+}
+
 *,
 *::before,
 *::after {
