@@ -5,7 +5,7 @@ import { applyDatabaseFolder, chooseDatabaseFolder } from "../lib/databaseLocati
 // "Change location…" in Your data (Issue #198, ADR-0030). Step one opens the
 // native folder picker and learns what the chosen folder holds; step two, the
 // confirmation, depends on that `outcome`. New outcomes (switching to an
-// existing Database (#199), migrating it) add an entry to CONFIRMATIONS rather than
+// existing Database (#199), migrating it (#200)) add an entry to CONFIRMATIONS rather than
 // reshaping the flow.
 
 /** What to tell the user, and whether to offer a move, for each outcome. */
@@ -30,6 +30,16 @@ const CONFIRMATIONS = {
       </>
     ),
     confirmLabel: "Switch to this Database",
+  },
+  migrate: {
+    describe: (choice) => (
+      <>
+        The Database in <strong>{choice.folder}</strong> is from an older version. It will be migrated before the
+        Dashboard starts using it, and a pre-migration copy is kept beside it. Your current Database stays where it
+        is.
+      </>
+    ),
+    confirmLabel: "Migrate and switch",
   },
 };
 
