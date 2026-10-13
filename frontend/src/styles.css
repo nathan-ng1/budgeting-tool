@@ -765,8 +765,9 @@
      --color-accent 5.7:1 on the card (focus outlines). Card vs page is a
      deliberately gentle 1.16:1 step.
    - The selected month pill and Financial Year/Calendar Year toggle read
-     --color-neutral-100 (#120a20) for their text, which is also
-     --color-on-accent, so no Plum-scoped override is needed.
+     --color-neutral-100 for their text; --color-on-accent is pinned to the
+     same token here (its :root default is white), so the two stay in step
+     and no Plum-scoped pill rule is needed.
    - The five fills on the "Where did my income go?" bar - Expenses magenta,
      Bills & Subscriptions amber (the one hue off the purple axis), Debt
      violet, Savings pale lavender, Income/Unallocated teal - plus
@@ -776,7 +777,8 @@
      in three places, so Expenses (#e252f0 -> #e774f7, lighter, to separate
      from Debt under protan), Savings (#cfc6f7 -> #e5e1fb, paler, to
      separate from Income teal) and Danger (#ff8f8f -> #ff8589, redder, to
-     separate from amber) were nudged. Plum's category chart palette lives
+     separate from amber) were nudged; Debt moved a hair (#8a63f2 ->
+     #8863f2) to clear the same Expenses pair. Plum's category chart palette lives
      separately, in lib/categoryColours.js. */
 [data-theme="plum"] {
   --color-text: #f3eefa;
@@ -808,7 +810,7 @@
   --color-danger: #ff8589;
 
   --color-card: #261739;
-  --color-on-accent: #120a20;
+  --color-on-accent: var(--color-neutral-100);
   --color-button-hover: var(--color-accent-700);
   --color-background: var(--color-neutral-100);
   --color-shadow: #07031a;

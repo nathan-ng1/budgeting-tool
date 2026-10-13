@@ -128,7 +128,10 @@ const SAGE_PALETTE = [
 // --color-debt family) and teal (the --color-accent-2-500 family), bright
 // enough to read as fills on Plum's dark card - settled via /prototype (see
 // prototype/nebula-theme-palettes; Variant B, "Aubergine" won the three-variant
-// comparison, then named Plum).
+// comparison, then named Plum). The prototype's shared set was re-aligned so
+// the third magenta, second violet and second teal slots equal the Expenses,
+// Debt and Income fills exactly, with the neighbouring shades re-stepped
+// around them.
 const PLUM_PALETTE = [
   "#a8279f",
   "#d046c8",
