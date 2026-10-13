@@ -126,8 +126,16 @@ class LocalStore:
     Mirrors FakeStore's shape (see tests/conftest.py).
     """
 
-    def __init__(self, connection: sqlite3.Connection):
+    def __init__(self, connection: sqlite3.Connection, database_path: Path | None = None):
         self._connection = connection
+        # Where the Database file lives, for Settings to show (ADR-0030). None
+        # for a store built straight from a connection, e.g. in a unit test.
+        self.path = database_path
+
+    def close(self) -> None:
+        """Release the Database file, so it can be moved or deleted -
+        Windows won't let an open SQLite file go (ADR-0030)."""
+        self._connection.close()
 
     def read_existing_rows(self) -> list[ExistingRow]:
         rows = self._connection.execute("SELECT date, amount, notes FROM transactions").fetchall()
@@ -601,4 +609,5 @@ def connect(database_path: Path | None = None) -> LocalStore:
     """Build a LocalStore against the local SQLite database - see
     open_connection.
     """
-    return LocalStore(connection=open_connection(database_path))
+    database_path = resolve_database_path(database_path).resolve()
+    return LocalStore(connection=open_connection(database_path), database_path=database_path)

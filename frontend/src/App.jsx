@@ -15,6 +15,7 @@ import MonthByMonth from "./components/MonthByMonth.jsx";
 import MonthSelector from "./components/MonthSelector.jsx";
 import PeriodSwitcher from "./components/PeriodSwitcher.jsx";
 import RecurringRules from "./components/RecurringRules.jsx";
+import YourData from "./components/YourData.jsx";
 import SpendingByCategory from "./components/SpendingByCategory.jsx";
 import StatTiles from "./components/StatTiles.jsx";
 import ThemeSwitcher from "./components/ThemeSwitcher.jsx";
@@ -358,6 +359,7 @@ function Dashboard({ settings, onSettingsSaved }) {
             <DisplaySettings saved={settings} onSaved={handleSettingsSaved} />
             <CategoryManagement />
             <RecurringRules />
+            <YourData />
           </>
         )}
 

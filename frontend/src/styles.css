@@ -2714,3 +2714,25 @@ tbody:first-of-type .table th.table__section {
 .menu__item:hover {
   background: var(--color-neutral-200);
 }
+
+/* — Your data (Settings tab, Issue #196) — */
+
+.your-data {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 20px;
+  margin: 10px 0 0;
+  font-size: 13.5px;
+}
+
+.your-data dt {
+  color: var(--color-neutral-600);
+}
+
+.your-data dd {
+  margin: 0;
+}
+
+.your-data__path {
+  overflow-wrap: anywhere;
+}

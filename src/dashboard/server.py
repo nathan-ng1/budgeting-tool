@@ -10,11 +10,14 @@ from functools import wraps
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as installed_version
+from collections.abc import Callable
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
-from dashboard import budgets, categories, queries, recurring, settings, transactions
+from dashboard import budgets, categories, database_info, queries, recurring, settings, transactions
 from dashboard.changelog import read_history
+from dashboard.database_handle import DatabaseHandle
+from dashboard.folder_picker import pick_folder as real_pick_folder
 from database.store import CategoryNotFound, RecurringRuleNotFound, TransactionNotFound
 from statement_export import pipeline
 from transaction_log.categories import type_lookup
@@ -37,6 +40,10 @@ CONTENT_TYPES = {
     ".svg": "image/svg+xml",
 }
 
+# The repo-root `.env` that holds DATABASE_PATH (ADR-0030).
+ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
+
+DATABASE_PATH = "/api/database"
 RECURRING_RULES_PATH = "/api/recurring-rules"
 RECURRING_RULES_RUN_PATH = f"{RECURRING_RULES_PATH}/run"
 RECURRING_RULES_SPLIT_PATH = f"{RECURRING_RULES_PATH}/split"
@@ -71,7 +78,13 @@ def build_server(
     port: int = 0,
     static_root: Path = STATIC_ROOT,
     changelog_path: Path = CHANGELOG_PATH,
+    env_path: Path = ENV_PATH,
+    pick_folder: Callable[[], str | None] = real_pick_folder,
 ) -> ThreadingHTTPServer:
+    # `store` may be a bare store or an already-built DatabaseHandle; handlers
+    # always go through a handle, so the Database can be swapped while the
+    # server keeps running (ADR-0030). `env_path` and `pick_folder` are
+    # injectable so tests can use a temporary `.env` and a stand-in dialog.
     # Threaded, but one request at a time: `store_lock` serialises every
     # handler, so the sqlite connection on `store` is still only ever touched
     # by one request at once.
@@ -81,7 +94,11 @@ def build_server(
     # single-connection server accepts one, blocks reading a request line that
     # never arrives, and queues every real request behind it - index.html
     # arrives, its JS and CSS never do, and the page renders empty (Issue #45).
-    server = ThreadingHTTPServer((host, port), _make_handler(store, static_root, changelog_path))
+    database = store if isinstance(store, DatabaseHandle) else DatabaseHandle(store)
+    server = ThreadingHTTPServer((host, port), _make_handler(database, static_root, changelog_path))
+    server.database = database
+    server.env_path = env_path
+    server.pick_folder = pick_folder
     # Idle preconnect sockets must not keep the process alive at shutdown.
     server.daemon_threads = True
     return server
@@ -159,6 +176,8 @@ def _make_handler(store, static_root: Path, changelog_path: Path):
                 self._send_json(200, [categories.as_payload(c) for c in store.read_categories()])
             elif parsed.path == SETTINGS_PATH:
                 self._send_json(200, settings.as_payload(store.read_settings()))
+            elif parsed.path == DATABASE_PATH:
+                self._send_json(200, database_info.as_payload(store.path))
             elif parsed.path == VERSION_PATH:
                 # The installed package's version (the `pyproject.toml` one,
                 # refreshed by the update scripts' re-sync), so between
