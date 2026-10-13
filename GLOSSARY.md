@@ -68,6 +68,14 @@ _Avoid_: Raw folder, landing directory, local directory
 The database table this process writes to. One row per categorised Transaction: Date, Amount (always positive, two decimal places, regardless of the Statement Export's sign — except Category Beem Adjustment, a deliberate, narrow exception stored negative so it reduces Expense totals, see [ADR-0015](./docs/adr/0015-beem-adjustment-reduces-expense-instead-of-income.md)), Type, Category, Notes (the merchant description carried over from the Statement Export). Before writing, each Transaction is checked against existing Transaction Log rows (matching Date + Amount + Notes) and skipped if already present, since Statement Export date ranges can overlap between runs. A row can also be added directly (not just via Statement Export or Recurring Transaction expansion) through the Dashboard's Transactions tab, which offers full add/edit/delete over the Transaction Log; such a row is checked against the same Date + Amount + Notes dedupe as any other on the next Statement Export run. Previously a Google Sheets tab — the Sheet is retired as the live store, see [ADR-0005](./docs/adr/0005-migrate-transaction-log-and-recurring-config-to-a-local-database.md).
 _Avoid_: Budget sheet, spreadsheet, Google Sheet, Description (for the Notes field — Notes is the term everywhere it appears, including the Dashboard's Transactions tab)
 
+**Database**:
+The single local file holding everything the Dashboard shows: the Transaction Log, the Recurring Transactions Config, Category Budgets, Categories, the Budget Suggestion and Display Settings. Where it lives is chosen in Settings, and Settings also shows that location. See [ADR-0030](./docs/adr/0030-database-location-is-chosen-in-settings-stored-in-env-and-switched-live.md).
+_Avoid_: Data file, save file, the data (on its own)
+
+**Backup**:
+A downloaded point-in-time copy of the Database, kept wherever the user chooses. Settings shows when one was last made. It is a complete Database in its own right, so it can later be used as the Dashboard's Database.
+_Avoid_: Export (reserved for the Transactions tab's CSV), Snapshot, Dump
+
 **Needs Review**:
 The checkpoint where the configured categorisation backend flags every Transaction (other than a History Match, which never reaches the backend) it can't confidently assign a Category to (a `needs_review` flag in its structured response), and `uv run python -m statement_export` prompts you for each one right in the terminal. Nothing is written to the Transaction Log until every Needs Review item for that file is resolved.
 _Avoid_: Uncategorised, low-confidence
