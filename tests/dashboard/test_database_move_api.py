@@ -4,6 +4,7 @@ picker and a temporary `.env` (Issue #198, ADR-0030)."""
 import json
 import os
 import sqlite3
+import threading
 from contextlib import closing
 from pathlib import Path
 from urllib.error import HTTPError
@@ -252,3 +253,45 @@ def test_a_file_named_like_the_database_wins_over_a_backup_beside_it(serve, stor
     download_backup(server, new_folder)
 
     assert call(server, "POST", "/api/database/choose-folder")[1]["target"] == str(restored.resolve())
+
+
+def test_a_move_tells_the_user_which_old_files_could_not_be_removed(serve, store, env, new_folder, tmp_path, monkeypatch):
+    real_unlink = Path.unlink
+
+    def unlink(self, *args, **kwargs):
+        if self == (tmp_path / "budget.db").resolve():
+            raise PermissionError("in use")
+        return real_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", unlink)
+    server = serve(store, env_path=env)
+
+    status, body = call(server, "POST", "/api/database/location", {"folder": str(new_folder)})
+
+    assert status == 200
+    assert body["path"] == str(new_folder.resolve() / "budget.db")
+    assert body["left_behind"] == [str((tmp_path / "budget.db").resolve())]
+    assert "left_behind" not in call(server, "GET", "/api/database")[1]
+
+
+def test_an_open_folder_dialog_does_not_freeze_the_rest_of_the_dashboard(serve, store, env, new_folder):
+    dialog_open = threading.Event()
+    close_dialog = threading.Event()
+
+    def slow_picker():
+        dialog_open.set()
+        assert close_dialog.wait(timeout=10)
+        return str(new_folder)
+
+    server = serve(store, env_path=env, pick_folder=slow_picker)
+    answer = []
+    chooser = threading.Thread(target=lambda: answer.append(call(server, "POST", "/api/database/choose-folder")))
+    chooser.start()
+    try:
+        assert dialog_open.wait(timeout=10)
+        assert call(server, "GET", "/api/settings")[0] == 200  # not queued behind the dialog
+    finally:
+        close_dialog.set()
+        chooser.join(timeout=10)
+
+    assert answer[0][1]["outcome"] == "move"

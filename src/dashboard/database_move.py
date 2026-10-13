@@ -175,43 +175,54 @@ def apply_folder(
     verify_copy: Callable[[Path], None] = check_copy,
     open_store: Callable[[Path], object] = connect,
     write_location: Callable[[Path, dict[str, str]], None] = write_env,
-) -> None:
-    """Carry out the confirmed choice of `chosen` as the Database's folder."""
+) -> list[Path]:
+    """Carry out the confirmed choice of `chosen` as the Database's folder.
+
+    Returns the old files a move could not delete (empty for any other outcome
+    or a clean move), so the caller can tell the user they are still there."""
     report = inspect_folder(chosen, Path(handle.path), ensure_writable=ensure_writable)
     if report.outcome == OUTCOME_CURRENT:
         raise FolderUnusable("The Database is already in that folder")
     if report.outcome in (OUTCOME_EXISTING, OUTCOME_MIGRATE):
         _switch(handle, report, env_path, open_store, write_location)
-        return
-    _move(handle, report, env_path, verify_copy, open_store, write_location)
+        return []
+    return _move(handle, report, env_path, verify_copy, open_store, write_location)
 
 
 def _switch(handle, report, env_path, open_store, write_location) -> None:
     """Start using the Database already in the folder. Nothing is copied or
     overwritten, and the current Database stays exactly where it is. An older
     Database is migrated first, before the normal open (which would create
-    tables and seed Categories in it)."""
-    if report.outcome == OUTCOME_MIGRATE:
-        _migrate(report.target)
+    tables and seed Categories in it); if anything after that fails, it is put
+    back as it was."""
+    copy = _migrate(report.target) if report.outcome == OUTCOME_MIGRATE else None
+    new_store = None
     try:
-        new_store = open_store(report.target)
-    except Exception as cause:
-        raise MoveFailed(f"Couldn't open {report.target.name}: {cause}") from cause
-    try:
-        # `.env` only after the new connection opened; the swap comes last.
-        write_location(env_path, {"DATABASE_PATH": str(report.target)})
-    except OSError as cause:
-        new_store.close()
-        raise MoveFailed(f"Couldn't update .env: {cause}") from cause
+        try:
+            new_store = open_store(report.target)
+        except Exception as cause:
+            raise MoveFailed(f"Couldn't open {report.target.name}: {cause}") from cause
+        try:
+            # `.env` only after the new connection opened; the swap comes last.
+            write_location(env_path, {"DATABASE_PATH": str(report.target)})
+        except OSError as cause:
+            raise MoveFailed(f"Couldn't update .env: {cause}") from cause
+    except MoveFailed as failure:
+        if new_store is not None:
+            new_store.close()
+        if copy is not None:
+            _put_back(report.target, copy, str(failure))
+        raise
     os.environ["DATABASE_PATH"] = str(report.target)
     # The old file is kept, so it is closed only to release it, not to delete it.
     handle.swap(new_store).close()
 
 
-def _migrate(path: Path) -> None:
+def _migrate(path: Path) -> Path:
     """Copy `path` to a `.pre-migration-` copy, then run the pending migrations
-    on a plain connection - the order `python -m migration` uses. If one fails,
-    the file is put back as it was and the copy removed."""
+    on a plain connection - the order `python -m migration` uses. Returns the
+    copy. If a migration fails, for any reason, the file is put back as it was
+    and the copy removed."""
     with closing(sqlite3.connect(path)) as connection:
         try:
             copy = pre_migration_backup(connection, path)
@@ -220,19 +231,28 @@ def _migrate(path: Path) -> None:
         try:
             run_pending(connection, MIGRATIONS)
         except MigrationFailed as failure:
-            cause = failure.__cause__
-            reason = f"Migrating {path.name} failed at '{failure.name}': {cause}."
+            reason = f"Migrating {path.name} failed at '{failure.name}': {failure.__cause__}."
+        except Exception as failure:  # e.g. sqlite3.Error outside a migration's own step
+            reason = f"Migrating {path.name} failed: {failure}."
         else:
-            return
+            return copy
+    _put_back(path, copy, reason)
+
+
+def _put_back(path: Path, copy: Path, reason: str) -> None:
+    """Restore `path` from its pre-migration `copy`, remove the copy, and raise
+    MoveFailed saying `reason` - the file is as it was and nothing switched."""
     try:
         shutil.copyfile(copy, path)
     except OSError as cause:
-        raise MoveFailed(f"{reason} {path.name} couldn't be put back; its copy from before is {copy}: {cause}") from cause
+        raise MoveFailed(
+            f"{reason} {path.name} couldn't be put back; its pre-migration copy is {copy}: {cause}"
+        ) from cause
     copy.unlink(missing_ok=True)
     raise MoveFailed(f"{reason} {path.name} was left as it was and the Dashboard stays on its current Database.")
 
 
-def _move(handle, report, env_path, verify_copy, open_store, write_location) -> None:
+def _move(handle, report, env_path, verify_copy, open_store, write_location) -> list[Path]:
     old_database = Path(handle.path)
     sources = [old_database, *pre_migration_files(old_database)]
     # Never overwrite (or, on rollback, delete) a file that was already there.
@@ -271,14 +291,17 @@ def _move(handle, report, env_path, verify_copy, open_store, write_location) -> 
     old_store = handle.swap(new_store)
     # Windows won't delete an open SQLite file.
     old_store.close()
-    _remove(sources)
+    return _remove(sources)
 
 
-def _remove(files: list[Path]) -> None:
+def _remove(files: list[Path]) -> list[Path]:
+    """Delete `files`; return those that wouldn't go. The move has already
+    succeeded (or is being rolled back), so a file that won't go is reported
+    rather than failing it."""
+    left_behind = []
     for file in files:
         try:
             file.unlink(missing_ok=True)
         except OSError:
-            # The move itself has succeeded (or is being rolled back); a file
-            # that won't go is left for the user rather than failing the move.
-            pass
+            left_behind.append(file)
+    return left_behind

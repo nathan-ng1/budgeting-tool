@@ -4,13 +4,13 @@ ADR-0008 (local web app, no data leaves the machine). Binds to localhost only.
 
 import json
 import threading
+from collections.abc import Callable
 from dataclasses import asdict
 from datetime import date, datetime
 from functools import wraps
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as installed_version
-from collections.abc import Callable
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
@@ -47,7 +47,7 @@ ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
 DATABASE_PATH = "/api/database"
 DATABASE_CHOOSE_FOLDER_PATH = f"{DATABASE_PATH}/choose-folder"
 DATABASE_LOCATION_PATH = f"{DATABASE_PATH}/location"
-DATABASE_BACKUP_PATH = "/api/database/backup"
+DATABASE_BACKUP_PATH = f"{DATABASE_PATH}/backup"
 DATABASE_RESET_SUMMARY_PATH = f"{DATABASE_PATH}/reset-summary"
 DATABASE_RESET_PATH = f"{DATABASE_PATH}/reset"
 RECURRING_RULES_PATH = "/api/recurring-rules"
@@ -102,7 +102,6 @@ def build_server(
     # arrives, its JS and CSS never do, and the page renders empty (Issue #45).
     database = store if isinstance(store, DatabaseHandle) else DatabaseHandle(store)
     server = ThreadingHTTPServer((host, port), _make_handler(database, static_root, changelog_path))
-    server.database = database
     server.env_path = env_path
     server.pick_folder = pick_folder
     # Idle preconnect sockets must not keep the process alive at shutdown.
@@ -110,9 +109,10 @@ def build_server(
     return server
 
 
-def _make_handler(store, static_root: Path, changelog_path: Path):
-    # Serialises the handlers, so they keep the single-request-at-a-time access
-    # to `store` that its sqlite connection needs.
+def _make_handler(store: DatabaseHandle, static_root: Path, changelog_path: Path):
+    # `store` is the swappable DatabaseHandle, which forwards to the open
+    # LocalStore. Serialises the handlers, so they keep the
+    # single-request-at-a-time access to it that its sqlite connection needs.
     store_lock = threading.Lock()
 
     def serialised(method):
@@ -183,11 +183,14 @@ def _make_handler(store, static_root: Path, changelog_path: Path):
             elif parsed.path == SETTINGS_PATH:
                 self._send_json(200, settings.as_payload(store.read_settings()))
             elif parsed.path == DATABASE_PATH:
-                self._send_json(200, database_info.as_payload(store.path, store.read_last_backed_up()))
+                if self._has_database_file():
+                    self._send_json(200, database_info.as_payload(store.path, store.read_last_backed_up()))
             elif parsed.path == DATABASE_BACKUP_PATH:
-                self._download_backup()
+                if self._has_database_file():
+                    self._download_backup()
             elif parsed.path == DATABASE_RESET_SUMMARY_PATH:
-                self._send_json(200, database_reset.summary_payload(store))
+                if self._has_database_file():
+                    self._send_json(200, database_reset.summary_payload(store))
             elif parsed.path == VERSION_PATH:
                 # The installed package's version (the `pyproject.toml` one,
                 # refreshed by the update scripts' re-sync), so between
@@ -200,12 +203,18 @@ def _make_handler(store, static_root: Path, changelog_path: Path):
             else:
                 self._serve_static(parsed.path)
 
-        @serialised
         def do_POST(self):
-            path = urlparse(self.path).path
-            if path == DATABASE_CHOOSE_FOLDER_PATH:
+            if urlparse(self.path).path == DATABASE_CHOOSE_FOLDER_PATH:
+                # Not under the lock: the folder dialog can stay open for as
+                # long as the user likes, and must not freeze every request.
                 self._choose_database_folder()
-            elif path == DATABASE_LOCATION_PATH:
+            else:
+                self._post()
+
+        @serialised
+        def _post(self):
+            path = urlparse(self.path).path
+            if path == DATABASE_LOCATION_PATH:
                 self._apply_database_folder()
             elif path == DATABASE_RESET_PATH:
                 self._reset_database()
@@ -446,13 +455,17 @@ def _make_handler(store, static_root: Path, changelog_path: Path):
 
         def _choose_database_folder(self) -> None:
             """Open the native folder picker and report what the chosen folder
-            holds (ADR-0030). Changes nothing: the user confirms first."""
+            holds (ADR-0030). Changes nothing: the user confirms first. Only
+            the inspection holds the lock, not the dialog."""
             try:
                 chosen = self.server.pick_folder()
                 if chosen is None:
                     self._send_json(200, {"cancelled": True})
                     return
-                report = database_move.inspect_folder(chosen, Path(store.path))
+                with store_lock:
+                    if not self._has_database_file():
+                        return
+                    report = database_move.inspect_folder(chosen, Path(store.path))
             except FolderPickerError as cause:
                 self._send_json(500, {"error": str(cause)})
                 return
@@ -463,13 +476,17 @@ def _make_handler(store, static_root: Path, changelog_path: Path):
             self._send_json(200, database_move.report_payload(report))
 
         def _apply_database_folder(self) -> None:
-            """Carry out the confirmed choice of folder - for now, moving the
-            Database there - and answer with the Database's new location."""
+            """Carry out the confirmed choice of folder - move the Database
+            there, or switch to the one already in it (migrating it first if
+            it is older) - and answer with the Database's new location, plus
+            any old files a move could not remove."""
+            if not self._has_database_file():
+                return
             try:
                 folder = self._read_json().get("folder")
                 if not isinstance(folder, str) or not folder:
                     raise database_move.FolderUnusable("Choose a folder first")
-                database_move.apply_folder(store, folder, self.server.env_path)
+                left_behind = database_move.apply_folder(store, folder, self.server.env_path)
             except (ValueError, AttributeError) as cause:
                 # FolderUnusable is a ValueError, like an unreadable body.
                 self._send_json(400, {"error": str(cause)})
@@ -478,11 +495,24 @@ def _make_handler(store, static_root: Path, changelog_path: Path):
                 self._send_json(500, {"error": str(cause)})
                 return
 
-            self._send_json(200, database_info.as_payload(store.path))
+            payload = database_info.as_payload(store.path)
+            if left_behind:
+                payload["left_behind"] = [str(path) for path in left_behind]
+            self._send_json(200, payload)
+
+        def _has_database_file(self) -> bool:
+            """True if the open store is a file-backed Database; otherwise
+            answers 400 (e.g. a store built without a path)."""
+            if store.path is None:
+                self._send_json(400, {"error": "The Dashboard isn't using a Database file"})
+                return False
+            return True
 
         def _reset_database(self) -> None:
             """Delete all data and serve a fresh empty Database at the same
             path - but only with the typed confirmation (Issue #201)."""
+            if not self._has_database_file():
+                return
             try:
                 database_reset.check_confirmation(self._read_json())
             except ValueError as cause:
