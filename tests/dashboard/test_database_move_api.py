@@ -3,6 +3,8 @@ picker and a temporary `.env` (Issue #198, ADR-0030)."""
 
 import json
 import os
+import sqlite3
+from contextlib import closing
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -10,6 +12,7 @@ from urllib.request import Request, urlopen
 import pytest
 
 from dashboard.folder_picker import FolderPickerError
+from database.store import connect
 
 ENV = "# mine\nDATABASE_PATH= .data/budget.db\nBEEM_USERNAME=nathan\n"
 
@@ -115,3 +118,79 @@ def test_a_move_without_a_folder_is_a_bad_request(serve, store, env):
     server = serve(store, env_path=env)
 
     assert failure(server, "POST", "/api/database/location", {})[0] == 400
+
+
+# --- switching to the Database already in the chosen folder (Issue #199) ---
+
+
+@pytest.fixture
+def restored(tmp_path: Path, new_folder):
+    """A Backup-like file (sqlite3's backup API) of another Database, placed in `new_folder`."""
+    other = connect(tmp_path / "elsewhere.db")
+    other.write_settings({"currency": "EUR"})
+    other.close()
+    with closing(sqlite3.connect(tmp_path / "elsewhere.db")) as source:
+        with closing(sqlite3.connect(new_folder / "budget.db")) as copy:
+            source.backup(copy)
+    return new_folder / "budget.db"
+
+
+def test_choosing_a_folder_holding_a_database_reports_that_it_will_be_switched_to(serve, store, env, new_folder, restored):
+    server = serve(store, env_path=env, pick_folder=lambda: str(new_folder))
+
+    status, body = call(server, "POST", "/api/database/choose-folder")
+
+    assert status == 200
+    assert body["outcome"] == "existing"
+    assert body["target"] == str(restored.resolve())
+    assert env.read_text(encoding="utf-8") == ENV
+
+
+def test_confirming_switches_live_to_the_database_in_the_folder_and_leaves_the_current_one(
+    serve, store, env, new_folder, restored, tmp_path
+):
+    store.write_settings({"currency": "GBP"})
+    server = serve(store, env_path=env)
+
+    status, body = call(server, "POST", "/api/database/location", {"folder": str(new_folder)})
+
+    assert status == 200
+    assert body["path"] == str(restored.resolve())
+    assert call(server, "GET", "/api/database")[1]["path"] == str(restored.resolve())
+    assert call(server, "GET", "/api/settings")[1]["currency"] == "EUR"
+    assert (tmp_path / "budget.db").exists()
+    with closing(sqlite3.connect(tmp_path / "budget.db")) as old:
+        assert old.execute("SELECT value FROM settings WHERE key = 'currency'").fetchone() == ("GBP",)
+    assert env.read_text(encoding="utf-8") == f"# mine\nDATABASE_PATH={restored.resolve()}\nBEEM_USERNAME=nathan\n"
+    assert os.environ["DATABASE_PATH"] == str(restored.resolve())
+
+
+@pytest.mark.parametrize("content", [b"definitely not sqlite " * 50, b""])
+def test_a_file_that_is_not_one_of_ours_is_refused_and_changes_nothing(serve, store, env, new_folder, tmp_path, content):
+    (new_folder / "budget.db").write_bytes(content)
+    server = serve(store, env_path=env, pick_folder=lambda: str(new_folder))
+
+    chosen = failure(server, "POST", "/api/database/choose-folder")
+    applied = failure(server, "POST", "/api/database/location", {"folder": str(new_folder)})
+
+    for status, message in (chosen, applied):
+        assert status == 400
+        assert "isn't a Budgeting Tool Database" in message
+    assert (new_folder / "budget.db").read_bytes() == content
+    assert env.read_text(encoding="utf-8") == ENV
+    assert call(server, "GET", "/api/database")[1]["path"] == str((tmp_path / "budget.db").resolve())
+
+
+def test_a_sqlite_file_without_our_tables_is_refused_untouched(serve, store, env, new_folder, tmp_path):
+    with closing(sqlite3.connect(new_folder / "budget.db")) as other:
+        other.execute("CREATE TABLE notes (body TEXT)")
+        other.commit()
+    before = (new_folder / "budget.db").read_bytes()
+    server = serve(store, env_path=env)
+
+    status, message = failure(server, "POST", "/api/database/location", {"folder": str(new_folder)})
+
+    assert status == 400
+    assert "isn't a Budgeting Tool Database" in message
+    assert (new_folder / "budget.db").read_bytes() == before  # no tables created or migrations marked
+    assert env.read_text(encoding="utf-8") == ENV
