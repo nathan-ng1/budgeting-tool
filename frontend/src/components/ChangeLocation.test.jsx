@@ -124,6 +124,27 @@ describe("ChangeLocation", () => {
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ folder: "D:\Old" });
   });
 
+  it("says an older Database will be migrated with a pre-migration copy kept, then switches to it", async () => {
+    const fetchMock = backend({
+      choose: { body: { cancelled: false, folder: "D:\Old", outcome: "migrate", target: "D:\Old\budget.db" } },
+      apply: { body: { path: "D:\Old\budget.db" } },
+    });
+    const onMoved = vi.fn();
+    render(<ChangeLocation onMoved={onMoved} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Change location…" }));
+
+    expect(await screen.findByText(/from an older version/i)).toBeInTheDocument();
+    expect(screen.getByText(/will be migrated/i)).toBeInTheDocument();
+    expect(screen.getByText(/pre-migration copy/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Move the Database" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Migrate and switch" }));
+
+    await vi.waitFor(() => expect(onMoved).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ folder: "D:\Old" });
+  });
+
   it("explains the current folder without offering anything", async () => {
     backend({
       choose: { body: { cancelled: false, folder: "D:\Old", outcome: "current", target: "D:\Old\budget.db" } },

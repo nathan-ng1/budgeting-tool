@@ -7,7 +7,10 @@ add cases without reshaping the flow:
 1. `inspect_folder` - what does the chosen folder hold? It reports an
    `outcome`: "move" (no Database there - the current one will be moved in),
    "current" (it is the folder the Database already lives in) or "existing"
-   (a Database is already there - the Dashboard switches to it, Issue #199).
+   (a Database is already there - the Dashboard switches to it, Issue #199)
+   or "migrate" (one is there, but from an older version: it is copied to a
+   `.pre-migration-` file, migrated, then switched to, Issue #200). A Database
+   from a newer version is refused with "update the tool first".
 2. `apply_folder` - act on that outcome: "move" copies the Database in,
    "existing" starts using the one already there and leaves the current one
    where it is (this is also how a Backup is restored).
@@ -30,14 +33,16 @@ from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
 
+from database.backup import pre_migration_backup
 from database.store import connect
 from migration.registry import MIGRATIONS
-from migration.runner import pending, unknown_applied
+from migration.runner import MigrationFailed, pending, run_pending, unknown_applied
 from setup.env_file import write_env
 
 OUTCOME_MOVE = "move"
 OUTCOME_CURRENT = "current"
 OUTCOME_EXISTING = "existing"
+OUTCOME_MIGRATE = "migrate"
 
 
 class FolderUnusable(ValueError):
@@ -64,13 +69,14 @@ def check_writable(folder: Path) -> None:
         raise FolderUnusable(f"Can't write to {folder}: {cause.strerror or cause}") from cause
 
 
-def check_foreign_database(path: Path) -> None:
-    """Raise FolderUnusable unless `path` is a Database this Dashboard can switch to.
+def check_foreign_database(path: Path) -> bool:
+    """Raise FolderUnusable unless `path` is a Database this Dashboard can switch
+    to; return True if it first needs migrating (Issue #200).
 
-    Opened read-only on a plain connection, so nothing is written to it. This
-    is the seam for Issue #200: older and newer Databases are refused here
-    for now; #200 replaces those two refusals with the migrate-then-switch
-    and "update the Dashboard" paths (and a new `inspect_folder` outcome).
+    Opened read-only on a plain connection, so nothing is written to it. A
+    Database that predates `schema_migrations` reports every migration pending,
+    so it counts as older. One recording a migration this code doesn't know was
+    made by a newer version and is refused.
     """
     refusal = f"{path.name} in that folder isn't a Budgeting Tool Database"
     try:
@@ -85,9 +91,10 @@ def check_foreign_database(path: Path) -> None:
     except sqlite3.DatabaseError as cause:  # not a SQLite file, or unreadable
         raise FolderUnusable(refusal) from cause
     if ahead:
-        raise FolderUnusable(f"{path.name} was written by a newer version of the Dashboard, which can't use it yet")
-    if behind:
-        raise FolderUnusable(f"{path.name} is from an older version of the Dashboard, which can't use it yet")
+        raise FolderUnusable(
+            f"{path.name} was made by a newer version of the Dashboard. Update the tool first, then switch to it."
+        )
+    return bool(behind)
 
 
 def inspect_folder(
@@ -108,8 +115,8 @@ def inspect_folder(
     ensure_writable(folder)
     if not target.exists():
         return FolderReport(folder, OUTCOME_MOVE, target)
-    check_foreign_database(target)
-    return FolderReport(folder, OUTCOME_EXISTING, target)
+    needs_migrating = check_foreign_database(target)
+    return FolderReport(folder, OUTCOME_MIGRATE if needs_migrating else OUTCOME_EXISTING, target)
 
 
 def report_payload(report: FolderReport) -> dict:
@@ -151,7 +158,7 @@ def apply_folder(
     report = inspect_folder(chosen, Path(handle.path), ensure_writable=ensure_writable)
     if report.outcome == OUTCOME_CURRENT:
         raise FolderUnusable("The Database is already in that folder")
-    if report.outcome == OUTCOME_EXISTING:
+    if report.outcome in (OUTCOME_EXISTING, OUTCOME_MIGRATE):
         _switch(handle, report, env_path, open_store, write_location)
         return
     _move(handle, report, env_path, verify_copy, open_store, write_location)
@@ -159,7 +166,11 @@ def apply_folder(
 
 def _switch(handle, report, env_path, open_store, write_location) -> None:
     """Start using the Database already in the folder. Nothing is copied or
-    overwritten, and the current Database stays exactly where it is."""
+    overwritten, and the current Database stays exactly where it is. An older
+    Database is migrated first, before the normal open (which would create
+    tables and seed Categories in it)."""
+    if report.outcome == OUTCOME_MIGRATE:
+        _migrate(report.target)
     try:
         new_store = open_store(report.target)
     except Exception as cause:
@@ -173,6 +184,30 @@ def _switch(handle, report, env_path, open_store, write_location) -> None:
     os.environ["DATABASE_PATH"] = str(report.target)
     # The old file is kept, so it is closed only to release it, not to delete it.
     handle.swap(new_store).close()
+
+
+def _migrate(path: Path) -> None:
+    """Copy `path` to a `.pre-migration-` file, then run the pending migrations
+    on a plain connection - the order `python -m migration` uses. If one fails,
+    the file is put back as it was and the copy removed."""
+    with closing(sqlite3.connect(path)) as connection:
+        try:
+            copy = pre_migration_backup(connection, path)
+        except (sqlite3.Error, OSError) as cause:
+            raise MoveFailed(f"Couldn't copy {path.name} before migrating it: {cause}") from cause
+        try:
+            run_pending(connection, MIGRATIONS)
+        except MigrationFailed as failure:
+            cause = failure.__cause__
+            reason = f"Migrating {path.name} failed at '{failure.name}': {cause}."
+        else:
+            return
+    try:
+        shutil.copyfile(copy, path)
+    except OSError as cause:
+        raise MoveFailed(f"{reason} {path.name} couldn't be put back; its copy from before is {copy}: {cause}") from cause
+    copy.unlink(missing_ok=True)
+    raise MoveFailed(f"{reason} {path.name} was left as it was and the Dashboard stays on its current Database.")
 
 
 def _move(handle, report, env_path, verify_copy, open_store, write_location) -> None:
