@@ -22,7 +22,13 @@ import RecurringCharges from "./components/RecurringCharges.jsx";
 import Movers from "./components/Movers.jsx";
 import TopMerchants from "./components/TopMerchants.jsx";
 import Transactions from "./components/Transactions.jsx";
-import { fetchAnnualOverview, fetchLatestTransactionDate, fetchMonthOverview, fetchTransactionDateRange } from "./lib/api.js";
+import {
+  fetchAnnualOverview,
+  fetchLatestTransactionDate,
+  fetchMonthOverview,
+  fetchTransactionDateRange,
+  fetchVersion,
+} from "./lib/api.js";
 import { fetchCategories } from "./lib/categoriesApi.js";
 import { SPENDING_TYPES, categoryColours } from "./lib/categoryColours.js";
 import { DEFAULT_SETTINGS, SettingsProvider, useDateFormat } from "./lib/settings.jsx";
@@ -98,6 +104,9 @@ function Dashboard({ settings, onSettingsSaved }) {
   // is cosmetic, so a stale/empty list just means name-only labels, never a
   // page-blocking error.
   const [categories, setCategories] = useState([]);
+  // The running Version (ADR-0029), shown under the title. Fetched once; null
+  // until it lands or if it can't be read, in which case the line is omitted.
+  const [version, setVersion] = useState(null);
 
   // The Financial Year/Calendar Year switcher's shared state (ADR-0021),
   // consumed by the Overview, Budget, and Transactions tabs below.
@@ -154,6 +163,19 @@ function Dashboard({ settings, onSettingsSaved }) {
       .then(setCategories)
       .catch(() => {
         // As above: this only degrades emoji display, so it fails quietly.
+      });
+
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    fetchVersion({ signal: controller.signal })
+      .then((loaded) => setVersion(loaded?.version ?? null))
+      .catch(() => {
+        // As above: a missing Version line is a smaller problem than an error
+        // banner over a Dashboard that otherwise works.
       });
 
     return () => controller.abort();
@@ -268,7 +290,10 @@ function Dashboard({ settings, onSettingsSaved }) {
     <div className="page">
       <div className="page__inner">
         <header className="header">
-          <h1>Budgeting Dashboard</h1>
+          <div className="header__title">
+            <h1>Budgeting Dashboard</h1>
+            {version !== null && <p className="header__version">v{version}</p>}
+          </div>
         </header>
 
         {tab !== "Settings" && (

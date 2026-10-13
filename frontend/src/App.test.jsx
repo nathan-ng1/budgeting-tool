@@ -1813,3 +1813,64 @@ describe("Financial Year start month setting", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("month number from 1 to 12");
   });
 });
+
+describe("Version", () => {
+  const VERSION = { version: "0.4.1", history: null };
+
+  // Every endpoint the tabs touch, plus the Version endpoint. `version` is the
+  // whole response, or null for a backend that fails the request.
+  function respondWithVersion(version = VERSION) {
+    const bodies = {
+      "/api/annual-overview": annualWithSpending(),
+      "/api/overview": monthWithSpending(2026, 8),
+      "/api/latest-transaction-date": { date: "2026-08-03" },
+      "/api/transaction-date-range": { earliest: "2025-12-17", latest: "2026-08-03" },
+      "/api/transactions": [],
+      "/api/budget-editor": { Income: [], Expense: [], Debt: [] },
+      "/api/budget-grid": { Income: [], Expense: [], Debt: [] },
+      "/api/budget-suggestion": { write_up: null, generated_at: null },
+      "/api/recurring-rules": [],
+      "/api/categories": [],
+    };
+    fetchMock.mockImplementation(async (url) => {
+      if (url.startsWith("/api/version")) {
+        return version === null
+          ? { ok: false, status: 500, json: async () => ({ error: "boom" }) }
+          : { ok: true, status: 200, json: async () => version };
+      }
+      const match = Object.keys(bodies).find((path) => url.startsWith(path));
+      return { ok: true, status: 200, json: async () => bodies[match] };
+    });
+  }
+
+  it("shows the Version as v<version> directly under the Dashboard title", async () => {
+    respondWithVersion();
+    render(<App />);
+
+    const version = await screen.findByText("v0.4.1");
+    const title = screen.getByRole("heading", { name: "Budgeting Dashboard" });
+
+    expect(title.nextElementSibling).toBe(version);
+  });
+
+  it("keeps the Version under the title on every tab", async () => {
+    respondWithVersion();
+    render(<App />);
+    await screen.findByText("v0.4.1");
+
+    for (const tab of ["Transactions", "Budget", "Settings", "Overview"]) {
+      await userEvent.click(screen.getByRole("button", { name: tab }));
+      expect(screen.getByText("v0.4.1")).toBeInTheDocument();
+    }
+  });
+
+  it("still renders the Dashboard, without a Version line, when the Version can't be read", async () => {
+    respondWithVersion(null);
+    render(<App />);
+
+    expect(await screen.findByText("$8,000")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Budgeting Dashboard" })).toBeInTheDocument();
+    expect(screen.queryByText(/^v\d/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+});

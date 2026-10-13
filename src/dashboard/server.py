@@ -8,6 +8,8 @@ from dataclasses import asdict
 from datetime import date
 from functools import wraps
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as installed_version
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
@@ -44,11 +46,19 @@ BUDGET_GRID_PATH = "/api/budget-grid"
 BUDGET_SUGGESTION_PATH = "/api/budget-suggestion"
 CATEGORIES_PATH = "/api/categories"
 SETTINGS_PATH = "/api/settings"
+VERSION_PATH = "/api/version"
 
 BUILD_INSTRUCTIONS = (
     "The Dashboard has not been built yet. Run `npm install` and `npm run build` "
     "in the repo's `frontend/` directory, then reload this page."
 )
+
+
+def _installed_version() -> str | None:
+    try:
+        return installed_version("budgeting-tool")
+    except PackageNotFoundError:
+        return None
 
 
 def build_server(store, host: str = "127.0.0.1", port: int = 0, static_root: Path = STATIC_ROOT) -> ThreadingHTTPServer:
@@ -139,6 +149,12 @@ def _make_handler(store, static_root: Path):
                 self._send_json(200, [categories.as_payload(c) for c in store.read_categories()])
             elif parsed.path == SETTINGS_PATH:
                 self._send_json(200, settings.as_payload(store.read_settings()))
+            elif parsed.path == VERSION_PATH:
+                # The installed package's version (the `pyproject.toml` one,
+                # refreshed by the update scripts' re-sync), so between
+                # releases it is the last released Version (ADR-0029).
+                # `history` is always null until the changelog is wired in.
+                self._send_json(200, {"version": _installed_version(), "history": None})
             elif parsed.path.startswith("/api/"):
                 self._send_json(404, {"error": "Not found"})
             else:

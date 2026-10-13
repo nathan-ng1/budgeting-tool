@@ -740,6 +740,12 @@ h3 {
   letter-spacing: -0.02em;
 }
 
+.header__version {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--color-neutral-500);
+}
+
 /* — period switcher — */
 
 .period-switcher {
