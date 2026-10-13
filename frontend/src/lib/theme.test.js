@@ -3,10 +3,10 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_THEME, THEMES, applyTheme, getCurrentTheme, getStoredTheme, storeTheme } from "./theme.js";
 
 describe("THEMES", () => {
-  it("lists Terracotta, Orchid and Midnight, each with a key, label and swatch", () => {
+  it("lists Terracotta, Orchid, Midnight and Sage, each with a key, label and swatch", () => {
     const keys = THEMES.map((theme) => theme.key);
 
-    expect(keys).toEqual(["terracotta", "orchid", "midnight"]);
+    expect(keys).toEqual(["terracotta", "orchid", "midnight", "sage"]);
     THEMES.forEach((theme) => {
       expect(theme.label).toEqual(expect.any(String));
       expect(theme.swatch).toMatch(/^#[0-9a-f]{6}$/i);
@@ -27,6 +27,12 @@ describe("getStoredTheme", () => {
     localStorage.setItem("dashboard.theme", "orchid");
 
     expect(getStoredTheme()).toBe("orchid");
+  });
+
+  it("returns a previously stored Sage theme", () => {
+    localStorage.setItem("dashboard.theme", "sage");
+
+    expect(getStoredTheme()).toBe("sage");
   });
 
   it("falls back to the default theme for a value that isn't a known theme", () => {
@@ -58,6 +64,13 @@ describe("applyTheme", () => {
     applyTheme("orchid");
 
     expect(document.documentElement.dataset.theme).toBe("orchid");
+  });
+
+  it("sets the data-theme attribute to sage for the Sage theme", () => {
+    applyTheme("sage");
+
+    expect(document.documentElement.dataset.theme).toBe("sage");
+    expect(getCurrentTheme()).toBe("sage");
   });
 
   it("leaves the data-theme attribute unset for the default theme", () => {

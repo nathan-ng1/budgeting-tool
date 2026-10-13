@@ -9,6 +9,7 @@ export const THEMES = [
   { key: "terracotta", label: "Terracotta", swatch: "#c67139" },
   { key: "orchid", label: "Orchid", swatch: "#f1a7dd" },
   { key: "midnight", label: "Midnight", swatch: "#3282b8" },
+  { key: "sage", label: "Sage", swatch: "#5f6f63" },
 ];
 
 export const DEFAULT_THEME = "terracotta";

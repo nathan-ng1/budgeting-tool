@@ -103,9 +103,30 @@ const MIDNIGHT_PALETTE = [
   "#a8bbc7",
 ];
 
+// Sage's own palette (Issue #203): same slot-per-Category convention. Four
+// shades each of sage green (the --color-positive family), periwinkle (the
+// --color-accent-2-500 family) and clay (the --color-negative-fill family) -
+// settled via /prototype (see prototype/sage-theme-palettes; Variant B,
+// "Sage wash" won the three-variant comparison).
+const SAGE_PALETTE = [
+  "#3d6a4b",
+  "#5f8a6b",
+  "#8fb09a",
+  "#bcd2c2",
+  "#4f5d8f",
+  "#7482b3",
+  "#9ea8cf",
+  "#c6cce6",
+  "#9a5a4a",
+  "#bd7e6c",
+  "#d6a496",
+  "#e8c9c0",
+];
+
 const THEME_PALETTES = {
   orchid: ORCHID_PALETTE,
   midnight: MIDNIGHT_PALETTE,
+  sage: SAGE_PALETTE,
 };
 
 function activePalette() {
