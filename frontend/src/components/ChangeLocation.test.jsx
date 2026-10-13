@@ -101,16 +101,53 @@ describe("ChangeLocation", () => {
     expect(screen.getByRole("button", { name: "Change location…" })).toBeInTheDocument();
   });
 
-  it("explains a folder that already holds a Database or is the current one, without offering a move", async () => {
+  it("offers to switch to a Database already in the folder, saying the current one stays where it is", async () => {
+    const fetchMock = backend({
+      choose: { body: { cancelled: false, folder: "D:\Old", outcome: "existing", target: "D:\Old\budget.db" } },
+      apply: { body: { path: "D:\Old\budget.db" } },
+    });
+    const onMoved = vi.fn();
+    render(<ChangeLocation onMoved={onMoved} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Change location…" }));
+
+    expect(await screen.findByText(/will start using the Database in/i)).toBeInTheDocument();
+    expect(screen.getByText("D:\Old")).toBeInTheDocument();
+    expect(screen.getByText(/current Database stays where it is/i)).toBeInTheDocument();
+    expect(screen.getByText(/nothing is copied or overwritten/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Move the Database" })).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await userEvent.click(screen.getByRole("button", { name: "Switch to this Database" }));
+
+    await vi.waitFor(() => expect(onMoved).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ folder: "D:\Old" });
+  });
+
+  it("explains the current folder without offering anything", async () => {
     backend({
-      choose: { body: { cancelled: false, folder: "D:\\Old", outcome: "existing", target: "D:\\Old\\budget.db" } },
+      choose: { body: { cancelled: false, folder: "D:\Old", outcome: "current", target: "D:\Old\budget.db" } },
       apply: { body: {} },
     });
     render(<ChangeLocation onMoved={() => {}} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Change location…" }));
 
-    expect(await screen.findByText(/already holds a Database/i)).toBeInTheDocument();
+    expect(await screen.findByText(/already in that folder/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Move the Database" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Switch to this Database" })).not.toBeInTheDocument();
+  });
+
+  it("shows why a file that is not one of ours is refused", async () => {
+    backend({
+      choose: { ok: false, status: 400, body: { error: "budget.db in that folder isn't a Budgeting Tool Database" } },
+      apply: { body: {} },
+    });
+    render(<ChangeLocation onMoved={() => {}} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Change location…" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("isn't a Budgeting Tool Database");
+    expect(screen.queryByRole("button", { name: "Switch to this Database" })).not.toBeInTheDocument();
   });
 });

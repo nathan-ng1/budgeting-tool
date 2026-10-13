@@ -5,6 +5,8 @@ injected through `apply_folder`'s keyword arguments.
 """
 
 import os
+import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -54,8 +56,19 @@ def test_the_folder_holding_the_current_database_is_reported_as_current(home):
     assert inspect_folder(str(home.source), home.handle.path).outcome == "current"
 
 
+def foreign_database(home, currency="USD") -> Path:
+    """A real Database (made with sqlite3's backup API, as a Backup is) in the target folder."""
+    seed = connect(home.target.parent / "seed.db")
+    seed.write_settings({"currency": currency})
+    seed.close()
+    foreign = home.target / "budget.db"
+    with closing(sqlite3.connect(home.target.parent / "seed.db")) as source, closing(sqlite3.connect(foreign)) as copy:
+        source.backup(copy)
+    return foreign
+
+
 def test_a_folder_that_already_holds_a_database_is_reported_as_existing(home):
-    (home.target / "budget.db").write_bytes(b"anything")
+    foreign_database(home)
 
     assert inspect_folder(str(home.target), home.handle.path).outcome == "existing"
 
@@ -107,9 +120,6 @@ def test_choosing_the_current_or_an_existing_folder_is_not_a_move(home):
     with pytest.raises(FolderUnusable):
         apply_folder(home.handle, str(home.source), home.env)
 
-    (home.target / "budget.db").write_bytes(b"x")
-    with pytest.raises(FolderUnusable):
-        apply_folder(home.handle, str(home.target), home.env)
     assert (home.source / "budget.db").exists()
 
 
@@ -216,3 +226,113 @@ def test_nothing_old_is_deleted_until_the_switch_has_happened(home):
 
     assert seen == {"old_still_there": True, "handle_still_old": True}
     assert not (home.source / "budget.db").exists()
+
+
+# --- switching to the Database already in the chosen folder (Issue #199) ---
+
+
+def not_ours(home, kind: str) -> Path:
+    target = home.target / "budget.db"
+    if kind == "text":
+        target.write_text("this is not a database, just a text file " * 20)
+    elif kind == "empty":
+        target.write_bytes(b"")
+    else:
+        with closing(sqlite3.connect(target)) as connection:
+            connection.execute("CREATE TABLE notes (body TEXT)")
+            connection.commit()
+    return target
+
+
+@pytest.mark.parametrize("kind", ["text", "empty", "other-tables"])
+def test_a_file_that_is_not_one_of_ours_is_refused_when_inspected_and_when_applied(home, kind):
+    target = not_ours(home, kind)
+    before = target.read_bytes()
+
+    with pytest.raises(FolderUnusable, match="isn't a Budgeting Tool Database"):
+        inspect_folder(str(home.target), home.handle.path)
+    with pytest.raises(FolderUnusable, match="isn't a Budgeting Tool Database"):
+        apply_folder(home.handle, str(home.target), home.env)
+
+    assert target.read_bytes() == before  # not even opened for writing
+    assert home.env.read_text(encoding="utf-8") == ENV
+    assert os.environ["DATABASE_PATH"] == "original"
+    assert home.handle.read_settings()["currency"] == "GBP"
+
+
+def test_switching_uses_the_database_in_the_folder_and_leaves_the_current_one_where_it_is(home):
+    foreign_database(home, currency="EUR")
+
+    apply_folder(home.handle, str(home.target), home.env)
+
+    switched = home.target.resolve() / "budget.db"
+    assert home.handle.path == switched
+    assert home.handle.read_settings()["currency"] == "EUR"
+    assert (home.source / "budget.db").exists()
+    assert (home.source / "budget.pre-migration-20260101-000000.db").exists()
+    with closing(sqlite3.connect(home.source / "budget.db")) as old:  # untouched, and no longer held open
+        assert old.execute("SELECT value FROM settings WHERE key = 'currency'").fetchone() == ("GBP",)
+    assert home.env.read_text(encoding="utf-8") == ENV.replace("DATABASE_PATH= .data/budget.db", f"DATABASE_PATH={switched}")
+    assert os.environ["DATABASE_PATH"] == str(switched)
+
+
+def test_a_database_that_is_not_up_to_date_is_not_switched_to_yet(home):
+    """The seam #200 replaces: older and newer Databases are refused for now."""
+    foreign = foreign_database(home)
+    with closing(sqlite3.connect(foreign)) as connection:
+        connection.execute("DELETE FROM schema_migrations WHERE name = 'add_bills_and_subscriptions'")
+        connection.commit()
+
+    with pytest.raises(FolderUnusable):
+        apply_folder(home.handle, str(home.target), home.env)
+
+    assert home.handle.read_settings()["currency"] == "GBP"
+    assert home.env.read_text(encoding="utf-8") == ENV
+
+
+def test_a_database_from_a_newer_version_is_not_switched_to_yet(home):
+    foreign = foreign_database(home)
+    with closing(sqlite3.connect(foreign)) as connection:
+        connection.execute("INSERT INTO schema_migrations (name, applied_at) VALUES ('from_the_future', '2030-01-01')")
+        connection.commit()
+
+    with pytest.raises(FolderUnusable):
+        apply_folder(home.handle, str(home.target), home.env)
+
+    assert home.handle.read_settings()["currency"] == "GBP"
+
+
+def test_a_failed_env_write_while_switching_leaves_the_live_database_and_closes_the_new_connection(home):
+    foreign_database(home)
+    opened = []
+
+    def open_store(path):
+        opened.append(connect(path))
+        return opened[0]
+
+    def broken_write(path, values):
+        raise OSError("disk full")
+
+    with pytest.raises(MoveFailed, match="disk full"):
+        apply_folder(home.handle, str(home.target), home.env, open_store=open_store, write_location=broken_write)
+
+    assert home.handle.path == (home.source / "budget.db").resolve()
+    assert home.handle.read_settings()["currency"] == "GBP"
+    assert os.environ["DATABASE_PATH"] == "original"
+    with pytest.raises(sqlite3.ProgrammingError):
+        opened[0].read_settings()  # closed
+    assert (home.target / "budget.db").exists()  # the user's file is never removed
+
+
+def test_a_failed_connection_while_switching_changes_nothing(home):
+    foreign_database(home)
+
+    def broken(path):
+        raise sqlite3.OperationalError("unable to open")
+
+    with pytest.raises(MoveFailed):
+        apply_folder(home.handle, str(home.target), home.env, open_store=broken)
+
+    assert home.handle.read_settings()["currency"] == "GBP"
+    assert home.env.read_text(encoding="utf-8") == ENV
+    assert (home.target / "budget.db").exists()
