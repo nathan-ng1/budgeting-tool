@@ -25,7 +25,7 @@ def test_the_database_location_and_size_on_disk_are_served(serve, store, tmp_pat
 
     database_file = (tmp_path / "budget.db").resolve()
     assert status == 200
-    assert body == {"path": str(database_file), "size_bytes": database_file.stat().st_size}
+    assert body == {"path": str(database_file), "size_bytes": database_file.stat().st_size, "last_backed_up": None}
     assert body["size_bytes"] > 0
 
 

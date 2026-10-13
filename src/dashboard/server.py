@@ -5,7 +5,7 @@ ADR-0008 (local web app, no data leaves the machine). Binds to localhost only.
 import json
 import threading
 from dataclasses import asdict
-from datetime import date
+from datetime import date, datetime
 from functools import wraps
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.metadata import PackageNotFoundError
@@ -47,6 +47,7 @@ ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
 DATABASE_PATH = "/api/database"
 DATABASE_CHOOSE_FOLDER_PATH = f"{DATABASE_PATH}/choose-folder"
 DATABASE_LOCATION_PATH = f"{DATABASE_PATH}/location"
+DATABASE_BACKUP_PATH = "/api/database/backup"
 RECURRING_RULES_PATH = "/api/recurring-rules"
 RECURRING_RULES_RUN_PATH = f"{RECURRING_RULES_PATH}/run"
 RECURRING_RULES_SPLIT_PATH = f"{RECURRING_RULES_PATH}/split"
@@ -180,7 +181,9 @@ def _make_handler(store, static_root: Path, changelog_path: Path):
             elif parsed.path == SETTINGS_PATH:
                 self._send_json(200, settings.as_payload(store.read_settings()))
             elif parsed.path == DATABASE_PATH:
-                self._send_json(200, database_info.as_payload(store.path))
+                self._send_json(200, database_info.as_payload(store.path, store.read_last_backed_up()))
+            elif parsed.path == DATABASE_BACKUP_PATH:
+                self._download_backup()
             elif parsed.path == VERSION_PATH:
                 # The installed package's version (the `pyproject.toml` one,
                 # refreshed by the update scripts' re-sync), so between
@@ -710,6 +713,17 @@ def _make_handler(store, static_root: Path, changelog_path: Path):
             # (Issue #96).
             self.send_response(200)
             self.send_header("Content-Type", "text/csv; charset=utf-8")
+            self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def _download_backup(self) -> None:
+            # A Backup, not a raw copy of the open file (Issue #197, ADR-0030);
+            # reused by the delete flow's "download a Backup first" (Issue #201).
+            body, filename = database_info.make_backup(store, datetime.now().astimezone())
+            self.send_response(200)
+            self.send_header("Content-Type", "application/vnd.sqlite3")
             self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
