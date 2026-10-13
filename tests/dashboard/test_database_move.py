@@ -331,3 +331,121 @@ def test_a_failed_connection_while_switching_changes_nothing(home):
     assert home.handle.read_settings()["currency"] == "GBP"
     assert home.env.read_text(encoding="utf-8") == ENV
     assert (home.target / "budget.db").exists()
+
+
+# --- rollback of a migration, and files a move couldn't remove (review fixes) ---
+
+
+def older_database(home) -> Path:
+    foreign = foreign_database(home)
+    with closing(sqlite3.connect(foreign)) as connection:
+        connection.execute("DELETE FROM schema_migrations WHERE name = 'add_bills_and_subscriptions'")
+        connection.commit()
+    return foreign
+
+
+def dump(path: Path) -> list[str]:
+    with closing(sqlite3.connect(path)) as connection:
+        return list(connection.iterdump())
+
+
+def nothing_switched(home, target: Path, before: list[str]):
+    assert dump(target) == before  # put back exactly as it was
+    assert sorted(p.name for p in home.target.iterdir()) == ["budget.db"]  # no stale copy beside it
+    assert home.env.read_text(encoding="utf-8") == ENV
+    assert os.environ["DATABASE_PATH"] == "original"
+    assert home.handle.path == (home.source / "budget.db").resolve()
+    assert home.handle.read_settings()["currency"] == "GBP"
+
+
+def test_any_error_from_a_migration_restores_the_file_and_does_not_switch(home, monkeypatch):
+    target = older_database(home)
+    before = dump(target)
+
+    def half_migrate_then_fail(connection, migrations):
+        connection.execute("CREATE TABLE half_done (x)")
+        connection.commit()
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(database_move, "run_pending", half_migrate_then_fail)
+
+    with pytest.raises(MoveFailed, match="database is locked"):
+        apply_folder(home.handle, str(home.target), home.env)
+
+    nothing_switched(home, target, before)
+
+
+def test_a_failed_open_after_migrating_restores_the_file_and_does_not_switch(home):
+    target = older_database(home)
+    before = dump(target)
+
+    def cannot_open(path):
+        raise sqlite3.OperationalError("unable to open")
+
+    with pytest.raises(MoveFailed, match="unable to open"):
+        apply_folder(home.handle, str(home.target), home.env, open_store=cannot_open)
+
+    nothing_switched(home, target, before)
+
+
+def test_a_failed_env_write_after_migrating_restores_the_file_and_closes_the_new_connection(home):
+    target = older_database(home)
+    before = dump(target)
+    opened = []
+
+    def open_store(path):
+        opened.append(connect(path))
+        return opened[0]
+
+    def broken_write(path, values):
+        raise OSError("disk full")
+
+    with pytest.raises(MoveFailed, match="disk full"):
+        apply_folder(home.handle, str(home.target), home.env, open_store=open_store, write_location=broken_write)
+
+    nothing_switched(home, target, before)
+    with pytest.raises(sqlite3.ProgrammingError):
+        opened[0].read_settings()
+
+
+def test_a_restore_that_cannot_be_completed_says_where_the_copy_is(home, monkeypatch):
+    older_database(home)
+
+    def fail(*args):
+        raise sqlite3.Error("boom")
+
+    def cannot_restore(source, destination):
+        raise OSError("locked")
+
+    monkeypatch.setattr(database_move, "run_pending", fail)
+    monkeypatch.setattr(database_move.shutil, "copyfile", cannot_restore)
+
+    with pytest.raises(MoveFailed, match="pre-migration"):
+        apply_folder(home.handle, str(home.target), home.env)
+
+    assert list(home.target.glob("budget.pre-migration-*.db"))  # the copy is kept for the user
+
+
+def locked(monkeypatch, *names: str):
+    real_unlink = Path.unlink
+
+    def unlink(self, *args, **kwargs):
+        if self.name in names and self.parent.name == "old":
+            raise PermissionError("in use")
+        return real_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", unlink)
+
+
+def test_a_move_reports_the_old_files_it_could_not_remove(home, monkeypatch):
+    locked(monkeypatch, "budget.db")
+
+    left_behind = apply_folder(home.handle, str(home.target), home.env)
+
+    assert home.handle.path == (home.target / "budget.db").resolve()  # the move itself succeeded
+    assert left_behind == [(home.source / "budget.db").resolve()]
+    assert (home.source / "budget.db").exists()
+
+
+def test_a_clean_move_leaves_nothing_behind(home):
+    assert apply_folder(home.handle, str(home.target), home.env) == []

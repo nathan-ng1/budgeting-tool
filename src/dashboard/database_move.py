@@ -5,15 +5,20 @@ Two steps, so the confirmation UI can sit between them and later tickets can
 add cases without reshaping the flow:
 
 1. `inspect_folder` - what does the chosen folder hold? It reports an
-   `outcome`: "move" (no Database there - the current one will be moved in),
-   "current" (it is the folder the Database already lives in) or "existing"
-   (a Database is already there - the Dashboard switches to it, Issue #199)
-   or "migrate" (one is there, but from an older version: it is copied to a
-   `.pre-migration-` file, migrated, then switched to, Issue #200). A Database
-   from a newer version is refused with "update the tool first".
+   `outcome`:
+   - "move": no Database there; the current one will be moved in.
+   - "current": it is the folder the Database already lives in.
+   - "existing": a Database is already there; the Dashboard switches to it
+     (Issue #199). That is the file named like the current Database or, failing
+     that, a single downloaded Backup saved under its default name - so a
+     Backup can be restored without renaming it. Several Backups and no
+     Database is refused: the user is asked to leave just one.
+   - "migrate": as "existing", but from an older version; it is copied to a
+     `.pre-migration-` file, migrated, then switched to (Issue #200).
+   A Database from a newer version is refused with "update the tool first".
 2. `apply_folder` - act on that outcome: "move" copies the Database in,
-   "existing" starts using the one already there and leaves the current one
-   where it is (this is also how a Backup is restored).
+   "existing" and "migrate" start using the one already there (keeping its
+   file name) and leave the current one where it is.
 
 A foreign file is judged by `check_foreign_database` on a plain, read-only
 sqlite3 connection - never by `open_connection`, which would create tables,
@@ -25,6 +30,7 @@ already in the folder is never removed.
 """
 
 import os
+import re
 import shutil
 import sqlite3
 import tempfile
@@ -97,6 +103,13 @@ def check_foreign_database(path: Path) -> bool:
     return bool(behind)
 
 
+def backup_files(folder: Path, current_database: Path) -> list[Path]:
+    """The downloaded Backups in `folder`, recognised by their default file name
+    (`<name>-backup-<date>-<time>.db`, see `database_info.backup_file_name`)."""
+    pattern = re.compile(rf"^.+-backup-\d{{8}}-\d{{6}}{re.escape(current_database.suffix)}$")
+    return sorted(f for f in folder.iterdir() if f.is_file() and pattern.match(f.name))
+
+
 def inspect_folder(
     chosen: str,
     current_database: Path,
@@ -114,7 +127,16 @@ def inspect_folder(
 
     ensure_writable(folder)
     if not target.exists():
-        return FolderReport(folder, OUTCOME_MOVE, target)
+        backups = backup_files(folder, current_database)
+        if len(backups) > 1:
+            raise FolderUnusable(
+                f"That folder holds {len(backups)} Backups ({', '.join(b.name for b in backups)}). "
+                "Leave just one in the folder to switch to it."
+            )
+        if not backups:
+            return FolderReport(folder, OUTCOME_MOVE, target)
+        # A Backup saved under its default name: use that file as it is.
+        target = backups[0]
     needs_migrating = check_foreign_database(target)
     return FolderReport(folder, OUTCOME_MIGRATE if needs_migrating else OUTCOME_EXISTING, target)
 
@@ -153,43 +175,54 @@ def apply_folder(
     verify_copy: Callable[[Path], None] = check_copy,
     open_store: Callable[[Path], object] = connect,
     write_location: Callable[[Path, dict[str, str]], None] = write_env,
-) -> None:
-    """Carry out the confirmed choice of `chosen` as the Database's folder."""
+) -> list[Path]:
+    """Carry out the confirmed choice of `chosen` as the Database's folder.
+
+    Returns the old files a move could not delete (empty for any other outcome
+    or a clean move), so the caller can tell the user they are still there."""
     report = inspect_folder(chosen, Path(handle.path), ensure_writable=ensure_writable)
     if report.outcome == OUTCOME_CURRENT:
         raise FolderUnusable("The Database is already in that folder")
     if report.outcome in (OUTCOME_EXISTING, OUTCOME_MIGRATE):
         _switch(handle, report, env_path, open_store, write_location)
-        return
-    _move(handle, report, env_path, verify_copy, open_store, write_location)
+        return []
+    return _move(handle, report, env_path, verify_copy, open_store, write_location)
 
 
 def _switch(handle, report, env_path, open_store, write_location) -> None:
     """Start using the Database already in the folder. Nothing is copied or
     overwritten, and the current Database stays exactly where it is. An older
     Database is migrated first, before the normal open (which would create
-    tables and seed Categories in it)."""
-    if report.outcome == OUTCOME_MIGRATE:
-        _migrate(report.target)
+    tables and seed Categories in it); if anything after that fails, it is put
+    back as it was."""
+    copy = _migrate(report.target) if report.outcome == OUTCOME_MIGRATE else None
+    new_store = None
     try:
-        new_store = open_store(report.target)
-    except Exception as cause:
-        raise MoveFailed(f"Couldn't open {report.target.name}: {cause}") from cause
-    try:
-        # `.env` only after the new connection opened; the swap comes last.
-        write_location(env_path, {"DATABASE_PATH": str(report.target)})
-    except OSError as cause:
-        new_store.close()
-        raise MoveFailed(f"Couldn't update .env: {cause}") from cause
+        try:
+            new_store = open_store(report.target)
+        except Exception as cause:
+            raise MoveFailed(f"Couldn't open {report.target.name}: {cause}") from cause
+        try:
+            # `.env` only after the new connection opened; the swap comes last.
+            write_location(env_path, {"DATABASE_PATH": str(report.target)})
+        except OSError as cause:
+            raise MoveFailed(f"Couldn't update .env: {cause}") from cause
+    except MoveFailed as failure:
+        if new_store is not None:
+            new_store.close()
+        if copy is not None:
+            _put_back(report.target, copy, str(failure))
+        raise
     os.environ["DATABASE_PATH"] = str(report.target)
     # The old file is kept, so it is closed only to release it, not to delete it.
     handle.swap(new_store).close()
 
 
-def _migrate(path: Path) -> None:
-    """Copy `path` to a `.pre-migration-` file, then run the pending migrations
-    on a plain connection - the order `python -m migration` uses. If one fails,
-    the file is put back as it was and the copy removed."""
+def _migrate(path: Path) -> Path:
+    """Copy `path` to a `.pre-migration-` copy, then run the pending migrations
+    on a plain connection - the order `python -m migration` uses. Returns the
+    copy. If a migration fails, for any reason, the file is put back as it was
+    and the copy removed."""
     with closing(sqlite3.connect(path)) as connection:
         try:
             copy = pre_migration_backup(connection, path)
@@ -198,19 +231,28 @@ def _migrate(path: Path) -> None:
         try:
             run_pending(connection, MIGRATIONS)
         except MigrationFailed as failure:
-            cause = failure.__cause__
-            reason = f"Migrating {path.name} failed at '{failure.name}': {cause}."
+            reason = f"Migrating {path.name} failed at '{failure.name}': {failure.__cause__}."
+        except Exception as failure:  # e.g. sqlite3.Error outside a migration's own step
+            reason = f"Migrating {path.name} failed: {failure}."
         else:
-            return
+            return copy
+    _put_back(path, copy, reason)
+
+
+def _put_back(path: Path, copy: Path, reason: str) -> None:
+    """Restore `path` from its pre-migration `copy`, remove the copy, and raise
+    MoveFailed saying `reason` - the file is as it was and nothing switched."""
     try:
         shutil.copyfile(copy, path)
     except OSError as cause:
-        raise MoveFailed(f"{reason} {path.name} couldn't be put back; its copy from before is {copy}: {cause}") from cause
+        raise MoveFailed(
+            f"{reason} {path.name} couldn't be put back; its pre-migration copy is {copy}: {cause}"
+        ) from cause
     copy.unlink(missing_ok=True)
     raise MoveFailed(f"{reason} {path.name} was left as it was and the Dashboard stays on its current Database.")
 
 
-def _move(handle, report, env_path, verify_copy, open_store, write_location) -> None:
+def _move(handle, report, env_path, verify_copy, open_store, write_location) -> list[Path]:
     old_database = Path(handle.path)
     sources = [old_database, *pre_migration_files(old_database)]
     # Never overwrite (or, on rollback, delete) a file that was already there.
@@ -249,14 +291,17 @@ def _move(handle, report, env_path, verify_copy, open_store, write_location) -> 
     old_store = handle.swap(new_store)
     # Windows won't delete an open SQLite file.
     old_store.close()
-    _remove(sources)
+    return _remove(sources)
 
 
-def _remove(files: list[Path]) -> None:
+def _remove(files: list[Path]) -> list[Path]:
+    """Delete `files`; return those that wouldn't go. The move has already
+    succeeded (or is being rolled back), so a file that won't go is reported
+    rather than failing it."""
+    left_behind = []
     for file in files:
         try:
             file.unlink(missing_ok=True)
         except OSError:
-            # The move itself has succeeded (or is being rolled back); a file
-            # that won't go is left for the user rather than failing the move.
-            pass
+            left_behind.append(file)
+    return left_behind

@@ -104,7 +104,7 @@ export default function DeleteData({ onReset = () => window.location.reload() })
                 <li>
                   the Database file <span className="danger-zone__path">{summary.path}</span>
                 </li>
-                <li>{plural(summary.pre_migration_files, "pre-migration backup file")} beside it</li>
+                <li>{plural(summary.pre_migration_files, "pre-migration copy", "pre-migration copies")} beside it</li>
               </ul>
             )}
             <p className="card__note">

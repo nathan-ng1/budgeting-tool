@@ -9,19 +9,23 @@ headless machines) never open a real dialog.
 import subprocess
 import sys
 
+COMMAND = [sys.executable, "-m", "dashboard.folder_picker"]
+# Long enough to browse around, short enough that a dialog hidden behind
+# another window can't hang the request for ever.
+TIMEOUT_SECONDS = 300
+
 
 class FolderPickerError(Exception):
     """The dialog could not be shown (e.g. no display or no Tk)."""
 
 
-def pick_folder() -> str | None:
-    """The folder the user chose, or None if they cancelled."""
+def pick_folder(timeout: float = TIMEOUT_SECONDS) -> str | None:
+    """The folder the user chose, or None if they cancelled. Raises
+    FolderPickerError if the dialog can't be shown or isn't closed in time."""
     try:
-        result = subprocess.run(
-            [sys.executable, "-m", "dashboard.folder_picker"],
-            capture_output=True,
-            text=True,
-        )
+        result = subprocess.run(COMMAND, capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired as cause:
+        raise FolderPickerError("The folder picker timed out - it may be hidden behind another window. Try again.") from cause
     except OSError as cause:
         raise FolderPickerError(f"Could not open the folder picker: {cause}") from cause
     if result.returncode != 0:

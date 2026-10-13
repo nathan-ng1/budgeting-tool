@@ -159,6 +159,26 @@ describe("ChangeLocation", () => {
     expect(screen.queryByRole("button", { name: "Switch to this Database" })).not.toBeInTheDocument();
   });
 
+  it("warns about old files a move could not remove before reloading", async () => {
+    backend({
+      choose: chosenEmptyFolder,
+      apply: { body: { path: "D:\\Budget\\budget.db", left_behind: ["C:\\Old\\budget.db"] } },
+    });
+    const onMoved = vi.fn();
+    render(<ChangeLocation onMoved={onMoved} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Change location…" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Move the Database" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("couldn't be deleted");
+    expect(screen.getByText("C:\\Old\\budget.db")).toBeInTheDocument();
+    expect(onMoved).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(onMoved).toHaveBeenCalledTimes(1);
+  });
+
   it("shows why a file that is not one of ours is refused", async () => {
     backend({
       choose: { ok: false, status: 400, body: { error: "budget.db in that folder isn't a Budgeting Tool Database" } },
