@@ -276,27 +276,22 @@ def test_switching_uses_the_database_in_the_folder_and_leaves_the_current_one_wh
     assert os.environ["DATABASE_PATH"] == str(switched)
 
 
-def test_a_database_that_is_not_up_to_date_is_not_switched_to_yet(home):
-    """The seam #200 replaces: older and newer Databases are refused for now."""
+def test_a_database_that_is_not_up_to_date_is_reported_as_one_to_migrate(home):
     foreign = foreign_database(home)
     with closing(sqlite3.connect(foreign)) as connection:
         connection.execute("DELETE FROM schema_migrations WHERE name = 'add_bills_and_subscriptions'")
         connection.commit()
 
-    with pytest.raises(FolderUnusable):
-        apply_folder(home.handle, str(home.target), home.env)
-
-    assert home.handle.read_settings()["currency"] == "GBP"
-    assert home.env.read_text(encoding="utf-8") == ENV
+    assert inspect_folder(str(home.target), home.handle.path).outcome == "migrate"
 
 
-def test_a_database_from_a_newer_version_is_not_switched_to_yet(home):
+def test_a_database_from_a_newer_version_is_refused_with_an_update_message(home):
     foreign = foreign_database(home)
     with closing(sqlite3.connect(foreign)) as connection:
         connection.execute("INSERT INTO schema_migrations (name, applied_at) VALUES ('from_the_future', '2030-01-01')")
         connection.commit()
 
-    with pytest.raises(FolderUnusable):
+    with pytest.raises(FolderUnusable, match="Update the tool first"):
         apply_folder(home.handle, str(home.target), home.env)
 
     assert home.handle.read_settings()["currency"] == "GBP"
