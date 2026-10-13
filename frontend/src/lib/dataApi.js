@@ -26,7 +26,31 @@ async function failureMessage(response) {
   return `The Dashboard backend returned ${response.status}.`;
 }
 
-/** The Database's `{ path, size_bytes }`. */
+export const BACKUP_URL = `${BASE}/backup`;
+
+/**
+ * Generate a Backup and have the browser save it (Issue #197). The server
+ * records "Last backed up" when it generates the file. Shared with the delete
+ * flow's "download a Backup first" (Issue #201).
+ */
+export async function downloadBackup() {
+  const response = await fetch(BACKUP_URL);
+
+  if (!response.ok) {
+    throw new Error(await failureMessage(response));
+  }
+
+  const disposition = response.headers.get("Content-Disposition") ?? "";
+  const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? "budget-backup.db";
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+/** The Database's `{ path, size_bytes, last_backed_up }` (last_backed_up is an ISO timestamp or null). */
 export function fetchDatabaseLocation({ signal } = {}) {
   return request(BASE, { signal });
 }
