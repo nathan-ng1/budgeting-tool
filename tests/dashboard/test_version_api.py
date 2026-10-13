@@ -89,3 +89,19 @@ def test_the_real_changelog_leads_with_the_released_version(running_server):
     assert CHANGELOG_PATH.is_file()
     assert body["history"] is not None
     assert body["history"][0]["version"] == body["version"]
+
+
+def test_the_real_changelog_covers_every_release_back_to_the_first(running_server):
+    """The backfill (Issue #194): dates are those of each GitHub Release."""
+    _, body = get(running_server, "/api/version")
+
+    assert [(v["version"], v["date"]) for v in body["history"]][-8:] == [
+        ("0.4.0", "2026-10-11"),
+        ("0.3.0", "2026-10-06"),
+        ("0.2.0", "2026-10-04"),
+        ("0.1.4", "2026-10-02"),
+        ("0.1.3", "2026-09-06"),
+        ("0.1.2", "2026-08-30"),
+        ("0.1.1", "2026-08-28"),
+        ("0.1.0", "2026-08-28"),
+    ]
