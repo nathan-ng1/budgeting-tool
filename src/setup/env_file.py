@@ -1,4 +1,6 @@
+import os
 from dataclasses import dataclass
+from pathlib import Path
 
 # The per-person settings setup.bat is able to write, per issue #116 -
 # TRANSACTIONS_INBOX and DATABASE_PATH are always required; CATEGORISER_BACKEND
@@ -52,6 +54,22 @@ def merge_env(existing_content: str, values: dict[str, str], required_keys: tupl
     missing_required = [key for key in required_keys if not final_values.get(key)]
 
     return MergeResult(content=content, missing_required=missing_required)
+
+
+def write_env(env_path: Path, values: dict[str, str]) -> None:
+    """Merge `values` into the `.env` at `env_path` (creating it if absent).
+
+    Replaced via a temporary file so a failure partway never leaves a
+    half-written `.env` (ADR-0030: a failed move leaves `.env` as it was).
+    """
+    existing = env_path.read_text(encoding="utf-8") if env_path.exists() else ""
+    content = merge_env(existing, values).content
+    temporary = env_path.with_name(env_path.name + ".tmp")
+    try:
+        temporary.write_text(content, encoding="utf-8")
+        os.replace(temporary, env_path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def _key_of(line: str) -> str | None:
