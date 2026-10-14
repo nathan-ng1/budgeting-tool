@@ -4,7 +4,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from goals.goal import ACTIVE, Goal, GoalDraft, GoalNotFound
-from goals.links import require_valid_goal_link
+from goals.links import require_not_goals_category, require_valid_goal_link
 
 from budget_suggestions.suggestion import BudgetSuggestion
 from database.backup import backup_to
@@ -282,6 +282,7 @@ class LocalStore:
 
     def create_recurring_rule(self, rule: RecurringRule) -> StoredRecurringRule:
         self._require_valid_pair(rule.type, rule.category)
+        require_not_goals_category(rule.category)
 
         cursor = self._connection.execute(
             "INSERT INTO recurring_rules "
@@ -294,6 +295,7 @@ class LocalStore:
 
     def update_recurring_rule(self, rule_id: int, rule: RecurringRule) -> StoredRecurringRule:
         self._require_valid_pair(rule.type, rule.category)
+        require_not_goals_category(rule.category)
 
         cursor = self._connection.execute(
             "UPDATE recurring_rules SET "

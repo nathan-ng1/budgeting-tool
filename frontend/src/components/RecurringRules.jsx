@@ -71,7 +71,10 @@ export default function RecurringRules() {
       fetchCategories({ signal }),
     ]);
     setRules(loadedRules);
-    setCategories(groupByType(loadedCategories));
+    // Goals is left out: a rule there would generate Contributions with no
+    // Goal (ADR-0031). Named, not a blanket `locked` filter - Beem Adjustment
+    // stays on offer, and the Transactions form keeps Goals.
+    setCategories(groupByType(loadedCategories.filter((category) => category.name !== "Goals")));
     setCategoryList(loadedCategories);
   }, []);
 

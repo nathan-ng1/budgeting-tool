@@ -491,3 +491,44 @@ def test_previewing_a_split_without_an_end_date_is_rejected(running_server):
 
     assert exc_info.value.code == 400
     assert "end_date" in json.loads(exc_info.value.read())["error"]
+
+
+# Goals (ADR-0031): a rule in the Goals Category would generate Contributions
+# with no Goal, so the store refuses it.
+GOALS_PAYLOAD = {**WEEKLY_PAYLOAD, "type": "Savings", "category": "Goals"}
+
+
+def goals_refusal(server, method: str, path: str):
+    with pytest.raises(HTTPError) as exc_info:
+        call(server, method, path, GOALS_PAYLOAD)
+    return exc_info.value.code, json.loads(exc_info.value.read())["error"]
+
+
+def test_creating_a_rule_in_the_goals_category_is_refused_and_stores_nothing(running_server):
+    store, server = running_server
+
+    status, message = goals_refusal(server, "POST", "/api/recurring-rules")
+
+    assert status == 400
+    assert "Goals" in message
+    assert store.read_stored_recurring_rules() == []
+
+
+def test_updating_a_rule_into_the_goals_category_is_refused_and_leaves_it_unchanged(running_server):
+    store, server = running_server
+    _, created = call(server, "POST", "/api/recurring-rules", WEEKLY_PAYLOAD)
+
+    status, message = goals_refusal(server, "PUT", f"/api/recurring-rules/{created['id']}")
+
+    assert status == 400
+    assert "Goals" in message
+    assert [stored.rule.category for stored in store.read_stored_recurring_rules()] == ["Entertainment & Leisure"]
+
+
+def test_a_rule_in_beem_adjustment_is_still_accepted(running_server):
+    _store, server = running_server
+
+    status, created = call(server, "POST", "/api/recurring-rules", {**WEEKLY_PAYLOAD, "category": "Beem Adjustment"})
+
+    assert status == 201
+    assert created["category"] == "Beem Adjustment"
