@@ -53,6 +53,7 @@ def as_payload(transaction: Transaction) -> dict:
         "notes": transaction.notes,
         "goal_id": transaction.goal_id,
         "goal_title": transaction.goal_title,
+        "goal_state": transaction.goal_state,
     }
 
 

@@ -105,3 +105,27 @@ def test_a_row_must_drop_its_link_to_leave_the_goals_category(store):
 
     updated = store.update_transaction(created.id, contribution(None, category="Savings"))
     assert updated.goal_id is None
+
+
+def test_a_written_row_comes_back_with_its_goal_title_and_state(store):
+    created = store.create_transaction(contribution(ACTIVE_GOAL))
+    assert (created.goal_title, created.goal_state) == ("Japan", ACTIVE)
+
+    updated = store.update_transaction(created.id, contribution(ACTIVE_GOAL, amount=50.0))
+    assert (updated.goal_title, updated.goal_state) == ("Japan", ACTIVE)
+
+    unlinked = store.update_transaction(created.id, contribution(None, category="Savings"))
+    assert (unlinked.goal_title, unlinked.goal_state) == (None, None)
+
+
+def test_a_row_keeps_showing_its_goal_after_the_goal_is_archived(store):
+    created = store.create_transaction(contribution(ACTIVE_GOAL))
+    if isinstance(store, LocalStore):
+        store._connection.execute("UPDATE goals SET state = 'archived' WHERE id = 1")
+        store._connection.commit()
+    else:
+        store._goals[0] = goal(1, "Japan", ARCHIVED)
+
+    [row] = store.read_transactions()
+    assert (row.id, row.goal_title, row.goal_state) == (created.id, "Japan", ARCHIVED)
+

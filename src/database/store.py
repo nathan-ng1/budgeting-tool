@@ -192,7 +192,7 @@ class LocalStore:
 
     def read_transactions(self) -> list[Transaction]:
         rows = self._connection.execute(
-            "SELECT t.id, t.date, t.amount, t.type, c.name, t.notes, t.goal_id, g.title "
+            "SELECT t.id, t.date, t.amount, t.type, c.name, t.notes, t.goal_id, g.title, g.state "
             "FROM transactions t JOIN categories c ON c.id = t.category_id "
             "LEFT JOIN goals g ON g.id = t.goal_id"
         ).fetchall()
@@ -206,8 +206,9 @@ class LocalStore:
                 notes=notes,
                 goal_id=goal_id,
                 goal_title=goal_title,
+                goal_state=goal_state,
             )
-            for row_id, row_date, amount, transaction_type, category, notes, goal_id, goal_title in rows
+            for row_id, row_date, amount, transaction_type, category, notes, goal_id, goal_title, goal_state in rows
         ]
 
     def create_transaction(self, candidate: Candidate) -> Transaction:
@@ -223,7 +224,7 @@ class LocalStore:
             self._transaction_columns(candidate),
         )
         self._connection.commit()
-        return _as_transaction(cursor.lastrowid, candidate)
+        return self._as_transaction(cursor.lastrowid, candidate)
 
     def update_transaction(self, transaction_id: int, candidate: Candidate) -> Transaction:
         self._require_valid_pair(candidate.type, candidate.category)
@@ -239,7 +240,23 @@ class LocalStore:
             raise TransactionNotFound(f"No Transaction has id {transaction_id}")
 
         self._connection.commit()
-        return _as_transaction(transaction_id, candidate)
+        return self._as_transaction(transaction_id, candidate)
+
+    def _as_transaction(self, transaction_id: int, candidate: Candidate) -> Transaction:
+        """The stored Transaction a write answers with, its Goal's title and
+        state included so the Transactions tab can draw the chip."""
+        goal = self._goal(candidate.goal_id) if candidate.goal_id is not None else None
+        return Transaction(
+            id=transaction_id,
+            date=candidate.date,
+            amount=candidate.amount,
+            type=candidate.type,
+            category=candidate.category,
+            notes=candidate.notes,
+            goal_id=candidate.goal_id,
+            goal_title=goal.title if goal is not None else None,
+            goal_state=goal.state if goal is not None else None,
+        )
 
     def delete_transaction(self, transaction_id: int) -> None:
         cursor = self._connection.execute("DELETE FROM transactions WHERE id = ?", (transaction_id,))
@@ -654,18 +671,6 @@ class LocalStore:
             [(key, str(value)) for key, value in updates.items()],
         )
         self._connection.commit()
-
-
-def _as_transaction(transaction_id: int, candidate: Candidate) -> Transaction:
-    return Transaction(
-        id=transaction_id,
-        date=candidate.date,
-        amount=candidate.amount,
-        type=candidate.type,
-        category=candidate.category,
-        notes=candidate.notes,
-        goal_id=candidate.goal_id,
-    )
 
 
 def _as_goal(columns) -> Goal:

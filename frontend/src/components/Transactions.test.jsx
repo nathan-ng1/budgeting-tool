@@ -44,13 +44,31 @@ const CATEGORIES = [
   { id: 3, type: "Income", name: "Salary", emoji: null, locked: false },
 ];
 
+const CATEGORIES_WITH_GOALS = [
+  ...CATEGORIES,
+  { id: 4, type: "Savings", name: "Savings", emoji: null, locked: false },
+  { id: 5, type: "Savings", name: "Goals", emoji: "🎯", locked: true },
+];
+
+const JAPAN = { id: 7, title: "Japan trip", state: "active" };
+const CAR = { id: 8, title: "New car", state: "active" };
+
 /** Answer each endpoint from `transactions`, so the screen reloads real state. */
-function backend(transactions = [], categories = CATEGORIES) {
+function backend(transactions = [], categories = CATEGORIES, { goals = [] } = {}) {
   let stored = [...transactions];
   let nextId = 100;
+  // What the real store adds to a written row: its Goal's current title and state.
+  const withGoal = (row) => {
+    const goal = goals.find((g) => g.id === row.goal_id);
+    return { ...row, goal_title: goal?.title ?? null, goal_state: goal ? "active" : null };
+  };
 
   return vi.fn(async (url, options = {}) => {
     const method = options.method ?? "GET";
+
+    if (url === "/api/goals") {
+      return { ok: true, status: 200, json: async () => ({ today: "2026-08-21", goals, past: [] }) };
+    }
 
     if (url === "/api/categories") {
       return { ok: true, status: 200, json: async () => categories };
@@ -59,13 +77,13 @@ function backend(transactions = [], categories = CATEGORIES) {
       return { ok: true, status: 200, json: async () => stored };
     }
     if (method === "POST") {
-      const created = { id: (nextId += 1), ...JSON.parse(options.body) };
+      const created = withGoal({ id: (nextId += 1), ...JSON.parse(options.body) });
       stored = [...stored, created];
       return { ok: true, status: 201, json: async () => created };
     }
     if (method === "PUT") {
       const id = Number(url.split("/").pop());
-      const updated = { id, ...JSON.parse(options.body) };
+      const updated = withGoal({ id, ...JSON.parse(options.body) });
       stored = stored.map((t) => (t.id === id ? updated : t));
       return { ok: true, status: 200, json: async () => updated };
     }
@@ -75,8 +93,8 @@ function backend(transactions = [], categories = CATEGORIES) {
   });
 }
 
-function useBackend(transactions) {
-  fetchMock = backend(transactions);
+function useBackend(transactions, options) {
+  fetchMock = backend(transactions, CATEGORIES_WITH_GOALS, options);
   vi.stubGlobal("fetch", fetchMock);
 }
 
@@ -798,6 +816,196 @@ describe("Transactions", () => {
 // Transactions' periodType/referenceYear come from App.jsx as props, sourced
 // from the shared Financial Year/Calendar Year switcher (ADR-0021) - Issue
 // #125.
+describe("Transactions Goals", () => {
+  async function openAddForm() {
+    render(<Transactions periodType="financial" referenceYear={2026} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Add transaction" }));
+  }
+
+  function postedBody() {
+    const call = fetchMock.mock.calls.find(([, options]) => options?.method === "POST");
+    return JSON.parse(call[1].body);
+  }
+
+  /** The in-row editor, so Type/Category resolve there and not to the filters. */
+  function editor() {
+    return within(document.querySelector("tr.table__edit"));
+  }
+
+  function putBody() {
+    const call = fetchMock.mock.calls.find(([, options]) => options?.method === "PUT");
+    return JSON.parse(call[1].body);
+  }
+
+  const savingsRow = transaction({
+    id: 5, type: "Savings", category: "Savings", notes: "Rainy day", goal_id: null, goal_title: null, goal_state: null,
+  });
+  const goalsRow = transaction({
+    id: 6, type: "Savings", category: "Goals", notes: "Top-up", goal_id: 7, goal_title: "Japan trip", goal_state: "active",
+  });
+
+  it("reveals a required Goal picker of the active Goals when Goals is chosen, and hides it otherwise", async () => {
+    useBackend([], { goals: [JAPAN, CAR] });
+    await openAddForm();
+    expect(screen.queryByLabelText("Goal")).not.toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByLabelText("Type"), "Savings");
+    await userEvent.selectOptions(screen.getByLabelText("Category"), "Goals");
+
+    const picker = screen.getByLabelText("Goal");
+    expect(picker).toBeRequired();
+    expect(within(picker).getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "Choose a Goal",
+      "Japan trip",
+      "New car",
+    ]);
+
+    await userEvent.selectOptions(screen.getByLabelText("Category"), "Savings");
+    expect(screen.queryByLabelText("Goal")).not.toBeInTheDocument();
+  });
+
+  it("disables Goals in the Category dropdown, labelled, when there are no active Goals", async () => {
+    useBackend([], { goals: [] });
+    await openAddForm();
+    await userEvent.selectOptions(screen.getByLabelText("Type"), "Savings");
+
+    const option = within(screen.getByLabelText("Category")).getByRole("option", { name: /Goals/ });
+    expect(option).toBeDisabled();
+    expect(option).toHaveTextContent("🎯 Goals (no active Goals)");
+  });
+
+  it("defaults Notes to the Goal's title when adding, still editable, and posts the goal_id", async () => {
+    useBackend([], { goals: [JAPAN, CAR] });
+    await openAddForm();
+    await userEvent.type(screen.getByLabelText("Amount"), "100");
+    await userEvent.selectOptions(screen.getByLabelText("Type"), "Savings");
+    await userEvent.selectOptions(screen.getByLabelText("Category"), "Goals");
+
+    await userEvent.selectOptions(screen.getByLabelText("Goal"), "Japan trip");
+    expect(screen.getByLabelText("Notes")).toHaveValue("Japan trip");
+
+    await userEvent.selectOptions(screen.getByLabelText("Goal"), "New car");
+    expect(screen.getByLabelText("Notes")).toHaveValue("New car");
+
+    await userEvent.clear(screen.getByLabelText("Notes"));
+    await userEvent.type(screen.getByLabelText("Notes"), "Deposit");
+    await userEvent.selectOptions(screen.getByLabelText("Goal"), "Japan trip");
+    expect(screen.getByLabelText("Notes")).toHaveValue("Deposit");
+
+    await userEvent.click(screen.getByRole("button", { name: "Save transaction" }));
+
+    await screen.findByText("Deposit");
+    expect(postedBody()).toMatchObject({ category: "Goals", goal_id: 7, notes: "Deposit" });
+  });
+
+  it("sends no goal_id for an ordinary row", async () => {
+    useBackend([], { goals: [JAPAN] });
+    await openAddForm();
+    await userEvent.type(screen.getByLabelText("Amount"), "10");
+    await userEvent.selectOptions(screen.getByLabelText("Category"), "Groceries");
+    await userEvent.type(screen.getByLabelText("Notes"), "Milk");
+    await userEvent.click(screen.getByRole("button", { name: "Save transaction" }));
+
+    await screen.findByText("Milk");
+    expect(postedBody().goal_id).toBeNull();
+  });
+
+  it("clears the Goal link when Type changes away from Savings", async () => {
+    useBackend([goalsRow], { goals: [JAPAN] });
+    render(<Transactions periodType="financial" referenceYear={2026} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Edit Top-up" }));
+
+    await userEvent.selectOptions(editor().getByLabelText("Type"), "Income");
+    expect(editor().queryByLabelText("Goal")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(putBody()).toMatchObject({ category: "Salary", goal_id: null }));
+  });
+
+  it("re-points a Savings row at a Goal, leaving its Notes alone", async () => {
+    useBackend([savingsRow], { goals: [JAPAN, CAR] });
+    render(<Transactions periodType="financial" referenceYear={2026} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Edit Rainy day" }));
+
+    await userEvent.selectOptions(editor().getByLabelText("Category"), "Goals");
+    await userEvent.selectOptions(editor().getByLabelText("Goal"), "New car");
+    expect(editor().getByLabelText("Notes")).toHaveValue("Rainy day");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(putBody()).toMatchObject({ category: "Goals", goal_id: 8, notes: "Rainy day" }));
+    expect(await screen.findByText("New car")).toBeInTheDocument();
+  });
+
+  it("moves the Contribution when the Goal changes while staying on Goals", async () => {
+    useBackend([goalsRow], { goals: [JAPAN, CAR] });
+    render(<Transactions periodType="financial" referenceYear={2026} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Edit Top-up" }));
+
+    expect(editor().getByLabelText("Goal")).toHaveValue("7");
+    await userEvent.selectOptions(editor().getByLabelText("Goal"), "New car");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(putBody()).toMatchObject({ goal_id: 8, notes: "Top-up" }));
+  });
+
+  it("moves a Goals row back to Savings by clearing the link", async () => {
+    useBackend([goalsRow], { goals: [JAPAN] });
+    render(<Transactions periodType="financial" referenceYear={2026} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Edit Top-up" }));
+
+    await userEvent.selectOptions(editor().getByLabelText("Category"), "Savings");
+    expect(editor().queryByLabelText("Goal")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(putBody()).toMatchObject({ category: "Savings", goal_id: null }));
+  });
+
+  it("keeps an archived current Goal in the editing picker, marked", async () => {
+    const archivedRow = { ...goalsRow, goal_title: "Old trip", goal_state: "archived" };
+    useBackend([archivedRow], { goals: [CAR] });
+    render(<Transactions periodType="financial" referenceYear={2026} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Edit Top-up" }));
+
+    const picker = editor().getByLabelText("Goal");
+    expect(picker).toHaveValue("7");
+    expect(within(picker).getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "Choose a Goal",
+      "Old trip (archived)",
+      "New car",
+    ]);
+    expect(within(editor().getByLabelText("Category")).getByRole("option", { name: /Goals/ })).toBeEnabled();
+  });
+
+  it("shows the Goal's current title as a chip on a Goals row, and Goals in the Category filter", async () => {
+    useBackend([goalsRow, savingsRow], { goals: [JAPAN] });
+    render(<Transactions periodType="financial" referenceYear={2026} />);
+
+    const row = (await screen.findByText("Top-up")).closest("tr");
+    expect(within(row).getByText("Japan trip")).toHaveClass("goal-chip");
+    expect(within(row).getByText("Japan trip")).not.toHaveClass("goal-chip--muted");
+    expect(
+      within(screen.getByLabelText(/category/i)).getByRole("option", { name: "🎯 Goals" }),
+    ).toBeInTheDocument();
+    const savings = screen.getByText("Rainy day").closest("tr");
+    expect(savings.querySelector(".goal-chip")).toBeNull();
+  });
+
+  it("mutes the chip and says (archived) or (deleted) for a past Goal", async () => {
+    useBackend(
+      [
+        { ...goalsRow, id: 6, notes: "A", goal_title: "Old trip", goal_state: "archived" },
+        { ...goalsRow, id: 9, notes: "B", goal_title: "Gone", goal_state: "deleted" },
+      ],
+      { goals: [] },
+    );
+    render(<Transactions periodType="financial" referenceYear={2026} />);
+
+    const archived = await screen.findByText("Old trip (archived)");
+    expect(archived).toHaveClass("goal-chip", "goal-chip--muted");
+    expect(screen.getByText("Gone (deleted)")).toHaveClass("goal-chip--muted");
+  });
+});
+
 describe("Transactions period awareness", () => {
   it("orders the month filter Jan→Dec when Calendar Year is active, matching Overview/Budget", async () => {
     respondWith([transaction()]);
