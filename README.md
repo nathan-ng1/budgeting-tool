@@ -230,8 +230,13 @@ Budgeted vs Actual, your top 5 expenses, and expenses over the month. Pick a mon
 Jul–Jun pills — it opens on the current month of the current Financial Year. The **Transactions**
 tab lists, adds, edits, and deletes individual transactions by hand, with search/sort/export. The
 **Budget** tab edits each Category's per-month budget and shows the standing Budget Suggestion
-write-up (see `generate_budget_suggestion` below). The **Settings** tab edits Category
-Management (below) and your Recurring Transactions Config (below). See `docs/dashboard-guide.html`
+write-up (see `generate_budget_suggestion` below). The **Goals** tab tracks savings targets with a
+required end date: each Goal's card shows its status, the amount to save per month and its progress
+against an even pace, with Add contribution, a read-only Details view, a Split savings tool, and a
+Past goals list for archived or deleted Goals; the Overview shows a tile of your top three. A
+Contribution is a Transaction in the locked Goals Category, which can also be added or edited on the
+Transactions tab. The **Settings** tab edits Category Management (below) and your Recurring
+Transactions Config (below). See `docs/dashboard-guide.html`
 for a full walkthrough of every tab and script.
 
 It runs entirely on your machine and reads the local database directly; no transaction data
