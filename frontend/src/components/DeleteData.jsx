@@ -100,6 +100,7 @@ export default function DeleteData({ onReset = () => window.location.reload() })
                 <li>{plural(summary.recurring_rules, "Recurring Transactions Config rule")}</li>
                 <li>{plural(summary.category_budgets, "Category Budget")}</li>
                 <li>{plural(summary.custom_categories, "custom Category", "custom Categories")}</li>
+                <li>{plural(summary.goals, "Goal")}</li>
                 <li>{plural(summary.display_settings, "Display Setting")}</li>
                 <li>
                   the Database file <span className="danger-zone__path">{summary.path}</span>

@@ -14,12 +14,24 @@ from importlib.metadata import version as installed_version
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
-from dashboard import budgets, categories, database_info, database_move, database_reset, queries, recurring, settings, transactions
+from dashboard import (
+    budgets,
+    categories,
+    database_info,
+    database_move,
+    database_reset,
+    goals,
+    queries,
+    recurring,
+    settings,
+    transactions,
+)
 from dashboard.changelog import read_history
 from dashboard.database_handle import DatabaseHandle
 from dashboard.folder_picker import FolderPickerError
 from dashboard.folder_picker import pick_folder as real_pick_folder
 from database.store import CategoryNotFound, RecurringRuleNotFound, TransactionNotFound
+from goals.goal import GoalNotFound
 from statement_export import pipeline
 from transaction_log.categories import type_lookup
 
@@ -62,6 +74,7 @@ BUDGET_EDITOR_PATH = "/api/budget-editor"
 BUDGET_GRID_PATH = "/api/budget-grid"
 BUDGET_SUGGESTION_PATH = "/api/budget-suggestion"
 CATEGORIES_PATH = "/api/categories"
+GOALS_PATH = "/api/goals"
 SETTINGS_PATH = "/api/settings"
 VERSION_PATH = "/api/version"
 
@@ -86,11 +99,13 @@ def build_server(
     changelog_path: Path = CHANGELOG_PATH,
     env_path: Path = ENV_PATH,
     pick_folder: Callable[[], str | None] = real_pick_folder,
+    today: Callable[[], date] = date.today,
 ) -> ThreadingHTTPServer:
     # `store` may be a bare store or an already-built DatabaseHandle; handlers
     # always go through a handle, so the Database can be swapped while the
     # server keeps running (ADR-0030). `env_path` and `pick_folder` are
-    # injectable so tests can use a temporary `.env` and a stand-in dialog.
+    # injectable so tests can use a temporary `.env` and a stand-in dialog, and
+    # `today` so the Goals figures can be pinned to a date.
     # Threaded, but one request at a time: `store_lock` serialises every
     # handler, so the sqlite connection on `store` is still only ever touched
     # by one request at once.
@@ -101,7 +116,7 @@ def build_server(
     # never arrives, and queues every real request behind it - index.html
     # arrives, its JS and CSS never do, and the page renders empty (Issue #45).
     database = store if isinstance(store, DatabaseHandle) else DatabaseHandle(store)
-    server = ThreadingHTTPServer((host, port), _make_handler(database, static_root, changelog_path))
+    server = ThreadingHTTPServer((host, port), _make_handler(database, static_root, changelog_path, today))
     server.env_path = env_path
     server.pick_folder = pick_folder
     # Idle preconnect sockets must not keep the process alive at shutdown.
@@ -109,7 +124,7 @@ def build_server(
     return server
 
 
-def _make_handler(store: DatabaseHandle, static_root: Path, changelog_path: Path):
+def _make_handler(store: DatabaseHandle, static_root: Path, changelog_path: Path, today: Callable[[], date]):
     # `store` is the swappable DatabaseHandle, which forwards to the open
     # LocalStore. Serialises the handlers, so they keep the
     # single-request-at-a-time access to it that its sqlite connection needs.
@@ -180,6 +195,10 @@ def _make_handler(store: DatabaseHandle, static_root: Path, changelog_path: Path
                 # a Type/Category select derive it from this flat list
                 # themselves.
                 self._send_json(200, [categories.as_payload(c) for c in store.read_categories()])
+            elif parsed.path == GOALS_PATH:
+                # Every figure for every Goal, against one "today" so the Goals
+                # tab and the Overview tile always agree (Goals spec section 7).
+                self._send_json(200, goals.list_payload(store.read_goals(), today()))
             elif parsed.path == SETTINGS_PATH:
                 self._send_json(200, settings.as_payload(store.read_settings()))
             elif parsed.path == DATABASE_PATH:
@@ -228,6 +247,8 @@ def _make_handler(store: DatabaseHandle, static_root: Path, changelog_path: Path
                 self._write_transaction(lambda candidate: (201, store.create_transaction(candidate)))
             elif path == CATEGORIES_PATH:
                 self._create_category()
+            elif path == GOALS_PATH:
+                self._write_goal(lambda draft: (201, store.create_goal(draft)))
             elif path == TRANSACTIONS_IMPORT_PREVIEW_PATH:
                 self._import_preview()
             elif path == TRANSACTIONS_IMPORT_COMMIT_PATH:
@@ -252,6 +273,11 @@ def _make_handler(store: DatabaseHandle, static_root: Path, changelog_path: Path
             category_id = self._id_after(CATEGORIES_PATH)
             if category_id is not None:
                 self._update_category(category_id)
+                return
+
+            goal_id = self._id_after(GOALS_PATH)
+            if goal_id is not None:
+                self._write_goal(lambda draft: (200, store.update_goal(goal_id, draft)))
                 return
 
             if urlparse(self.path).path == SETTINGS_PATH:
@@ -397,6 +423,29 @@ def _make_handler(store: DatabaseHandle, static_root: Path, changelog_path: Path
                 return
 
             self._send_json(status, transactions.as_payload(stored))
+
+        def _write_goal(self, write) -> None:
+            """Parse a GoalDraft from the request body, hand it to `write`, and
+            answer with the stored Goal and its figures - or with why it
+            couldn't be stored."""
+            try:
+                draft = goals.draft_from_payload(self._read_json())
+            except ValueError as cause:
+                self._send_json(400, {"error": str(cause)})
+                return
+
+            try:
+                status, stored = write(draft)
+            except GoalNotFound as cause:
+                self._send_json(404, {"error": str(cause)})
+                return
+            except ValueError as cause:
+                # A title another Goal already uses - the store is the one that
+                # can see the other Goals, so it decides.
+                self._send_json(400, {"error": str(cause)})
+                return
+
+            self._send_json(status, goals.as_payload(stored, today()))
 
         def _create_category(self) -> None:
             try:

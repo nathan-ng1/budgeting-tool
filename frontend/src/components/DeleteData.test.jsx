@@ -10,6 +10,7 @@ const SUMMARY = {
   recurring_rules: 5,
   category_budgets: 40,
   custom_categories: 3,
+  goals: 4,
   display_settings: 2,
   pre_migration_files: 2,
 };
@@ -76,6 +77,7 @@ describe("DeleteData", () => {
     expect(within(dialog).getByText(/5 Recurring Transactions Config rules/)).toBeInTheDocument();
     expect(within(dialog).getByText(/40 Category Budgets/)).toBeInTheDocument();
     expect(within(dialog).getByText(/3 custom Categories/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/4 Goals/)).toBeInTheDocument();
     expect(within(dialog).getByText(/2 Display Settings/)).toBeInTheDocument();
     expect(within(dialog).getByText(/2 pre-migration copies/)).toBeInTheDocument();
     expect(within(dialog).getByText(/Processed archive/)).toHaveTextContent(/not touched/i);

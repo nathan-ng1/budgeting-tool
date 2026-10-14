@@ -14,7 +14,7 @@ def serve():
     Yields a factory so a test can choose its own `static_root` - in
     particular, one that has no built frontend in it, or a `changelog_path`
     pointing at a temporary file, or its own `env_path` / `pick_folder`
-    stand-ins (ADR-0030).
+    stand-ins (ADR-0030), or a fixed `today` for the Goals figures.
     """
     running = []
 
@@ -24,6 +24,7 @@ def serve():
         changelog_path: Path | None = None,
         env_path: Path | None = None,
         pick_folder=None,
+        today=None,
     ):
         kwargs = {} if static_root is None else {"static_root": static_root}
         if changelog_path is not None:
@@ -32,6 +33,8 @@ def serve():
             kwargs["env_path"] = env_path
         if pick_folder is not None:
             kwargs["pick_folder"] = pick_folder
+        if today is not None:
+            kwargs["today"] = today
         server = build_server(store, **kwargs)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()

@@ -7,6 +7,7 @@ import CategoryManagement from "./components/CategoryManagement.jsx";
 import DebtSummary from "./components/DebtSummary.jsx";
 import DeleteData from "./components/DeleteData.jsx";
 import DisplaySettings from "./components/DisplaySettings.jsx";
+import Goals from "./components/Goals.jsx";
 import SpendingOverTime from "./components/SpendingOverTime.jsx";
 import IncomeAllocation from "./components/IncomeAllocation.jsx";
 import OutflowsBreakdown from "./components/OutflowsBreakdown.jsx";
@@ -46,9 +47,10 @@ import {
 
 // Settings holds the Recurring Transactions Config editor (Issue #29);
 // Transactions holds the read-only Transaction list (Issue #33); Budget holds
-// the per-month Category Budget editor (Issue #62).
-const TABS = ["Overview", "Transactions", "Budget", "Settings"];
-const WIRED_TABS = ["Overview", "Transactions", "Budget", "Settings"];
+// the per-month Category Budget editor (Issue #62); Goals holds the savings
+// Goals and follows no Financial Year (Goals spec section 10).
+const TABS = ["Overview", "Transactions", "Budget", "Goals", "Settings"];
+const WIRED_TABS = ["Overview", "Transactions", "Budget", "Goals", "Settings"];
 
 // Loads the localisation settings (ADR-0027) once and hands them to the whole
 // Dashboard through context, so every amount is drawn in the saved Display
@@ -233,7 +235,8 @@ function Dashboard({ settings, onSettingsSaved }) {
 
   // Transactions has no month/Full-year pill of its own (unlike Overview's
   // `selected`/Budget's `budgetSelected`) - it always anchors like Full year,
-  // falling back to the period containing today (ADR-0021).
+  // falling back to the period containing today (ADR-0021). The Goals tab shows
+  // no switcher at all, so nothing ever asks for its anchor.
   function periodAnchorFor(activeTab) {
     if (activeTab === "Budget") {
       return budgetSelected;
@@ -321,7 +324,7 @@ function Dashboard({ settings, onSettingsSaved }) {
           <VersionHistory history={history} currentVersion={version} onBack={() => setShowingHistory(false)} />
         )}
 
-        {visibleTab !== null && visibleTab !== "Settings" && (
+        {visibleTab !== null && visibleTab !== "Settings" && visibleTab !== "Goals" && (
           <PeriodSwitcher
             periodType={periodType}
             referenceYear={referenceYear}
@@ -366,6 +369,8 @@ function Dashboard({ settings, onSettingsSaved }) {
         )}
 
         {visibleTab === "Transactions" && <Transactions periodType={periodType} referenceYear={referenceYear} />}
+
+        {visibleTab === "Goals" && <Goals />}
 
         {visibleTab === "Budget" && (
           <Budget

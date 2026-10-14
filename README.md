@@ -275,7 +275,7 @@ docs/adr/                  Architecture decisions
 docs/agents/                Agent-facing runbooks (issue tracker, MCP, pipeline)
 docs/setup-guide.html       Windows Installation Pack guide (self-contained, terracotta-themed)
 docs/setup-guide-mac.html   macOS Installation Pack guide (same, for mac/*.command)
-docs/dashboard-guide.html   Dashboard usage guide - the four tabs, and what each script does
+docs/dashboard-guide.html   Dashboard usage guide - the five tabs, and what each script does
 .env.example               Template for your .env (TRANSACTIONS_INBOX, DATABASE_PATH, etc.)
 .data/                     Sanitised exports awaiting processing; .data/processed/ once written
 windows/                   Windows Installation Pack + day-to-day .bat scripts (see docs/setup-guide.html)
