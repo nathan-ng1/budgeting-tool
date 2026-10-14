@@ -39,6 +39,19 @@ def test_prompt_never_lists_beem_adjustment_as_an_assignable_category():
     assert "Beem Adjustment" not in prompt
 
 
+def test_prompt_never_offers_the_predefined_goals_category():
+    # ADR-0031 - Goals is a locked Savings Category: neither the Savings Type
+    # (AI-excluded) nor a locked Category may reach the model.
+    categories = [
+        *CATEGORIES,
+        Category(id=5, type="Savings", name="Goals", emoji="\N{DIRECT HIT}", locked=True),
+    ]
+
+    prompt = build_prompt([make_transaction()], categories)
+
+    assert "Goals" not in prompt
+
+
 def test_prompt_omits_a_type_that_has_no_categories_yet():
     # A locked-only Type (Debt here, absent elsewhere in CATEGORIES) ends up
     # with an empty assignable set, same as a Type with no Categories at all
