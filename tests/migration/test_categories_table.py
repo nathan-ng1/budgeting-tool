@@ -73,7 +73,7 @@ def test_migrate_seeds_every_other_category_as_unlocked():
 
     migrate(connection)
 
-    rows = connection.execute("SELECT locked FROM categories WHERE name != 'Beem Adjustment'").fetchall()
+    rows = connection.execute("SELECT locked FROM categories WHERE name NOT IN ('Beem Adjustment', 'Goals')").fetchall()
     assert all(locked == 0 for (locked,) in rows)
 
 

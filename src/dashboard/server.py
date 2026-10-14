@@ -198,7 +198,7 @@ def _make_handler(store: DatabaseHandle, static_root: Path, changelog_path: Path
             elif parsed.path == GOALS_PATH:
                 # Every figure for every Goal, against one "today" so the Goals
                 # tab and the Overview tile always agree (Goals spec section 7).
-                self._send_json(200, goals.list_payload(store.read_goals(), today()))
+                self._send_json(200, goals.list_payload(store.read_goals(), today(), store.read_goal_savings()))
             elif parsed.path == SETTINGS_PATH:
                 self._send_json(200, settings.as_payload(store.read_settings()))
             elif parsed.path == DATABASE_PATH:
@@ -249,6 +249,8 @@ def _make_handler(store: DatabaseHandle, static_root: Path, changelog_path: Path
                 self._create_category()
             elif path == GOALS_PATH:
                 self._write_goal(lambda draft: (201, store.create_goal(draft)))
+            elif self._contribution_goal_id(path) is not None:
+                self._add_contribution(self._contribution_goal_id(path))
             elif path == TRANSACTIONS_IMPORT_PREVIEW_PATH:
                 self._import_preview()
             elif path == TRANSACTIONS_IMPORT_COMMIT_PATH:
@@ -424,6 +426,36 @@ def _make_handler(store: DatabaseHandle, static_root: Path, changelog_path: Path
 
             self._send_json(status, transactions.as_payload(stored))
 
+        def _contribution_goal_id(self, path: str) -> int | None:
+            """The id in `/api/goals/{id}/contributions`, or None if `path`
+            isn't that shape."""
+            prefix = f"{GOALS_PATH}/"
+            suffix = "/contributions"
+            if not (path.startswith(prefix) and path.endswith(suffix)):
+                return None
+            try:
+                return int(path[len(prefix):-len(suffix)])
+            except ValueError:
+                return None
+
+        def _add_contribution(self, goal_id: int) -> None:
+            """Write a Goals-Category Savings Transaction linked to the Goal
+            (Goals spec section 8) and answer with it."""
+            try:
+                goal = store.read_goal(goal_id)
+                candidate = goals.contribution_from_payload(goal, self._read_json())
+                created = store.create_transaction(candidate)
+            except GoalNotFound as cause:
+                self._send_json(404, {"error": str(cause)})
+                return
+            except ValueError as cause:
+                # The amount or date was unusable, or the store refused the
+                # link (for example the Goal is not active).
+                self._send_json(400, {"error": str(cause)})
+                return
+
+            self._send_json(201, transactions.as_payload(created))
+
         def _write_goal(self, write) -> None:
             """Parse a GoalDraft from the request body, hand it to `write`, and
             answer with the stored Goal and its figures - or with why it
@@ -445,7 +477,7 @@ def _make_handler(store: DatabaseHandle, static_root: Path, changelog_path: Path
                 self._send_json(400, {"error": str(cause)})
                 return
 
-            self._send_json(status, goals.as_payload(stored, today()))
+            self._send_json(status, goals.as_payload(stored, today(), store.read_goal_savings().get(stored.id, 0.0)))
 
         def _create_category(self) -> None:
             try:

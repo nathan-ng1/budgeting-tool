@@ -6,6 +6,8 @@ import pytest
 from budget_suggestions.suggestion import BudgetSuggestion
 from categorisation.history import Example
 from categorisation.interface import BatchResult, CategoryResult
+from goals.goal import Goal, GoalNotFound
+from goals.links import require_valid_goal_link
 from database.store import (
     CategoryInUse,
     CategoryLocked,
@@ -69,6 +71,7 @@ class FakeStore:
         category_budgets: dict[tuple[str, int, int], float] | None = None,
         transactions: list[Transaction] | None = None,
         budget_suggestion: BudgetSuggestion | None = None,
+        goals: list[Goal] | None = None,
     ):
         self._existing_rows = list(existing_rows or [])
         self._recurring_rules = list(recurring_rules or [])
@@ -76,6 +79,7 @@ class FakeStore:
         self._category_budgets: dict[tuple[str, int, int], float] = dict(category_budgets or {})
         self._transactions = list(transactions or [])
         self._budget_suggestion = budget_suggestion
+        self._goals = list(goals or [])
         self._stored_recurring_rules: list[StoredRecurringRule] = []
         self._next_rule_id = 0
         self._next_transaction_id = max((t.id for t in self._transactions), default=0)
@@ -92,8 +96,33 @@ class FakeStore:
     def append_rows(self, candidates: list[Candidate]) -> None:
         self.appended.extend(candidates)
 
+    def read_goals(self) -> list[Goal]:
+        return list(self._goals)
+
+    def read_goal(self, goal_id: int) -> Goal:
+        for goal in self._goals:
+            if goal.id == goal_id:
+                return goal
+        raise GoalNotFound(f"No Goal has id {goal_id}")
+
+    def read_goal_savings(self) -> dict[int, float]:
+        savings: dict[int, float] = {}
+        for transaction in self._transactions:
+            if transaction.goal_id is not None:
+                savings[transaction.goal_id] = round(savings.get(transaction.goal_id, 0.0) + transaction.amount, 2)
+        return savings
+
+    def _require_valid_goal_link(self, candidate: Candidate, current_goal_id: int | None) -> None:
+        goal = next((g for g in self._goals if g.id == candidate.goal_id), None)
+        require_valid_goal_link(candidate.category, candidate.goal_id, goal, current_goal_id)
+
+    def _goal_title(self, goal_id: int | None) -> str | None:
+        goal = next((g for g in self._goals if g.id == goal_id), None)
+        return goal.title if goal is not None else None
+
     def create_transaction(self, candidate: Candidate) -> Transaction:
         self._require_valid_pair(candidate.type, candidate.category)
+        self._require_valid_goal_link(candidate, current_goal_id=None)
         self._next_transaction_id += 1
         created = Transaction(
             id=self._next_transaction_id,
@@ -102,6 +131,8 @@ class FakeStore:
             type=candidate.type,
             category=candidate.category,
             notes=candidate.notes,
+            goal_id=candidate.goal_id,
+            goal_title=self._goal_title(candidate.goal_id),
         )
         self._transactions.append(created)
         return created
@@ -109,6 +140,7 @@ class FakeStore:
     def update_transaction(self, transaction_id: int, candidate: Candidate) -> Transaction:
         self._require_valid_pair(candidate.type, candidate.category)
         index = self._transaction_index(transaction_id)
+        self._require_valid_goal_link(candidate, current_goal_id=self._transactions[index].goal_id)
         updated = Transaction(
             id=transaction_id,
             date=candidate.date,
@@ -116,6 +148,8 @@ class FakeStore:
             type=candidate.type,
             category=candidate.category,
             notes=candidate.notes,
+            goal_id=candidate.goal_id,
+            goal_title=self._goal_title(candidate.goal_id),
         )
         self._transactions[index] = updated
         return updated

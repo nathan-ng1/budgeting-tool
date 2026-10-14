@@ -11,11 +11,17 @@ from datetime import date
 
 from goals.figures import describe
 from goals.goal import ACTIVE, Goal, GoalDraft
+from transaction_log.entries import Candidate
+
+# Contributions are Savings-Type Transactions in the locked Goals Category.
+CONTRIBUTION_TYPE = "Savings"
+CONTRIBUTION_CATEGORY = "Goals"
 
 
-def as_payload(goal: Goal, today: date) -> dict:
+def as_payload(goal: Goal, today: date, saved: float = 0.0) -> dict:
     """One Goal: its own fields, its lifecycle `state`, and every derived
-    figure, all measured against the one `today`."""
+    figure, all measured against the one `today`. `saved` is the sum of the
+    Goal's linked Contributions."""
     return {
         "id": goal.id,
         "title": goal.title,
@@ -24,17 +30,48 @@ def as_payload(goal: Goal, today: date) -> dict:
         "start_date": goal.start_date.isoformat(),
         "end_date": goal.end_date.isoformat(),
         "state": goal.state,
-        **asdict(describe(goal, saved=0.0, today=today)),
+        **asdict(describe(goal, saved=saved, today=today)),
     }
 
 
-def list_payload(goals: list[Goal], today: date) -> dict:
-    """Active Goals in `goals`, the rest in `past` (archived or deleted)."""
+def list_payload(goals: list[Goal], today: date, savings: dict[int, float] | None = None) -> dict:
+    """Active Goals in `goals`, the rest in `past` (archived or deleted).
+    `savings` maps a Goal id to its saved amount; a Goal not in it has none."""
+    savings = savings or {}
     return {
         "today": today.isoformat(),
-        "goals": [as_payload(goal, today) for goal in goals if goal.state == ACTIVE],
-        "past": [as_payload(goal, today) for goal in goals if goal.state != ACTIVE],
+        "goals": [as_payload(goal, today, savings.get(goal.id, 0.0)) for goal in goals if goal.state == ACTIVE],
+        "past": [as_payload(goal, today, savings.get(goal.id, 0.0)) for goal in goals if goal.state != ACTIVE],
     }
+
+
+def contribution_from_payload(goal: Goal, payload) -> Candidate:
+    """The Candidate an Add contribution request describes: a Goals-Category
+    Savings Transaction linked to `goal`. Notes default to the Goal's title.
+    Whether the Goal can take it (it must be active) is the store's call."""
+    if not isinstance(payload, dict):
+        raise ValueError("Expected a JSON object describing one Contribution")
+
+    missing = [field for field in ("amount", "date") if field not in payload]
+    if missing:
+        raise ValueError(f"Missing required field(s): {', '.join(missing)}")
+
+    amount = payload["amount"]
+    if isinstance(amount, bool) or not isinstance(amount, (int, float)) or not amount > 0:
+        raise ValueError("The Contribution amount must be a number above zero")
+
+    notes = payload.get("notes")
+    if notes is not None and not isinstance(notes, str):
+        raise ValueError("notes must be text")
+
+    return Candidate(
+        date=_date(payload["date"], "date"),
+        amount=float(amount),
+        type=CONTRIBUTION_TYPE,
+        category=CONTRIBUTION_CATEGORY,
+        notes=(notes or "").strip() or goal.title,
+        goal_id=goal.id,
+    )
 
 
 def draft_from_payload(payload) -> GoalDraft:

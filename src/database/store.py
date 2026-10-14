@@ -4,6 +4,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from goals.goal import ACTIVE, Goal, GoalDraft, GoalNotFound
+from goals.links import require_valid_goal_link
 
 from budget_suggestions.suggestion import BudgetSuggestion
 from database.backup import backup_to
@@ -40,7 +41,11 @@ CREATE TABLE IF NOT EXISTS transactions (
     amount REAL NOT NULL,
     type TEXT NOT NULL,
     category_id INTEGER NOT NULL REFERENCES categories(id),
-    notes TEXT NOT NULL
+    notes TEXT NOT NULL,
+    -- The Goal a Contribution (Category Goals) belongs to; NULL for every other
+    -- row. Not enforced by SQLite - the store checks it (ADR-0031). An existing
+    -- file gets the column from migration.add_goals, not from here.
+    goal_id INTEGER REFERENCES goals(id)
 );
 
 CREATE TABLE IF NOT EXISTS recurring_rules (
@@ -155,6 +160,16 @@ class LocalStore:
         Windows won't let an open SQLite file go (ADR-0030)."""
         self._connection.close()
 
+    def pending_migration_names(self) -> list[str]:
+        """The registered one-off migrations this Database has not had yet
+        (ADR-0025). Read-only: the Dashboard checks this at startup and
+        refuses to run while any are pending."""
+        # Imported here, not at module level: the migrations import this module.
+        from migration.registry import MIGRATIONS
+        from migration.runner import pending
+
+        return [migration.name for migration in pending(self._connection, MIGRATIONS)]
+
     def read_existing_rows(self) -> list[ExistingRow]:
         rows = self._connection.execute("SELECT date, amount, notes FROM transactions").fetchall()
         return [
@@ -177,8 +192,9 @@ class LocalStore:
 
     def read_transactions(self) -> list[Transaction]:
         rows = self._connection.execute(
-            "SELECT t.id, t.date, t.amount, t.type, c.name, t.notes "
-            "FROM transactions t JOIN categories c ON c.id = t.category_id"
+            "SELECT t.id, t.date, t.amount, t.type, c.name, t.notes, t.goal_id, g.title "
+            "FROM transactions t JOIN categories c ON c.id = t.category_id "
+            "LEFT JOIN goals g ON g.id = t.goal_id"
         ).fetchall()
         return [
             Transaction(
@@ -188,8 +204,10 @@ class LocalStore:
                 type=transaction_type,
                 category=category,
                 notes=notes,
+                goal_id=goal_id,
+                goal_title=goal_title,
             )
-            for row_id, row_date, amount, transaction_type, category, notes in rows
+            for row_id, row_date, amount, transaction_type, category, notes, goal_id, goal_title in rows
         ]
 
     def create_transaction(self, candidate: Candidate) -> Transaction:
@@ -198,9 +216,10 @@ class LocalStore:
         # table, so a Category added through Category Management is usable
         # immediately (Issue #91).
         self._require_valid_pair(candidate.type, candidate.category)
+        self._require_valid_goal_link(candidate, current_goal_id=None)
 
         cursor = self._connection.execute(
-            "INSERT INTO transactions (date, amount, type, category_id, notes) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO transactions (date, amount, type, category_id, notes, goal_id) VALUES (?, ?, ?, ?, ?, ?)",
             self._transaction_columns(candidate),
         )
         self._connection.commit()
@@ -208,9 +227,11 @@ class LocalStore:
 
     def update_transaction(self, transaction_id: int, candidate: Candidate) -> Transaction:
         self._require_valid_pair(candidate.type, candidate.category)
+        self._require_valid_goal_link(candidate, current_goal_id=self._current_goal_id(transaction_id))
 
         cursor = self._connection.execute(
-            "UPDATE transactions SET date = ?, amount = ?, type = ?, category_id = ?, notes = ? WHERE id = ?",
+            "UPDATE transactions SET date = ?, amount = ?, type = ?, category_id = ?, notes = ?, goal_id = ? "
+            "WHERE id = ?",
             (*self._transaction_columns(candidate), transaction_id),
         )
         if cursor.rowcount == 0:
@@ -393,6 +414,18 @@ class LocalStore:
         self._connection.commit()
         return self._goal(goal_id)
 
+    def read_goal(self, goal_id: int) -> Goal:
+        """One Goal in any state, or GoalNotFound."""
+        return self._goal(goal_id)
+
+    def read_goal_savings(self) -> dict[int, float]:
+        """Saved so far per Goal: the sum of every linked Contribution, of any
+        date and whatever the Goal's state. A Goal with none is omitted."""
+        rows = self._connection.execute(
+            "SELECT goal_id, SUM(amount) FROM transactions WHERE goal_id IS NOT NULL GROUP BY goal_id"
+        ).fetchall()
+        return {goal_id: round(total, 2) for goal_id, total in rows}
+
     def _goal(self, goal_id: int) -> Goal:
         row = self._connection.execute(
             "SELECT id, title, description, target_amount, start_date, end_date, state FROM goals WHERE id = ?",
@@ -513,6 +546,22 @@ class LocalStore:
         row = self._connection.execute("SELECT id FROM categories WHERE name = ?", (name,)).fetchone()
         return row[0] if row is not None else None
 
+    def _require_valid_goal_link(self, candidate: Candidate, current_goal_id: int | None) -> None:
+        """The Goal-link rules (goals.links) against the live `goals` table."""
+        goal = None
+        if candidate.goal_id is not None:
+            try:
+                goal = self._goal(candidate.goal_id)
+            except GoalNotFound:
+                pass
+        require_valid_goal_link(candidate.category, candidate.goal_id, goal, current_goal_id)
+
+    def _current_goal_id(self, transaction_id: int) -> int | None:
+        row = self._connection.execute("SELECT goal_id FROM transactions WHERE id = ?", (transaction_id,)).fetchone()
+        if row is None:
+            raise TransactionNotFound(f"No Transaction has id {transaction_id}")
+        return row[0]
+
     def _transaction_columns(self, candidate: Candidate) -> tuple:
         return (
             candidate.date.isoformat(),
@@ -520,6 +569,7 @@ class LocalStore:
             candidate.type,
             self._category_id(candidate.category),
             candidate.notes,
+            candidate.goal_id,
         )
 
     def _as_columns(self, rule: RecurringRule) -> tuple:
@@ -614,6 +664,7 @@ def _as_transaction(transaction_id: int, candidate: Candidate) -> Transaction:
         type=candidate.type,
         category=candidate.category,
         notes=candidate.notes,
+        goal_id=candidate.goal_id,
     )
 
 

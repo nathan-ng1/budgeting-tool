@@ -18,6 +18,7 @@ from dashboard.queries import (
     get_transactions_in_range,
 )
 from database.store import connect
+from goals.goal import GoalDraft
 
 
 def test_a_month_with_no_transactions_returns_a_zeroed_result(tmp_path: Path):
@@ -154,6 +155,40 @@ def test_unallocated_is_available_to_save_minus_saved_signed_and_never_clamped(
 
     assert overview.stat_tiles.available_to_save == 350.0
     assert overview.stat_tiles.unallocated == expected_unallocated
+
+
+def test_a_contribution_counts_in_saved_available_to_save_and_unallocated_like_any_savings_row(
+    tmp_path: Path, make_candidate
+):
+    # Contributions (ADR-0031) sit under the Savings Type, so the Saved tile,
+    # Available to Save and Unallocated need no Goals-specific handling.
+    store = connect(tmp_path / "budget.db")
+    goal = store.create_goal(
+        GoalDraft(
+            title="Japan trip",
+            description=None,
+            target_amount=6000.0,
+            start_date=date(2026, 7, 1),
+            end_date=date(2027, 3, 31),
+        )
+    )
+    store.append_rows([make_candidate(date=date(2026, 8, 1), amount=1000.0, type="Income", category="Salary")])
+    store.create_transaction(
+        make_candidate(
+            date=date(2026, 8, 2),
+            amount=300.0,
+            type="Savings",
+            category="Goals",
+            notes="Japan trip",
+            goal_id=goal.id,
+        )
+    )
+
+    tiles = get_month_overview(store, year=2026, month=8).stat_tiles
+
+    assert tiles.saved == 300.0
+    assert tiles.available_to_save == 1000.0
+    assert tiles.unallocated == 700.0
 
 
 def test_transactions_outside_the_selected_month_are_excluded(tmp_path: Path, make_candidate):

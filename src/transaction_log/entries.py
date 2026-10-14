@@ -9,6 +9,9 @@ class Candidate:
     type: str
     category: str
     notes: str
+    # The Goal a Goals-Category Contribution belongs to (ADR-0031); None for
+    # every other Category. The store enforces the pairing.
+    goal_id: int | None = None
 
     def __post_init__(self):
         # The (Type, Category) pair is validated by whichever store call ends
@@ -46,6 +49,9 @@ class Transaction:
     type: str
     category: str
     notes: str
+    goal_id: int | None = None
+    # The linked Goal's current title, for display; filled by the store's read.
+    goal_title: str | None = None
 
 
 @dataclass(frozen=True)
