@@ -25,6 +25,8 @@ import TopMerchants from "./components/TopMerchants.jsx";
 import Transactions from "./components/Transactions.jsx";
 import VersionHistory from "./components/VersionHistory.jsx";
 import YourData from "./components/YourData.jsx";
+// PROTOTYPE (issue #209) - throwaway wiring; see src/prototype/goals/.
+import { GoalsTab, GoalsTile, PrototypeSwitcher } from "./prototype/goals/GoalsPrototype.jsx";
 import {
   fetchAnnualOverview,
   fetchLatestTransactionDate,
@@ -47,8 +49,8 @@ import {
 // Settings holds the Recurring Transactions Config editor (Issue #29);
 // Transactions holds the read-only Transaction list (Issue #33); Budget holds
 // the per-month Category Budget editor (Issue #62).
-const TABS = ["Overview", "Transactions", "Budget", "Settings"];
-const WIRED_TABS = ["Overview", "Transactions", "Budget", "Settings"];
+const TABS = ["Overview", "Transactions", "Budget", "Goals", "Settings"];
+const WIRED_TABS = ["Overview", "Transactions", "Budget", "Goals", "Settings"];
 
 // Loads the localisation settings (ADR-0027) once and hands them to the whole
 // Dashboard through context, so every amount is drawn in the saved Display
@@ -321,7 +323,7 @@ function Dashboard({ settings, onSettingsSaved }) {
           <VersionHistory history={history} currentVersion={version} onBack={() => setShowingHistory(false)} />
         )}
 
-        {visibleTab !== null && visibleTab !== "Settings" && (
+        {visibleTab !== null && visibleTab !== "Settings" && visibleTab !== "Goals" && (
           <PeriodSwitcher
             periodType={periodType}
             referenceYear={referenceYear}
@@ -367,6 +369,9 @@ function Dashboard({ settings, onSettingsSaved }) {
 
         {visibleTab === "Transactions" && <Transactions periodType={periodType} referenceYear={referenceYear} />}
 
+        {visibleTab === "Goals" && <GoalsTab />}
+        {(visibleTab === "Goals" || visibleTab === "Overview") && <PrototypeSwitcher />}
+
         {visibleTab === "Budget" && (
           <Budget
             periodType={periodType}
@@ -395,6 +400,7 @@ function Dashboard({ settings, onSettingsSaved }) {
             {error === null && overview !== null && (
               <>
                 <StatTiles tiles={overview.stat_tiles} average={selected === null ? overview.monthly_average : undefined} />
+                <GoalsTile onViewAll={() => setTab("Goals")} />
                 <div className="row--allocation">
                   <IncomeAllocation allocation={overview.income_allocation} income={overview.stat_tiles.income} />
                   <BalanceCheck
