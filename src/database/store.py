@@ -3,6 +3,8 @@ import sqlite3
 from datetime import date, datetime
 from pathlib import Path
 
+from goals.goal import ACTIVE, Goal, GoalDraft, GoalNotFound
+
 from budget_suggestions.suggestion import BudgetSuggestion
 from database.backup import backup_to
 from recurring.rules import RecurringRule, StoredRecurringRule
@@ -66,6 +68,18 @@ CREATE TABLE IF NOT EXISTS budget_suggestion (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     write_up TEXT NOT NULL,
     generated_at TEXT NOT NULL
+);
+
+-- Goals (ADR-0031): the user's own fields plus a lifecycle state. Status, saved
+-- amount and pace are derived, never stored.
+CREATE TABLE IF NOT EXISTS goals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    description TEXT,
+    target_amount REAL NOT NULL,
+    start_date TEXT NOT NULL,
+    end_date TEXT NOT NULL,
+    state TEXT NOT NULL DEFAULT 'active'
 );
 
 -- Localisation settings (ADR-0027): only what has been saved. A setting with
@@ -334,6 +348,69 @@ class LocalStore:
         )
         self._connection.commit()
 
+    def read_goals(self) -> list[Goal]:
+        """Every Goal in any state, oldest first."""
+        rows = self._connection.execute(
+            "SELECT id, title, description, target_amount, start_date, end_date, state FROM goals ORDER BY id"
+        ).fetchall()
+        return [_as_goal(row) for row in rows]
+
+    def create_goal(self, draft: GoalDraft) -> Goal:
+        self._require_unique_goal_title(draft.title, except_id=None)
+
+        cursor = self._connection.execute(
+            "INSERT INTO goals (title, description, target_amount, start_date, end_date, state) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                draft.title,
+                draft.description,
+                draft.target_amount,
+                draft.start_date.isoformat(),
+                draft.end_date.isoformat(),
+                ACTIVE,
+            ),
+        )
+        self._connection.commit()
+        return self._goal(cursor.lastrowid)
+
+    def update_goal(self, goal_id: int, draft: GoalDraft) -> Goal:
+        """Replace a Goal's own fields. Its lifecycle state is left alone."""
+        self._goal(goal_id)
+        self._require_unique_goal_title(draft.title, except_id=goal_id)
+
+        self._connection.execute(
+            "UPDATE goals SET title = ?, description = ?, target_amount = ?, start_date = ?, end_date = ? "
+            "WHERE id = ?",
+            (
+                draft.title,
+                draft.description,
+                draft.target_amount,
+                draft.start_date.isoformat(),
+                draft.end_date.isoformat(),
+                goal_id,
+            ),
+        )
+        self._connection.commit()
+        return self._goal(goal_id)
+
+    def _goal(self, goal_id: int) -> Goal:
+        row = self._connection.execute(
+            "SELECT id, title, description, target_amount, start_date, end_date, state FROM goals WHERE id = ?",
+            (goal_id,),
+        ).fetchone()
+        if row is None:
+            raise GoalNotFound(f"No Goal has id {goal_id}")
+        return _as_goal(row)
+
+    def _require_unique_goal_title(self, title: str, except_id: int | None) -> None:
+        """A title is unique across every Goal, Past goals included, ignoring
+        case and surrounding spaces. Folded in code with `casefold()`, not by
+        a column constraint: SQLite's `lower()` and NOCASE fold ASCII only."""
+        wanted = title.strip().casefold()
+        for goal in self.read_goals():
+            if goal.id != except_id and goal.title.strip().casefold() == wanted:
+                raise ValueError(f"Another Goal already uses the title {goal.title!r} (Past goals count too)")
+
     def read_categories(self) -> list[Category]:
         """Every Category, sourced from the `categories` table (Issue #90) -
         the DB-backed replacement for the hardcoded CATEGORIES_BY_TYPE dict.
@@ -489,7 +566,7 @@ class LocalStore:
 
     def count_data(self) -> dict[str, int]:
         """How much the user has put in the Database, for the delete flow's
-        "what will be lost" list (Issue #201): rows in each user-owned table,
+        "what will be lost" list (Issue #201): rows in each user-owned table (Goals in any state),
         Categories beyond the predefined ones, and saved Display Settings
         (the `settings` row recording the latest Backup is not one)."""
 
@@ -502,6 +579,7 @@ class LocalStore:
             "transactions": count("transactions"),
             "recurring_rules": count("recurring_rules"),
             "category_budgets": count("category_budgets"),
+            "goals": count("goals"),
             "custom_categories": sum(1 for row in categories if tuple(row) not in predefined),
             "display_settings": len(set(self.read_settings()) - {LAST_BACKED_UP_KEY}),
         }
@@ -536,6 +614,19 @@ def _as_transaction(transaction_id: int, candidate: Candidate) -> Transaction:
         type=candidate.type,
         category=candidate.category,
         notes=candidate.notes,
+    )
+
+
+def _as_goal(columns) -> Goal:
+    goal_id, title, description, target_amount, start_date, end_date, state = columns
+    return Goal(
+        id=goal_id,
+        title=title,
+        description=description,
+        target_amount=target_amount,
+        start_date=date.fromisoformat(start_date),
+        end_date=date.fromisoformat(end_date),
+        state=state,
     )
 
 

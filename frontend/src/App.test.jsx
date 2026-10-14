@@ -802,8 +802,53 @@ describe("App", () => {
 
     expect(within(nav).getByText("Transactions")).toBeInTheDocument();
     expect(within(nav).getByText("Budget")).toBeInTheDocument();
+    expect(within(nav).getByText("Goals")).toBeInTheDocument();
     expect(within(nav).getByText("Settings")).toBeInTheDocument();
     expect(within(nav).getByText("Overview")).toHaveAttribute("aria-current", "page");
+  });
+
+  it("opens the Goals tab with no Financial Year switcher, showing the Goals from the backend", async () => {
+    respondWith({
+      extra: {
+        "/api/goals": {
+          today: "2026-10-14",
+          goals: [
+            {
+              id: 1,
+              title: "Japan trip",
+              description: null,
+              target_amount: 6000,
+              start_date: "2026-07-01",
+              end_date: "2027-03-31",
+              state: "active",
+              saved: 0,
+              remaining: 6000,
+              over: 0,
+              fraction: 0,
+              status: "Active",
+              flag: "Behind",
+              pace_fraction: 0.4,
+              pace_amount: 2400,
+              on_track: false,
+              months_left: 6,
+              required_per_month: 1000,
+              original_plan_per_month: 667,
+            },
+          ],
+          past: [],
+        },
+      },
+    });
+    render(<App />);
+    await screen.findByText("$8,000");
+    expect(screen.getByRole("group", { name: "Select year" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Goals" }));
+
+    expect(await screen.findByRole("heading", { name: "Japan trip" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Goals" })).toHaveAttribute("aria-current", "page");
+    expect(screen.queryByRole("group", { name: "Select year" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Financial Year or Calendar Year" })).not.toBeInTheDocument();
   });
 
   describe("Financial Year/Calendar Year switcher", () => {
@@ -1848,6 +1893,7 @@ describe("Version", () => {
       "/api/budget-editor": { Income: [], Expense: [], Debt: [] },
       "/api/budget-grid": { Income: [], Expense: [], Debt: [] },
       "/api/budget-suggestion": { write_up: null, generated_at: null },
+      "/api/goals": { today: "2026-08-03", goals: [], past: [] },
       "/api/recurring-rules": [],
       "/api/categories": [],
     };
@@ -1877,7 +1923,7 @@ describe("Version", () => {
     render(<App />);
     await screen.findByText("v0.4.1");
 
-    for (const tab of ["Transactions", "Budget", "Settings", "Overview"]) {
+    for (const tab of ["Transactions", "Budget", "Goals", "Settings", "Overview"]) {
       await userEvent.click(screen.getByRole("button", { name: tab }));
       expect(screen.getByText("v0.4.1")).toBeInTheDocument();
     }
@@ -1912,6 +1958,7 @@ describe("Version History", () => {
       "/api/budget-editor": { Income: [], Expense: [], Debt: [] },
       "/api/budget-grid": { Income: [], Expense: [], Debt: [] },
       "/api/budget-suggestion": { write_up: null, generated_at: null },
+      "/api/goals": { today: "2026-08-03", goals: [], past: [] },
       "/api/recurring-rules": [],
       "/api/categories": [],
       "/api/settings": { currency: "AUD", financial_year_start_month: 7, date_order: "day-first", ...settings },
@@ -1931,7 +1978,7 @@ describe("Version History", () => {
     respondWith();
     render(<App />);
 
-    for (const tab of ["Overview", "Transactions", "Budget", "Settings"]) {
+    for (const tab of ["Overview", "Transactions", "Budget", "Goals", "Settings"]) {
       await userEvent.click(await screen.findByRole("button", { name: tab }));
       expect(within(screen.getByRole("banner")).getByRole("button", { name: "Version history" })).toBeInTheDocument();
     }

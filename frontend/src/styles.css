@@ -3029,3 +3029,127 @@ tbody:first-of-type .table th.table__section {
   gap: 8px;
   margin-top: 18px;
 }
+
+/* — Goals tab (Goals spec section 10) — */
+
+.goals {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.goals__muted {
+  color: var(--color-neutral-600);
+  font-size: 13px;
+}
+
+.goals__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.goals__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.goals__clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 6px 0 0;
+}
+
+.goals__form {
+  margin-top: 0;
+}
+
+.goals__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 14px;
+}
+
+.goals__card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.goals__card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.goals__card .goals__actions {
+  margin-top: 14px;
+}
+
+.goals__headline {
+  margin-top: 10px;
+  font-family: var(--font-heading);
+  font-size: 24px;
+  letter-spacing: -0.015em;
+}
+
+/* The progress bar, with a tick where an even pace would have the Goal today. */
+.goals__bar {
+  position: relative;
+  height: 12px;
+  margin: 12px 0 8px;
+  border-radius: 999px;
+  background: var(--color-neutral-200);
+}
+
+.goals__bar-fill {
+  height: 100%;
+  border-radius: 999px;
+}
+
+.goals__bar-fill--ok {
+  background: var(--color-positive);
+}
+
+.goals__bar-fill--behind {
+  background: var(--color-negative);
+}
+
+.goals__bar-pace {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  background: var(--color-text);
+  opacity: 0.7;
+}
+
+.goals__chip {
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.goals__chip--good {
+  background: var(--color-positive-tint);
+  color: var(--color-positive);
+}
+
+.goals__chip--bad {
+  background: var(--color-negative-tint);
+  color: var(--color-negative);
+}
+
+.goals__chip--muted {
+  background: var(--color-neutral-200);
+  color: var(--color-neutral-700);
+}
