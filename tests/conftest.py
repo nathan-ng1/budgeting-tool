@@ -116,6 +116,10 @@ class FakeStore:
         goal = next((g for g in self._goals if g.id == candidate.goal_id), None)
         require_valid_goal_link(candidate.category, candidate.goal_id, goal, current_goal_id)
 
+    def _goal_state(self, goal_id: int | None) -> str | None:
+        goal = next((g for g in self._goals if g.id == goal_id), None)
+        return goal.state if goal is not None else None
+
     def _goal_title(self, goal_id: int | None) -> str | None:
         goal = next((g for g in self._goals if g.id == goal_id), None)
         return goal.title if goal is not None else None
@@ -133,6 +137,7 @@ class FakeStore:
             notes=candidate.notes,
             goal_id=candidate.goal_id,
             goal_title=self._goal_title(candidate.goal_id),
+            goal_state=self._goal_state(candidate.goal_id),
         )
         self._transactions.append(created)
         return created
@@ -150,6 +155,7 @@ class FakeStore:
             notes=candidate.notes,
             goal_id=candidate.goal_id,
             goal_title=self._goal_title(candidate.goal_id),
+            goal_state=self._goal_state(candidate.goal_id),
         )
         self._transactions[index] = updated
         return updated

@@ -95,12 +95,17 @@ def draft_from_payload(payload) -> GoalDraft:
     if isinstance(target, bool) or not isinstance(target, (int, float)):
         raise ValueError("target_amount must be a number")
 
+    state = payload.get("state")
+    if state is not None and state != ACTIVE:
+        raise ValueError("state can only be set to 'active' (to reactivate a Past goal)")
+
     return GoalDraft(
         title=title.strip(),
         description=(description.strip() or None) if description is not None else None,
         target_amount=float(target),
         start_date=_date(payload["start_date"], "start_date"),
         end_date=_date(payload["end_date"], "end_date"),
+        reactivate=state == ACTIVE,
     )
 
 

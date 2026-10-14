@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { addContribution, createGoal, fetchGoals, updateGoal } from "../lib/goalsApi.js";
+import { addContribution, archiveGoal, createGoal, deleteGoal, fetchGoals, updateGoal } from "../lib/goalsApi.js";
 import { useMoney } from "../lib/settings.jsx";
 import GoalCard from "./GoalCard.jsx";
 import GoalForm from "./GoalForm.jsx";
+import PastGoals from "./PastGoals.jsx";
 
 const plural = (count, word) => `${count} ${word}${count === 1 ? "" : "s"}`;
 
@@ -48,10 +49,10 @@ export default function Goals() {
     return <p className="state state--page">Loading your goals&hellip;</p>;
   }
 
-  const { goals, today } = data;
+  const { goals, past = [], today } = data;
   const savedToGoals = goals.reduce((sum, goal) => sum + goal.saved, 0);
   const activeCount = goals.filter((goal) => goal.status === "Active").length;
-  const editing = panel !== null && panel !== "new" ? goals.find((goal) => goal.id === panel.edit) : null;
+  const editing = panel !== null && panel !== "new" ? [...goals, ...past].find((goal) => goal.id === panel.edit) : null;
 
   async function save(fields) {
     if (editing) {
@@ -61,6 +62,11 @@ export default function Goals() {
     }
     await load();
     setPanel(null);
+  }
+
+  async function moveToPast(goal, move) {
+    await move(goal.id);
+    await load();
   }
 
   async function contribute(goal, contribution) {
@@ -87,7 +93,7 @@ export default function Goals() {
       </section>
 
       {panel === "new" && <GoalForm today={today} onSave={save} onCancel={() => setPanel(null)} />}
-      {editing && <GoalForm key={editing.id} initial={editing} today={today} onSave={save} onCancel={() => setPanel(null)} />}
+      {editing && <GoalForm key={editing.id} initial={editing} reactivate={editing.state !== "active"} today={today} onSave={save} onCancel={() => setPanel(null)} />}
 
       {goals.length === 0 ? (
         <p className="state">No goals yet. Add one to start working out what to put aside each month.</p>
@@ -100,10 +106,14 @@ export default function Goals() {
               today={today}
               onEdit={() => setPanel({ edit: goal.id })}
               onAddContribution={contribute}
+              onArchive={() => moveToPast(goal, archiveGoal)}
+              onDelete={() => moveToPast(goal, deleteGoal)}
             />
           ))}
         </div>
       )}
+
+      <PastGoals past={past} onReactivate={(goal) => setPanel({ edit: goal.id })} />
     </div>
   );
 }
