@@ -16,22 +16,16 @@ from database.store import (
 )
 from recurring.rules import RecurringRule, StoredRecurringRule
 from statement_export.parser import RawTransaction
-from transaction_log.categories import CATEGORIES_BY_TYPE, TYPE_ORDER, Category
+from transaction_log.categories import TYPE_ORDER, Category, default_category_rows
 from transaction_log.entries import Candidate, ExistingRow, Transaction
 
-# FakeStore.read_categories()'s default - mirrors database.store's own
-# _seed_default_categories bootstrap (Beem Adjustment locked), so a test using
-# FakeStore sees the same Category list a fresh LocalStore would.
+# FakeStore.read_categories()'s default - built from the same
+# default_category_rows() that database.store's _seed_default_categories
+# bootstrap uses, so a test using FakeStore sees the same Category list a
+# fresh LocalStore would.
 _DEFAULT_CATEGORIES = [
-    Category(id=i, type=transaction_type, name=name, emoji=None, locked=(name == "Beem Adjustment"))
-    for i, (transaction_type, name) in enumerate(
-        (
-            (transaction_type, name)
-            for transaction_type, names in CATEGORIES_BY_TYPE.items()
-            for name in sorted(names)
-        ),
-        start=1,
-    )
+    Category(id=i, type=transaction_type, name=name, emoji=emoji, locked=locked)
+    for i, (transaction_type, name, emoji, locked) in enumerate(default_category_rows(), start=1)
 ]
 
 

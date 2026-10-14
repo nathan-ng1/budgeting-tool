@@ -7,7 +7,7 @@ import { createCategory, deleteCategory, fetchCategories, updateCategory } from 
 // Category Management (Issue #91) - one card spanning all five fixed Types,
 // each holding a chip per Category. Add/edit happen inline in the chip grid;
 // delete goes through an inline "Delete 'X'?" confirm step rather than a
-// native confirm() dialog. Beem Adjustment (or any other locked Category)
+// native confirm() dialog. Any locked Category (e.g. Beem Adjustment)
 // shows with no edit/delete controls - the store itself refuses those
 // mutations regardless, this is only the UI matching that.
 export default function CategoryManagement() {
