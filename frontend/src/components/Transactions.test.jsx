@@ -160,7 +160,7 @@ describe("Transactions", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Add transaction" }));
     await userEvent.selectOptions(screen.getByLabelText("Type"), "Savings");
     const [categorySelect] = screen.getAllByLabelText("Category");
-    expect(within(categorySelect).getByRole("option", { name: "🎯 Goals" })).toBeInTheDocument();
+    expect(within(categorySelect).getByRole("option", { name: /🎯 Goals/ })).toBeInTheDocument();
   });
 
   it("says so plainly when the current Financial Year has no Transactions", async () => {
