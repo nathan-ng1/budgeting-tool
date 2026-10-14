@@ -4,8 +4,10 @@ from transaction_log.categories import (
     AI_EXCLUDED_TYPES,
     CATEGORIES_BY_TYPE,
     TYPE_ORDER,
+    LOCKED_CATEGORIES,
     Category,
     assignable_categories_by_type,
+    default_category_rows,
     is_valid_type_category_pair,
     type_for_category,
     types_with_categories,
@@ -155,3 +157,23 @@ def test_types_with_categories_omits_savings_from_the_default_mapping():
 
 def test_types_with_categories_accepts_an_explicit_mapping():
     assert types_with_categories({"B": {"x"}, "A": {"y"}, "C": set()}) == ["A", "B"]
+
+
+def test_beem_adjustment_is_the_one_locked_predefined_category_with_no_emoji():
+    assert LOCKED_CATEGORIES == {"Beem Adjustment": None}
+
+
+def test_default_category_rows_cover_every_predefined_category_and_lock_only_the_shared_list():
+    rows = default_category_rows()
+
+    assert {(t, n) for t, n, _, _ in rows} == {(t, n) for t, names in CATEGORIES_BY_TYPE.items() for n in names}
+    assert {n for _, n, _, locked in rows if locked} == {"Beem Adjustment"}
+    assert all(emoji is None for _, _, emoji, _ in rows)
+
+
+def test_adding_to_the_locked_list_locks_that_category_with_its_emoji_in_the_default_rows(monkeypatch):
+    monkeypatch.setitem(LOCKED_CATEGORIES, "Groceries", "G")
+
+    [row] = [r for r in default_category_rows() if r[1] == "Groceries"]
+
+    assert row == ("Expense", "Groceries", "G", True)
