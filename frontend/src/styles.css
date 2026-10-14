@@ -2387,6 +2387,25 @@ tbody:first-of-type .bva__section {
   color: var(--color-accent-700);
 }
 
+/* The Goal a Goals-Category Transaction contributes to (Transactions tab).
+   Muted once the Goal is archived or deleted. */
+.goal-chip {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--color-neutral-300);
+  background: var(--color-neutral-100);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.goal-chip--muted {
+  color: var(--color-neutral-500);
+  font-weight: 400;
+}
+
 .category-chip--form {
   flex-wrap: wrap;
   background: var(--color-card);

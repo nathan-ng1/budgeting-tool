@@ -3,7 +3,18 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { categoryLabel, emojiLookup, groupByType } from "../lib/categories.js";
 import { useMoney, useSettings } from "../lib/settings.jsx";
 import { periodDateRange, periodFor, periodLabel, startMonthFor } from "../lib/period.js";
-import { blankValues, toPayload, valuesFrom, withType } from "../lib/transactionForm.js";
+import GoalChip from "./GoalChip.jsx";
+import { fetchGoals } from "../lib/goalsApi.js";
+import {
+  GOALS_CATEGORY,
+  blankValues,
+  goalOptions,
+  toPayload,
+  valuesFrom,
+  withCategory,
+  withGoal,
+  withType,
+} from "../lib/transactionForm.js";
 import {
   ALL_CATEGORIES,
   ALL_MONTHS,
@@ -58,6 +69,8 @@ export default function Transactions({ periodType, referenceYear }) {
   const [transactions, setTransactions] = useState(null);
   const [categories, setCategories] = useState({});
   const [categoryList, setCategoryList] = useState([]);
+  // The active Goals the Goal picker offers (Goals spec section 5).
+  const [activeGoals, setActiveGoals] = useState([]);
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [sort, setSort] = useState(DEFAULT_SORT);
@@ -96,13 +109,15 @@ export default function Transactions({ periodType, referenceYear }) {
   }, [menuOpen]);
 
   const load = useCallback(async (signal) => {
-    const [loadedTransactions, loadedCategories] = await Promise.all([
+    const [loadedTransactions, loadedCategories, loadedGoals] = await Promise.all([
       fetchTransactions({ year: referenceYear, month: startMonthFor(periodType, financialStartMonth) }, { signal }),
       fetchCategories({ signal }),
+      fetchGoals({ signal }),
     ]);
     setTransactions(loadedTransactions);
     setCategories(groupByType(loadedCategories));
     setCategoryList(loadedCategories);
+    setActiveGoals(loadedGoals?.goals ?? []);
   }, [periodType, referenceYear, financialStartMonth]);
 
   // The same flat list `categories` above was grouped from, kept around
@@ -284,6 +299,8 @@ export default function Transactions({ periodType, referenceYear }) {
           initial={adding}
           categories={categories}
           emoji={emoji}
+          goals={activeGoals}
+          adding
           onCancel={() => setAdding(null)}
           onSave={saveNew}
         />
@@ -398,6 +415,7 @@ export default function Transactions({ periodType, referenceYear }) {
                           initial={editing.values}
                           categories={categories}
                           emoji={emoji}
+                          goals={activeGoals}
                           onCancel={() => setEditing(null)}
                           onSave={saveEdit}
                         />
@@ -409,7 +427,10 @@ export default function Transactions({ periodType, referenceYear }) {
                         <td>{transaction.date}</td>
                         <td className="table__num">{preciseMoney(transaction.amount)}</td>
                         <td>{transaction.type}</td>
-                        <td>{categoryLabel(transaction.category, emoji)}</td>
+                        <td>
+                          {categoryLabel(transaction.category, emoji)}
+                          <GoalChip title={transaction.goal_title} state={transaction.goal_state ?? "active"} />
+                        </td>
                         <td>{transaction.notes}</td>
                         <td className="table__actions">
                           {deletingId === transaction.id ? (
@@ -492,7 +513,7 @@ export default function Transactions({ periodType, referenceYear }) {
 // EditableRow (in-row, for Edit) - same values/error/saving/save behaviour,
 // just wrapped in a <form> versus a <tr> because the two live in different
 // places on the page (see Issue #35).
-function useTransactionEditor(initial, categories, onSave) {
+function useTransactionEditor(initial, categories, onSave, goals, adding) {
   const [values, setValues] = useState(initial);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -506,6 +527,20 @@ function useTransactionEditor(initial, categories, onSave) {
 
   function setType(type) {
     setValues((current) => withType(current, type, categories));
+  }
+
+  // The active Goals, plus the row's own Goal when editing a row whose Goal
+  // has since been archived or deleted.
+  const goalChoices = goalOptions(goals, values.currentGoal);
+  const showGoalPicker = values.category === GOALS_CATEGORY;
+
+  function setCategory(category) {
+    setValues((current) => withCategory(current, category));
+  }
+
+  // Notes follow the Goal's title only when adding; editing never rewrites them.
+  function setGoal(goalId) {
+    setValues((current) => withGoal(current, goalId, goalChoices, { defaultNotes: adding }));
   }
 
   async function save() {
@@ -522,7 +557,40 @@ function useTransactionEditor(initial, categories, onSave) {
     }
   }
 
-  return { values, set, setType, types, allowed, error, saving, save };
+  return { values, set, setType, setCategory, setGoal, goalChoices, showGoalPicker, types, allowed, error, saving, save };
+}
+
+// The Category <option>s shared by the add form and the in-row editor. Goals
+// stays listed with no active Goal to take a Contribution, but disabled and
+// labelled, so the Category isn't mysteriously missing.
+function CategoryOptions({ allowed, emoji, goalChoices }) {
+  return (
+    <>
+      <option value="">Choose a Category</option>
+      {allowed.map((category) => {
+        const unavailable = category === GOALS_CATEGORY && goalChoices.length === 0;
+        return (
+          <option key={category} value={category} disabled={unavailable}>
+            {categoryLabel(category, emoji)}
+            {unavailable ? " (no active Goals)" : ""}
+          </option>
+        );
+      })}
+    </>
+  );
+}
+
+function GoalOptions({ goalChoices }) {
+  return (
+    <>
+      <option value="">Choose a Goal</option>
+      {goalChoices.map((goal) => (
+        <option key={goal.id} value={String(goal.id)}>
+          {goal.label}
+        </option>
+      ))}
+    </>
+  );
 }
 
 // Add Transaction only points at Recurring Transactions Config's split-a-total
@@ -531,12 +599,9 @@ const BILLS_AND_SUBSCRIPTIONS = "Bills & Subscriptions";
 const BILLS_HINT =
   "Tip: for an annual or irregular bill, use Recurring Transactions Config instead — it can split the total across the year for you.";
 
-function TransactionForm({ initial, categories, emoji, onCancel, onSave }) {
-  const { values, set, setType, types, allowed, error, saving, save } = useTransactionEditor(
-    initial,
-    categories,
-    onSave,
-  );
+function TransactionForm({ initial, categories, emoji, goals, adding, onCancel, onSave }) {
+  const { values, set, setType, setCategory, setGoal, goalChoices, showGoalPicker, types, allowed, error, saving, save } =
+    useTransactionEditor(initial, categories, onSave, goals, adding);
   const typeId = useId();
   const billsHintId = useId();
   const showBillsHint = values.type === BILLS_AND_SUBSCRIPTIONS;
@@ -597,15 +662,19 @@ function TransactionForm({ initial, categories, emoji, onCancel, onSave }) {
 
         <label className="field">
           <span className="field__label">Category</span>
-          <select value={values.category} onChange={(event) => set("category", event.target.value)} required>
-            <option value="">Choose a Category</option>
-            {allowed.map((category) => (
-              <option key={category} value={category}>
-                {categoryLabel(category, emoji)}
-              </option>
-            ))}
+          <select value={values.category} onChange={(event) => setCategory(event.target.value)} required>
+            <CategoryOptions allowed={allowed} emoji={emoji} goalChoices={goalChoices} />
           </select>
         </label>
+
+        {showGoalPicker && (
+          <label className="field">
+            <span className="field__label">Goal</span>
+            <select value={values.goalId} onChange={(event) => setGoal(event.target.value)} required>
+              <GoalOptions goalChoices={goalChoices} />
+            </select>
+          </label>
+        )}
 
         <label className="field field--wide">
           <span className="field__label">Notes</span>
@@ -788,12 +857,9 @@ function ImportPanel({ onCancel, onImported }) {
   );
 }
 
-function EditableRow({ initial, categories, emoji, onCancel, onSave }) {
-  const { values, set, setType, types, allowed, error, saving, save } = useTransactionEditor(
-    initial,
-    categories,
-    onSave,
-  );
+function EditableRow({ initial, categories, emoji, goals, onCancel, onSave }) {
+  const { values, set, setType, setCategory, setGoal, goalChoices, showGoalPicker, types, allowed, error, saving, save } =
+    useTransactionEditor(initial, categories, onSave, goals, false);
 
   return (
     <tr className="table__edit">
@@ -818,14 +884,14 @@ function EditableRow({ initial, categories, emoji, onCancel, onSave }) {
         </select>
       </td>
       <td>
-        <select aria-label="Category" value={values.category} onChange={(event) => set("category", event.target.value)}>
-          <option value="">Choose a Category</option>
-          {allowed.map((category) => (
-            <option key={category} value={category}>
-              {categoryLabel(category, emoji)}
-            </option>
-          ))}
+        <select aria-label="Category" value={values.category} onChange={(event) => setCategory(event.target.value)}>
+          <CategoryOptions allowed={allowed} emoji={emoji} goalChoices={goalChoices} />
         </select>
+        {showGoalPicker && (
+          <select aria-label="Goal" required value={values.goalId} onChange={(event) => setGoal(event.target.value)}>
+            <GoalOptions goalChoices={goalChoices} />
+          </select>
+        )}
       </td>
       <td>
         <input type="text" aria-label="Notes" value={values.notes} onChange={(event) => set("notes", event.target.value)} />

@@ -3,11 +3,14 @@ Transactions linked to a Goal, exercised over real HTTP against a real
 LocalStore. The Goal-link rules are enforced by the store, so they are also
 driven through the plain Transactions endpoints."""
 
+import base64
+import io
 import json
 from datetime import date
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+import openpyxl
 import pytest
 
 TODAY = date(2026, 10, 14)
@@ -275,6 +278,60 @@ def test_listing_transactions_carries_the_goal_id_and_title(server):
     by_category = {row["category"]: row for row in rows}
     assert by_category["Goals"]["goal_id"] == goal["id"]
     assert by_category["Goals"]["goal_title"] == "Japan trip"
+    assert by_category["Goals"]["goal_state"] == "active"
     assert by_category["Savings"]["goal_id"] is None
     assert by_category["Savings"]["goal_title"] is None
 
+
+
+def test_changing_the_goal_while_staying_on_goals_moves_the_contribution(server):
+    japan = make_goal(server)
+    car = make_goal(server, title="Car")
+    _, created = call(server, "POST", "/api/transactions", goal_transaction(japan["id"]))
+
+    _, updated = call(server, "PUT", f"/api/transactions/{created['id']}", goal_transaction(car["id"]))
+
+    assert (updated["goal_id"], updated["goal_title"], updated["goal_state"]) == (car["id"], "Car", "active")
+    assert goal_by_id(server, japan["id"])["saved"] == 0.0
+    assert goal_by_id(server, car["id"])["saved"] == 250.0
+
+
+def test_moving_a_row_off_goals_without_dropping_the_link_is_refused(server):
+    goal = make_goal(server)
+    _, created = call(server, "POST", "/api/transactions", goal_transaction(goal["id"]))
+
+    status, _ = failure(
+        server, "PUT", f"/api/transactions/{created['id']}", goal_transaction(goal["id"], category="Savings")
+    )
+
+    assert status == 400
+
+
+def test_a_goals_row_exports_in_the_same_five_columns(server):
+    goal = make_goal(server)
+    call(server, "POST", "/api/transactions", goal_transaction(goal["id"], notes="Top-up"))
+
+    with urlopen(f"http://127.0.0.1:{server.server_port}/api/transactions/export?start=2026-10-01&end=2026-10-31") as r:
+        lines = r.read().decode("utf-8").strip("\r\n").split("\r\n")
+
+    assert lines == ["Date,Amount,Type,Category,Notes", "2026-10-01,250.0,Savings,Goals,Top-up"]
+
+
+def test_import_still_refuses_a_goals_row(server):
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "Transactions"
+    sheet.append(["Date", "Amount", "Type", "Category", "Notes"])
+    sheet.append([date(2026, 10, 1), 250.0, "Savings", "Goals", "Top-up"])
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+
+    _, body = call(
+        server,
+        "POST",
+        "/api/transactions/import-preview",
+        {"file": base64.b64encode(buffer.getvalue()).decode("ascii")},
+    )
+
+    assert [row["outcome"] for row in body["rows"]] == ["rejected"]
+    assert body["candidates"] == []

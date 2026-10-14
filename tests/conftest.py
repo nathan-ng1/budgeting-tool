@@ -1,6 +1,8 @@
 from collections.abc import Sequence
 from datetime import date, datetime
 
+from dataclasses import replace
+
 import pytest
 
 from budget_suggestions.suggestion import BudgetSuggestion
@@ -91,7 +93,11 @@ class FakeStore:
         return list(self._existing_rows)
 
     def read_transactions(self) -> list[Transaction]:
-        return list(self._transactions)
+        # The Goal's current title and state, as the real store's JOIN reads them.
+        return [
+            replace(t, goal_title=self._goal_title(t.goal_id), goal_state=self._goal_state(t.goal_id))
+            for t in self._transactions
+        ]
 
     def append_rows(self, candidates: list[Candidate]) -> None:
         self.appended.extend(candidates)
@@ -116,13 +122,13 @@ class FakeStore:
         goal = next((g for g in self._goals if g.id == candidate.goal_id), None)
         require_valid_goal_link(candidate.category, candidate.goal_id, goal, current_goal_id)
 
-    def _goal_state(self, goal_id: int | None) -> str | None:
-        goal = next((g for g in self._goals if g.id == goal_id), None)
-        return goal.state if goal is not None else None
-
     def _goal_title(self, goal_id: int | None) -> str | None:
         goal = next((g for g in self._goals if g.id == goal_id), None)
         return goal.title if goal is not None else None
+
+    def _goal_state(self, goal_id: int | None) -> str | None:
+        goal = next((g for g in self._goals if g.id == goal_id), None)
+        return goal.state if goal is not None else None
 
     def create_transaction(self, candidate: Candidate) -> Transaction:
         self._require_valid_pair(candidate.type, candidate.category)
