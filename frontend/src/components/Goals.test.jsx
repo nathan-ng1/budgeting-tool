@@ -56,6 +56,17 @@ function backend(initial = [], { refuse = null } = {}) {
       stored = [...stored, created];
       return { ok: true, status: 201, json: async () => created };
     }
+    const contribution = url.match(/^\/api\/goals\/(\d+)\/contributions$/);
+    if (contribution && method === "POST") {
+      const id = Number(contribution[1]);
+      const sent = JSON.parse(options.body);
+      stored = stored.map((g) =>
+        g.id === id
+          ? { ...g, saved: g.saved + sent.amount, fraction: (g.saved + sent.amount) / g.target_amount, flag: "On track" }
+          : g,
+      );
+      return { ok: true, status: 201, json: async () => ({ id: 900, goal_id: id, ...sent }) };
+    }
     const edit = url.match(/^\/api\/goals\/(\d+)$/);
     if (edit && method === "PUT") {
       const id = Number(edit[1]);
@@ -228,6 +239,79 @@ describe("Goals", () => {
     const put = calls.find((call) => call.method === "PUT");
     expect(put.url).toBe("/api/goals/1");
     expect(put.body).toMatchObject({ title: "Japan 2027", target_amount: 6000, end_date: "2027-03-31" });
+  });
+
+  describe("Add contribution", () => {
+    async function openContributionForm() {
+      const card = (await screen.findByRole("heading", { name: "Japan trip" })).closest("section");
+      await userEvent.click(within(card).getByRole("button", { name: "Add contribution" }));
+      return card;
+    }
+
+    it("opens a form with the date defaulting to today and Notes to the Goal's title", async () => {
+      backend([goal()]);
+      renderGoals();
+      await openContributionForm();
+
+      expect(screen.getByLabelText("Date")).toHaveValue("2026-10-14");
+      expect(screen.getByLabelText("Notes")).toHaveValue("Japan trip");
+      expect(screen.getByLabelText("Amount")).toHaveValue(null);
+    });
+
+    it("posts the Contribution to the Goal and refreshes saved, percent funded and the chip", async () => {
+      backend([goal()]);
+      renderGoals();
+      const card = await openContributionForm();
+
+      await userEvent.type(screen.getByLabelText("Amount"), "1500");
+      await userEvent.click(screen.getByRole("button", { name: "Save contribution" }));
+
+      expect(await within(card).findByText("$3,000 of $6,000")).toBeInTheDocument();
+      expect(within(card).getByText("50%")).toBeInTheDocument();
+      expect(within(card).getByText("On track")).toBeInTheDocument();
+      const post = calls.find((call) => call.method === "POST");
+      expect(post.url).toBe("/api/goals/1/contributions");
+      expect(post.body).toEqual({ amount: 1500, date: "2026-10-14", notes: "Japan trip" });
+      expect(screen.queryByLabelText("Amount")).not.toBeInTheDocument();
+    });
+
+    it("sends the edited date and Notes", async () => {
+      backend([goal()]);
+      renderGoals();
+      await openContributionForm();
+
+      await userEvent.type(screen.getByLabelText("Amount"), "20.50");
+      await userEvent.clear(screen.getByLabelText("Notes"));
+      await userEvent.type(screen.getByLabelText("Notes"), "Bonus");
+      await userEvent.clear(screen.getByLabelText("Date"));
+      await userEvent.type(screen.getByLabelText("Date"), "2026-10-01");
+      await userEvent.click(screen.getByRole("button", { name: "Save contribution" }));
+
+      await screen.findByText("$1,521 of $6,000");
+      const post = calls.find((call) => call.method === "POST");
+      expect(post.body).toEqual({ amount: 20.5, date: "2026-10-01", notes: "Bonus" });
+    });
+
+    it("shows the backend's reason when it refuses and keeps the form open", async () => {
+      backend([goal()], { refuse: "Goal 'Japan trip' is not active, so it can't take new Contributions" });
+      renderGoals();
+      await openContributionForm();
+      await userEvent.type(screen.getByLabelText("Amount"), "10");
+      await userEvent.click(screen.getByRole("button", { name: "Save contribution" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("is not active");
+      expect(screen.getByLabelText("Amount")).toHaveValue(10);
+    });
+
+    it("closes without saving when cancelled", async () => {
+      backend([goal()]);
+      renderGoals();
+      await openContributionForm();
+      await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+      expect(screen.queryByLabelText("Amount")).not.toBeInTheDocument();
+      expect(calls.some((call) => call.method === "POST")).toBe(false);
+    });
   });
 
   it("closes the form without saving when cancelled", async () => {

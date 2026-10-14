@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { createGoal, fetchGoals, updateGoal } from "../lib/goalsApi.js";
+import { addContribution, createGoal, fetchGoals, updateGoal } from "../lib/goalsApi.js";
 import { useMoney } from "../lib/settings.jsx";
 import GoalCard from "./GoalCard.jsx";
 import GoalForm from "./GoalForm.jsx";
@@ -63,6 +63,11 @@ export default function Goals() {
     setPanel(null);
   }
 
+  async function contribute(goal, contribution) {
+    await addContribution(goal.id, contribution);
+    await load();
+  }
+
   return (
     <div className="goals">
       <section className="card">
@@ -89,7 +94,13 @@ export default function Goals() {
       ) : (
         <div className="goals__grid">
           {goals.map((goal) => (
-            <GoalCard key={goal.id} goal={goal} onEdit={() => setPanel({ edit: goal.id })} />
+            <GoalCard
+              key={goal.id}
+              goal={goal}
+              today={today}
+              onEdit={() => setPanel({ edit: goal.id })}
+              onAddContribution={contribute}
+            />
           ))}
         </div>
       )}

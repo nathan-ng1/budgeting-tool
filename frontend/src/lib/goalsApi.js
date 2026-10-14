@@ -48,3 +48,10 @@ export function createGoal(goal) {
 export function updateGoal(id, goal) {
   return request(`${BASE}/${id}`, jsonRequest("PUT", goal));
 }
+
+// Add a Contribution to a Goal: the backend writes a Goals-Category Savings
+// Transaction linked to it. `notes` is optional - the backend defaults it to
+// the Goal's title. The Goal's figures are re-read by the caller afterwards.
+export function addContribution(goalId, { amount, date, notes }) {
+  return request(`${BASE}/${goalId}/contributions`, jsonRequest("POST", { amount, date, notes }));
+}
