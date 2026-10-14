@@ -56,6 +56,7 @@ CATEGORIES_BY_TYPE = {
     "Savings": {
         "Savings",
         "Investments",
+        "Goals",
     },
 }
 
@@ -141,9 +142,11 @@ def type_lookup(categories: list[Category]) -> dict[str, str]:
 # read, via default_category_rows(), so they cannot drift. Each name must also
 # appear in CATEGORIES_BY_TYPE. Beem Adjustment is locked because its Category
 # is forced by payment direction (ADR-0015). Locking another predefined
-# Category (e.g. Goals, ADR-0031) is a one-line addition here.
+# Category is a one-line addition here. Goals (ADR-0031) is locked because
+# Contributions to it must carry a Goal link, so it is managed by the Goals tab.
 LOCKED_CATEGORIES: dict[str, str | None] = {
     "Beem Adjustment": None,
+    "Goals": "🎯",
 }
 
 

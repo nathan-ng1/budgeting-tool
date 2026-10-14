@@ -150,6 +150,25 @@ def test_beem_adjustment_history_rows_create_neither_a_match_nor_a_conflict(
     assert coffee.category == "Dining & Takeaway"
 
 
+def test_goals_contributions_in_history_create_neither_a_match_nor_a_conflict(
+    fake_categoriser, fake_store, make_category_result, make_transaction, tmp_path: Path
+):
+    # Goals is locked (ADR-0031), so a Contribution says nothing about what a
+    # card statement line was for: the line still goes to the categoriser.
+    data_dir = write_export(tmp_path, "ANZ_20260805.csv", ["05/08/2026,-20.00,Japan trip"])
+    categoriser = fake_categoriser(results=[make_category_result()])
+    store = fake_store(
+        transactions=[
+            history_row(make_transaction, "Japan trip", category="Goals", type="Savings", id=1),
+        ]
+    )
+
+    process_data_dir(data_dir=data_dir, categoriser=categoriser, store=store, resolve_needs_review=fail_if_called)
+
+    [call] = categoriser.calls
+    assert [t.notes for t in call] == ["Japan trip"]
+
+
 def test_outgoing_beem_row_with_matching_history_still_goes_to_the_categoriser_with_examples(
     fake_categoriser, fake_store, make_category_result, make_transaction, tmp_path: Path
 ):

@@ -10,6 +10,15 @@ import { createCategory, deleteCategory, fetchCategories, updateCategory } from 
 // native confirm() dialog. Any locked Category (e.g. Beem Adjustment)
 // shows with no edit/delete controls - the store itself refuses those
 // mutations regardless, this is only the UI matching that.
+// Why a locked Category is locked, for its tooltip. Goals is managed by the
+// Goals tab (ADR-0031); any other locked Category gets the general wording.
+function lockTooltip(category) {
+  if (category.name === "Goals") {
+    return "Managed by the Goals tab - can't be renamed or deleted";
+  }
+  return "Locked - can't be renamed or deleted";
+}
+
 export default function CategoryManagement() {
   const [categories, setCategories] = useState(null);
   const [error, setError] = useState(null);
@@ -173,7 +182,7 @@ function TypeGroup({ type, categories, onAdd, onEdit, onDelete }) {
                 </span>
               )}
               {category.locked && (
-                <span className="category-chip__lock" title="Locked - can't be renamed or deleted">
+                <span className="category-chip__lock" title={lockTooltip(category)}>
                   🔒
                 </span>
               )}

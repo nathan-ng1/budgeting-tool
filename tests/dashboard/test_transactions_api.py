@@ -82,6 +82,8 @@ def test_listing_returns_the_financial_years_transactions_newest_first_with_ids(
         "type": "Income",
         "category": "Salary",
         "notes": "Employer",
+        "goal_id": None,
+        "goal_title": None,
     }
 
 

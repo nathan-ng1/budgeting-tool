@@ -51,6 +51,8 @@ def as_payload(transaction: Transaction) -> dict:
         "type": transaction.type,
         "category": transaction.category,
         "notes": transaction.notes,
+        "goal_id": transaction.goal_id,
+        "goal_title": transaction.goal_title,
     }
 
 
@@ -167,7 +169,18 @@ def from_payload(payload) -> Candidate:
         type=payload["type"],
         category=payload["category"],
         notes=payload["notes"],
+        goal_id=_goal_id(payload.get("goal_id")),
     )
+
+
+def _goal_id(value) -> int | None:
+    """The Goal a request links the Transaction to - absent and null both mean
+    none. Whether it is allowed is the store's call (ADR-0031)."""
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"Field 'goal_id' must be a whole number or null, got {value!r}")
+    return value
 
 
 def _number(value, field: str) -> float:
@@ -195,6 +208,7 @@ def as_candidate_payload(candidate: Candidate) -> dict:
         "type": candidate.type,
         "category": candidate.category,
         "notes": candidate.notes,
+        "goal_id": candidate.goal_id,
     }
 
 

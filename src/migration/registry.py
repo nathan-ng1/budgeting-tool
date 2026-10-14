@@ -9,11 +9,12 @@ database marks every entry here as applied without running it (see
 install that existed before it shipped.
 """
 
-from migration import add_bills_and_subscriptions, categories_table, rename_transfer_to_savings
+from migration import add_bills_and_subscriptions, add_goals, categories_table, rename_transfer_to_savings
 from migration.runner import Migration
 
 MIGRATIONS = [
     Migration(name="categories_table", migrate=categories_table.migrate),
     Migration(name="rename_transfer_to_savings", migrate=rename_transfer_to_savings.migrate),
     Migration(name="add_bills_and_subscriptions", migrate=add_bills_and_subscriptions.migrate),
+    Migration(name="add_goals", migrate=add_goals.migrate),
 ]

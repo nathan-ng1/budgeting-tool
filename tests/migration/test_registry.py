@@ -11,6 +11,7 @@ def test_registry_runs_the_existing_migrations_oldest_first():
         "categories_table",
         "rename_transfer_to_savings",
         "add_bills_and_subscriptions",
+        "add_goals",
     ]
 
 
@@ -75,3 +76,6 @@ def test_a_pre_categories_table_database_runs_every_migration_cleanly(tmp_path: 
         "SELECT t.type, c.name FROM transactions t JOIN categories c ON c.id = t.category_id"
     ).fetchone()
     assert row == ("Expense", "Groceries")
+    # ... and ends up with Goals: the Category, and the link column on the old row.
+    assert connection.execute("SELECT type, locked FROM categories WHERE name = 'Goals'").fetchone() == ("Savings", 1)
+    assert connection.execute("SELECT goal_id FROM transactions").fetchall() == [(None,)]

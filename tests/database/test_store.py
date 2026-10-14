@@ -482,7 +482,7 @@ def test_read_categories_seeds_beem_adjustment_with_no_emoji(tmp_path: Path):
 def test_read_categories_seeds_every_other_category_as_unlocked(tmp_path: Path):
     store = connect(tmp_path / "budget.db")
 
-    others = [c for c in store.read_categories() if c.name != "Beem Adjustment"]
+    others = [c for c in store.read_categories() if c.name not in ("Beem Adjustment", "Goals")]
 
     assert all(not c.locked for c in others)
 

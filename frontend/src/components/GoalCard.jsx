@@ -1,4 +1,7 @@
+import { useState } from "react";
+
 import { useDateFormat, useMoney } from "../lib/settings.jsx";
+import ContributionForm from "./ContributionForm.jsx";
 
 const plural = (count, word) => `${count} ${word}${count === 1 ? "" : "s"}`;
 
@@ -35,9 +38,10 @@ export function ProgressBar({ goal }) {
   );
 }
 
-export default function GoalCard({ goal, onEdit }) {
+export default function GoalCard({ goal, today, onEdit, onAddContribution }) {
   const { money } = useMoney();
   const { dayMonthYear } = useDateFormat();
+  const [contributing, setContributing] = useState(false);
 
   let headline;
   let sub;
@@ -71,7 +75,21 @@ export default function GoalCard({ goal, onEdit }) {
       {goal.status !== "Achieved" && goal.status !== "Ended" && (
         <div className="goals__muted">Original plan: {money(goal.original_plan_per_month)} / month</div>
       )}
+      {contributing && (
+        <ContributionForm
+          goal={goal}
+          today={today}
+          onSave={async (contribution) => {
+            await onAddContribution(goal, contribution);
+            setContributing(false);
+          }}
+          onCancel={() => setContributing(false)}
+        />
+      )}
       <div className="goals__actions">
+        <button type="button" className="button" onClick={() => setContributing(true)}>
+          Add contribution
+        </button>
         <button type="button" className="button button--quiet" onClick={onEdit}>
           Edit
         </button>
