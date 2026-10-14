@@ -3,7 +3,7 @@ import sqlite3
 from datetime import date, datetime
 from pathlib import Path
 
-from goals.goal import ACTIVE, Goal, GoalDraft, GoalNotFound
+from goals.goal import ACTIVE, Contribution, Goal, GoalDraft, GoalNotFound
 from goals.links import require_valid_goal_link
 
 from budget_suggestions.suggestion import BudgetSuggestion
@@ -425,6 +425,20 @@ class LocalStore:
             "SELECT goal_id, SUM(amount) FROM transactions WHERE goal_id IS NOT NULL GROUP BY goal_id"
         ).fetchall()
         return {goal_id: round(total, 2) for goal_id, total in rows}
+
+    def read_goal_contributions(self) -> dict[int, list[Contribution]]:
+        """Every Goal's Contributions ledger, oldest first (ties in the order
+        they were entered), whatever the Goal's state. A Goal with none is
+        omitted."""
+        rows = self._connection.execute(
+            "SELECT goal_id, date, notes, amount FROM transactions WHERE goal_id IS NOT NULL ORDER BY date, id"
+        ).fetchall()
+        ledgers: dict[int, list[Contribution]] = {}
+        for goal_id, row_date, notes, amount in rows:
+            ledgers.setdefault(goal_id, []).append(
+                Contribution(date=date.fromisoformat(row_date), notes=notes or "", amount=amount)
+            )
+        return ledgers
 
     def _goal(self, goal_id: int) -> Goal:
         row = self._connection.execute(

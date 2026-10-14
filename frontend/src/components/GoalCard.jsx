@@ -38,7 +38,7 @@ export function ProgressBar({ goal }) {
   );
 }
 
-export default function GoalCard({ goal, today, onEdit, onAddContribution }) {
+export default function GoalCard({ goal, today, onEdit, onAddContribution, onDetails }) {
   const { money } = useMoney();
   const { dayMonthYear } = useDateFormat();
   const [contributing, setContributing] = useState(false);
@@ -94,6 +94,9 @@ export default function GoalCard({ goal, today, onEdit, onAddContribution }) {
           Edit
         </button>
       </div>
+      <button type="button" className="button goals__details-button" onClick={onDetails}>
+        Details
+      </button>
     </section>
   );
 }
