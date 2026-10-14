@@ -26,6 +26,7 @@ function goal(overrides = {}) {
     months_left: 6,
     required_per_month: 750,
     original_plan_per_month: 666.67,
+    contributions: [],
     ...overrides,
   };
 }
@@ -402,6 +403,121 @@ describe("Goals", () => {
 
       await screen.findByRole("heading", { name: "Japan trip" });
       expect(calls.find((call) => call.method === "PUT").body).not.toHaveProperty("state");
+    });
+  });
+
+  describe("Details view", () => {
+    const LEDGER = [
+      { date: "2026-08-15", notes: "Bonus", amount: 1000 },
+      { date: "2026-10-01", notes: "Japan trip", amount: 500 },
+    ];
+
+    async function openDetails(settings = {}, overrides = {}) {
+      backend([goal({ contributions: LEDGER, ...overrides })]);
+      renderGoals(settings);
+      await userEvent.click(await screen.findByRole("button", { name: "Details" }));
+    }
+
+    it("opens from a Details button on the card, in place of the grid", async () => {
+      await openDetails();
+
+      expect(screen.getByRole("heading", { name: "Japan trip" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Details" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "New goal" })).not.toBeInTheDocument();
+    });
+
+    it("shows the Status chip beside the title and the stats with Needs / month as the headline", async () => {
+      await openDetails();
+
+      const view = screen.getByRole("heading", { name: "Japan trip" }).closest("section");
+      expect(within(view).getByText("Behind")).toBeInTheDocument();
+      const stats = within(view).getByLabelText("Goal stats");
+      expect(within(stats).getAllByRole("term").map((term) => term.textContent)).toEqual([
+        "Needs",
+        "Saved",
+        "Left",
+        "Remaining time",
+        "End date",
+        "Original plan",
+        "Start date",
+      ]);
+      expect(within(stats).getAllByRole("definition").map((value) => value.textContent)).toEqual([
+        "$750 / month",
+        "$1,500 of $6,000",
+        "$4,500",
+        "6 months",
+        "31 Mar 2027",
+        "$667 / month",
+        "1 Jul 2026",
+      ]);
+    });
+
+    it("lists the Contributions as Date, Notes and Amount, newest first", async () => {
+      await openDetails();
+
+      const ledger = screen.getByRole("table", { name: "Contributions" });
+      expect(within(ledger).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Date", "Notes", "Amount"]);
+      const rows = within(ledger).getAllByRole("row").slice(1);
+      expect(rows.map((row) => within(row).getAllByRole("cell").map((c) => c.textContent))).toEqual([
+        ["1 Oct 2026", "Japan trip", "$500"],
+        ["15 Aug 2026", "Bonus", "$1,000"],
+      ]);
+    });
+
+    it("follows the Date Order and Display Currency settings", async () => {
+      await openDetails({ date_order: "month-first", currency: "EUR" });
+
+      const ledger = screen.getByRole("table", { name: "Contributions" });
+      expect(within(ledger).getByText("Aug 15, 2026")).toBeInTheDocument();
+      expect(within(ledger).getByText(/^1\.000\s€$/)).toBeInTheDocument();
+      expect(within(screen.getByLabelText("Goal stats")).getByText("Mar 31, 2027")).toBeInTheDocument();
+    });
+
+    it("says so when the Goal has no Contributions yet", async () => {
+      await openDetails({}, { contributions: [], saved: 0 });
+
+      expect(screen.getByText(/no contributions yet/i)).toBeInTheDocument();
+    });
+
+    it("draws the trajectory chart with a point per Contribution and the labels in place", async () => {
+      await openDetails();
+
+      const chart = screen.getByRole("img", { name: /japan trip/i });
+      expect(chart.querySelectorAll("[data-contribution-point]")).toHaveLength(2);
+      for (const label of ["Target $6,000", "Even pace", "Saved $1,500", "Today", "Amount saved", "Date"]) {
+        expect(within(chart).getByText(label)).toBeInTheDocument();
+      }
+      expect(within(chart).getByText("$2,000")).toBeInTheDocument();
+      expect(within(chart).getByText("Nov")).toBeInTheDocument();
+    });
+
+    it("carries the Saved line flat to today at the running total", async () => {
+      await openDetails();
+
+      const line = screen.getByRole("img", { name: /japan trip/i }).querySelector("[data-saved-line]");
+      const points = line
+        .getAttribute("points")
+        .split(" ")
+        .map((pair) => pair.split(",").map(Number));
+      // Start at zero, one point per Contribution, then today: the last two share
+      // a height only when the line is carried flat.
+      expect(points).toHaveLength(4);
+      expect(points[3][1]).toBe(points[2][1]);
+      expect(points[3][0]).toBeGreaterThan(points[2][0]);
+    });
+
+    it("has no actions apart from returning to the grid", async () => {
+      await openDetails();
+
+      expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual(["← All goals"]);
+    });
+
+    it("returns to the card grid from the All goals button", async () => {
+      await openDetails();
+      await userEvent.click(screen.getByRole("button", { name: /all goals/i }));
+
+      expect(await screen.findByRole("button", { name: "Details" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "New goal" })).toBeInTheDocument();
     });
   });
 

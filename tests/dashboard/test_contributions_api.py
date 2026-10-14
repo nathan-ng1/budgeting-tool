@@ -335,3 +335,41 @@ def test_import_still_refuses_a_goals_row(server):
 
     assert [row["outcome"] for row in body["rows"]] == ["rejected"]
     assert body["candidates"] == []
+def add(server, goal_id: int, amount: float, on: str, notes: str | None = None) -> None:
+    payload = {"amount": amount, "date": on}
+    if notes is not None:
+        payload["notes"] = notes
+    call(server, "POST", f"/api/goals/{goal_id}/contributions", payload)
+
+
+def test_a_new_goal_carries_an_empty_contributions_ledger(server):
+    goal = make_goal(server)
+
+    assert goal["contributions"] == []
+    assert goal_by_id(server, goal["id"])["contributions"] == []
+
+
+def test_a_goals_ledger_lists_its_contributions_by_date_with_notes_and_amount(server):
+    goal = make_goal(server)
+    other = make_goal(server, title="Car")
+    add(server, goal["id"], 300.0, "2026-10-01", "B")
+    add(server, goal["id"], 100.0, "2026-08-15", "A")
+    add(server, goal["id"], 50.0, "2026-10-01", "C")
+    add(server, other["id"], 70.0, "2026-09-01")
+
+    ledger = goal_by_id(server, goal["id"])["contributions"]
+
+    assert ledger == [
+        {"date": "2026-08-15", "notes": "A", "amount": 100.0},
+        {"date": "2026-10-01", "notes": "B", "amount": 300.0},
+        {"date": "2026-10-01", "notes": "C", "amount": 50.0},
+    ]
+
+
+def test_a_past_goal_keeps_its_ledger(server, store):
+    goal = make_goal(server)
+    add(server, goal["id"], 10.0, "2026-10-01")
+    archive(store, goal["id"])
+
+    assert [c["amount"] for c in goal_by_id(server, goal["id"])["contributions"]] == [10.0]
+

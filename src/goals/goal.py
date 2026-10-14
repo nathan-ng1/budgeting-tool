@@ -52,3 +52,13 @@ class Goal:
     start_date: date
     end_date: date
     state: str
+
+
+@dataclass(frozen=True)
+class Contribution:
+    """One line of a Goal's Contributions ledger: the linked Transaction's date,
+    notes and amount. The Transaction itself is edited on the Transactions tab."""
+
+    date: date
+    notes: str
+    amount: float

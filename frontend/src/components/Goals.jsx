@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { addContribution, archiveGoal, createGoal, deleteGoal, fetchGoals, updateGoal } from "../lib/goalsApi.js";
 import { useMoney } from "../lib/settings.jsx";
 import GoalCard from "./GoalCard.jsx";
+import GoalDetails from "./GoalDetails.jsx";
 import GoalForm from "./GoalForm.jsx";
 import PastGoals from "./PastGoals.jsx";
 
@@ -17,6 +18,8 @@ export default function Goals() {
   const [error, setError] = useState(null);
   // "new", an { edit: id } for the Goal being edited, or null for no form.
   const [panel, setPanel] = useState(null);
+  // The id of the Goal whose Details view replaces the grid, or null.
+  const [detailId, setDetailId] = useState(null);
 
   const load = useCallback((signal) => {
     return fetchGoals({ signal })
@@ -53,6 +56,16 @@ export default function Goals() {
   const savedToGoals = goals.reduce((sum, goal) => sum + goal.saved, 0);
   const activeCount = goals.filter((goal) => goal.status === "Active").length;
   const editing = panel !== null && panel !== "new" ? [...goals, ...past].find((goal) => goal.id === panel.edit) : null;
+
+  // A Goal that has left the list closes its Details view.
+  const detail = detailId === null ? null : (goals.find((goal) => goal.id === detailId) ?? null);
+  if (detail !== null) {
+    return (
+      <div className="goals">
+        <GoalDetails goal={detail} today={today} onBack={() => setDetailId(null)} />
+      </div>
+    );
+  }
 
   async function save(fields) {
     if (editing) {
@@ -108,6 +121,7 @@ export default function Goals() {
               onAddContribution={contribute}
               onArchive={() => moveToPast(goal, archiveGoal)}
               onDelete={() => moveToPast(goal, deleteGoal)}
+              onDetails={() => setDetailId(goal.id)}
             />
           ))}
         </div>

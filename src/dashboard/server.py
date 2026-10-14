@@ -198,7 +198,9 @@ def _make_handler(store: DatabaseHandle, static_root: Path, changelog_path: Path
             elif parsed.path == GOALS_PATH:
                 # Every figure for every Goal, against one "today" so the Goals
                 # tab and the Overview tile always agree (Goals spec section 7).
-                self._send_json(200, goals.list_payload(store.read_goals(), today(), store.read_goal_savings()))
+                self._send_json(200, goals.list_payload(
+                        store.read_goals(), today(), store.read_goal_savings(), store.read_goal_contributions()
+                    ))
             elif parsed.path == SETTINGS_PATH:
                 self._send_json(200, settings.as_payload(store.read_settings()))
             elif parsed.path == DATABASE_PATH:
@@ -500,7 +502,12 @@ def _make_handler(store: DatabaseHandle, static_root: Path, changelog_path: Path
                 self._send_json(400, {"error": str(cause)})
                 return
 
-            self._send_json(status, goals.as_payload(stored, today(), store.read_goal_savings().get(stored.id, 0.0)))
+            self._send_json(status, goals.as_payload(
+                stored,
+                today(),
+                store.read_goal_savings().get(stored.id, 0.0),
+                store.read_goal_contributions().get(stored.id),
+            ))
 
         def _create_category(self) -> None:
             try:

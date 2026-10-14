@@ -10,7 +10,7 @@ from dataclasses import asdict
 from datetime import date
 
 from goals.figures import describe
-from goals.goal import ACTIVE, Goal, GoalDraft
+from goals.goal import ACTIVE, Contribution, Goal, GoalDraft
 from transaction_log.entries import Candidate
 
 # Contributions are Savings-Type Transactions in the locked Goals Category.
@@ -18,10 +18,11 @@ CONTRIBUTION_TYPE = "Savings"
 CONTRIBUTION_CATEGORY = "Goals"
 
 
-def as_payload(goal: Goal, today: date, saved: float = 0.0) -> dict:
+def as_payload(goal: Goal, today: date, saved: float = 0.0, contributions: list[Contribution] | None = None) -> dict:
     """One Goal: its own fields, its lifecycle `state`, and every derived
     figure, all measured against the one `today`. `saved` is the sum of the
-    Goal's linked Contributions."""
+    Goal's linked Contributions and `contributions` is their ledger, oldest
+    first, for the Details view."""
     return {
         "id": goal.id,
         "title": goal.title,
@@ -31,17 +32,27 @@ def as_payload(goal: Goal, today: date, saved: float = 0.0) -> dict:
         "end_date": goal.end_date.isoformat(),
         "state": goal.state,
         **asdict(describe(goal, saved=saved, today=today)),
+        "contributions": [
+            {"date": c.date.isoformat(), "notes": c.notes, "amount": c.amount} for c in contributions or []
+        ],
     }
 
 
-def list_payload(goals: list[Goal], today: date, savings: dict[int, float] | None = None) -> dict:
+def list_payload(
+    goals: list[Goal],
+    today: date,
+    savings: dict[int, float] | None = None,
+    ledgers: dict[int, list[Contribution]] | None = None,
+) -> dict:
     """Active Goals in `goals`, the rest in `past` (archived or deleted).
-    `savings` maps a Goal id to its saved amount; a Goal not in it has none."""
+    `savings` maps a Goal id to its saved amount and `ledgers` to its
+    Contributions; a Goal not in either has none."""
     savings = savings or {}
+    ledgers = ledgers or {}
     return {
         "today": today.isoformat(),
-        "goals": [as_payload(goal, today, savings.get(goal.id, 0.0)) for goal in goals if goal.state == ACTIVE],
-        "past": [as_payload(goal, today, savings.get(goal.id, 0.0)) for goal in goals if goal.state != ACTIVE],
+        "goals": [as_payload(goal, today, savings.get(goal.id, 0.0), ledgers.get(goal.id)) for goal in goals if goal.state == ACTIVE],
+        "past": [as_payload(goal, today, savings.get(goal.id, 0.0), ledgers.get(goal.id)) for goal in goals if goal.state != ACTIVE],
     }
 
 

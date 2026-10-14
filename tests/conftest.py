@@ -8,7 +8,7 @@ import pytest
 from budget_suggestions.suggestion import BudgetSuggestion
 from categorisation.history import Example
 from categorisation.interface import BatchResult, CategoryResult
-from goals.goal import Goal, GoalNotFound
+from goals.goal import Contribution, Goal, GoalNotFound
 from goals.links import require_not_goals_category, require_valid_goal_link
 from database.store import (
     CategoryInUse,
@@ -117,6 +117,15 @@ class FakeStore:
             if transaction.goal_id is not None:
                 savings[transaction.goal_id] = round(savings.get(transaction.goal_id, 0.0) + transaction.amount, 2)
         return savings
+
+    def read_goal_contributions(self) -> dict[int, list[Contribution]]:
+        ledgers: dict[int, list[Contribution]] = {}
+        for transaction in sorted(self._transactions, key=lambda t: (t.date, t.id)):
+            if transaction.goal_id is not None:
+                ledgers.setdefault(transaction.goal_id, []).append(
+                    Contribution(date=transaction.date, notes=transaction.notes or "", amount=transaction.amount)
+                )
+        return ledgers
 
     def _require_valid_goal_link(self, candidate: Candidate, current_goal_id: int | None) -> None:
         goal = next((g for g in self._goals if g.id == candidate.goal_id), None)
