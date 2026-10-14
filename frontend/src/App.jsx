@@ -8,6 +8,7 @@ import DebtSummary from "./components/DebtSummary.jsx";
 import DeleteData from "./components/DeleteData.jsx";
 import DisplaySettings from "./components/DisplaySettings.jsx";
 import Goals from "./components/Goals.jsx";
+import GoalsTile from "./components/GoalsTile.jsx";
 import SpendingOverTime from "./components/SpendingOverTime.jsx";
 import IncomeAllocation from "./components/IncomeAllocation.jsx";
 import OutflowsBreakdown from "./components/OutflowsBreakdown.jsx";
@@ -407,6 +408,10 @@ function Dashboard({ settings, onSettingsSaved }) {
                     average={selected === null ? overview.monthly_average : undefined}
                   />
                 </div>
+
+                {/* Goals follow no month or Financial Year (Goals spec section 11), so
+                    the tile is the same whichever period the pills select. */}
+                <GoalsTile onViewAll={() => setTab("Goals")} />
 
                 {selected !== null ? (
                   <>

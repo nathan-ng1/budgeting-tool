@@ -175,6 +175,7 @@ function respondWith({
     "/api/overview": month,
     "/api/latest-transaction-date": { date: latestTransactionDate },
     "/api/transaction-date-range": transactionDateRange,
+    "/api/goals": { today: "2026-08-21", goals: [], past: [] },
     ...extra,
   });
 }
@@ -241,6 +242,71 @@ describe("App", () => {
 
     // Per-month-only sections stay off Full year.
     expect(screen.queryByRole("heading", { name: "Spending over time" })).not.toBeInTheDocument();
+  });
+
+  describe("Goals tile", () => {
+    const JAPAN = {
+      id: 1,
+      title: "Japan trip",
+      description: null,
+      target_amount: 6000,
+      start_date: "2026-07-01",
+      end_date: "2027-03-31",
+      state: "active",
+      saved: 1500,
+      remaining: 4500,
+      over: 0,
+      fraction: 0.25,
+      status: "Active",
+      flag: "Behind",
+      pace_fraction: 0.4,
+      pace_amount: 2400,
+      on_track: false,
+      months_left: 8,
+      required_per_month: 563,
+      original_plan_per_month: 666.67,
+    };
+
+    function respondWithGoal() {
+      respondWith({ extra: { "/api/goals": { today: "2026-08-21", goals: [JAPAN], past: [] } } });
+    }
+
+    it("sits on the Overview for Full year and for a month, drawn from the Goals endpoint", async () => {
+      respondWithGoal();
+      render(<App />);
+
+      const tile = await screen.findByRole("region", { name: "Goals" });
+      expect(await within(tile).findByText("Japan trip")).toBeInTheDocument();
+      expect(within(tile).getByText("25% funded")).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole("button", { name: "Aug" }));
+      await screen.findByText("$5,240");
+
+      expect(await within(screen.getByRole("region", { name: "Goals" })).findByText("Japan trip")).toBeInTheDocument();
+    });
+
+    it("is not scoped to the selected period: it only ever asks for /api/goals", async () => {
+      respondWithGoal();
+      render(<App />);
+      await screen.findByText("Japan trip");
+      await userEvent.click(screen.getByRole("button", { name: "Aug" }));
+      await screen.findByText("$5,240");
+
+      const goalCalls = fetchMock.mock.calls.map(([url]) => url).filter((url) => url.includes("goals"));
+      expect(goalCalls.length).toBeGreaterThan(0);
+      expect(new Set(goalCalls)).toEqual(new Set(["/api/goals"]));
+    });
+
+    it("'View all goals' opens the Goals tab", async () => {
+      respondWithGoal();
+      render(<App />);
+
+      await userEvent.click(await screen.findByRole("button", { name: "View all goals" }));
+
+      expect(screen.getByRole("navigation")).toBeInTheDocument();
+      expect(within(screen.getByRole("navigation")).getByText("Goals")).toHaveAttribute("aria-current", "page");
+      expect(screen.queryByRole("button", { name: "View all goals" })).not.toBeInTheDocument();
+    });
   });
 
   it("selecting a month pill still shows the existing per-month Overview, unchanged", async () => {
