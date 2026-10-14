@@ -243,7 +243,7 @@ class LocalStore:
                     "VALUES (?, ?, ?, ?, ?, ?)",
                     self._transaction_columns(candidate),
                 )
-                created.append(_as_transaction(cursor.lastrowid, candidate))
+                created.append(self._as_transaction(cursor.lastrowid, candidate))
         except Exception:
             self._connection.rollback()
             raise
