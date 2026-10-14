@@ -199,6 +199,34 @@ describe("Goals", () => {
     expect(await screen.findByText("2 active goals · $2,000 saved toward goals")).toBeInTheDocument();
   });
 
+  it("counts every Goal on the tab as active, whatever its Status", async () => {
+    backend([
+      goal(),
+      goal({ id: 2, title: "Done", status: "Achieved", flag: "Achieved", saved: 6000, remaining: 0, fraction: 1, required_per_month: null }),
+      goal({ id: 3, title: "Missed", status: "Ended", flag: "Ended", months_left: 0, required_per_month: null }),
+    ]);
+    renderGoals();
+
+    expect(await screen.findByText(/^3 active goals · /)).toBeInTheDocument();
+  });
+
+  it("caps an over-target Goal's percentage at 100, matching its progress bar", async () => {
+    backend([goal({ status: "Achieved", flag: "Achieved", saved: 7200, over: 1200, remaining: 0, fraction: 1, required_per_month: null })]);
+    renderGoals();
+
+    const card = (await screen.findByRole("heading", { name: "Japan trip" })).closest("section");
+    expect(within(card).getByText("100%")).toBeInTheDocument();
+    expect(within(card).getByRole("progressbar")).toHaveAttribute("aria-valuenow", "100");
+  });
+
+  it("marks the pace at zero on an Upcoming Goal's progress bar", async () => {
+    backend([goal({ status: "Upcoming", flag: "Upcoming", saved: 0, fraction: 0, pace_fraction: 0 })]);
+    renderGoals();
+
+    const card = (await screen.findByRole("heading", { name: "Japan trip" })).closest("section");
+    expect(within(card).getByTitle(/even pace/i)).toHaveStyle({ left: "0%" });
+  });
+
   it("creates a Goal with the typed fields, starting today by default, and lists it", async () => {
     backend([]);
     renderGoals();
@@ -450,6 +478,17 @@ describe("Goals", () => {
         "$667 / month",
         "1 Jul 2026",
       ]);
+    });
+
+    it("shows an Achieved Goal past its end date as Achieved, not Ended, under Remaining time", async () => {
+      await openDetails(
+        {},
+        { status: "Achieved", flag: "Achieved", saved: 6000, remaining: 0, fraction: 1, months_left: 0, required_per_month: null },
+      );
+
+      const stats = within(screen.getByRole("heading", { name: "Japan trip" }).closest("section")).getByLabelText("Goal stats");
+      const remaining = within(stats).getByText("Remaining time").closest("div");
+      expect(within(remaining).getByRole("definition")).toHaveTextContent("Achieved");
     });
 
     it("lists the Contributions as Date, Notes and Amount, newest first", async () => {

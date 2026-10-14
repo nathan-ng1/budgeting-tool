@@ -128,3 +128,12 @@ def test_a_contribution_row_reports_its_goals_state(server):
     _, rows = call(server, "GET", "/api/transactions?year=2026&month=7")
 
     assert [(r["goal_title"], r["goal_state"]) for r in rows] == [("Japan trip", "deleted")]
+
+
+def test_archiving_a_goal_answers_with_its_contributions_ledger(server):
+    _, goal = call(server, "POST", "/api/goals", JAPAN)
+    call(server, "POST", f"/api/goals/{goal['id']}/contributions", {"amount": 25.0, "date": "2026-07-02"})
+
+    _, body = call(server, "POST", f"/api/goals/{goal['id']}/archive")
+
+    assert [c["amount"] for c in body["contributions"]] == [25.0]

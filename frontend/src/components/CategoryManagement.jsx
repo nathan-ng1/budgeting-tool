@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import EmojiPicker from "./EmojiPicker.jsx";
 import { TYPE_ORDER } from "../lib/categories.js";
 import { createCategory, deleteCategory, fetchCategories, updateCategory } from "../lib/categoriesApi.js";
+import { GOALS_CATEGORY } from "../lib/transactionForm.js";
 
 // Category Management (Issue #91) - one card spanning all five fixed Types,
 // each holding a chip per Category. Add/edit happen inline in the chip grid;
@@ -13,7 +14,7 @@ import { createCategory, deleteCategory, fetchCategories, updateCategory } from 
 // Why a locked Category is locked, for its tooltip. Goals is managed by the
 // Goals tab (ADR-0031); any other locked Category gets the general wording.
 function lockTooltip(category) {
-  if (category.name === "Goals") {
+  if (category.name === GOALS_CATEGORY) {
     return "Managed by the Goals tab - can't be renamed or deleted";
   }
   return "Locked - can't be renamed or deleted";

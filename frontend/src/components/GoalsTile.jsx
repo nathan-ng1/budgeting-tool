@@ -1,13 +1,25 @@
 import { useEffect, useState } from "react";
 
 import { fetchGoals } from "../lib/goalsApi.js";
+import { percentFunded } from "../lib/goalFigures.js";
 import { useMoney } from "../lib/settings.jsx";
 import { ProgressBar, StatusChip } from "./GoalCard.jsx";
 
 const TILE_SIZE = 3;
 
+// What the "$X / month" slot says when there is no monthly figure to ask for:
+// the Goal is Achieved or Ended, so say how it finished instead.
+function monthlySlot(goal, money) {
+  if (goal.required_per_month !== null) {
+    return `${money(goal.required_per_month)} / month`;
+  }
+  return goal.status === "Achieved" ? "Goal reached" : `${money(goal.remaining)} short`;
+}
+
 // The Overview's Goals tile (Goals spec section 11): the top three active
-// Goals, soonest end date first. Like the Goals tab it follows no month or
+// Goals - active in the lifecycle sense, so whatever the Goals endpoint lists
+// as `goals` (Achieved, Ended and Upcoming included, Past goals not) - soonest
+// end date first. Like the Goals tab it follows no month or
 // Financial Year - a Goal's figures are all-time, from the Goals endpoint.
 export default function GoalsTile({ onViewAll }) {
   const { money } = useMoney();
@@ -26,9 +38,7 @@ export default function GoalsTile({ onViewAll }) {
     return () => controller.abort();
   }, []);
 
-  const active = (goals ?? [])
-    .filter((goal) => goal.status === "Active")
-    .sort((a, b) => a.end_date.localeCompare(b.end_date));
+  const active = [...(goals ?? [])].sort((a, b) => a.end_date.localeCompare(b.end_date));
 
   return (
     <section className="card goals-tile" aria-label="Goals">
@@ -57,8 +67,8 @@ export default function GoalsTile({ onViewAll }) {
               </div>
               <ProgressBar goal={goal} />
               <div className="goals__row goals__muted">
-                <span className="numeric">{Math.round(goal.fraction * 100)}% funded</span>
-                <span className="numeric">{money(goal.required_per_month)} / month</span>
+                <span className="numeric">{percentFunded(goal)}% funded</span>
+                <span className="numeric">{monthlySlot(goal, money)}</span>
               </div>
             </li>
           ))}

@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { addContribution, archiveGoal, createGoal, deleteGoal, fetchGoals, updateGoal } from "../lib/goalsApi.js";
+import { plural } from "../lib/goalFigures.js";
 import { useMoney } from "../lib/settings.jsx";
 import GoalCard from "./GoalCard.jsx";
 import GoalDetails from "./GoalDetails.jsx";
 import GoalForm from "./GoalForm.jsx";
 import PastGoals from "./PastGoals.jsx";
 import SplitPanel from "./SplitPanel.jsx";
-
-const plural = (count, word) => `${count} ${word}${count === 1 ? "" : "s"}`;
 
 // The Goals tab (Goals spec section 10). It follows no Financial Year: a Goal's
 // figures are all-time and measured against the backend's one "today", so this
@@ -60,7 +59,9 @@ export default function Goals({ selectedMonth = null }) {
 
   const { goals, past = [], today } = data;
   const savedToGoals = goals.reduce((sum, goal) => sum + goal.saved, 0);
-  const activeCount = goals.filter((goal) => goal.status === "Active").length;
+  // "Active" here is the lifecycle sense (the endpoint's `goals`, as opposed to
+  // `past`), so Achieved, Ended and Upcoming Goals count too.
+  const activeCount = goals.length;
   const editing = panel !== null && panel !== "new" ? [...goals, ...past].find((goal) => goal.id === panel.edit) : null;
 
   // A Goal that has left the list closes its Details view.

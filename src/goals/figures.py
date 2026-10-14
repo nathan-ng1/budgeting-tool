@@ -11,7 +11,7 @@ from datetime import date
 
 from goals.goal import Goal
 
-ACTIVE_STATUS = "Active"
+STATUS_ACTIVE = "Active"
 
 # A half-cent: how far under the even pace a Goal may sit and still be On track.
 PACE_TOLERANCE = 0.005
@@ -51,7 +51,7 @@ def describe(goal: Goal, saved: float, today: date) -> GoalFigures:
     elif today < goal.start_date:
         status = "Upcoming"
     else:
-        status = ACTIVE_STATUS
+        status = STATUS_ACTIVE
 
     # The even pace runs by days from start to end; a zero-length window counts
     # as one day, and the marker is clamped to 0 before the start and to the
@@ -72,7 +72,7 @@ def describe(goal: Goal, saved: float, today: date) -> GoalFigures:
         fraction=min(saved / target, 1.0),
         status=status,
         # On track / Behind only means something while the Goal is live.
-        flag=("On track" if on_track else "Behind") if status == ACTIVE_STATUS else status,
+        flag=("On track" if on_track else "Behind") if status == STATUS_ACTIVE else status,
         pace_fraction=pace_fraction,
         pace_amount=pace_amount,
         on_track=on_track,

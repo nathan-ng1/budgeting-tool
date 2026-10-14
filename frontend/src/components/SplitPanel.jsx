@@ -2,12 +2,13 @@ import { useEffect, useState } from "react";
 
 import { fetchMonthOverview } from "../lib/api.js";
 import { previewSplit, splitSavings } from "../lib/goalsApi.js";
+import { plural } from "../lib/goalFigures.js";
 import { loadLastSplit, saveLastSplit } from "../lib/lastSplit.js";
 import { useMoney } from "../lib/settings.jsx";
 
+// Mirrors SPLIT_REMAINDER_CATEGORIES in src/dashboard/goals.py; no endpoint exposes
+// the list, so the two are kept in step by hand.
 const REMAINDER_CATEGORIES = ["Savings", "Investments"];
-
-const plural = (count, word) => `${count} ${word}${count === 1 ? "" : "s"}`;
 
 // Percentages are compared in hundredths of a percent so 33.33 + 33.33 + 33.34
 // is exactly 100, not 99.99999999999999.

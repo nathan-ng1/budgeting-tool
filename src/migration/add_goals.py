@@ -12,6 +12,9 @@ import sqlite3
 
 from transaction_log.categories import LOCKED_CATEGORIES
 
+# Literals on purpose, not goals.links.GOALS_CATEGORY: a migration describes the
+# schema as it was when it shipped, so renaming the app constant later must not
+# change what this one-off does to an old database.
 CATEGORY_NAME = "Goals"
 CATEGORY_TYPE = "Savings"
 
