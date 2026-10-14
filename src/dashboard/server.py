@@ -75,6 +75,8 @@ BUDGET_GRID_PATH = "/api/budget-grid"
 BUDGET_SUGGESTION_PATH = "/api/budget-suggestion"
 CATEGORIES_PATH = "/api/categories"
 GOALS_PATH = "/api/goals"
+GOALS_SPLIT_PATH = "/api/goals/split"
+GOALS_SPLIT_PREVIEW_PATH = "/api/goals/split/preview"
 SETTINGS_PATH = "/api/settings"
 VERSION_PATH = "/api/version"
 
@@ -249,6 +251,10 @@ def _make_handler(store: DatabaseHandle, static_root: Path, changelog_path: Path
                 self._create_category()
             elif path == GOALS_PATH:
                 self._write_goal(lambda draft: (201, store.create_goal(draft)))
+            elif path == GOALS_SPLIT_PREVIEW_PATH:
+                self._split_savings(write=False)
+            elif path == GOALS_SPLIT_PATH:
+                self._split_savings(write=True)
             elif self._contribution_goal_id(path) is not None:
                 self._add_contribution(self._contribution_goal_id(path))
             elif path == TRANSACTIONS_IMPORT_PREVIEW_PATH:
@@ -455,6 +461,40 @@ def _make_handler(store: DatabaseHandle, static_root: Path, changelog_path: Path
                 return
 
             self._send_json(201, transactions.as_payload(created))
+
+        def _split_savings(self, write: bool) -> None:
+            """Divide one total across active Goals (Goals spec section 9).
+            The server computes the rows; a preview answers with them and
+            stores nothing, a split writes them all in one database
+            transaction (or none, on any failure)."""
+            try:
+                stored_goals = store.read_goals()
+                candidates = goals.split_from_payload(self._read_json(), stored_goals)
+                created = store.create_transactions(candidates) if write else None
+            except ValueError as cause:
+                self._send_json(400, {"error": str(cause)})
+                return
+            except Exception:
+                # The store rolled the whole write back, so nothing was saved.
+                self._send_json(500, {"error": "The split couldn't be saved, so nothing was written."})
+                return
+
+            titles = {goal.id: goal.title for goal in stored_goals}
+            rows = []
+            for index, candidate in enumerate(candidates):
+                row = {
+                    "date": candidate.date.isoformat(),
+                    "amount": candidate.amount,
+                    "type": candidate.type,
+                    "category": candidate.category,
+                    "notes": candidate.notes,
+                    "goal_id": candidate.goal_id,
+                    "goal_title": titles.get(candidate.goal_id),
+                }
+                if created is not None:
+                    row["id"] = created[index].id
+                rows.append(row)
+            self._send_json(201 if write else 200, {"rows": rows})
 
         def _write_goal(self, write) -> None:
             """Parse a GoalDraft from the request body, hand it to `write`, and

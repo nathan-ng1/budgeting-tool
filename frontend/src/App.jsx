@@ -371,7 +371,7 @@ function Dashboard({ settings, onSettingsSaved }) {
 
         {visibleTab === "Transactions" && <Transactions periodType={periodType} referenceYear={referenceYear} />}
 
-        {visibleTab === "Goals" && <Goals />}
+        {visibleTab === "Goals" && <Goals selectedMonth={selected} />}
 
         {visibleTab === "Budget" && (
           <Budget

@@ -55,3 +55,15 @@ export function updateGoal(id, goal) {
 export function addContribution(goalId, { amount, date, notes }) {
   return request(`${BASE}/${goalId}/contributions`, jsonRequest("POST", { amount, date, notes }));
 }
+
+// Split savings (Goals spec section 9). The body is { total, date, allocations:
+// [{ goal_id, percent }], remainder_category }; the backend computes the rows,
+// so a preview shows exactly what a split will then write. Both answer
+// { rows: [...] }; only the split writes anything.
+export function previewSplit(split, { signal } = {}) {
+  return request(`${BASE}/split/preview`, { ...jsonRequest("POST", split), signal });
+}
+
+export function splitSavings(split) {
+  return request(`${BASE}/split`, jsonRequest("POST", split));
+}

@@ -225,6 +225,30 @@ class LocalStore:
         self._connection.commit()
         return _as_transaction(cursor.lastrowid, candidate)
 
+    def create_transactions(self, candidates: list[Candidate]) -> list[Transaction]:
+        """Write every Candidate in one database transaction - all of them or
+        none (the Split savings tool, Goals spec section 9). Each is checked
+        against the same pair and Goal-link rules as `create_transaction`, and
+        none is deduplicated."""
+        for candidate in candidates:
+            self._require_valid_pair(candidate.type, candidate.category)
+            self._require_valid_goal_link(candidate, current_goal_id=None)
+
+        created = []
+        try:
+            for candidate in candidates:
+                cursor = self._connection.execute(
+                    "INSERT INTO transactions (date, amount, type, category_id, notes, goal_id) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    self._transaction_columns(candidate),
+                )
+                created.append(_as_transaction(cursor.lastrowid, candidate))
+        except Exception:
+            self._connection.rollback()
+            raise
+        self._connection.commit()
+        return created
+
     def update_transaction(self, transaction_id: int, candidate: Candidate) -> Transaction:
         self._require_valid_pair(candidate.type, candidate.category)
         self._require_valid_goal_link(candidate, current_goal_id=self._current_goal_id(transaction_id))

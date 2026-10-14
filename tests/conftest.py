@@ -137,6 +137,12 @@ class FakeStore:
         self._transactions.append(created)
         return created
 
+    def create_transactions(self, candidates: list[Candidate]) -> list[Transaction]:
+        for candidate in candidates:
+            self._require_valid_pair(candidate.type, candidate.category)
+            self._require_valid_goal_link(candidate, current_goal_id=None)
+        return [self.create_transaction(candidate) for candidate in candidates]
+
     def update_transaction(self, transaction_id: int, candidate: Candidate) -> Transaction:
         self._require_valid_pair(candidate.type, candidate.category)
         index = self._transaction_index(transaction_id)

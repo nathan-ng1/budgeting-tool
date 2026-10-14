@@ -4,16 +4,22 @@ import { addContribution, createGoal, fetchGoals, updateGoal } from "../lib/goal
 import { useMoney } from "../lib/settings.jsx";
 import GoalCard from "./GoalCard.jsx";
 import GoalForm from "./GoalForm.jsx";
+import SplitPanel from "./SplitPanel.jsx";
 
 const plural = (count, word) => `${count} ${word}${count === 1 ? "" : "s"}`;
 
 // The Goals tab (Goals spec section 10). It follows no Financial Year: a Goal's
 // figures are all-time and measured against the backend's one "today", so this
 // takes no period props and draws whatever the Goals endpoint says.
-export default function Goals() {
+//
+// `selectedMonth` ({ year, month }, or null) is the Overview's selected month, used
+// only to prefill Split savings from that month's Unallocated; with none selected
+// (Full year) the split uses today's month.
+export default function Goals({ selectedMonth = null }) {
   const { money } = useMoney();
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
+  const [splitting, setSplitting] = useState(false);
   // "new", an { edit: id } for the Goal being edited, or null for no form.
   const [panel, setPanel] = useState(null);
 
@@ -79,12 +85,25 @@ export default function Goals() {
             </div>
           </div>
           <div className="goals__actions">
+            <button type="button" className="button" onClick={() => setSplitting(true)}>
+              Split savings
+            </button>
             <button type="button" className="button" onClick={() => setPanel("new")}>
               New goal
             </button>
           </div>
         </div>
       </section>
+
+      {splitting && (
+        <SplitPanel
+          goals={goals}
+          today={today}
+          month={selectedMonth ?? { year: Number(today.slice(0, 4)), month: Number(today.slice(5, 7)) }}
+          onWritten={load}
+          onClose={() => setSplitting(false)}
+        />
+      )}
 
       {panel === "new" && <GoalForm today={today} onSave={save} onCancel={() => setPanel(null)} />}
       {editing && <GoalForm key={editing.id} initial={editing} today={today} onSave={save} onCancel={() => setPanel(null)} />}
