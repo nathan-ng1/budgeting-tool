@@ -3153,3 +3153,23 @@ tbody:first-of-type .table th.table__section {
   background: var(--color-neutral-200);
   color: var(--color-neutral-700);
 }
+
+/* The Overview's Goals tile: up to three Goals, each a title row, a bar and a
+   funded / monthly line. */
+.goals-tile__list {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.goals-tile__list h4 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.goals-tile__list .goals__bar {
+  margin: 10px 0 6px;
+}
