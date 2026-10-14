@@ -1,9 +1,8 @@
 import { useState } from "react";
 
+import { STATUS_ACTIVE, percentFunded, plural } from "../lib/goalFigures.js";
 import { useDateFormat, useMoney } from "../lib/settings.jsx";
 import ContributionForm from "./ContributionForm.jsx";
-
-const plural = (count, word) => `${count} ${word}${count === 1 ? "" : "s"}`;
 
 const CHIP_TONES = { "On track": "good", Behind: "bad", Achieved: "good", Ended: "bad", Upcoming: "muted" };
 
@@ -12,14 +11,15 @@ export function StatusChip({ flag }) {
 }
 
 // The progress bar, with a tick where an even pace would have the Goal today.
-// The tick only means something while the Goal is Active.
+// The tick means nothing once the Goal is Achieved or Ended, but an Upcoming
+// Goal keeps it, sitting at zero until the start date.
 export function ProgressBar({ goal }) {
   return (
     <div
       className="goals__bar"
       role="progressbar"
       aria-label={`${goal.title} progress`}
-      aria-valuenow={Math.round(goal.fraction * 100)}
+      aria-valuenow={percentFunded(goal)}
       aria-valuemin={0}
       aria-valuemax={100}
     >
@@ -27,7 +27,7 @@ export function ProgressBar({ goal }) {
         className={`goals__bar-fill goals__bar-fill--${goal.flag === "Behind" ? "behind" : "ok"}`}
         style={{ width: `${goal.fraction * 100}%` }}
       />
-      {goal.status === "Active" && (
+      {(goal.status === STATUS_ACTIVE || goal.status === "Upcoming") && (
         <div
           className="goals__bar-pace"
           style={{ left: `${goal.pace_fraction * 100}%` }}
@@ -70,7 +70,7 @@ export default function GoalCard({ goal, today, onEdit, onAddContribution, onArc
         <span className="numeric">
           {money(goal.saved)} of {money(goal.target_amount)}
         </span>
-        <span className="numeric">{Math.round((goal.saved / goal.target_amount) * 100)}%</span>
+        <span className="numeric">{percentFunded(goal)}%</span>
       </div>
       {goal.status !== "Achieved" && goal.status !== "Ended" && (
         <div className="goals__muted">Original plan: {money(goal.original_plan_per_month)} / month</div>

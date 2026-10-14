@@ -11,6 +11,7 @@ import {
   updateRecurringRule,
 } from "../lib/recurringApi.js";
 import { useMoney } from "../lib/settings.jsx";
+import { GOALS_CATEGORY } from "../lib/transactionForm.js";
 import {
   FREQUENCIES,
   blankValues,
@@ -74,7 +75,7 @@ export default function RecurringRules() {
     // Goals is left out: a rule there would generate Contributions with no
     // Goal (ADR-0031). Named, not a blanket `locked` filter - Beem Adjustment
     // stays on offer, and the Transactions form keeps Goals.
-    setCategories(groupByType(loadedCategories.filter((category) => category.name !== "Goals")));
+    setCategories(groupByType(loadedCategories.filter((category) => category.name !== GOALS_CATEGORY)));
     setCategoryList(loadedCategories);
   }, []);
 

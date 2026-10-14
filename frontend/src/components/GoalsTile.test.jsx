@@ -60,13 +60,13 @@ describe("GoalsTile", () => {
     expect(screen.getByText("$750 / month")).toBeInTheDocument();
   });
 
-  it("shows the top three active Goals, soonest end date first, and the count of all active Goals", async () => {
+  it("shows the top three lifecycle-active Goals, soonest end date first, and the count of all of them", async () => {
     respondWith([
       goal({ id: 1, title: "Car", end_date: "2028-01-01" }),
       goal({ id: 2, title: "Holiday", end_date: "2026-12-01" }),
       goal({ id: 3, title: "Bond", end_date: "2027-06-01" }),
       goal({ id: 4, title: "Laptop", end_date: "2027-01-01" }),
-      goal({ id: 5, title: "Old plan", end_date: "2026-01-01", status: "Ended", flag: "Ended" }),
+      goal({ id: 5, title: "Quiet one", end_date: "2029-01-01" }),
     ]);
     renderTile();
 
@@ -78,8 +78,37 @@ describe("GoalsTile", () => {
       "Bond",
     ]);
     expect(screen.queryByText("Car")).not.toBeInTheDocument();
-    expect(screen.queryByText("Old plan")).not.toBeInTheDocument();
-    expect(screen.getByText("4")).toBeInTheDocument(); // the active count
+    expect(screen.queryByText("Quiet one")).not.toBeInTheDocument();
+    expect(screen.getByText("5")).toBeInTheDocument(); // the active count
+  });
+
+  it("includes Achieved, Ended and Upcoming Goals, with their chips and no 'null / month'", async () => {
+    respondWith([
+      goal({ id: 1, title: "Done", end_date: "2026-11-01", status: "Achieved", flag: "Achieved", saved: 6200, over: 200, remaining: 0, fraction: 1, required_per_month: null }),
+      goal({ id: 2, title: "Missed", end_date: "2026-09-01", status: "Ended", flag: "Ended", remaining: 1000, months_left: 0, required_per_month: null }),
+      goal({ id: 3, title: "Later", end_date: "2027-12-01", status: "Upcoming", flag: "Upcoming", saved: 0, fraction: 0, pace_fraction: 0 }),
+    ]);
+    renderTile();
+
+    await screen.findByText("Missed");
+    const items = screen.getAllByRole("listitem");
+    expect(items.map((item) => within(item).getByRole("heading", { level: 4 }).textContent)).toEqual([
+      "Missed",
+      "Done",
+      "Later",
+    ]);
+    expect(within(items[0]).getByText("Ended")).toBeInTheDocument();
+    expect(within(items[1]).getByText("Achieved")).toBeInTheDocument();
+    expect(within(items[2]).getByText("Upcoming")).toBeInTheDocument();
+    expect(screen.queryByText(/null|NaN/)).not.toBeInTheDocument();
+    expect(screen.getByText("3")).toBeInTheDocument();
+  });
+
+  it("caps % funded at 100, like the progress bar and the Goals tab", async () => {
+    respondWith([goal({ status: "Achieved", flag: "Achieved", saved: 7200, over: 1200, remaining: 0, fraction: 1, required_per_month: null })]);
+    renderTile();
+
+    expect(await screen.findByText("100% funded")).toBeInTheDocument();
   });
 
   it("links to the Goals tab with 'View all goals'", async () => {
@@ -93,7 +122,7 @@ describe("GoalsTile", () => {
   });
 
   it("shows an empty state, and no Unassigned line, when no Goal is active", async () => {
-    respondWith([goal({ status: "Achieved", flag: "Achieved" })]);
+    respondWith([]);
     renderTile();
 
     expect(await screen.findByText("No active goals yet.")).toBeInTheDocument();

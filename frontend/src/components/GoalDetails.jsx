@@ -1,8 +1,7 @@
+import { plural } from "../lib/goalFigures.js";
 import { useDateFormat, useMoney } from "../lib/settings.jsx";
 import { StatusChip } from "./GoalCard.jsx";
 import GoalTrajectory from "./GoalTrajectory.jsx";
-
-const plural = (count, word) => `${count} ${word}${count === 1 ? "" : "s"}`;
 
 // The headline stat: what it takes each month, or how the Goal finished.
 function headline(goal, money) {
@@ -13,6 +12,12 @@ function headline(goal, money) {
     return ["Status", goal.over > 0 ? `Reached, +${money(goal.over)} over` : "Reached"];
   }
   return ["Shortfall", money(goal.remaining)];
+}
+
+// What "Remaining time" says: the months left, or - once the end date has
+// passed - how the Goal finished (Achieved or Ended).
+function remainingTime(goal) {
+  return goal.months_left > 0 ? plural(goal.months_left, "month") : goal.status;
 }
 
 // One Goal in focus (Goals spec section 10): stats, trajectory and Contributions.
@@ -27,7 +32,7 @@ export default function GoalDetails({ goal, today, onBack }) {
     [lead, leadValue],
     ["Saved", `${money(goal.saved)} of ${money(goal.target_amount)}`],
     ["Left", money(goal.remaining)],
-    ["Remaining time", goal.months_left > 0 ? plural(goal.months_left, "month") : "Ended"],
+    ["Remaining time", remainingTime(goal)],
     ["End date", dayMonthYear(goal.end_date)],
     ["Original plan", `${money(goal.original_plan_per_month)} / month`],
     ["Start date", dayMonthYear(goal.start_date)],

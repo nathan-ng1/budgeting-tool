@@ -8,17 +8,18 @@ wire.
 
 from dataclasses import asdict
 from datetime import date
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
+from dashboard.transactions import as_candidate_payload
 from goals.figures import describe
 from goals.goal import ACTIVE, Contribution, Goal, GoalDraft
-from goals.links import require_valid_goal_link
+from goals.links import GOALS_CATEGORY, GOALS_CATEGORY_TYPE, require_valid_goal_link
 from goals.split import allocate
-from transaction_log.entries import Candidate
+from transaction_log.entries import Candidate, Transaction
 
 # Contributions are Savings-Type Transactions in the locked Goals Category.
-CONTRIBUTION_TYPE = "Savings"
-CONTRIBUTION_CATEGORY = "Goals"
+CONTRIBUTION_TYPE = GOALS_CATEGORY_TYPE
+CONTRIBUTION_CATEGORY = GOALS_CATEGORY
 
 # Split savings (Goals spec section 9): whatever the Goals leave of 100% is a
 # Savings-Type row in one of these Categories. Its Notes differ from any
@@ -165,10 +166,22 @@ def split_from_payload(payload, goals: list[Goal]) -> list[Candidate]:
 def _cents(total) -> int:
     if isinstance(total, bool) or not isinstance(total, (int, float)) or not total > 0:
         raise ValueError("The total must be a number above zero")
-    cents = Decimal(str(total)) * 100
-    if cents != cents.to_integral_value():
-        raise ValueError("The total can't have fractions of a cent")
-    return int(cents)
+    # Fractions of a cent round to the nearest cent (Goals spec section 15).
+    return int((Decimal(str(total)) * 100).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+
+
+def split_rows_payload(candidates: list[Candidate], goals: list[Goal], created: list[Transaction] | None) -> list[dict]:
+    """The rows a Split savings request answers with: each Candidate as the
+    Transactions tab shows it, plus its Goal's title and, once written, the
+    stored Transaction's id. `created` is None for a preview."""
+    titles = {goal.id: goal.title for goal in goals}
+    rows = []
+    for index, candidate in enumerate(candidates):
+        row = {**as_candidate_payload(candidate), "goal_title": titles.get(candidate.goal_id)}
+        if created is not None:
+            row["id"] = created[index].id
+        rows.append(row)
+    return rows
 
 
 def draft_from_payload(payload) -> GoalDraft:

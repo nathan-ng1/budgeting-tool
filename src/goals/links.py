@@ -9,6 +9,8 @@ from goals.goal import ACTIVE, Goal
 
 # The one Category whose Transactions are Contributions to a Goal.
 GOALS_CATEGORY = "Goals"
+# The Type the Goals Category sits under (and so every Contribution's Type).
+GOALS_CATEGORY_TYPE = "Savings"
 
 
 def is_goals_category(category: str) -> bool:

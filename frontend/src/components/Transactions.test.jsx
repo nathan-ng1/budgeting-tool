@@ -1017,6 +1017,29 @@ describe("Transactions Goals", () => {
   });
 });
 
+describe("Transactions when the Goals cannot be loaded", () => {
+  function withGoalsRequest(goalsResponse) {
+    const inner = backend([transaction()], CATEGORIES_WITH_GOALS);
+    fetchMock = vi.fn(async (url, options) => (url === "/api/goals" ? goalsResponse() : inner(url, options)));
+    vi.stubGlobal("fetch", fetchMock);
+  }
+
+  it("still lists the Transactions when the Goals request fails", async () => {
+    withGoalsRequest(async () => ({ ok: false, status: 500, json: async () => ({}) }));
+    render(<Transactions periodType="financial" referenceYear={2026} />);
+
+    expect(await screen.findByText("Woolworths")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("does not wait for a slow Goals request before listing the Transactions", async () => {
+    withGoalsRequest(() => new Promise(() => {}));
+    render(<Transactions periodType="financial" referenceYear={2026} />);
+
+    expect(await screen.findByText("Woolworths")).toBeInTheDocument();
+  });
+});
+
 describe("Transactions period awareness", () => {
   it("orders the month filter Jan→Dec when Calendar Year is active, matching Overview/Budget", async () => {
     respondWith([transaction()]);

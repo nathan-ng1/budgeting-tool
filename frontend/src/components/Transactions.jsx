@@ -109,15 +109,23 @@ export default function Transactions({ periodType, referenceYear }) {
   }, [menuOpen]);
 
   const load = useCallback(async (signal) => {
-    const [loadedTransactions, loadedCategories, loadedGoals] = await Promise.all([
+    // The Goal picker's choices are a convenience: they load alongside, never
+    // gating the Transactions. If they fail, the picker simply has no Goals.
+    fetchGoals({ signal })
+      .then((loadedGoals) => setActiveGoals(loadedGoals?.goals ?? []))
+      .catch((cause) => {
+        if (cause.name !== "AbortError") {
+          setActiveGoals([]);
+        }
+      });
+
+    const [loadedTransactions, loadedCategories] = await Promise.all([
       fetchTransactions({ year: referenceYear, month: startMonthFor(periodType, financialStartMonth) }, { signal }),
       fetchCategories({ signal }),
-      fetchGoals({ signal }),
     ]);
     setTransactions(loadedTransactions);
     setCategories(groupByType(loadedCategories));
     setCategoryList(loadedCategories);
-    setActiveGoals(loadedGoals?.goals ?? []);
   }, [periodType, referenceYear, financialStartMonth]);
 
   // The same flat list `categories` above was grouped from, kept around

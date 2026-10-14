@@ -230,7 +230,6 @@ def test_a_split_onto_a_missing_goal_is_refused(server):
         {"total": 0},
         {"total": -5},
         {"total": "lots"},
-        {"total": 10.001},
         {"date": "yesterday"},
         {"remainder_category": "Groceries"},
         {"remainder_category": "Goals"},
@@ -243,6 +242,15 @@ def test_unusable_input_is_a_400(server, overrides):
     status, _ = failure(server, "POST", SPLIT, request_body([({"id": 1}, 50)], **overrides))
 
     assert status == 400
+
+
+def test_a_total_with_fractions_of_a_cent_is_rounded_to_the_cent(server):
+    japan = make_goal(server)
+
+    status, body = call(server, "POST", SPLIT, request_body([(japan, 100)], total=10.006))
+
+    assert status == 201
+    assert [row["amount"] for row in body["rows"]] == [10.01]
 
 
 def test_a_goal_may_appear_only_once(server):

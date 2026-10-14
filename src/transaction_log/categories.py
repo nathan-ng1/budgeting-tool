@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+from goals.links import GOALS_CATEGORY
+
 
 @dataclass(frozen=True)
 class Category:
@@ -56,7 +58,7 @@ CATEGORIES_BY_TYPE = {
     "Savings": {
         "Savings",
         "Investments",
-        "Goals",
+        GOALS_CATEGORY,
     },
 }
 
@@ -146,7 +148,7 @@ def type_lookup(categories: list[Category]) -> dict[str, str]:
 # Contributions to it must carry a Goal link, so it is managed by the Goals tab.
 LOCKED_CATEGORIES: dict[str, str | None] = {
     "Beem Adjustment": None,
-    "Goals": "🎯",
+    GOALS_CATEGORY: "🎯",
 }
 
 

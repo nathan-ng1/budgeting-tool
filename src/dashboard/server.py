@@ -253,14 +253,14 @@ def _make_handler(store: DatabaseHandle, static_root: Path, changelog_path: Path
                 self._create_category()
             elif path == GOALS_PATH:
                 self._write_goal(lambda draft: (201, store.create_goal(draft)))
-            elif self._goal_action(path) is not None:
-                self._archive_or_delete_goal(*self._goal_action(path))
+            elif (goal_action := self._goal_action()) is not None:
+                self._archive_or_delete_goal(*goal_action)
             elif path == GOALS_SPLIT_PREVIEW_PATH:
                 self._split_savings(write=False)
             elif path == GOALS_SPLIT_PATH:
                 self._split_savings(write=True)
-            elif self._contribution_goal_id(path) is not None:
-                self._add_contribution(self._contribution_goal_id(path))
+            elif (contribution_goal_id := self._id_after(GOALS_PATH, "/contributions")) is not None:
+                self._add_contribution(contribution_goal_id)
             elif path == TRANSACTIONS_IMPORT_PREVIEW_PATH:
                 self._import_preview()
             elif path == TRANSACTIONS_IMPORT_COMMIT_PATH:
@@ -351,16 +351,16 @@ def _make_handler(store: DatabaseHandle, static_root: Path, changelog_path: Path
 
             self._send_json(404, {"error": "Not found"})
 
-        def _id_after(self, prefix: str) -> int | None:
-            """The id in `{prefix}/{id}`, or None if this request's path isn't
-            that shape - including when {id} isn't a number, since no row can
-            have that id either way."""
+        def _id_after(self, prefix: str, suffix: str = "") -> int | None:
+            """The id in `{prefix}/{id}{suffix}`, or None if this request's
+            path isn't that shape - including when {id} isn't a number, since
+            no row can have that id either way."""
             path = urlparse(self.path).path
             full_prefix = f"{prefix}/"
-            if not path.startswith(full_prefix):
+            if not (path.startswith(full_prefix) and path.endswith(suffix)):
                 return None
             try:
-                return int(path[len(full_prefix):])
+                return int(path[len(full_prefix):len(path) - len(suffix)])
             except ValueError:
                 return None
 
@@ -436,29 +436,22 @@ def _make_handler(store: DatabaseHandle, static_root: Path, changelog_path: Path
 
             self._send_json(status, transactions.as_payload(stored))
 
-        def _contribution_goal_id(self, path: str) -> int | None:
-            """The id in `/api/goals/{id}/contributions`, or None if `path`
-            isn't that shape."""
-            prefix = f"{GOALS_PATH}/"
-            suffix = "/contributions"
-            if not (path.startswith(prefix) and path.endswith(suffix)):
-                return None
-            try:
-                return int(path[len(prefix):-len(suffix)])
-            except ValueError:
-                return None
-
-        def _goal_action(self, path: str) -> tuple[int, str] | None:
+        def _goal_action(self) -> tuple[int, str] | None:
             """(id, state) for `/api/goals/{id}/archive` or `/delete`, else None."""
-            prefix = f"{GOALS_PATH}/"
             for action, state in (("archive", ARCHIVED), ("delete", DELETED)):
-                suffix = f"/{action}"
-                if path.startswith(prefix) and path.endswith(suffix):
-                    try:
-                        return int(path[len(prefix):-len(suffix)]), state
-                    except ValueError:
-                        return None
+                goal_id = self._id_after(GOALS_PATH, f"/{action}")
+                if goal_id is not None:
+                    return goal_id, state
             return None
+
+        def _send_goal(self, status: int, stored) -> None:
+            """Answer with a stored Goal, its figures and its Contributions."""
+            self._send_json(status, goals.as_payload(
+                stored,
+                today(),
+                store.read_goal_savings().get(stored.id, 0.0),
+                store.read_goal_contributions().get(stored.id),
+            ))
 
         def _archive_or_delete_goal(self, goal_id: int, state: str) -> None:
             """Soft-move a Goal to Past goals; answer with it and its figures."""
@@ -467,7 +460,7 @@ def _make_handler(store: DatabaseHandle, static_root: Path, changelog_path: Path
             except GoalNotFound as cause:
                 self._send_json(404, {"error": str(cause)})
                 return
-            self._send_json(200, goals.as_payload(stored, today(), store.read_goal_savings().get(stored.id, 0.0)))
+            self._send_goal(200, stored)
 
         def _add_contribution(self, goal_id: int) -> None:
             """Write a Goals-Category Savings Transaction linked to the Goal
@@ -504,22 +497,7 @@ def _make_handler(store: DatabaseHandle, static_root: Path, changelog_path: Path
                 self._send_json(500, {"error": "The split couldn't be saved, so nothing was written."})
                 return
 
-            titles = {goal.id: goal.title for goal in stored_goals}
-            rows = []
-            for index, candidate in enumerate(candidates):
-                row = {
-                    "date": candidate.date.isoformat(),
-                    "amount": candidate.amount,
-                    "type": candidate.type,
-                    "category": candidate.category,
-                    "notes": candidate.notes,
-                    "goal_id": candidate.goal_id,
-                    "goal_title": titles.get(candidate.goal_id),
-                }
-                if created is not None:
-                    row["id"] = created[index].id
-                rows.append(row)
-            self._send_json(201 if write else 200, {"rows": rows})
+            self._send_json(201 if write else 200, {"rows": goals.split_rows_payload(candidates, stored_goals, created)})
 
         def _write_goal(self, write) -> None:
             """Parse a GoalDraft from the request body, hand it to `write`, and
@@ -542,12 +520,7 @@ def _make_handler(store: DatabaseHandle, static_root: Path, changelog_path: Path
                 self._send_json(400, {"error": str(cause)})
                 return
 
-            self._send_json(status, goals.as_payload(
-                stored,
-                today(),
-                store.read_goal_savings().get(stored.id, 0.0),
-                store.read_goal_contributions().get(stored.id),
-            ))
+            self._send_goal(status, stored)
 
         def _create_category(self) -> None:
             try:
