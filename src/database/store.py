@@ -6,7 +6,7 @@ from pathlib import Path
 from budget_suggestions.suggestion import BudgetSuggestion
 from database.backup import backup_to
 from recurring.rules import RecurringRule, StoredRecurringRule
-from transaction_log.categories import CATEGORIES_BY_TYPE, TYPE_ORDER, Category
+from transaction_log.categories import CATEGORIES_BY_TYPE, TYPE_ORDER, Category, default_category_rows
 from transaction_log.entries import Candidate, ExistingRow, Transaction
 
 # The `settings` row recording the latest Backup (Issue #197).
@@ -98,7 +98,7 @@ class CategoryNotFound(LookupError):
 
 
 class CategoryLocked(ValueError):
-    """A locked Category (Beem Adjustment today - see ADR-0015) can't be
+    """A locked Category (see LOCKED_CATEGORIES; Beem Adjustment - ADR-0015 - is one) can't be
     renamed or deleted, no matter what the caller sends - the UI hiding the
     edit/delete controls is a courtesy, not the enforcement point (Issue #89).
     """
@@ -559,8 +559,8 @@ def _as_rule(columns) -> RecurringRule:
 def _seed_default_categories(connection: sqlite3.Connection) -> None:
     """One-off bootstrap of `categories` from CATEGORIES_BY_TYPE - only runs
     while the table is still empty (a brand new database: every test, every
-    new install), so it needs no separate setup step - Beem Adjustment seeded
-    locked (ADR-0015). Deliberately *not* run on every connect(): a Category
+    new install), so it needs no separate setup step - the locked ones
+    (LOCKED_CATEGORIES, e.g. Beem Adjustment - ADR-0015) seeded locked. Deliberately *not* run on every connect(): a Category
     a user deletes via Category Management must stay deleted across Dashboard
     restarts, and this is the only thing that distinguishes "never created"
     from "deliberately deleted" - there's no tombstone, so re-running this
@@ -580,11 +580,10 @@ def _seed_default_categories(connection: sqlite3.Connection) -> None:
         return
 
     connection.executemany(
-        "INSERT INTO categories (type, name, locked) VALUES (?, ?, ?)",
+        "INSERT INTO categories (type, name, emoji, locked) VALUES (?, ?, ?, ?)",
         [
-            (transaction_type, name, 1 if name == "Beem Adjustment" else 0)
-            for transaction_type, names in CATEGORIES_BY_TYPE.items()
-            for name in sorted(names)
+            (transaction_type, name, emoji, 1 if locked else 0)
+            for transaction_type, name, emoji, locked in default_category_rows()
         ],
     )
     connection.commit()

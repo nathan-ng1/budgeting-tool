@@ -13,6 +13,7 @@ from database.store import (
     connect,
 )
 from recurring.rules import RecurringRule
+from transaction_log.categories import LOCKED_CATEGORIES
 from transaction_log.entries import ExistingRow, Transaction
 
 
@@ -459,6 +460,23 @@ def test_read_categories_seeds_beem_adjustment_as_locked(tmp_path: Path):
 
     assert beem.locked is True
     assert beem.type == "Expense"
+
+
+def test_a_category_added_to_the_shared_locked_list_is_seeded_locked_with_its_emoji(tmp_path: Path, monkeypatch):
+    monkeypatch.setitem(LOCKED_CATEGORIES, "Groceries", "G")
+    store = connect(tmp_path / "budget.db")
+
+    [groceries] = [c for c in store.read_categories() if c.name == "Groceries"]
+
+    assert (groceries.locked, groceries.emoji) == (True, "G")
+
+
+def test_read_categories_seeds_beem_adjustment_with_no_emoji(tmp_path: Path):
+    store = connect(tmp_path / "budget.db")
+
+    [beem] = [c for c in store.read_categories() if c.name == "Beem Adjustment"]
+
+    assert beem.emoji is None
 
 
 def test_read_categories_seeds_every_other_category_as_unlocked(tmp_path: Path):

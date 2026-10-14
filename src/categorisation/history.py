@@ -104,7 +104,7 @@ def _assignable_pairs(categories: list[Category]) -> set[tuple[str, str]]:
 def _learnable(history: list[Transaction], categories: list[Category]) -> list[Transaction]:
     """History rows worth learning from: a non-empty key (Notes of only
     digits/spaces would all match each other), and not in a locked Category -
-    Beem Adjustment today, whose Category is forced by direction (ADR-0015)
+    e.g. Beem Adjustment, whose Category is forced by direction (ADR-0015)
     and so says nothing about what the money was spent on. Driven by the
     generic `locked` column, as assignable_categories_by_type is.
     """

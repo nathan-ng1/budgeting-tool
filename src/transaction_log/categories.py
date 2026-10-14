@@ -5,7 +5,7 @@ from dataclasses import dataclass
 class Category:
     """A row of the `categories` table (Issue #90) - the DB-backed source for
     what CATEGORIES_BY_TYPE used to hardcode. `type` is one of the five fixed
-    Types; `locked` marks a Category (Beem Adjustment today) that the
+    Types; `locked` marks a predefined Category in LOCKED_CATEGORIES that the
     categorisation backend must never assign and Category Management (#91)
     must never let a user rename or delete.
     """
@@ -136,13 +136,36 @@ def type_lookup(categories: list[Category]) -> dict[str, str]:
     return {category.name: category.type for category in categories}
 
 
+# The locked predefined Categories (name -> emoji, None for no emoji) - the one
+# list the fresh-Database seed (database.store) and the test FakeStore both
+# read, via default_category_rows(), so they cannot drift. Each name must also
+# appear in CATEGORIES_BY_TYPE. Beem Adjustment is locked because its Category
+# is forced by payment direction (ADR-0015). Locking another predefined
+# Category (e.g. Goals, ADR-0031) is a one-line addition here.
+LOCKED_CATEGORIES: dict[str, str | None] = {
+    "Beem Adjustment": None,
+}
+
+
+def default_category_rows() -> list[tuple[str, str, str | None, bool]]:
+    """(type, name, emoji, locked) for every predefined Category, in seed
+    order - what a brand new Database is seeded with. Locked-ness and emoji
+    come from LOCKED_CATEGORIES.
+    """
+    return [
+        (transaction_type, name, LOCKED_CATEGORIES.get(name), name in LOCKED_CATEGORIES)
+        for transaction_type, names in CATEGORIES_BY_TYPE.items()
+        for name in sorted(names)
+    ]
+
+
 def assignable_categories_by_type(categories: list[Category]) -> dict[str, set[str]]:
     """The categories-by-type view of every Category a human or the
     categorisation prompt may actually pick - used both by the prompt itself
     and by the Dashboard's Import template (Issue #97), whose Type/Category
     dropdowns and Instructions-sheet table must offer exactly the same set.
 
-    Every locked Category (Beem Adjustment today - see ADR-0015) is excluded:
+    Every locked Category (see LOCKED_CATEGORIES; Beem Adjustment - ADR-0015 - is one) is excluded:
     it must only ever be produced by the deterministic Beem parser path,
     never model-assigned to an ordinary card transaction, and offering it as
     a pick for a hand-typed Import row would be just as wrong. It remains a
