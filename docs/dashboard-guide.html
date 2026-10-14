@@ -169,6 +169,9 @@
     for the current month.</li>
     <li>Adjust category budgets on the <strong>Budget</strong> tab if anything's drifted, or run
     <code>generate_budget_suggestion.bat</code> for a fresh AI write-up.</li>
+    <li>Saving toward something specific? Add a Goal on the <strong>Goals</strong> tab, then log each
+    amount you put aside with <em>Add contribution</em> &mdash; or divide a month's leftover money
+    across several Goals at once with <em>Split savings</em>.</li>
     <li>Add or edit a Recurring rule on <strong>Settings</strong> whenever a standing item
     changes (a subscription price rise, a new one starting).</li>
   </ol>
@@ -181,7 +184,7 @@
       <h4>Where your money went this month — or this year</h4>
       <p>Pick a month with the Jul–Jun pills, or Full year for the whole Financial Year. Shows the
       Income/Expenses/Bills &amp; Subscriptions/Debt/Available to Save/Saved stat tiles,
-      Income Allocation with its Balance check card, Spending by Category, Budgeted vs Actual, Top merchants, and Spending over time (Full year instead
+      Income Allocation with its Balance check card, the Goals tile, Spending by Category, Budgeted vs Actual, Top merchants, and Spending over time (Full year instead
       shows Cash Flow by Month and Month by Month, with Spending by Category under Month by Month and Debt under Budgeted vs Actual, then a full-width <strong>Outflows breakdown</strong> of stacked columns, one per month, split into Expenses, Bills &amp; Subscriptions and Debt, each segment showing its share of that month's Outflows — hover for the amount; the legend gives each Type's share of the year to date, and months not yet reached are empty).
       <strong>Top merchants</strong> groups your Spending by merchant — the Notes with digits, capitalisation and extra spaces ignored, so
       "WOOLWORTHS 1234" and "Woolworths 5678" count as one merchant — and ranks them by total (the top 5 for a month, the top 10 for Full year).
@@ -192,7 +195,13 @@
       Expenses, Bills &amp; Subscriptions and Debt — Savings isn't subtracted, so it's how much you
       could have put into Savings. <strong>Unallocated</strong> subtracts Savings too — did every
       dollar get a job? It reads <em>Balanced</em> at exactly $0 and <em>Over income</em> when
-      negative. Read-only — nothing here is edited directly.</p>
+      negative. The <strong>Goals</strong> tile, under Income Allocation, shows up to your three
+      Active Goals, soonest end date first: each with its status, a progress bar with a tick for
+      where an even pace would have you today, how much of the target is funded and how much to
+      save per month. The header counts your Active Goals and <em>View all goals</em> jumps to the
+      Goals tab; with none it says there are no active goals yet. Unlike the rest of the Overview it
+      ignores the month pills and the Financial Year switcher, since a Goal's figures are all-time.
+      Read-only — nothing here is edited directly.</p>
     </div>
     <div class="card">
       <span class="tag">Transactions</span>
@@ -201,6 +210,16 @@
       (no AI subscription) records spending, instead of running
       <code>process_statement_export.bat</code>. Every row can be edited or deleted. Search by
       Notes, sort any column, and export/import via the "More options" menu.</p>
+      <p>Choose the <strong>Goals</strong> Category (under Savings) and a required
+      <strong>Goal</strong> picker appears, listing your Active Goals &mdash; the row becomes a
+      Contribution to that Goal, with its Notes pre-filled with the Goal's title when you add it
+      (editing never rewrites Notes). With no Active Goals, Goals stays in the Category dropdown but
+      greyed out, labelled "(no active Goals)". Goals rows show the Goal's current title as a chip
+      beside the Category, muted and tagged "(archived)" or "(deleted)" once the Goal has moved to
+      Past goals. Edit a Savings or Investments row to Category Goals plus a Goal to turn it into a
+      Contribution, or move it back to clear the link; changing the Goal while staying on Goals moves
+      the Contribution. This is also where you edit or delete an individual Contribution &mdash; the
+      Goals tab's Details view is read-only. Goals rows export, but Import refuses them.</p>
     </div>
     <div class="card">
       <span class="tag">Budget</span>
@@ -214,19 +233,49 @@
     <div class="card">
       <span class="tag">Goals</span>
       <h4>Savings goals with a monthly target</h4>
-      <p>Add a Goal with a target amount, a start date, and the date you want to reach it by. Each
-      Goal's card shows its Status, how much to save per month to finish on time, and a bar with a
-      tick marking where an even pace would have you today. Goals follow no Financial Year, so this
-      tab has no year switcher.</p>
+      <p>Add a Goal with <strong>New goal</strong>: a title, an optional description, a target
+      amount, a start date (today by default; it can be in the past or future) and the date you want
+      to reach it by. Titles are unique across all your Goals, including Past goals, ignoring case.
+      Goals follow no Financial Year, so this tab has no year switcher, and a Goal's figures count
+      every Contribution to it whatever its date.</p>
+      <p>Each Goal's card shows a status chip, how much to save per month to finish on time (with the
+      months left), a bar with a tick marking where an even pace would have you today, the amount
+      saved of the target, and an <em>Original plan</em> hint &mdash; what the target would have
+      needed per month from the start date. The chip reads <em>On track</em> when you're at or ahead
+      of an even pace and <em>Behind</em> when you're not; <em>Achieved</em> once saved reaches the
+      target (overshooting is fine), <em>Ended</em> when the end date passes with the target unmet
+      (edit the end date to extend it), and <em>Upcoming</em> before the start date. Months count
+      the current month and the end month, with a minimum of one.</p>
+      <p><strong>Add contribution</strong> on a card takes an amount, a date and Notes (the Goal's
+      title by default) and records a Savings Transaction in the locked Goals Category, linked to
+      that Goal. <strong>Edit</strong> changes the Goal's fields; <strong>Archive</strong> and
+      <strong>Delete</strong> both move it to Past goals without touching its Contributions &mdash;
+      there is no permanent delete. <strong>Details</strong> opens a read-only view of one Goal: its
+      needs-per-month, saved, left, remaining time, dates and original plan, a trajectory chart of
+      your saved total against the target and an even pace, and a ledger of every Contribution. Use
+      <em>&larr; All goals</em> to go back.</p>
+      <p><strong>Split savings</strong> divides one amount across your Active Goals by percentage.
+      The total starts from the Unallocated figure of the month selected on Overview (this month, if
+      Full year is selected) when it is positive, and you can change it; the percentages start from
+      your last split, remembered in this browser. They can't add up to more than 100%, and whatever
+      is left over is written as one Transaction in Savings or Investments, your choice (none if the
+      Goals take exactly 100%). A preview lists every Transaction before you press <em>Write
+      split</em>, and they are all written together or not at all.</p>
+      <p>The collapsed <strong>Past goals</strong> list at the bottom holds archived and deleted
+      Goals, each with an Archived or Deleted badge and its saved amount. <strong>Reactivate</strong>
+      opens the Goal's edit form &mdash; handy for extending the end date &mdash; and saving it
+      puts the Goal back among your active ones.</p>
     </div>
     <div class="card">
       <span class="tag">Settings</span>
       <h4>Categories and Recurring Transactions</h4>
       <p><strong>Category Management</strong> adds, renames, or deletes the Categories offered
-      everywhere else in the Dashboard (a locked Category, like Beem Adjustment, can't be renamed
-      or deleted). <strong>Recurring Transactions</strong> adds, edits, or deletes standing rules
+      everywhere else in the Dashboard (a locked Category, like Beem Adjustment or Goals, can't be
+      renamed or deleted; Goals is managed by the Goals tab, though you can still set a monthly
+      Budget for it). <strong>Recurring Transactions</strong> adds, edits, or deletes standing rules
       (salary, rent, subscriptions) — each rule's Day follows its Start Date, and expands
-      automatically alongside any Statement Export you process.</p>
+      automatically alongside any Statement Export you process. Goals isn't offered as a rule's
+      Category, since every Contribution has to belong to a Goal.</p>
     </div>
   </div>
 
