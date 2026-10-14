@@ -134,6 +134,17 @@ describe("Transactions", () => {
     expect(within(categorySelect).getByRole("option", { name: "🛒 Groceries" })).toBeInTheDocument();
   });
 
+  it("still offers the Goals Category in the Transaction form (only Recurring leaves it out)", async () => {
+    fetchMock = backend([], [...CATEGORIES, { id: 4, type: "Savings", name: "Goals", emoji: "🎯", locked: true }]);
+    vi.stubGlobal("fetch", fetchMock);
+    render(<Transactions periodType="financial" referenceYear={2026} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add transaction" }));
+    await userEvent.selectOptions(screen.getByLabelText("Type"), "Savings");
+    const [categorySelect] = screen.getAllByLabelText("Category");
+    expect(within(categorySelect).getByRole("option", { name: "🎯 Goals" })).toBeInTheDocument();
+  });
+
   it("says so plainly when the current Financial Year has no Transactions", async () => {
     respondWith([]);
     render(<Transactions periodType="financial" referenceYear={2026} />);

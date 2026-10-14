@@ -15,6 +15,14 @@ def is_goals_category(category: str) -> bool:
     return category == GOALS_CATEGORY
 
 
+def require_not_goals_category(category: str) -> None:
+    """Raise ValueError if `category` is Goals: a Recurring Transactions Config
+    rule there would generate Contributions with no Goal (Goals spec section 4).
+    Specific to Goals, not to locked Categories in general."""
+    if is_goals_category(category):
+        raise ValueError(f"The {GOALS_CATEGORY} Category can't be used in a Recurring Transactions Config rule")
+
+
 def require_valid_goal_link(
     category: str,
     goal_id: int | None,

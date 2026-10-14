@@ -7,7 +7,7 @@ from budget_suggestions.suggestion import BudgetSuggestion
 from categorisation.history import Example
 from categorisation.interface import BatchResult, CategoryResult
 from goals.goal import Goal, GoalNotFound
-from goals.links import require_valid_goal_link
+from goals.links import require_not_goals_category, require_valid_goal_link
 from database.store import (
     CategoryInUse,
     CategoryLocked,
@@ -176,6 +176,7 @@ class FakeStore:
 
     def create_recurring_rule(self, rule: RecurringRule) -> StoredRecurringRule:
         self._require_valid_pair(rule.type, rule.category)
+        require_not_goals_category(rule.category)
         self._next_rule_id += 1
         stored = StoredRecurringRule(id=self._next_rule_id, rule=rule)
         self._stored_recurring_rules.append(stored)
@@ -183,6 +184,7 @@ class FakeStore:
 
     def update_recurring_rule(self, rule_id: int, rule: RecurringRule) -> StoredRecurringRule:
         self._require_valid_pair(rule.type, rule.category)
+        require_not_goals_category(rule.category)
         index = self._index_of(rule_id)
         updated = StoredRecurringRule(id=rule_id, rule=rule)
         self._stored_recurring_rules[index] = updated
