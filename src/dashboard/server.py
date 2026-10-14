@@ -31,7 +31,7 @@ from dashboard.database_handle import DatabaseHandle
 from dashboard.folder_picker import FolderPickerError
 from dashboard.folder_picker import pick_folder as real_pick_folder
 from database.store import CategoryNotFound, RecurringRuleNotFound, TransactionNotFound
-from goals.goal import GoalNotFound
+from goals.goal import ARCHIVED, DELETED, GoalNotFound
 from statement_export import pipeline
 from transaction_log.categories import type_lookup
 
@@ -249,6 +249,8 @@ def _make_handler(store: DatabaseHandle, static_root: Path, changelog_path: Path
                 self._create_category()
             elif path == GOALS_PATH:
                 self._write_goal(lambda draft: (201, store.create_goal(draft)))
+            elif self._goal_action(path) is not None:
+                self._archive_or_delete_goal(*self._goal_action(path))
             elif self._contribution_goal_id(path) is not None:
                 self._add_contribution(self._contribution_goal_id(path))
             elif path == TRANSACTIONS_IMPORT_PREVIEW_PATH:
@@ -437,6 +439,27 @@ def _make_handler(store: DatabaseHandle, static_root: Path, changelog_path: Path
                 return int(path[len(prefix):-len(suffix)])
             except ValueError:
                 return None
+
+        def _goal_action(self, path: str) -> tuple[int, str] | None:
+            """(id, state) for `/api/goals/{id}/archive` or `/delete`, else None."""
+            prefix = f"{GOALS_PATH}/"
+            for action, state in (("archive", ARCHIVED), ("delete", DELETED)):
+                suffix = f"/{action}"
+                if path.startswith(prefix) and path.endswith(suffix):
+                    try:
+                        return int(path[len(prefix):-len(suffix)]), state
+                    except ValueError:
+                        return None
+            return None
+
+        def _archive_or_delete_goal(self, goal_id: int, state: str) -> None:
+            """Soft-move a Goal to Past goals; answer with it and its figures."""
+            try:
+                stored = store.set_goal_state(goal_id, state)
+            except GoalNotFound as cause:
+                self._send_json(404, {"error": str(cause)})
+                return
+            self._send_json(200, goals.as_payload(stored, today(), store.read_goal_savings().get(stored.id, 0.0)))
 
         def _add_contribution(self, goal_id: int) -> None:
             """Write a Goals-Category Savings Transaction linked to the Goal

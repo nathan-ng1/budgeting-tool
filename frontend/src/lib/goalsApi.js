@@ -49,6 +49,17 @@ export function updateGoal(id, goal) {
   return request(`${BASE}/${id}`, jsonRequest("PUT", goal));
 }
 
+// Archive or delete a Goal: both are soft - the Goal moves to Past goals and
+// its Contributions are untouched. Reactivating is an updateGoal with
+// `state: "active"`.
+export function archiveGoal(id) {
+  return request(`${BASE}/${id}/archive`, { method: "POST" });
+}
+
+export function deleteGoal(id) {
+  return request(`${BASE}/${id}/delete`, { method: "POST" });
+}
+
 // Add a Contribution to a Goal: the backend writes a Goals-Category Savings
 // Transaction linked to it. `notes` is optional - the backend defaults it to
 // the Goal's title. The Goal's figures are re-read by the caller afterwards.

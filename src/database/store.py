@@ -3,7 +3,7 @@ import sqlite3
 from datetime import date, datetime
 from pathlib import Path
 
-from goals.goal import ACTIVE, Goal, GoalDraft, GoalNotFound
+from goals.goal import ACTIVE, ARCHIVED, DELETED, Goal, GoalDraft, GoalNotFound
 from goals.links import require_valid_goal_link
 
 from budget_suggestions.suggestion import BudgetSuggestion
@@ -192,7 +192,7 @@ class LocalStore:
 
     def read_transactions(self) -> list[Transaction]:
         rows = self._connection.execute(
-            "SELECT t.id, t.date, t.amount, t.type, c.name, t.notes, t.goal_id, g.title "
+            "SELECT t.id, t.date, t.amount, t.type, c.name, t.notes, t.goal_id, g.title, g.state "
             "FROM transactions t JOIN categories c ON c.id = t.category_id "
             "LEFT JOIN goals g ON g.id = t.goal_id"
         ).fetchall()
@@ -206,8 +206,9 @@ class LocalStore:
                 notes=notes,
                 goal_id=goal_id,
                 goal_title=goal_title,
+                goal_state=goal_state,
             )
-            for row_id, row_date, amount, transaction_type, category, notes, goal_id, goal_title in rows
+            for row_id, row_date, amount, transaction_type, category, notes, goal_id, goal_title, goal_state in rows
         ]
 
     def create_transaction(self, candidate: Candidate) -> Transaction:
@@ -395,22 +396,35 @@ class LocalStore:
         return self._goal(cursor.lastrowid)
 
     def update_goal(self, goal_id: int, draft: GoalDraft) -> Goal:
-        """Replace a Goal's own fields. Its lifecycle state is left alone."""
+        """Replace a Goal's own fields. Its lifecycle state is left alone,
+        unless the draft reactivates it (back to active)."""
         self._goal(goal_id)
         self._require_unique_goal_title(draft.title, except_id=goal_id)
 
         self._connection.execute(
-            "UPDATE goals SET title = ?, description = ?, target_amount = ?, start_date = ?, end_date = ? "
-            "WHERE id = ?",
+            "UPDATE goals SET title = ?, description = ?, target_amount = ?, start_date = ?, end_date = ?, "
+            "state = CASE WHEN ? THEN ? ELSE state END WHERE id = ?",
             (
                 draft.title,
                 draft.description,
                 draft.target_amount,
                 draft.start_date.isoformat(),
                 draft.end_date.isoformat(),
+                draft.reactivate,
+                ACTIVE,
                 goal_id,
             ),
         )
+        self._connection.commit()
+        return self._goal(goal_id)
+
+    def set_goal_state(self, goal_id: int, state: str) -> Goal:
+        """Archive or delete a Goal (both soft; there is no permanent delete).
+        Its Contributions are never touched."""
+        if state not in (ARCHIVED, DELETED):
+            raise ValueError(f"A Goal can be archived or deleted, not set to {state!r}")
+        self._goal(goal_id)
+        self._connection.execute("UPDATE goals SET state = ? WHERE id = ?", (state, goal_id))
         self._connection.commit()
         return self._goal(goal_id)
 

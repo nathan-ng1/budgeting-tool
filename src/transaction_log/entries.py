@@ -52,6 +52,9 @@ class Transaction:
     goal_id: int | None = None
     # The linked Goal's current title, for display; filled by the store's read.
     goal_title: str | None = None
+    # The linked Goal's lifecycle state, so a row can show "(archived)" or
+    # "(deleted)" beside the title.
+    goal_state: str | None = None
 
 
 @dataclass(frozen=True)

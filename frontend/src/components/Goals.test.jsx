@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -46,7 +46,15 @@ function backend(initial = [], { refuse = null } = {}) {
     calls.push({ url, method, body: options.body ? JSON.parse(options.body) : null });
 
     if (url === "/api/goals" && method === "GET") {
-      return { ok: true, status: 200, json: async () => listing(stored) };
+      return {
+        ok: true,
+        status: 200,
+        json: async () =>
+          listing(
+            stored.filter((g) => g.state === "active"),
+            stored.filter((g) => g.state !== "active"),
+          ),
+      };
     }
     if (refuse && method !== "GET") {
       return { ok: false, status: 400, json: async () => ({ error: refuse }) };
@@ -66,6 +74,13 @@ function backend(initial = [], { refuse = null } = {}) {
           : g,
       );
       return { ok: true, status: 201, json: async () => ({ id: 900, goal_id: id, ...sent }) };
+    }
+    const action = url.match(/^\/api\/goals\/(\d+)\/(archive|delete)$/);
+    if (action && method === "POST") {
+      const id = Number(action[1]);
+      const state = action[2] === "archive" ? "archived" : "deleted";
+      stored = stored.map((g) => (g.id === id ? { ...g, state } : g));
+      return { ok: true, status: 200, json: async () => stored.find((g) => g.id === id) };
     }
     const edit = url.match(/^\/api\/goals\/(\d+)$/);
     if (edit && method === "PUT") {
@@ -311,6 +326,82 @@ describe("Goals", () => {
 
       expect(screen.queryByLabelText("Amount")).not.toBeInTheDocument();
       expect(calls.some((call) => call.method === "POST")).toBe(false);
+    });
+  });
+
+  describe("Past goals", () => {
+    it("archives a Goal into a collapsed Past goals list with an Archived badge", async () => {
+      backend([goal(), goal({ id: 2, title: "Laptop" })]);
+      renderGoals();
+      const card = (await screen.findByRole("heading", { name: "Japan trip" })).closest("section");
+      await userEvent.click(within(card).getByRole("button", { name: "Archive" }));
+
+      expect(await screen.findByText("Past goals (1)")).toBeInTheDocument();
+      expect(calls.find((call) => call.url === "/api/goals/1/archive").method).toBe("POST");
+      expect(screen.queryByRole("heading", { name: "Japan trip" })).not.toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Laptop" })).toBeInTheDocument();
+      const past = screen.getByText("Past goals (1)").closest("details");
+      expect(past).not.toHaveAttribute("open");
+      expect(within(past).getByText("Japan trip")).toBeInTheDocument();
+      expect(within(past).getByText("Archived")).toBeInTheDocument();
+    });
+
+    it("deletes a Goal into Past goals with a Deleted badge", async () => {
+      backend([goal()]);
+      renderGoals();
+      const card = (await screen.findByRole("heading", { name: "Japan trip" })).closest("section");
+      await userEvent.click(within(card).getByRole("button", { name: "Delete" }));
+
+      const past = (await screen.findByText("Past goals (1)")).closest("details");
+      expect(calls.find((call) => call.url === "/api/goals/1/delete").method).toBe("POST");
+      expect(within(past).getByText("Deleted")).toBeInTheDocument();
+    });
+
+    it("shows a Past goal's saved of target and offers no way to add a contribution", async () => {
+      backend([goal({ state: "archived" })]);
+      renderGoals();
+
+      const past = (await screen.findByText("Past goals (1)")).closest("details");
+      expect(within(past).getByText("$1,500 of $6,000")).toBeInTheDocument();
+      expect(within(past).getByRole("button", { name: "Reactivate" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Add contribution" })).not.toBeInTheDocument();
+      expect(screen.getByText(/no goals yet/i)).toBeInTheDocument();
+    });
+
+    it("shows no Past goals section when there are none", async () => {
+      backend([goal()]);
+      renderGoals();
+      await screen.findByRole("heading", { name: "Japan trip" });
+
+      expect(screen.queryByText(/Past goals/)).not.toBeInTheDocument();
+    });
+
+    it("reactivates through the pre-filled edit form, so extending the end date is one step", async () => {
+      backend([goal({ state: "deleted" })]);
+      renderGoals();
+      await userEvent.click(await screen.findByRole("button", { name: "Reactivate" }));
+
+      expect(screen.getByLabelText("Title")).toHaveValue("Japan trip");
+      expect(screen.getByLabelText(/End date/)).toHaveValue("2027-03-31");
+      fireEvent.change(screen.getByLabelText(/End date/), { target: { value: "2027-09-30" } });
+      await userEvent.click(screen.getByRole("button", { name: "Save goal" }));
+
+      expect(await screen.findByRole("heading", { name: "Japan trip" })).toBeInTheDocument();
+      const put = calls.find((call) => call.method === "PUT");
+      expect(put.url).toBe("/api/goals/1");
+      expect(put.body).toMatchObject({ end_date: "2027-09-30", state: "active" });
+      expect(screen.queryByText(/Past goals/)).not.toBeInTheDocument();
+    });
+
+    it("does not send a state when editing an active Goal", async () => {
+      backend([goal()]);
+      renderGoals();
+      const card = (await screen.findByRole("heading", { name: "Japan trip" })).closest("section");
+      await userEvent.click(within(card).getByRole("button", { name: "Edit" }));
+      await userEvent.click(screen.getByRole("button", { name: "Save goal" }));
+
+      await screen.findByRole("heading", { name: "Japan trip" });
+      expect(calls.find((call) => call.method === "PUT").body).not.toHaveProperty("state");
     });
   });
 

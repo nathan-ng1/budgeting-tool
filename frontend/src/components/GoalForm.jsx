@@ -3,7 +3,9 @@ import { useState } from "react";
 // The add/edit Goal form. The backend owns every rule (a unique title, a target
 // above zero, an end date no earlier than the start), so this only gathers the
 // fields and shows whatever the backend says when it refuses them.
-export default function GoalForm({ initial = null, today, onSave, onCancel }) {
+// `reactivate` is set when editing a Past goal: saving also returns it to
+// active (Goals spec section 7.1).
+export default function GoalForm({ initial = null, reactivate = false, today, onSave, onCancel }) {
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [target, setTarget] = useState(initial ? String(initial.target_amount) : "");
@@ -23,6 +25,7 @@ export default function GoalForm({ initial = null, today, onSave, onCancel }) {
         target_amount: Number(target),
         start_date: start,
         end_date: end,
+        ...(reactivate ? { state: "active" } : {}),
       });
     } catch (cause) {
       setError(cause.message);

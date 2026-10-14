@@ -3154,6 +3154,33 @@ tbody:first-of-type .table th.table__section {
   color: var(--color-neutral-700);
 }
 
+/* The collapsed Past goals list under the card grid. */
+.goals__past summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.goals__past-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.goals__past-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.goals__past-title {
+  flex: 1 1 160px;
+  font-weight: 600;
+}
+
 /* The Overview's Goals tile: up to three Goals, each a title row, a bar and a
    funded / monthly line. */
 .goals-tile__list {

@@ -30,6 +30,9 @@ class GoalDraft:
     target_amount: float
     start_date: date
     end_date: date
+    # True when saving this edit also returns a Past goal to active
+    # (Reactivate opens the edit form; Goals spec section 7.1).
+    reactivate: bool = False
 
     def __post_init__(self):
         if not self.title:

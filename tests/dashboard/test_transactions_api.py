@@ -84,6 +84,7 @@ def test_listing_returns_the_financial_years_transactions_newest_first_with_ids(
         "notes": "Employer",
         "goal_id": None,
         "goal_title": None,
+        "goal_state": None,
     }
 
 
