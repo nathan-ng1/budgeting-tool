@@ -3283,3 +3283,30 @@ tbody:first-of-type .table th.table__section {
 .goals__ledger {
   max-width: 460px;
 }
+
+/* Split savings panel (Goals spec section 9): slides down from the Goals header. */
+@keyframes goals-split-slide {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.goals__split {
+  animation: goals-split-slide 160ms ease-out;
+}
+
+.goals__confirmation {
+  margin: 0;
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .goals__split {
+    animation: none;
+  }
+}
