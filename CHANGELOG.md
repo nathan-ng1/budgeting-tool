@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.5.0 — 2026-10-15
+
+- New Goals tab for savings targets. Set a Goal with a target amount and an end date, then fund it with Contributions. Each Goal shows its progress, whether you're on track and how much to save per month, and you can open a Details view with a trajectory chart. A Split savings tool divides one amount across your active Goals, and the Overview shows a tile with your top three. Archived and deleted Goals move to Past goals.
+- Settings has a new Your data section. See where your Database lives and when you last made a Backup, download a Backup, move the Database to another folder or switch to one already there (older Databases are upgraded for you, newer ones are refused), and delete all your data and start again.
+- Two new colour themes under Appearance: Sage, a light green, and Plum, a dark purple.
+- Orchid is redesigned with white cards on a pink page, matching the other light themes, and a hot-pink accent.
+- The Dashboard now shows the running Version under its title, with a Version history page listing what changed in each release.
+- Fixed a Category's emoji not appearing on the Overview after you set it elsewhere until you reloaded the page.
+
 ## v0.4.1 — 2026-10-11
 
 - Updating no longer stops on leftover files, such as a `budget.db` in the project folder, or on the tool's own `uv.lock` file having changed. `update.bat` and `update.command` still refuse to update if you've edited anything else.
