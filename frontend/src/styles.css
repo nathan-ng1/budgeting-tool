@@ -2108,6 +2108,21 @@ tbody:first-of-type .bva__section {
   font-weight: 500;
 }
 
+/* No fill, but the same size and weight as a plain .button: for a secondary
+   action sitting beside a primary one (Run now | Add rule, Split savings | New
+   goal), where --quiet's smaller padding would leave the pair mismatched. */
+.button--outline {
+  background: transparent;
+  border-color: var(--color-neutral-400);
+  color: var(--color-neutral-700);
+}
+
+.button--outline:hover {
+  background: var(--color-neutral-200);
+  border-color: var(--color-neutral-500);
+  color: var(--color-neutral-700);
+}
+
 .button--quiet:hover {
   background: var(--color-neutral-200);
   border-color: var(--color-neutral-400);
