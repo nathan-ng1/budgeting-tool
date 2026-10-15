@@ -10,7 +10,7 @@ import SectionHead from "./SectionHead.jsx";
 import SegmentedControl from "./SegmentedControl.jsx";
 import SpendingByCategory from "./SpendingByCategory.jsx";
 import SpendingOverTime from "./SpendingOverTime.jsx";
-import TopMerchants from "./TopMerchants.jsx";
+import TopExpenses from "./TopExpenses.jsx";
 
 export const DEFAULT_SECTION = "budget";
 
@@ -60,7 +60,7 @@ export default function OverviewDetails({ overview, selected, categories, colour
               categories={categories}
               colourFor={colourFor}
             />
-            <TopMerchants merchants={overview.top_merchants} count={fullYear ? 10 : 5} colourFor={colourFor} />
+            <TopExpenses expenses={overview.top_expenses} count={fullYear ? 10 : 5} colourFor={colourFor} />
           </div>
           {fullYear ? (
             <OutflowsByMonth months={overview.outflows_by_month} />

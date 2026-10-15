@@ -39,3 +39,12 @@ the standard number of charges per year (52, 26, 12, 4, 1) rather than typical ร
 fortnightly $37.50 charge is $975 a year, not $978. Other gaps keep "Every N days" and the
 365 รท gap projection. This deviates from the spec's "Every N days" wording; the rows expose the label
 as `cadence` (null when not snapped) alongside `cadence_days`.
+
+## Amendment: Top expenses returns
+
+Top merchants is replaced again by **Top expenses**: the largest single Spending Transactions (Expense +
+Bills & Subscriptions; Debt and Beem Adjustment excluded), not grouped, ranked by amount: five for a
+month, ten for Full year. Grouping by normalised Notes only works when Notes name the merchant, which
+is true of Statement Export Transactions but not of the Transactions a user enters by hand, and not
+every user imports statements. The merchant key stays, since Recurring Charges still groups by it.
+The "Show transaction count" toggle goes with the grouping.
