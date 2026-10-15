@@ -11,6 +11,7 @@ import pytest
 from datetime import date
 
 from database.store import connect
+from goals.goal import GoalDraft
 from transaction_log.entries import Candidate
 
 
@@ -36,6 +37,8 @@ def home(tmp_path: Path):
     store = connect(folder / "budget.db")
     store.append_rows([Candidate(date=date(2026, 1, 5), amount=12.5, type="Expense", category="Groceries", notes="a")])
     store.create_category("Expense", "Hobbies", None)
+    store.create_goal(GoalDraft("Japan", None, 5000.0, date(2026, 1, 1), date(2026, 12, 31)))
+    store.create_goal(GoalDraft("Car", None, 9000.0, date(2026, 1, 1), date(2027, 12, 31)))
     store.upsert_category_budget("Expense", "Groceries", 2026, 1, 100.0)
     store.write_settings({"currency": "GBP", "date_order": "month-first"})
     (folder / "budget.pre-migration-20260101-000000.db").write_bytes(b"old")
@@ -63,6 +66,7 @@ def test_the_summary_reports_live_counts_the_path_and_the_pre_migration_files(se
     assert body["recurring_rules"] == 0
     assert body["category_budgets"] == 1
     assert body["custom_categories"] == 1
+    assert body["goals"] == 2
     assert body["display_settings"] == 2
 
 
@@ -95,6 +99,7 @@ def test_a_confirmed_reset_serves_a_fresh_empty_database_at_the_same_path_withou
     _, summary = call(server, "GET", "/api/database/reset-summary")
     assert summary["transactions"] == 0
     assert summary["custom_categories"] == 0
+    assert summary["goals"] == 0
     assert summary["display_settings"] == 0
     assert summary["pre_migration_files"] == 0
     _, categories = call(server, "GET", "/api/categories")

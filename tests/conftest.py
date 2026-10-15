@@ -1,11 +1,15 @@
 from collections.abc import Sequence
 from datetime import date, datetime
 
+from dataclasses import replace
+
 import pytest
 
 from budget_suggestions.suggestion import BudgetSuggestion
 from categorisation.history import Example
 from categorisation.interface import BatchResult, CategoryResult
+from goals.goal import Contribution, Goal, GoalNotFound
+from goals.links import require_not_goals_category, require_valid_goal_link
 from database.store import (
     CategoryInUse,
     CategoryLocked,
@@ -16,22 +20,16 @@ from database.store import (
 )
 from recurring.rules import RecurringRule, StoredRecurringRule
 from statement_export.parser import RawTransaction
-from transaction_log.categories import CATEGORIES_BY_TYPE, TYPE_ORDER, Category
+from transaction_log.categories import TYPE_ORDER, Category, default_category_rows
 from transaction_log.entries import Candidate, ExistingRow, Transaction
 
-# FakeStore.read_categories()'s default - mirrors database.store's own
-# _seed_default_categories bootstrap (Beem Adjustment locked), so a test using
-# FakeStore sees the same Category list a fresh LocalStore would.
+# FakeStore.read_categories()'s default - built from the same
+# default_category_rows() that database.store's _seed_default_categories
+# bootstrap uses, so a test using FakeStore sees the same Category list a
+# fresh LocalStore would.
 _DEFAULT_CATEGORIES = [
-    Category(id=i, type=transaction_type, name=name, emoji=None, locked=(name == "Beem Adjustment"))
-    for i, (transaction_type, name) in enumerate(
-        (
-            (transaction_type, name)
-            for transaction_type, names in CATEGORIES_BY_TYPE.items()
-            for name in sorted(names)
-        ),
-        start=1,
-    )
+    Category(id=i, type=transaction_type, name=name, emoji=emoji, locked=locked)
+    for i, (transaction_type, name, emoji, locked) in enumerate(default_category_rows(), start=1)
 ]
 
 
@@ -75,6 +73,7 @@ class FakeStore:
         category_budgets: dict[tuple[str, int, int], float] | None = None,
         transactions: list[Transaction] | None = None,
         budget_suggestion: BudgetSuggestion | None = None,
+        goals: list[Goal] | None = None,
     ):
         self._existing_rows = list(existing_rows or [])
         self._recurring_rules = list(recurring_rules or [])
@@ -82,6 +81,7 @@ class FakeStore:
         self._category_budgets: dict[tuple[str, int, int], float] = dict(category_budgets or {})
         self._transactions = list(transactions or [])
         self._budget_suggestion = budget_suggestion
+        self._goals = list(goals or [])
         self._stored_recurring_rules: list[StoredRecurringRule] = []
         self._next_rule_id = 0
         self._next_transaction_id = max((t.id for t in self._transactions), default=0)
@@ -93,13 +93,55 @@ class FakeStore:
         return list(self._existing_rows)
 
     def read_transactions(self) -> list[Transaction]:
-        return list(self._transactions)
+        # The Goal's current title and state, as the real store's JOIN reads them.
+        return [
+            replace(t, goal_title=self._goal_title(t.goal_id), goal_state=self._goal_state(t.goal_id))
+            for t in self._transactions
+        ]
 
     def append_rows(self, candidates: list[Candidate]) -> None:
         self.appended.extend(candidates)
 
+    def read_goals(self) -> list[Goal]:
+        return list(self._goals)
+
+    def read_goal(self, goal_id: int) -> Goal:
+        for goal in self._goals:
+            if goal.id == goal_id:
+                return goal
+        raise GoalNotFound(f"No Goal has id {goal_id}")
+
+    def read_goal_savings(self) -> dict[int, float]:
+        savings: dict[int, float] = {}
+        for transaction in self._transactions:
+            if transaction.goal_id is not None:
+                savings[transaction.goal_id] = round(savings.get(transaction.goal_id, 0.0) + transaction.amount, 2)
+        return savings
+
+    def read_goal_contributions(self) -> dict[int, list[Contribution]]:
+        ledgers: dict[int, list[Contribution]] = {}
+        for transaction in sorted(self._transactions, key=lambda t: (t.date, t.id)):
+            if transaction.goal_id is not None:
+                ledgers.setdefault(transaction.goal_id, []).append(
+                    Contribution(date=transaction.date, notes=transaction.notes or "", amount=transaction.amount)
+                )
+        return ledgers
+
+    def _require_valid_goal_link(self, candidate: Candidate, current_goal_id: int | None) -> None:
+        goal = next((g for g in self._goals if g.id == candidate.goal_id), None)
+        require_valid_goal_link(candidate.category, candidate.goal_id, goal, current_goal_id)
+
+    def _goal_title(self, goal_id: int | None) -> str | None:
+        goal = next((g for g in self._goals if g.id == goal_id), None)
+        return goal.title if goal is not None else None
+
+    def _goal_state(self, goal_id: int | None) -> str | None:
+        goal = next((g for g in self._goals if g.id == goal_id), None)
+        return goal.state if goal is not None else None
+
     def create_transaction(self, candidate: Candidate) -> Transaction:
         self._require_valid_pair(candidate.type, candidate.category)
+        self._require_valid_goal_link(candidate, current_goal_id=None)
         self._next_transaction_id += 1
         created = Transaction(
             id=self._next_transaction_id,
@@ -108,13 +150,23 @@ class FakeStore:
             type=candidate.type,
             category=candidate.category,
             notes=candidate.notes,
+            goal_id=candidate.goal_id,
+            goal_title=self._goal_title(candidate.goal_id),
+            goal_state=self._goal_state(candidate.goal_id),
         )
         self._transactions.append(created)
         return created
 
+    def create_transactions(self, candidates: list[Candidate]) -> list[Transaction]:
+        for candidate in candidates:
+            self._require_valid_pair(candidate.type, candidate.category)
+            self._require_valid_goal_link(candidate, current_goal_id=None)
+        return [self.create_transaction(candidate) for candidate in candidates]
+
     def update_transaction(self, transaction_id: int, candidate: Candidate) -> Transaction:
         self._require_valid_pair(candidate.type, candidate.category)
         index = self._transaction_index(transaction_id)
+        self._require_valid_goal_link(candidate, current_goal_id=self._transactions[index].goal_id)
         updated = Transaction(
             id=transaction_id,
             date=candidate.date,
@@ -122,6 +174,9 @@ class FakeStore:
             type=candidate.type,
             category=candidate.category,
             notes=candidate.notes,
+            goal_id=candidate.goal_id,
+            goal_title=self._goal_title(candidate.goal_id),
+            goal_state=self._goal_state(candidate.goal_id),
         )
         self._transactions[index] = updated
         return updated
@@ -148,6 +203,7 @@ class FakeStore:
 
     def create_recurring_rule(self, rule: RecurringRule) -> StoredRecurringRule:
         self._require_valid_pair(rule.type, rule.category)
+        require_not_goals_category(rule.category)
         self._next_rule_id += 1
         stored = StoredRecurringRule(id=self._next_rule_id, rule=rule)
         self._stored_recurring_rules.append(stored)
@@ -155,6 +211,7 @@ class FakeStore:
 
     def update_recurring_rule(self, rule_id: int, rule: RecurringRule) -> StoredRecurringRule:
         self._require_valid_pair(rule.type, rule.category)
+        require_not_goals_category(rule.category)
         index = self._index_of(rule_id)
         updated = StoredRecurringRule(id=rule_id, rule=rule)
         self._stored_recurring_rules[index] = updated

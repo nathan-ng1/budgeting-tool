@@ -3,10 +3,13 @@ import sqlite3
 from datetime import date, datetime
 from pathlib import Path
 
+from goals.goal import ACTIVE, ARCHIVED, DELETED, Contribution, Goal, GoalDraft, GoalNotFound
+from goals.links import require_not_goals_category, require_valid_goal_link
+
 from budget_suggestions.suggestion import BudgetSuggestion
 from database.backup import backup_to
 from recurring.rules import RecurringRule, StoredRecurringRule
-from transaction_log.categories import CATEGORIES_BY_TYPE, TYPE_ORDER, Category
+from transaction_log.categories import CATEGORIES_BY_TYPE, TYPE_ORDER, Category, default_category_rows
 from transaction_log.entries import Candidate, ExistingRow, Transaction
 
 # The `settings` row recording the latest Backup (Issue #197).
@@ -38,7 +41,11 @@ CREATE TABLE IF NOT EXISTS transactions (
     amount REAL NOT NULL,
     type TEXT NOT NULL,
     category_id INTEGER NOT NULL REFERENCES categories(id),
-    notes TEXT NOT NULL
+    notes TEXT NOT NULL,
+    -- The Goal a Contribution (Category Goals) belongs to; NULL for every other
+    -- row. Not enforced by SQLite - the store checks it (ADR-0031). An existing
+    -- file gets the column from migration.add_goals, not from here.
+    goal_id INTEGER REFERENCES goals(id)
 );
 
 CREATE TABLE IF NOT EXISTS recurring_rules (
@@ -66,6 +73,18 @@ CREATE TABLE IF NOT EXISTS budget_suggestion (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     write_up TEXT NOT NULL,
     generated_at TEXT NOT NULL
+);
+
+-- Goals (ADR-0031): the user's own fields plus a lifecycle state. Status, saved
+-- amount and pace are derived, never stored.
+CREATE TABLE IF NOT EXISTS goals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    description TEXT,
+    target_amount REAL NOT NULL,
+    start_date TEXT NOT NULL,
+    end_date TEXT NOT NULL,
+    state TEXT NOT NULL DEFAULT 'active'
 );
 
 -- Localisation settings (ADR-0027): only what has been saved. A setting with
@@ -98,7 +117,7 @@ class CategoryNotFound(LookupError):
 
 
 class CategoryLocked(ValueError):
-    """A locked Category (Beem Adjustment today - see ADR-0015) can't be
+    """A locked Category (see LOCKED_CATEGORIES; Beem Adjustment - ADR-0015 - is one) can't be
     renamed or deleted, no matter what the caller sends - the UI hiding the
     edit/delete controls is a courtesy, not the enforcement point (Issue #89).
     """
@@ -141,6 +160,16 @@ class LocalStore:
         Windows won't let an open SQLite file go (ADR-0030)."""
         self._connection.close()
 
+    def pending_migration_names(self) -> list[str]:
+        """The registered one-off migrations this Database has not had yet
+        (ADR-0025). Read-only: the Dashboard checks this at startup and
+        refuses to run while any are pending."""
+        # Imported here, not at module level: the migrations import this module.
+        from migration.registry import MIGRATIONS
+        from migration.runner import pending
+
+        return [migration.name for migration in pending(self._connection, MIGRATIONS)]
+
     def read_existing_rows(self) -> list[ExistingRow]:
         rows = self._connection.execute("SELECT date, amount, notes FROM transactions").fetchall()
         return [
@@ -163,8 +192,9 @@ class LocalStore:
 
     def read_transactions(self) -> list[Transaction]:
         rows = self._connection.execute(
-            "SELECT t.id, t.date, t.amount, t.type, c.name, t.notes "
-            "FROM transactions t JOIN categories c ON c.id = t.category_id"
+            "SELECT t.id, t.date, t.amount, t.type, c.name, t.notes, t.goal_id, g.title, g.state "
+            "FROM transactions t JOIN categories c ON c.id = t.category_id "
+            "LEFT JOIN goals g ON g.id = t.goal_id"
         ).fetchall()
         return [
             Transaction(
@@ -174,8 +204,11 @@ class LocalStore:
                 type=transaction_type,
                 category=category,
                 notes=notes,
+                goal_id=goal_id,
+                goal_title=goal_title,
+                goal_state=goal_state,
             )
-            for row_id, row_date, amount, transaction_type, category, notes in rows
+            for row_id, row_date, amount, transaction_type, category, notes, goal_id, goal_title, goal_state in rows
         ]
 
     def create_transaction(self, candidate: Candidate) -> Transaction:
@@ -184,19 +217,46 @@ class LocalStore:
         # table, so a Category added through Category Management is usable
         # immediately (Issue #91).
         self._require_valid_pair(candidate.type, candidate.category)
+        self._require_valid_goal_link(candidate, current_goal_id=None)
 
         cursor = self._connection.execute(
-            "INSERT INTO transactions (date, amount, type, category_id, notes) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO transactions (date, amount, type, category_id, notes, goal_id) VALUES (?, ?, ?, ?, ?, ?)",
             self._transaction_columns(candidate),
         )
         self._connection.commit()
-        return _as_transaction(cursor.lastrowid, candidate)
+        return self._as_transaction(cursor.lastrowid, candidate)
+
+    def create_transactions(self, candidates: list[Candidate]) -> list[Transaction]:
+        """Write every Candidate in one database transaction - all of them or
+        none (the Split savings tool, Goals spec section 9). Each is checked
+        against the same pair and Goal-link rules as `create_transaction`, and
+        none is deduplicated."""
+        for candidate in candidates:
+            self._require_valid_pair(candidate.type, candidate.category)
+            self._require_valid_goal_link(candidate, current_goal_id=None)
+
+        created = []
+        try:
+            for candidate in candidates:
+                cursor = self._connection.execute(
+                    "INSERT INTO transactions (date, amount, type, category_id, notes, goal_id) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    self._transaction_columns(candidate),
+                )
+                created.append(self._as_transaction(cursor.lastrowid, candidate))
+        except Exception:
+            self._connection.rollback()
+            raise
+        self._connection.commit()
+        return created
 
     def update_transaction(self, transaction_id: int, candidate: Candidate) -> Transaction:
         self._require_valid_pair(candidate.type, candidate.category)
+        self._require_valid_goal_link(candidate, current_goal_id=self._current_goal_id(transaction_id))
 
         cursor = self._connection.execute(
-            "UPDATE transactions SET date = ?, amount = ?, type = ?, category_id = ?, notes = ? WHERE id = ?",
+            "UPDATE transactions SET date = ?, amount = ?, type = ?, category_id = ?, notes = ?, goal_id = ? "
+            "WHERE id = ?",
             (*self._transaction_columns(candidate), transaction_id),
         )
         if cursor.rowcount == 0:
@@ -204,7 +264,23 @@ class LocalStore:
             raise TransactionNotFound(f"No Transaction has id {transaction_id}")
 
         self._connection.commit()
-        return _as_transaction(transaction_id, candidate)
+        return self._as_transaction(transaction_id, candidate)
+
+    def _as_transaction(self, transaction_id: int, candidate: Candidate) -> Transaction:
+        """The stored Transaction a write answers with, its Goal's title and
+        state included so the Transactions tab can draw the chip."""
+        goal = self._goal(candidate.goal_id) if candidate.goal_id is not None else None
+        return Transaction(
+            id=transaction_id,
+            date=candidate.date,
+            amount=candidate.amount,
+            type=candidate.type,
+            category=candidate.category,
+            notes=candidate.notes,
+            goal_id=candidate.goal_id,
+            goal_title=goal.title if goal is not None else None,
+            goal_state=goal.state if goal is not None else None,
+        )
 
     def delete_transaction(self, transaction_id: int) -> None:
         cursor = self._connection.execute("DELETE FROM transactions WHERE id = ?", (transaction_id,))
@@ -247,6 +323,7 @@ class LocalStore:
 
     def create_recurring_rule(self, rule: RecurringRule) -> StoredRecurringRule:
         self._require_valid_pair(rule.type, rule.category)
+        require_not_goals_category(rule.category)
 
         cursor = self._connection.execute(
             "INSERT INTO recurring_rules "
@@ -259,6 +336,7 @@ class LocalStore:
 
     def update_recurring_rule(self, rule_id: int, rule: RecurringRule) -> StoredRecurringRule:
         self._require_valid_pair(rule.type, rule.category)
+        require_not_goals_category(rule.category)
 
         cursor = self._connection.execute(
             "UPDATE recurring_rules SET "
@@ -333,6 +411,108 @@ class LocalStore:
             (category_id, year, month),
         )
         self._connection.commit()
+
+    def read_goals(self) -> list[Goal]:
+        """Every Goal in any state, oldest first."""
+        rows = self._connection.execute(
+            "SELECT id, title, description, target_amount, start_date, end_date, state FROM goals ORDER BY id"
+        ).fetchall()
+        return [_as_goal(row) for row in rows]
+
+    def create_goal(self, draft: GoalDraft) -> Goal:
+        self._require_unique_goal_title(draft.title, except_id=None)
+
+        cursor = self._connection.execute(
+            "INSERT INTO goals (title, description, target_amount, start_date, end_date, state) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                draft.title,
+                draft.description,
+                draft.target_amount,
+                draft.start_date.isoformat(),
+                draft.end_date.isoformat(),
+                ACTIVE,
+            ),
+        )
+        self._connection.commit()
+        return self._goal(cursor.lastrowid)
+
+    def update_goal(self, goal_id: int, draft: GoalDraft) -> Goal:
+        """Replace a Goal's own fields. Its lifecycle state is left alone,
+        unless the draft reactivates it (back to active)."""
+        self._goal(goal_id)
+        self._require_unique_goal_title(draft.title, except_id=goal_id)
+
+        self._connection.execute(
+            "UPDATE goals SET title = ?, description = ?, target_amount = ?, start_date = ?, end_date = ?, "
+            "state = CASE WHEN ? THEN ? ELSE state END WHERE id = ?",
+            (
+                draft.title,
+                draft.description,
+                draft.target_amount,
+                draft.start_date.isoformat(),
+                draft.end_date.isoformat(),
+                draft.reactivate,
+                ACTIVE,
+                goal_id,
+            ),
+        )
+        self._connection.commit()
+        return self._goal(goal_id)
+
+    def set_goal_state(self, goal_id: int, state: str) -> Goal:
+        """Archive or delete a Goal (both soft; there is no permanent delete).
+        Its Contributions are never touched."""
+        if state not in (ARCHIVED, DELETED):
+            raise ValueError(f"A Goal can be archived or deleted, not set to {state!r}")
+        self._goal(goal_id)
+        self._connection.execute("UPDATE goals SET state = ? WHERE id = ?", (state, goal_id))
+        self._connection.commit()
+        return self._goal(goal_id)
+
+    def read_goal(self, goal_id: int) -> Goal:
+        """One Goal in any state, or GoalNotFound."""
+        return self._goal(goal_id)
+
+    def read_goal_savings(self) -> dict[int, float]:
+        """Saved so far per Goal: the sum of every linked Contribution, of any
+        date and whatever the Goal's state. A Goal with none is omitted."""
+        rows = self._connection.execute(
+            "SELECT goal_id, SUM(amount) FROM transactions WHERE goal_id IS NOT NULL GROUP BY goal_id"
+        ).fetchall()
+        return {goal_id: round(total, 2) for goal_id, total in rows}
+
+    def read_goal_contributions(self) -> dict[int, list[Contribution]]:
+        """Every Goal's Contributions ledger, oldest first (ties in the order
+        they were entered), whatever the Goal's state. A Goal with none is
+        omitted."""
+        rows = self._connection.execute(
+            "SELECT goal_id, date, notes, amount FROM transactions WHERE goal_id IS NOT NULL ORDER BY date, id"
+        ).fetchall()
+        ledgers: dict[int, list[Contribution]] = {}
+        for goal_id, row_date, notes, amount in rows:
+            ledgers.setdefault(goal_id, []).append(
+                Contribution(date=date.fromisoformat(row_date), notes=notes or "", amount=amount)
+            )
+        return ledgers
+
+    def _goal(self, goal_id: int) -> Goal:
+        row = self._connection.execute(
+            "SELECT id, title, description, target_amount, start_date, end_date, state FROM goals WHERE id = ?",
+            (goal_id,),
+        ).fetchone()
+        if row is None:
+            raise GoalNotFound(f"No Goal has id {goal_id}")
+        return _as_goal(row)
+
+    def _require_unique_goal_title(self, title: str, except_id: int | None) -> None:
+        """A title is unique across every Goal, Past goals included, ignoring
+        case and surrounding spaces. Folded in code with `casefold()`, not by
+        a column constraint: SQLite's `lower()` and NOCASE fold ASCII only."""
+        wanted = title.strip().casefold()
+        for goal in self.read_goals():
+            if goal.id != except_id and goal.title.strip().casefold() == wanted:
+                raise ValueError(f"Another Goal already uses the title {goal.title!r} (Past goals count too)")
 
     def read_categories(self) -> list[Category]:
         """Every Category, sourced from the `categories` table (Issue #90) -
@@ -436,6 +616,22 @@ class LocalStore:
         row = self._connection.execute("SELECT id FROM categories WHERE name = ?", (name,)).fetchone()
         return row[0] if row is not None else None
 
+    def _require_valid_goal_link(self, candidate: Candidate, current_goal_id: int | None) -> None:
+        """The Goal-link rules (goals.links) against the live `goals` table."""
+        goal = None
+        if candidate.goal_id is not None:
+            try:
+                goal = self._goal(candidate.goal_id)
+            except GoalNotFound:
+                pass
+        require_valid_goal_link(candidate.category, candidate.goal_id, goal, current_goal_id)
+
+    def _current_goal_id(self, transaction_id: int) -> int | None:
+        row = self._connection.execute("SELECT goal_id FROM transactions WHERE id = ?", (transaction_id,)).fetchone()
+        if row is None:
+            raise TransactionNotFound(f"No Transaction has id {transaction_id}")
+        return row[0]
+
     def _transaction_columns(self, candidate: Candidate) -> tuple:
         return (
             candidate.date.isoformat(),
@@ -443,6 +639,7 @@ class LocalStore:
             candidate.type,
             self._category_id(candidate.category),
             candidate.notes,
+            candidate.goal_id,
         )
 
     def _as_columns(self, rule: RecurringRule) -> tuple:
@@ -489,7 +686,7 @@ class LocalStore:
 
     def count_data(self) -> dict[str, int]:
         """How much the user has put in the Database, for the delete flow's
-        "what will be lost" list (Issue #201): rows in each user-owned table,
+        "what will be lost" list (Issue #201): rows in each user-owned table (Goals in any state),
         Categories beyond the predefined ones, and saved Display Settings
         (the `settings` row recording the latest Backup is not one)."""
 
@@ -502,6 +699,7 @@ class LocalStore:
             "transactions": count("transactions"),
             "recurring_rules": count("recurring_rules"),
             "category_budgets": count("category_budgets"),
+            "goals": count("goals"),
             "custom_categories": sum(1 for row in categories if tuple(row) not in predefined),
             "display_settings": len(set(self.read_settings()) - {LAST_BACKED_UP_KEY}),
         }
@@ -528,14 +726,16 @@ class LocalStore:
         self._connection.commit()
 
 
-def _as_transaction(transaction_id: int, candidate: Candidate) -> Transaction:
-    return Transaction(
-        id=transaction_id,
-        date=candidate.date,
-        amount=candidate.amount,
-        type=candidate.type,
-        category=candidate.category,
-        notes=candidate.notes,
+def _as_goal(columns) -> Goal:
+    goal_id, title, description, target_amount, start_date, end_date, state = columns
+    return Goal(
+        id=goal_id,
+        title=title,
+        description=description,
+        target_amount=target_amount,
+        start_date=date.fromisoformat(start_date),
+        end_date=date.fromisoformat(end_date),
+        state=state,
     )
 
 
@@ -559,8 +759,8 @@ def _as_rule(columns) -> RecurringRule:
 def _seed_default_categories(connection: sqlite3.Connection) -> None:
     """One-off bootstrap of `categories` from CATEGORIES_BY_TYPE - only runs
     while the table is still empty (a brand new database: every test, every
-    new install), so it needs no separate setup step - Beem Adjustment seeded
-    locked (ADR-0015). Deliberately *not* run on every connect(): a Category
+    new install), so it needs no separate setup step - the locked ones
+    (LOCKED_CATEGORIES, e.g. Beem Adjustment - ADR-0015) seeded locked. Deliberately *not* run on every connect(): a Category
     a user deletes via Category Management must stay deleted across Dashboard
     restarts, and this is the only thing that distinguishes "never created"
     from "deliberately deleted" - there's no tombstone, so re-running this
@@ -580,11 +780,10 @@ def _seed_default_categories(connection: sqlite3.Connection) -> None:
         return
 
     connection.executemany(
-        "INSERT INTO categories (type, name, locked) VALUES (?, ?, ?)",
+        "INSERT INTO categories (type, name, emoji, locked) VALUES (?, ?, ?, ?)",
         [
-            (transaction_type, name, 1 if name == "Beem Adjustment" else 0)
-            for transaction_type, names in CATEGORIES_BY_TYPE.items()
-            for name in sorted(names)
+            (transaction_type, name, emoji, 1 if locked else 0)
+            for transaction_type, name, emoji, locked in default_category_rows()
         ],
     )
     connection.commit()

@@ -4,8 +4,10 @@ from transaction_log.categories import (
     AI_EXCLUDED_TYPES,
     CATEGORIES_BY_TYPE,
     TYPE_ORDER,
+    LOCKED_CATEGORIES,
     Category,
     assignable_categories_by_type,
+    default_category_rows,
     is_valid_type_category_pair,
     type_for_category,
     types_with_categories,
@@ -23,10 +25,14 @@ def test_type_order_is_income_expense_bills_and_subscriptions_debt_savings():
     assert TYPE_ORDER == ("Income", "Expense", "Bills & Subscriptions", "Debt", "Savings")
 
 
-def test_savings_has_predefined_savings_and_investments_categories():
+def test_savings_has_predefined_savings_investments_and_goals_categories():
     # ADR-0022 - the one Type given predefined Categories rather than lazy
-    # population.
-    assert CATEGORIES_BY_TYPE["Savings"] == {"Savings", "Investments"}
+    # population. Goals (ADR-0031) is the locked home of Contributions.
+    assert CATEGORIES_BY_TYPE["Savings"] == {"Savings", "Investments", "Goals"}
+
+
+def test_goals_is_a_locked_savings_category_seeded_with_the_target_emoji():
+    assert ("Savings", "Goals", "\N{DIRECT HIT}", True) in default_category_rows()
 
 
 def test_bills_and_subscriptions_has_four_predefined_categories():
@@ -155,3 +161,23 @@ def test_types_with_categories_omits_savings_from_the_default_mapping():
 
 def test_types_with_categories_accepts_an_explicit_mapping():
     assert types_with_categories({"B": {"x"}, "A": {"y"}, "C": set()}) == ["A", "B"]
+
+
+def test_locked_predefined_categories_are_beem_adjustment_with_no_emoji_and_goals_with_its_target():
+    assert LOCKED_CATEGORIES == {"Beem Adjustment": None, "Goals": "\N{DIRECT HIT}"}
+
+
+def test_default_category_rows_cover_every_predefined_category_and_lock_only_the_shared_list():
+    rows = default_category_rows()
+
+    assert {(t, n) for t, n, _, _ in rows} == {(t, n) for t, names in CATEGORIES_BY_TYPE.items() for n in names}
+    assert {n for _, n, _, locked in rows if locked} == {"Beem Adjustment", "Goals"}
+    assert {n for _, n, emoji, _ in rows if emoji is not None} == {"Goals"}
+
+
+def test_adding_to_the_locked_list_locks_that_category_with_its_emoji_in_the_default_rows(monkeypatch):
+    monkeypatch.setitem(LOCKED_CATEGORIES, "Groceries", "G")
+
+    [row] = [r for r in default_category_rows() if r[1] == "Groceries"]
+
+    assert row == ("Expense", "Groceries", "G", True)

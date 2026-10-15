@@ -83,6 +83,20 @@ def test_saving_a_savings_category_budget_then_appears_in_the_editor_read(runnin
     assert _row(body["Savings"], "Savings")["amount"] == 500.0
 
 
+def test_saving_a_category_budget_on_goals_then_appears_in_the_editor_read(running_server):
+    # ADR-0031 - a monthly allowance for Contributions overall, distinct from
+    # each Goal's own required-per-month.
+    _store, server = running_server
+
+    status, saved = call(server, "PUT", "/api/budget-editor/Goals?year=2026&month=8", {"amount": 400.0})
+
+    assert status == 200
+    assert saved == {"category": "Goals", "amount": 400.0}
+
+    _status, body = call(server, "GET", "/api/budget-editor?year=2026&month=8")
+    assert _row(body["Savings"], "Goals")["amount"] == 400.0
+
+
 def test_saving_a_bills_and_subscriptions_category_budget_then_appears_in_the_editor_read(running_server):
     _store, server = running_server
 

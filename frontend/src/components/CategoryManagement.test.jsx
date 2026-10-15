@@ -154,6 +154,25 @@ describe("CategoryManagement", () => {
     expect(screen.queryByRole("button", { name: "Delete Beem Adjustment" })).not.toBeInTheDocument();
   });
 
+  it("shows Goals locked with its own tooltip, and no edit or delete control", async () => {
+    useBackend([category({ type: "Savings", name: "Goals", emoji: "🎯", locked: true })]);
+    render(<CategoryManagement />);
+
+    await screen.findByText("Goals");
+    expect(screen.getByText("🎯")).toBeInTheDocument();
+    expect(screen.getByTitle("Managed by the Goals tab - can't be renamed or deleted")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit Goals" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete Goals" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the general tooltip for any other locked Category", async () => {
+    useBackend([category({ name: "Beem Adjustment", locked: true })]);
+    render(<CategoryManagement />);
+
+    await screen.findByText("Beem Adjustment");
+    expect(screen.getByTitle("Locked - can't be renamed or deleted")).toBeInTheDocument();
+  });
+
   it("shows the store's own rejection and keeps the form open to fix it", async () => {
     render(<CategoryManagement />);
     await userEvent.click((await screen.findAllByRole("button", { name: "+ Add category" }))[1]);

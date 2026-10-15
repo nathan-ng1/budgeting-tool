@@ -206,6 +206,26 @@ describe("RecurringRules", () => {
     expect(within(category).getByRole("option", { name: "Salary" })).toBeInTheDocument();
   });
 
+  it("does not offer the Goals Category, but still offers other locked Categories like Beem Adjustment", async () => {
+    fetchMock = backend(
+      [],
+      [
+        ...CATEGORIES,
+        { id: 4, type: "Savings", name: "Goals", emoji: "🎯", locked: true },
+        { id: 5, type: "Expense", name: "Beem Adjustment", emoji: null, locked: true },
+      ],
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<RecurringRules />);
+    await openForm("Add rule");
+
+    const category = screen.getByLabelText("Category");
+    expect(within(category).getByRole("option", { name: "Beem Adjustment" })).toBeInTheDocument();
+    // Goals is the only Savings Category here, so its whole Type drops out too.
+    expect(within(screen.getByLabelText("Type")).queryByRole("option", { name: "Savings" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /Goals/ })).not.toBeInTheDocument();
+  });
+
   it("shows a Category's emoji next to its name, in the table and in the Category select", async () => {
     fetchMock = backend(
       [rule()],

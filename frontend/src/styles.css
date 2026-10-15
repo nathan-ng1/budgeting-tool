@@ -2387,6 +2387,25 @@ tbody:first-of-type .bva__section {
   color: var(--color-accent-700);
 }
 
+/* The Goal a Goals-Category Transaction contributes to (Transactions tab).
+   Muted once the Goal is archived or deleted. */
+.goal-chip {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--color-neutral-300);
+  background: var(--color-neutral-100);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.goal-chip--muted {
+  color: var(--color-neutral-500);
+  font-weight: 400;
+}
+
 .category-chip--form {
   flex-wrap: wrap;
   background: var(--color-card);
@@ -3028,4 +3047,283 @@ tbody:first-of-type .table th.table__section {
   display: flex;
   gap: 8px;
   margin-top: 18px;
+}
+
+/* — Goals tab (Goals spec section 10) — */
+
+.goals {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.goals__muted {
+  color: var(--color-neutral-600);
+  font-size: 13px;
+}
+
+.goals__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.goals__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.goals__clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 6px 0 0;
+}
+
+.goals__form {
+  margin-top: 0;
+}
+
+/* Goal cards are narrow: two equal columns that may shrink below an input's
+   intrinsic width, with every control filling its cell, keep the fields inside
+   the form box. */
+.goals__form .rule-form__grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.goals__form .field {
+  min-width: 0;
+}
+
+.goals__form .field input,
+.goals__form .field select {
+  width: 100%;
+  min-width: 0;
+}
+
+.goals__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 14px;
+}
+
+.goals__card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.goals__card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.goals__card .goals__actions {
+  margin-top: 14px;
+}
+
+.goals__headline {
+  margin-top: 10px;
+  font-family: var(--font-heading);
+  font-size: 24px;
+  letter-spacing: -0.015em;
+}
+
+/* The progress bar, with a tick where an even pace would have the Goal today. */
+.goals__bar {
+  position: relative;
+  height: 12px;
+  margin: 12px 0 8px;
+  border-radius: 999px;
+  background: var(--color-neutral-200);
+}
+
+.goals__bar-fill {
+  height: 100%;
+  border-radius: 999px;
+}
+
+.goals__bar-fill--ok {
+  background: var(--color-positive);
+}
+
+.goals__bar-fill--behind {
+  background: var(--color-negative);
+}
+
+.goals__bar-pace {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  background: var(--color-text);
+  opacity: 0.7;
+}
+
+.goals__chip {
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.goals__chip--good {
+  background: var(--color-positive-tint);
+  color: var(--color-positive);
+}
+
+.goals__chip--bad {
+  background: var(--color-negative-tint);
+  color: var(--color-negative);
+}
+
+.goals__chip--muted {
+  background: var(--color-neutral-200);
+  color: var(--color-neutral-700);
+}
+
+/* The collapsed Past goals list under the card grid. */
+.goals__past summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.goals__past-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.goals__past-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.goals__past-title {
+  flex: 1 1 160px;
+  font-weight: 600;
+}
+
+/* The Overview's Goals tile: up to three Goals, each a title row, a bar and a
+   funded / monthly line. */
+.goals-tile__list {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.goals-tile__list h4 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.goals-tile__list .goals__bar {
+  margin: 10px 0 6px;
+}
+
+/* The Goal Details view: a title row, a stats strip, the trajectory chart and
+   the Contributions ledger. */
+.goals__details-button {
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px 16px;
+}
+
+.goals__details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.goals__details-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.goals__details-sub {
+  margin: 18px 0 0;
+  font-size: 15px;
+}
+
+.goals__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px 20px;
+  margin: 14px 0 6px;
+}
+
+.goals__stats > div {
+  min-width: 0;
+}
+
+.goals__stats dt {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-neutral-500);
+}
+
+.goals__stats dd {
+  margin: 2px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.goals__stats-lead dd {
+  font-size: 22px;
+}
+
+.goals__chart {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.goals__ledger {
+  max-width: 460px;
+}
+
+/* Split savings panel (Goals spec section 9): slides down from the Goals header. */
+@keyframes goals-split-slide {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.goals__split {
+  animation: goals-split-slide 160ms ease-out;
+}
+
+.goals__confirmation {
+  margin: 0;
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .goals__split {
+    animation: none;
+  }
 }
