@@ -1,3342 +1,3342 @@
-/* Design tokens and component classes lifted from the approved Claude Design
-   mockup (docs/mockups/overview-dashboard.html), whose design system is called
-   "Organic". The mockup carries its styling as inline attributes on every
-   element; the same values live here as classes so the components stay
-   readable. Fonts are vendored under public/fonts so the Dashboard renders
-   fully offline - nothing about this page reaches the network (ADR-0008). */
-
-@font-face {
-  font-family: "Caprasimo";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/fonts/caprasimo-latin.woff2") format("woff2");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
-    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-@font-face {
-  font-family: "Caprasimo";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/fonts/caprasimo-latin-ext.woff2") format("woff2");
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
-    U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-
-@font-face {
-  font-family: "Figtree";
-  font-style: normal;
-  font-weight: 400 700;
-  font-display: swap;
-  src: url("/fonts/figtree-latin.woff2") format("woff2");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
-    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-@font-face {
-  font-family: "Figtree";
-  font-style: normal;
-  font-weight: 400 700;
-  font-display: swap;
-  src: url("/fonts/figtree-latin-ext.woff2") format("woff2");
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
-    U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-
-:root {
-  --color-text: #201e1d;
-  --color-accent: #c67139;
-
-  --color-neutral-100: #f9f4ed;
-  --color-neutral-200: #eee7db;
-  --color-neutral-300: #dcd3c4;
-  --color-neutral-400: #c0b6a5;
-  --color-neutral-500: #a19786;
-  --color-neutral-600: #82796a;
-  --color-neutral-700: #645c50;
-
-  --color-accent-300: #ffc6a5;
-  --color-accent-600: #b2622d;
-  --color-accent-700: #8c491a;
-  --color-accent-800: #643312;
-
-  /* --color-positive/-tint, --color-accent-2-500, --color-negative/-tint,
-     --color-danger, --color-debt and --color-transfer were revised in Issue
-     #111 to follow the same hue-anchor + HSL-ramp + contrast-check
-     convention Midnight and Orchid's own semantic tokens already use,
-     rather than staying one-off literals (Blossom, Issue #102 follow-up,
-     had given positive/negative independent values, but as hand-picked
-     hexes with no documented formula - and --color-debt was an unrelated
-     indigo, --color-negative just aliased the accent ramp). Settled via
-     /prototype directly (three derived-shade variants compared live via a
-     throwaway ?variant=A/B/C toggle, see prototype/terracotta-theme-variants,
-     kept as the primary source, not merged) - Variant C, "Muted" won:
-
-     - --color-debt/--color-transfer move off the standalone indigo/accent
-       alias onto Terracotta's own (unvaried) neutral ramp's hue (~38deg -
-       measurably different from --color-accent's ~24deg, despite both
-       reading as "warm tan" at a glance) instead, matching the "debt/
-       transfer ride the neutral ramp" convention Midnight/Orchid use - not
-       part of the A/B/C comparison, since the neutral ramp itself didn't
-       change.
-     - --color-positive (+ --color-accent-2-500 for Income/Unallocated, + its
-       tint) keeps its existing olive/sage hue family (~88deg, close to the
-       old literal's ~82deg), now formula-derived and contrast-checked
-       against --color-card instead of a hand-picked hex.
-     - --color-negative (+ its tint) moves off aliasing the accent ramp onto
-       its own brick-red hue, distinct from both the accent (~24deg) and
-       --color-danger. Variant C landed at ~9deg; live feedback on the Budget
-       Suggestion chips (they read as "out of place" pink against the rest of
-       the earthy palette) warmed this further to ~17deg, closer to the
-       accent, while keeping it distinct enough to still read as "bad".
-     - --color-danger becomes its own crimson hue (~355deg), distinct from
-       --color-negative, rather than an unrelated hand-picked literal.
-
-     Every text-bearing token above (--color-positive, --color-negative,
-     --color-danger - all used as figure/chip text, see .figure--adverse/
-     .figure--favourable and the danger-confirm state below) is
-     contrast-checked >=4.5:1 (WCAG AA) against --color-card.
-     --color-debt/--color-transfer are swatch/fill-only (income-allocation
-     bar, month-by-month chart), so aren't held to the same bar. Terracotta's
-     category chart palette lives separately, in lib/categoryColours.js. */
-  --color-accent-2-500: #95a583;
-
-  --color-danger: #792a31;
-  --color-debt: #8d7b5e;
-  --color-savings: #c2af8e;
-  /* Issue #149 - swatch/fill-only like --color-debt (the allocation bar,
-     the by-month chart). Unlike debt/savings it can't ride a
-     theme's own ramp - every theme's ramp-derived fills already crowd each
-     other - so each theme gets a hue off its own palette instead, picked by
-     the dataviz skill's validator to clear >=15 dE (normal vision) and >=8
-     dE (protan/deutan) against every Type fill it sits beside, plus
-     --color-danger (Over income). Terracotta's is a dusty indigo (~285deg). */
-  --color-bills-subscriptions: #6a6aa8;
-
-  --color-positive: #53653e;
-  --color-positive-tint: #dfe8d4;
-  --color-negative: #7b4732;
-  --color-negative-tint: #e8dad4;
-
-  --color-card: #fffdf9;
-  --color-on-accent: #fff;
-
-  /* PROTOTYPE (prototype/orchid-pastel-palette, pass 9) - .button:hover and
-     .button--danger:hover used to read var(--color-accent-700) directly,
-     like the genuine text uses of that token (.state--error,
-     .category-chip--add:hover). Orchid's buttons move to a vivid,
-     unconstrained hot pink with dark text (see the pass 9 comment below),
-     which flips the direction a hover state needs to move in - lighter,
-     not darker, since a darker hover would fail contrast against dark
-     text - without dragging the AA-constrained text uses of accent-700
-     along with it. Aliased to accent-700 every other theme already used
-     so their (darker) hover direction is unchanged. */
-  --color-button-hover: var(--color-accent-700);
-
-  /* PROTOTYPE (prototype/orchid-pastel-palette) - the Net line/dot markers
-     (IncomeVsExpensesByMonth.jsx) and their .mbe__line-swatch legend marker
-     used to read var(--color-neutral-700) directly, like several genuine
-     text uses of that token (.button--quiet, .field__derived). Orchid's
-     revised palette wants this one decorative stroke pushed to white
-     without dragging those text uses along with it - hence a token of its
-     own, aliased to the neutral-700 every other theme already used so
-     their appearance is unchanged. */
-  --color-chart-line: var(--color-neutral-700);
-
-  /* PROTOTYPE (prototype/orchid-pastel-palette, pass 8) - IncomeAllocation's
-     "expenses" segment, IncomeVsExpensesByMonth's Expense bars/dot and
-     SpendingOverTime's line/gradient/marker all used to read
-     var(--color-accent-600) directly, like the genuine text/white-on-bg
-     uses of that token (.figure--adverse, .button backgrounds). Orchid
-     wants its Expenses fills pushed to a vivid hot pink well past what
-     4.5:1 text contrast allows, without dragging those text/button uses
-     along with it - hence a token of its own, aliased to accent-600 every
-     other theme already used so their appearance is unchanged. */
-  --color-negative-fill: var(--color-accent-600);
-
-  /* Separate from --color-neutral-100 (Issue #108) so a theme's page
-     backdrop can go bold without dragging along neutral-100's other
-     uses (selected month-pill text, .rule-form background,
-     .category-chip background) - Orchid needs this, Terracotta/Midnight
-     don't, so theirs is just neutral-100 unchanged. */
-  --color-background: var(--color-neutral-100);
-
-  /* Decoupled from --color-text (rather than every box-shadow's color-mix
-     reading --color-text directly) so a dark theme whose text is light can
-     still cast a dark shadow instead of a light glow - Midnight overrides
-     this, Terracotta/Orchid don't need to. */
-  --color-shadow: var(--color-text);
-
-  --font-heading: "Caprasimo", system-ui, sans-serif;
-  --font-body: "Figtree", system-ui, sans-serif;
-
-  --radius-md: 16px;
-}
-
-/* "Terracotta" (Issue #102) is the plain :root block above - the implicit
-   default when no data-theme is set. "Orchid" is the only theme that needs
-   its own block - it replaces "Blossom" (Issue #102), which even after its
-   own accent/debt fix (#102 follow-up) kept drawing feedback that it didn't
-   read well against yellow/gold.
-
-   Orchid was revised a third time (Issue #108): it still read too close to
-   Terracotta (same brown/taupe neutral ramp, similar off-white
-   background/card). Settled via /grilling, then compared as three
-   derived-shade variants via /prototype (see prototype/orchid-theme-variants,
-   kept as the primary source, not merged) - "Variant B, Richer" won:
-
-   - --color-background (page backdrop, decoupled from --color-neutral-100 -
-     see :root) and --color-card are a pale-vs-richer pink pairing, iterated
-     live against the running prototype after the initial derivation (both
-     started more saturated, then were lightened, then swapped so the card
-     carries the bolder of the two pinks and the page is the paler one).
-     --color-card was tuned again afterwards (#f7cbe4 -> #eacdd8 -> #ecd9e1):
-     hue-locked to --color-background's ~337° rather than its own ~326°, and
-     lightened/desaturated in two more live passes to sit closer to the
-     background, so the two pinks read as one family instead of visibly
-     different hues - the card still separates from the page via its own
-     border/lightness delta, not via a hue jump. --color-neutral-100
-     itself is unchanged - it keeps the selected
-     month-pill's text colour, .rule-form's background and .category-chip's
-     background, none of which should follow the page backdrop's colour.
-   - --color-neutral-200..700 (+ --color-debt/--color-transfer, which just
-     ride along the ramp rather than getting a standalone hue) move from
-     taupe/brown to a mauve/rose-grey hue-locked to --color-accent, matching
-     the convention Terracotta (warm tan) and Midnight (blue) already use.
-   - --color-positive (+ --color-accent-2-500 for Income/Unallocated, + its
-     tint) moves off purple to sage green: purple is reserved for the
-     dark-purple Plum theme (Issue #205, below), so Orchid needed to stop
-     using it everywhere, not just here.
-   - --color-negative (+ its tint) moves from wine to a rose-red derived from
-     a user-supplied seed (#DC7386).
-   - --color-danger is now Orchid's own (previously fell through to
-     Terracotta's shared #b3382a, which fails contrast - ~2.3:1 - against
-     the new, no-longer-near-white card).
-
-   Every text-bearing derived token above was contrast-checked >=4.5:1 (WCAG
-   AA) against --color-card (re-checked after the background/card swap -
-   --color-positive needed darkening, --color-negative/--color-danger
-   already had enough headroom). --color-accent itself uses the same derived
-   shade as --color-accent-600 rather than a literal seed, since the active
-   month pill uses --color-accent as a background under --color-neutral-100
-   text. Orchid's category chart palette lives separately, in
-   lib/categoryColours.js. */
-/* PROTOTYPE (prototype/orchid-pastel-palette) - a fourth Orchid revision,
-   starting from a user-supplied 4-colour palette (#F7DEE3 background,
-   #F4D2D8 card, #DCCFF7 lavender for secondary/inactive elements, #DC7386
-   rose as the single "pop" colour) rather than a /grilling role mapping.
-   Settled in two live-feedback passes:
-
-   Pass 1 compared #DC7386 applied literally vs. a darkened derivation, via
-   a throwaway ?variant=A/B toggle (now removed - "safe" won and is folded
-   in below). Raw #DC7386 measured ~2.2:1 as text against --color-card and
-   ~3.1:1 as white-on-fill (the selected month pill, 13px bold) - nowhere
-   near the 4.5:1 this project holds every other text-bearing token to, and
-   visibly washed out live (the Budgeted vs Actual Total Diff figure, the
-   Full year pill). --color-accent/--color-negative/--color-danger below
-   are all a ~349°-hue derivation darkened until both contexts clear AA:
-   #a32941 measures ~7.1:1 for the pill and ~5.1:1 for figure text.
-   --color-danger nudges darker/more crimson again so it stays visually
-   distinct from --color-negative, matching every other theme's convention.
-   This is the same seed hex Orchid's *previous* --color-negative was
-   already derived from (see the revision history above) - not a new
-   problem, the reason a derived shade exists at all.
-
-   Pass 2, live feedback on pass 1's build:
-   - --color-background lightened further (#f7dee3 -> #fbeef1) so it
-     separates more clearly from --color-card, which is unchanged.
-   - --color-neutral-100/200/300 keep the lavender ramp hue-locked to
-     #DCCFF7 (~260°) - deliberately distinct from the rose accent, per the
-     brief, and only ever a background/border/gridline colour
-     (.months__pill/.card/.nav border, hover fills), never text.
-   - --color-neutral-400/500/600/700 revert to the mauve/rose-grey ramp
-     hue-locked to --color-accent (~349°) that every prior Orchid revision
-     shipped with (see history above) - these steps are almost entirely
-     read as *text* (.nav__tab, .months__pill, table headers, muted
-     subtext, .button--quiet, .field__derived) and the lavender version of
-     them read as "purple, hard to read" live. --color-debt/--color-
-     transfer ride this ramp (600/400 steps) again too, same as before.
-   - --color-chart-line (new token, see :root) takes the one genuinely
-     decorative use of the old --color-neutral-700 - the Net line/dots in
-     IncomeVsExpensesByMonth.jsx and its .mbe__line-swatch legend marker -
-     to white, since "purple ornaments" in the live feedback specifically
-     called out that line. Kept as its own token rather than repointing
-     --color-neutral-700 itself, since that token's other, more numerous
-     uses are body text that needs to stay legible dark-on-light, not white.
-   - --color-text/--color-positive/-tint/--color-accent-2-500 are
-     untouched: text was already dark charcoal, and green stays reserved
-     for positive Available to Save per the brief.
-
-   Pass 3, live feedback on pass 2's build - green dropped entirely, and
-   the neutral ramp's remaining mauve tint still read as "purple":
-   - --color-accent-2-500 (Income bars/dots, the allocation bar's
-     "Unallocated" segment - all fill-only, no text ever sits directly on
-     it, see IncomeAllocation.jsx/IncomeVsExpensesByMonth.jsx) is now the
-     literal seed #DC7386 - safe here since it's never held to the 4.5:1
-     text bar.
-   - --color-positive (+ its tint) moves off green onto the same ~349° rose
-     family, but *is* text (.figure--favourable, the Available to Save figure,
-     Budget Suggestion chips) - so it's a separate, darker/less saturated
-     derivation (#642b35, ~7.8:1 against --color-card) from --color-accent/
-     --color-negative's brighter crimson (#a32941, ~5.1:1), rather than the
-     same value - a single hex for both signs would make the Month by
-     month table's per-row Available to Save column (favourable/adverse rows stacked
-     together) unreadable as a sequence.
-   - --color-neutral-100..700 all become literal white: text/border/
-     gridline elements that read as "purple" survived pass 2's hue
-     revert, so the ask this round was pure white rather than another
-     shade. This is a real, deliberate legibility trade: white-on-card
-     (--color-card #f4d2d8) measures ~1.4:1, so muted labels
-     (.nav__tab, table headers, .button--quiet, subtext) and borders
-     effectively disappear rather than staying faintly visible - shown
-     live rather than walked back unasked, since this is the second time
-     it's been requested after the contrast tradeoff was already flagged.
-   - --color-debt/--color-transfer no longer ride the neutral ramp (it's
-     white now, and both are fill-only chart/bar colours that need to stay
-     visible against --color-card) - they get their own fixed steps in the
-     same rose family instead, ordered so all four "Where did my income
-     go?" segments plus Income stay distinguishable by lightness: Expenses
-     #a32941 (darkest) -> Debt #c65068 -> Unallocated/Income #dc7386 ->
-     Savings #eeb3c0 (lightest).
-
-   Pass 4, live feedback on pass 3's build - white text still wasn't the
-   ask (asked again, this time for black), and green's replacement is now
-   its own purple rather than a lightness step of the negative rose:
-   - --color-neutral-300/400/500/600/700 go to literal black (#000000).
-     --color-neutral-100/200 do NOT - grep showed they're never a text/
-     border/gridline colour in this file, only backgrounds (.rule-form,
-     .category-chip, .months__pill[aria-pressed] hover fills, the
-     allocation bar's track) - flipping those to black would blacken form
-     panels and hover states, which is a different, unrequested change.
-     neutral-300 is border/gridline-only (confirmed via grep: no
-     `background:` use) so it's a clean flip - this is also the SVG chart
-     gridline stroke (IncomeVsExpensesByMonth.jsx). One known gap: a
-     handful of `border-bottom: var(--color-neutral-200)` row dividers
-     (Transactions/Budget list rows) stay whatever neutral-200 is, since
-     that token's background role wins - flag if those should go black
-     too, since it'd need splitting into its own token like
-     --color-chart-line below.
-   - --color-accent-2-500 (Income/Unallocated fill) and --color-positive
-     (+ its tint, the *text* form - same darken-for-contrast reasoning as
-     every other text token here) move off pink onto purple (~275°):
-     #6e3399 fill, #4d2768 text (~8.3:1 against --color-card).
-     --color-debt/--color-transfer become the two waypoints of a pink
-     (#a32941, ~349°) -> purple (#6e3399, ~275°) hue ramp instead of a
-     single-hue lightness ramp: Debt #962c6a (~325°), Savings #962c96
-     (~300°) - so the "Where did my income go?" bar now reads as a
-     genuine pink-to-purple gradient left to right (Expenses, Debt,
-     Savings, Unallocated) rather than one hue at four lightnesses.
-     --color-negative/--color-danger stay pink/crimson, unchanged.
-
-   Pass 5, live feedback on pass 4's build - flat black text/borders/
-   gridlines read as "too much":
-   - --color-neutral-300..700 move off literal black onto a single
-     hue-locked ramp instead, following the convention Terracotta (warm
-     tan/brown, ~36 deg) and Midnight (blue-grey, ~203 deg) already use -
-     tie the neutral ramp to a hue from the theme's own palette rather
-     than true grey/black/white. H=312 deg is the midpoint between
-     --color-accent's pink (~349 deg) and --color-positive's purple
-     (~275 deg), so the ramp reads as a muted version of *both* semantic
-     ends rather than favouring one - literally "complements the palette"
-     the way pass 2's short-lived mauve/rose-grey ramp did, but now
-     hue-locked to the pink<->purple pair instead of only the old
-     negative-rose accent. S=28% throughout, in the same
-     muted/low-saturation register as Terracotta's ~11% and Midnight's
-     ~22% (never full brand saturation).
-   - --color-neutral-300 (#b983ae, L=62%) and -400 (#a76299, L=52%) are
-     border/gridline/border-color-only roles (confirmed via the same grep
-     used for pass 4) so they're held to visibility, not the 4.5:1 text
-     bar - ~2.2:1 against --color-card, a deliberate step down from flat
-     black's ~17:1 but clearly more present than pass 3's white-on-pink
-     (~1.4:1). This is also the SVG chart gridline stroke.
-   - --color-neutral-500 (#7c4671, ~5.1:1), -600 (#623759, ~6.8:1) and
-     -700 (#482842, ~9.1:1) are predominantly *text* roles (nav tabs,
-     table headers, muted subtext, .field__derived) so each clears the
-     4.5:1 AA bar with the same kind of headroom the rest of this theme
-     uses, darkest-to-lightest matching the project's light-theme
-     convention (700 = darkest/most text-heavy, matching Terracotta).
-   - --color-neutral-100/200 and --color-chart-line are unchanged - still
-     white backgrounds/decorative net-line, per pass 4's and pass 2's
-     reasoning respectively; this round only touched the text/border/
-     gridline steps that were flagged as too harsh.
-
-   Pass 6, live feedback on pass 5's build - "red" negative asked to become
-   hot pink, "purple" positive asked to become royal purple, and the
-   pink<->purple bar/donut ramp (Expenses/Debt/Savings/Unallocated) was
-   "a little hard to decipher":
-   - --color-accent/-600/--color-negative move from crimson (~349 deg) to
-     canonical hot pink (~330 deg, the hue of the web colour #FF69B4),
-     darkened/saturated (S=85%, L=32% -> #970c52) until it clears 4.5:1
-     again (~6.0:1 against --color-card) - same derive-from-a-named-hue-
-     then-darken-for-contrast method as every prior Orchid pass.
-     --color-accent-700 (#71093d, ~8.3:1) and -800 (#50072b) step down by
-     the same ~8% L per step pass 4's crimson ramp used, just re-hued.
-   - --color-danger nudges further toward true red (~350 deg, #770d1f,
-     ~8.1:1) rather than following the accent hue this time - keeping it
-     a visually distinct "alert red" from the new hot pink, matching the
-     "stays visually distinct from --color-negative" rule every earlier
-     Orchid revision has followed for this token.
-   - --color-positive (+ --color-accent-2-500 for Income/Unallocated, + its
-     tint) move from ~275 deg to ~266 deg, the hue of the named colour
-     "royal purple" (#7851A9), at higher saturation (S=55%) than the
-     previous pass's more muted purple for a richer/more "royal" read.
-     --color-positive (#42206f, ~9.0:1 text) stays the darker/less-
-     saturated derivation from --color-accent-2-500 (#622bab, fill-only)
-     for the same reason established in pass 3 - one hex can't serve both
-     a 4.5:1 text bar and a vivid fill.
-   - The real fix for "hard to decipher": pass 4's ramp varied only hue
-     between the four bar/donut segments (Expenses/Debt/Savings/
-     Unallocated all sat at ~38-40% lightness) - on a thin stacked bar,
-     near-identical lightness made adjacent segments blur together even
-     though the hues technically differed. --color-debt (#d025a5, H=315,
-     L=48%) and --color-transfer (#ce4eda, H=295, L=58%) now swing
-     lightness *and* saturation, not just hue, between the two fixed
-     endpoints (dark hot-pink Expenses at L=32%, medium royal-purple
-     Unallocated at L=42%) - every adjacent pair in the sequence now differs
-     by >=16% lightness, which is what actually separates segments at a
-     glance, not hue alone.
-   - lib/categoryColours.js's ORCHID_PALETTE indices 4-7 (Spending by
-     Category's "positive" slot-group) still carried pass-108's sage
-     green, untouched by every CSS-token-only pass so far since that file
-     is a separate hand-maintained palette - re-derived onto the same
-     ~266 deg royal-purple hue as --color-positive above so no green
-     remains anywhere in Orchid. Indices 0-3 (pink) and 8-11 (neutral)
-     were already close enough in hue to the revised accent/neutral
-     tokens that they didn't need re-deriving.
-
-   Pass 7, live feedback on pass 6's build - Debt read as the "hot pink"
-   segment rather than Expenses, the buttons (--color-accent-600
-   background) still read as crimson rather than hot pink, the royal
-   purple leaned too blue, and the negative-tint Budget Suggestion chips
-   nearly vanished against --color-card:
-   - Root cause of both the Debt/Expenses mixup and the "still crimson"
-     button complaint was the same thing: pass 6's #970c52 (L=32%) sat
-     near the *bottom* of what 4.5:1 against --color-card allows, so it
-     read dark/muddy rather than "hot" - meanwhile pass 6's --color-debt
-     (#d025a5, fill-only, no contrast ceiling) sat at L=48%, genuinely
-     brighter, so it visually won the "which one is hot pink" contest.
-     Fix: push --color-accent/-600/--color-negative as light+saturated as
-     the AA floor allows (S=90%, L=36% -> #ae095c, ~5.0:1 against
-     --color-card and ~7:1 for white button text on top of it) - as
-     vivid as this hue can get while every text/background role it plays
-     still clears 4.5:1 - and pull --color-debt down to L=20% (#521442)
-     instead, so Expenses is unambiguously the boldest, most saturated
-     pink in the theme and Debt reads as a supporting, muted plum rather
-     than competing with it. --color-transfer/--color-accent-2-500's
-     lightness gap either side of the new --color-debt is still >=16%
-     (20 -> 58 -> 42), so pass 6's "decipherable at a glance" fix holds.
-     --color-accent-700 (#7e0742) / -800 (#52042b) re-derive off the new
-     S=90%/H=330deg base at the same ~10% L step pass 6 used.
-   - --color-positive (+ --color-accent-2-500, + its tint) move from
-     ~266deg to ~278deg - both are technically "royal purple" (named
-     royal purple #7851A9 itself measures ~266deg) but pale, moderately-
-     saturated colours near 266deg sit close enough to true blue (~240deg)
-     that they read as periwinkle rather than purple; 278deg is far
-     enough into violet territory to read unambiguously purple at any
-     lightness, and saturation is raised a step (accent-2-500 55%->65%,
-     positive 45%->60%) so the hue reads confidently rather than washed
-     out. --color-accent-2-500 (#7e25b1) and --color-positive (#531d72,
-     ~8.4:1) keep the same fill-vs-text split as every earlier pass.
-   - --color-negative-tint (#f6dae8, H=330/S=61%/L=91%) sat only ~2%
-     lighter than --color-card (H=349/S=61%/L=89%) and a scant 19deg
-     apart in hue - close enough that the adverse Budget Suggestion
-     chips' pill shape nearly disappeared into the card, leaving only the
-     text visible. Pushed to S=70%/L=87% (#f5c7de) - saturated/darkened
-     enough to read as its own pill against the card (still >=4.5:1 for
-     --color-negative text sitting on it, ~4.7:1) without needing a hue
-     change, since hue was never the problem here. --color-positive-tint
-     didn't have this problem (purple vs pink is a large hue jump from
-     --color-card even at similar lightness) so it only got the pass's
-     hue nudge, not a saturation/lightness rework.
-   - lib/categoryColours.js's ORCHID_PALETTE indices 4-7 re-derive onto
-     the new ~278deg hue too, keeping the "same hue as --color-positive"
-     rule pass 6 established.
-
-   Pass 8, live feedback on pass 7's build - the "Save budgets" button
-   only *looked* like a different colour from the Aug pill/Add
-   transaction/Add rule because it was disabled (no unsaved budget
-   changes yet) and .button:disabled is opacity:0.55 over --color-card -
-   confirmed live by entering a budget amount, which makes it render the
-   identical #ae095c; no token changed for that half of the report.
-   Savings (#ce4eda, fill-only, L=58%) still read as "the hot pink"
-   over Expenses itself, for the same structural reason pass 7 fixed for
-   Debt: a fill-only waypoint with no AA ceiling can always out-brighten
-   a text-constrained anchor. Pass 7 only fixed the Expenses-vs-Debt half
-   of that; Savings was still brighter than accent-600's L=36% AA
-   ceiling.
-   - This pass finally breaks the ceiling itself rather than patching
-     around it again: --color-negative-fill (new token, see :root) takes
-     over every Expenses-only *fill* role (IncomeAllocation's "expenses"
-     segment, IncomeVsExpensesByMonth's Expense bars/dot,
-     SpendingOverTime's line/gradient/marker) that used to read
-     --color-accent-600 directly. --color-accent/-600/--color-negative
-     stay at pass 7's #ae095c - still the token for buttons, the active
-     month pill and .figure--adverse text, all genuinely AA-constrained -
-     while --color-negative-fill (#fa429e, H=330/S=95%/L=62%) is free to
-     be actual, unconstrained hot pink, the same fill-vs-text split
-     --color-accent-2-500/--color-positive already used for the positive
-     side.
-   - --color-debt (#df20b6, H=313/L=50%) and --color-transfer (#b22fbc,
-     H=296/L=46%) are re-ramped as waypoints between the new, brighter
-     --color-negative-fill (L=62%) and --color-accent-2-500 (#7e25b1,
-     L=42%, unchanged) - lightness now descends the whole way across the
-     sequence (62 -> 50 -> 46 -> 42) so Expenses reads as the unambiguous
-     peak and nothing downstream of it competes for "the hot pink"
-     again.
-
-   Pass 9, live feedback on pass 8's build - "all buttons" (the Save
-   budgets/Add transaction/Add rule buttons, the selected Month pill)
-   asked to become the vivid hot pink too, not the AA-safe #ae095c pass 7
-   settled buttons on, and lib/categoryColours.js's ORCHID_PALETTE asked
-   to "match the new ramping between hot pink and royal purple":
-   - --color-accent/-600 move to #fa429e - the same value pass 8 already
-     established as --color-negative-fill - rather than another shade of
-     their own: the user's ask was for buttons and Expenses to read as
-     the same hot pink, so this is a deliberate merge, not a coincidence.
-     This is only possible now because pass 8 already split the
-     AA-constrained anchor (then --color-accent-600) away from the
-     unconstrained fill (--color-negative-fill) - without that split,
-     pushing buttons this vivid would have dragged Expenses-fill along
-     too tightly-coupled to re-tune independently. --color-negative
-     (.figure--adverse text) stays its own token at pass 7's #ae095c,
-     unmoved - it was already independent of --color-accent-600 in name,
-     just coincidentally the same hex, so decoupling needed no structural
-     change, only picking different literals.
-   - #fa429e as a *background* needs a different text colour than every
-     other theme's button: white (--color-on-accent's :root default)
-     measures ~3.3:1 against it, well under 4.5:1 AA, while this theme's
-     own --color-text (#22161f) measures ~5.3:1. --color-on-accent is
-     overridden to var(--color-text) here (confirmed via grep to have
-     exactly two usages, both button text, and to be otherwise unscoped -
-     safe to override without touching Terracotta/Midnight).
-     .months__pill[aria-pressed="true"] hardcodes color:
-     var(--color-neutral-100) instead of reading --color-on-accent (a
-     pre-existing, unrelated-to-this-pass quirk in the shared rule), so it
-     needed its own scoped override (below) to the same dark text - the
-     same theme-scoped-selector pattern Midnight already uses for its own
-     .months__pill text-legibility fix.
-   - Dark text flips which direction a hover state needs to move: with
-     white text, hover darkens for more contrast (every other theme); with
-     dark text on an already-vivid, high-lightness fill, darkening the
-     background would *reduce* contrast instead. New token
-     --color-button-hover (see :root - aliased to --color-accent-700
-     there, so every other theme's hover keeps darkening as before) takes
-     over .button:hover/.button--danger:hover's background here, set to
-     #f98bc2 (same H=330/S=90% as the button base, L pushed up from 62%
-     to 76%) - ~7.9:1 against --color-text, comfortably clear of AA and
-     brighter than the pass 7 #ae095c literal that used to sit there.
-     --color-accent-700 itself is untouched - .state--error and
-     .category-chip--add:hover still read it as AA-constrained *text*, a
-     role this pass didn't touch.
-   - --color-button-hover/--color-on-accent only affect .button and the
-     active month pill: .button--quiet (Auto-populate, and the default
-     Delete state) stays its existing transparent/outlined style,
-     unrequested and left alone; the user's own examples ("Add
-     transactions, Add rule") are all solid .button already.
-   - lib/categoryColours.js's ORCHID_PALETTE is rebuilt wholesale onto a
-     three-band hot-pink (H=330) -> mid (H=304) -> royal-purple (H=278)
-     sweep in place of the old three-unrelated-families arrangement - see
-     that file's own comment for the full derivation. */
-/* Pass 10 (settled via prototype/orchid-reference-palette, kept as the
-   primary source, not merged): a fifth Orchid revision, rebuilt from a user-supplied reference screenshot (a pink "Social
-   Media" UI kit) because Orchid was the one theme whose page was *lighter*
-   than its cards (#fbeef1 page vs #f4d2d8 card) - every other theme's cards
-   are the lightest surface and the page backdrop sits a step darker. Colours
-   only; no layout/design change.
-
-   - --color-card is now white and --color-background a soft pink
-     (#fbe0ec, 1.24:1 against the card), matching the reference's pale-pink
-     canvas with white tiles on it.
-   - --color-neutral-100/200 (backgrounds only: .rule-form, .category-chip,
-     progress tracks, row dividers, hover fills) were white, which would
-     vanish on a white card - they become the reference's light pink input
-     fill (#fdeef4) and a slightly deeper pink track (#f8d3e3).
-   - --color-neutral-300/400 (borders/gridlines) and 500-700 (muted text) are
-     re-hued from the old mauve (~312deg) to the reference's pink (~335deg).
-     500/600/700 clear 4.5:1 on both the white card (5.8/7.9/10.9) and the pink
-     page (4.7/6.4/8.8), since nav tabs and the "As at" line sit on the page.
-   - --color-accent/-600 (#d6196c) is the reference's hot pink, darkened just
-     enough that white button text clears 4.5:1 (5.0:1) - like the reference's
-     white-on-pink buttons. That retires pass 9's dark-text-on-pastel-pink
-     workaround: --color-on-accent and --color-button-hover are back to the
-     shared defaults (white text, hover darkens to accent-700), and the
-     .months__pill override below is gone.
-   - --color-negative-fill (#ee3f8e) stays a separate, brighter fill-only pink
-     for Expenses (pass 8's fill-vs-text split), echoing the reference's
-     chart bars.
-   - Untouched: --color-text, the positive/purple family, --color-debt/
-     --color-savings, --color-danger and lib/categoryColours.js's palette.
-     The reference is monochrome pink, but purple-for-positive is a
-     deliberately settled semantic (passes 3-7), not a surface colour. */
-[data-theme="orchid"] {
-  --color-text: #22161f;
-  --color-accent: #d6196c;
-
-  --color-background: #fbe0ec;
-  --color-card: #ffffff;
-
-  --color-neutral-100: #fdeef4;
-  --color-neutral-200: #f8d3e3;
-  --color-neutral-300: #ecaac8;
-  --color-neutral-400: #dd8ab3;
-  --color-neutral-500: #9a4a72;
-  --color-neutral-600: #7d3b5c;
-  --color-neutral-700: #5e2c46;
-
-  --color-accent-600: #d6196c;
-  --color-accent-700: #a8104f;
-  --color-accent-800: #7a0a38;
-  --color-negative-fill: #ee3f8e;
-  --color-button-hover: var(--color-accent-700);
-  --color-on-accent: #ffffff;
-
-  --color-accent-2-500: #7e25b1;
-  --color-debt: #df20b6;
-  --color-savings: #b22fbc;
-  /* Burnt orange - the one hue family Orchid's pink/purple fills leave free
-     (see :root's --color-bills-subscriptions for the selection method). */
-  --color-bills-subscriptions: #b8440f;
-
-  --color-positive: #531d72;
-  --color-positive-tint: #e5d0f1;
-  --color-negative: #ae095c;
-  --color-negative-tint: #f5c7de;
-  --color-danger: #770d1f;
-
-  /* Was white on the old pink card; on a white card that would vanish, so it
-     rides --color-neutral-700 again like Terracotta/Sage. */
-  --color-chart-line: var(--color-neutral-700);
-}
-
-/* Midnight (Issue #106) is the first genuinely dark theme - card/text invert
-   the tonal relationship every other theme uses (card near-white, text
-   near-black). Palette is a 4-colour set the user supplied (#1B262C, #0F4C75,
-   #3282B8, #BBE1FA), settled via /grilling (role mapping) then /prototype
-   (three derived-shade variants for the two new hues - amber positive, red
-   negative, since the source palette is monochrome blue - and the hover lift
-   size; see prototype/midnight-theme-variants). "Option C - Muted" won.
-
-   Card and text depart from the palette's own literals: #0F4C75 (the
-   palette's card seed) didn't read as distinct enough from accent-600 once
-   live, so the card goes darker to #082A42; #BBE1FA (the palette's text
-   seed) read as muted rather than crisp, so text goes to plain white -  both
-   adjustments made after viewing the live prototype. accent-700/accent-800
-   are lighter than accent-600, not darker - the opposite of every other
-   theme's hover direction - because a dark theme's hover wants to lift
-   toward the light end of the ramp. Midnight's category chart palette lives
-   separately, in lib/categoryColours.js. */
-[data-theme="midnight"] {
-  --color-text: #ffffff;
-  --color-accent: #3282b8;
-
-  --color-neutral-100: #1c252c;
-  --color-neutral-200: #28353e;
-  --color-neutral-300: #3c505d;
-  --color-neutral-400: #547083;
-  --color-neutral-500: #7694a7;
-  --color-neutral-600: #a2b6c3;
-  --color-neutral-700: #cdd8df;
-
-  --color-accent-600: #3282b8;
-  --color-accent-700: #679dc1;
-  --color-accent-800: #8bb4d0;
-
-  --color-accent-2-500: #dcbd74;
-  --color-debt: #627f93;
-  --color-savings: #495f6e;
-  /* Lavender (see :root's --color-bills-subscriptions for the selection
-     method). */
-  --color-bills-subscriptions: #b58fd6;
-
-  --color-positive: #c4aa6e;
-  --color-positive-tint: #453a21;
-  --color-negative: #ddb6b0;
-  --color-negative-tint: #4a2a26;
-  --color-danger: #ddb6b0;
-
-  --color-card: #082a42;
-  --color-shadow: #0b1014;
-  --color-background: var(--color-neutral-100);
-}
-
-/* Neutral-500/600 are Midnight's shared muted-text colours (used across the
-   whole app, e.g. tile labels, axis labels), tuned to read fine at a glance -
-   but the live prototype showed the reader's eye going straight to these
-   three (which month is selected, where income went, the bar's own percent
-   scale) wanting more pop than "muted" gives. Scoped to just these three
-   rather than brightening the neutral ramp itself, which would also lift
-   labels never flagged as a problem. */
-[data-theme="midnight"] .months__pill,
-[data-theme="midnight"] .allocation__legend-item .muted,
-[data-theme="midnight"] .allocation__tick {
-  color: var(--color-text);
-}
-
-/* "Sage" (Issue #203) - a light, green theme. Settled via /prototype (see
-   prototype/sage-theme-palettes, kept as the primary source, not merged):
-   three palettes were compared live and "Variant B, Sage wash" won. Variant A
-   ("Faithful": cool near-white page, white cards) and C ("Bold band": sage
-   page, slate accent) lost.
-
-   Seeds, sampled from the user's reference screenshot: sidebar sage #738276,
-   section band #bec8b7, page #f6f6fa, selected chip periwinkle #cfd4e7, slate
-   button #5d6772.
-
-   - --color-background is a pale sage and --color-card a warmer off-white, so
-     green is everywhere but quiet (Terracotta's cream-on-cream idea, in
-     green). --color-neutral-100..700 are one sage-tinted ramp (hue ~105-115deg),
-     the way Terracotta's is warm tan and Midnight's is blue.
-   - --color-neutral-500..700 are stepped darker than the prototype's ramp
-     because nav tabs, the "As at" line and the header Version sit directly on
-     --color-background rather than on a card, and the prototype's neutral-600
-     measured ~4.07:1 there. All three now clear 4.5:1 on both the page and the
-     card.
-   - --color-accent derives from the sidebar sage, darkened until the selected
-     pills' --color-neutral-100 text clears 4.5:1 (4.8:1).
-   - --color-accent-2-500 (Income/Unallocated fills) is the screenshot's
-     periwinkle, deepened to read as a fill. --color-positive/-negative/
-     -danger are text-bearing tokens, each contrast-checked >=4.5:1 against
-     --color-card (6.0:1/6.4:1/8.5:1).
-   - The five fills on the "Where did my income go?" bar - Expenses clay, Bills
-     & Subscriptions ochre, Debt deep teal, Savings pale sage, Income/
-     Unallocated periwinkle - plus --color-danger (Over income) were picked by
-     the dataviz skill's validator (Issue #149's convention) to clear >=15 dE
-     (normal vision) and >=8 dE (protan/deutan) against every other fill, not
-     only their neighbours. Savings is deliberately pale and low-contrast
-     against the card, like Terracotta's; the bar and its legend label it. Sage's
-     category chart palette lives separately, in lib/categoryColours.js. */
-[data-theme="sage"] {
-  --color-text: #2b3530;
-  --color-accent: #5f6f63;
-
-  --color-neutral-100: #f1f4f0;
-  --color-neutral-200: #e2e8e0;
-  --color-neutral-300: #ccd5c9;
-  --color-neutral-400: #aebaab;
-  --color-neutral-500: #596857;
-  --color-neutral-600: #4d5b4c;
-  --color-neutral-700: #3b473a;
-
-  --color-accent-300: #bec8b7;
-  --color-accent-600: #5f6f63;
-  --color-accent-700: #4a5a4d;
-  --color-accent-800: #34413a;
-
-  --color-accent-2-500: #8c97c9;
-  --color-debt: #2a6470;
-  --color-savings: #c9dcb8;
-  --color-bills-subscriptions: #d1a93f;
-  --color-negative-fill: #b0654f;
-
-  --color-positive: #3d6a4b;
-  --color-positive-tint: #dbe8d8;
-  --color-negative: #8a4a3e;
-  --color-negative-tint: #efdcd7;
-  --color-danger: #86283a;
-
-  --color-background: #e6ece3;
-  --color-card: #f9fbf7;
-  --color-shadow: #1f2a24;
-  --color-chart-line: var(--color-neutral-700);
-}
-
-/* "Plum" (Issue #205) - a dark, purple theme. Settled via /prototype (see
-   prototype/nebula-theme-palettes, kept as the primary source, not merged;
-   it was called "Nebula" there): three palettes were compared live and
-   "Variant B, Aubergine" won. Variant A ("Faithful": deep indigo page, neon
-   magenta) and C ("Inset panel": violet page, deepest-indigo card, hot
-   magenta) lost.
-
-   Seeds, sampled from the user's reference screenshot: panel deep indigo
-   #2a1569, surround muted violet #6b58a6, neon magenta #d23be7, secondary
-   violet #7b5cff, lavender text/labels #c9c0ee, dim labels #8f84c8. Plum
-   deliberately departs from them: the page and cards are near-black plum
-   rather than the screenshot's indigo, and the accent is a softer
-   orchid-violet (#b97cf0) rather than neon magenta.
-
-   Follows Midnight's dark-theme conventions: --color-neutral-100..700 run
-   dark to light, --color-background is --color-neutral-100, accent-700/800
-   are lighter than accent-600 (hover lifts toward light), --color-shadow
-   stays dark so card shadows don't glow, and text-bearing semantic tokens
-   are light with dark tints.
-
-   - Contrast (all measured; card #261739, page #120a20): --color-text 14.6:1
-     on the card; neutral-500/600/700 6.2/8.1/11.8:1 on the card and
-     7.1/9.4/13.6:1 on the page (nav tabs, "As at" line and Version sit on the
-     page); --color-positive/-negative/-danger 10.8/8.7/7.1:1 on the card;
-     positive and negative 7.6:1 and 7.4:1 on their own tints;
-     --color-on-accent 6.6:1 on --color-accent and 9.0:1 on the hover fill;
-     --color-accent 5.7:1 on the card (focus outlines). Card vs page is a
-     deliberately gentle 1.16:1 step.
-   - The selected month pill and Financial Year/Calendar Year toggle read
-     --color-neutral-100 for their text; --color-on-accent is pinned to the
-     same token here (its :root default is white), so the two stay in step
-     and no Plum-scoped pill rule is needed.
-   - The five fills on the "Where did my income go?" bar - Expenses magenta,
-     Bills & Subscriptions amber (the one hue off the purple axis), Debt
-     violet, Savings pale lavender, Income/Unallocated teal - plus
-     --color-danger (Over income) were run through the dataviz skill's
-     validator (Issue #149's convention): every pair clears >=15 dE (normal
-     vision) and >=8 dE (protan/deutan). The prototype's by-eye values missed
-     in three places, so Expenses (#e252f0 -> #e774f7, lighter, to separate
-     from Debt under protan), Savings (#cfc6f7 -> #e5e1fb, paler, to
-     separate from Income teal) and Danger (#ff8f8f -> #ff8589, redder, to
-     separate from amber) were nudged; Debt moved a hair (#8a63f2 ->
-     #8863f2) to clear the same Expenses pair. Plum's category chart palette lives
-     separately, in lib/categoryColours.js. */
-[data-theme="plum"] {
-  --color-text: #f3eefa;
-  --color-accent: #b97cf0;
-
-  --color-neutral-100: #120a20;
-  --color-neutral-200: #2b1b45;
-  --color-neutral-300: #3d2a5e;
-  --color-neutral-400: #5e4789;
-  --color-neutral-500: #a595cd;
-  --color-neutral-600: #bbaede;
-  --color-neutral-700: #ddd5f1;
-
-  --color-accent-300: #4a2a70;
-  --color-accent-600: #b97cf0;
-  --color-accent-700: #cf9df5;
-  --color-accent-800: #e1c1fa;
-
-  --color-accent-2-500: #3fd0d4;
-  --color-debt: #8863f2;
-  --color-savings: #e5e1fb;
-  --color-bills-subscriptions: #f5b94a;
-  --color-negative-fill: #e774f7;
-
-  --color-positive: #7fe3c0;
-  --color-positive-tint: #123f3a;
-  --color-negative: #ff9fc4;
-  --color-negative-tint: #4d1738;
-  --color-danger: #ff8589;
-
-  --color-card: #261739;
-  --color-on-accent: var(--color-neutral-100);
-  --color-button-hover: var(--color-accent-700);
-  --color-background: var(--color-neutral-100);
-  --color-shadow: #07031a;
-  --color-chart-line: #ffffff;
-}
-
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  font-family: var(--font-body);
-  font-size: 15px;
-  line-height: 1.55;
-  background: var(--color-background);
-  color: var(--color-text);
-}
-
-h1,
-h2,
-h3 {
-  font-family: var(--font-heading);
-  font-weight: 400;
-  line-height: 1.12;
-  letter-spacing: -0.015em;
-  margin: 0;
-}
-
-.numeric {
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.muted {
-  color: var(--color-neutral-600);
-}
-
-/* A figure that went the wrong way (overspent, negative Available to Save) reads in
-   --color-negative; one that went the right way reads in --color-positive. */
-.figure--adverse {
-  color: var(--color-negative);
-}
-
-.figure--favourable {
-  color: var(--color-positive);
-}
-
-/* — page shell — */
-
-.page {
-  min-height: 100vh;
-  padding: 36px 44px 56px;
-}
-
-.page__inner {
-  max-width: 1280px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 26px;
-}
-
-.header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
-  flex-wrap: wrap;
-  /* Tighten the page's 26px section gap below the header to 16px. */
-  margin-bottom: -10px;
-}
-
-.header h1 {
-  font-size: 34px;
-  letter-spacing: -0.02em;
-}
-
-.header__version {
-  margin: 2px 0 0;
-  font-size: 13px;
-  color: var(--color-neutral-500);
-}
-
-/* A button that reads as a text link - the header's Version history link and
-   the Version History view's Back to Dashboard. */
-.link-button {
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  font-size: 13.5px;
-  color: var(--color-neutral-700);
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-/* In the header the link is vertically centred on the title block: lower than
-   the very top, but not crowding the period switcher below. */
-.header > .link-button {
-  align-self: center;
-}
-
-.link-button:hover {
-  color: var(--color-text);
-}
-
-/* — Version History view — */
-
-.version-history {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 18px;
-}
-
-.version-history__list,
-.version-history__entries {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.version-history__list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  width: 100%;
-}
-
-.version-history__head {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  margin-bottom: 10px;
-}
-
-.version-history__date {
-  font-size: 13px;
-  color: var(--color-neutral-500);
-}
-
-.version-history__current {
-  padding: 1px 8px;
-  border: 1px solid var(--color-neutral-300);
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-neutral-700);
-}
-
-.version-history__entries {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 14px;
-}
-
-.version-history__entries li {
-  padding-left: 16px;
-  text-indent: -16px;
-}
-
-.version-history__entries li::before {
-  content: "•";
-  display: inline-block;
-  width: 16px;
-  text-indent: 0;
-  color: var(--color-neutral-500);
-}
-
-/* — period switcher — */
-
-.period-switcher {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.period-switcher__nav {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.period-switcher__arrow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  border: 1px solid var(--color-neutral-300);
-  background: var(--color-card);
-  color: var(--color-neutral-600);
-  font-family: inherit;
-  font-size: 16px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.period-switcher__arrow:hover:not(:disabled) {
-  border-color: var(--color-neutral-400);
-  color: var(--color-text);
-}
-
-.period-switcher__arrow:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.period-switcher__arrow:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-.period-switcher__label {
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--color-text);
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-}
-
-.period-switcher__toggle {
-  display: flex;
-  gap: 6px;
-}
-
-.period-switcher__toggle-option {
-  padding: 5px 13px;
-  border-radius: 999px;
-  border: 1px solid var(--color-neutral-300);
-  background: var(--color-card);
-  font-size: 12.5px;
-  color: var(--color-neutral-600);
-  font-family: inherit;
-  cursor: pointer;
-}
-
-.period-switcher__toggle-option:hover {
-  border-color: var(--color-neutral-400);
-}
-
-.period-switcher__toggle-option[aria-pressed="true"] {
-  border-color: var(--color-accent);
-  background: var(--color-accent);
-  font-weight: 600;
-  color: var(--color-neutral-100);
-}
-
-.period-switcher__toggle-option:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-/* — nav tabs — */
-
-.nav {
-  display: flex;
-  align-items: flex-end;
-  gap: 26px;
-  border-bottom: 1px solid var(--color-neutral-300);
-  flex-wrap: wrap;
-}
-
-.nav__tab {
-  padding: 0 2px 11px;
-  font-size: 14px;
-  color: var(--color-neutral-500);
-  /* Overview and Settings are buttons, the unwired tabs are spans - strip the
-     button chrome so the two kinds sit on the same line looking alike. */
-  border: none;
-  background: none;
-  font-family: inherit;
-  line-height: inherit;
-}
-
-button.nav__tab {
-  cursor: pointer;
-}
-
-button.nav__tab:hover {
-  color: var(--color-text);
-}
-
-.nav__tab--active {
-  font-weight: 600;
-  color: var(--color-text);
-  box-shadow: inset 0 -2px 0 0 var(--color-accent);
-}
-
-.nav__asat {
-  margin-left: auto;
-  padding: 0 2px 11px;
-  font-size: 12.5px;
-  color: var(--color-neutral-500);
-  white-space: nowrap;
-}
-
-/* — month selector — */
-
-.months {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-
-.months__pill {
-  padding: 6px 15px;
-  border-radius: 999px;
-  border: 1px solid var(--color-neutral-300);
-  background: var(--color-card);
-  font-size: 13px;
-  color: var(--color-neutral-600);
-  font-family: inherit;
-  cursor: pointer;
-}
-
-.months__pill:hover {
-  border-color: var(--color-neutral-400);
-}
-
-.months__pill[aria-pressed="true"] {
-  border-color: var(--color-accent);
-  background: var(--color-accent);
-  font-weight: 600;
-  color: var(--color-neutral-100);
-}
-
-.months__pill:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-/* — cards — */
-
-.card {
-  background: var(--color-card);
-  border: 1px solid var(--color-neutral-300);
-  border-radius: var(--radius-md);
-  padding: 24px 26px 26px;
-}
-
-.card__head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-
-.card h3 {
-  font-size: 19px;
-}
-
-.card__aside {
-  text-align: right;
-}
-
-.card__aside-figure {
-  font-family: var(--font-heading);
-  font-size: 22px;
-  letter-spacing: -0.015em;
-}
-
-.card__aside-label {
-  font-size: 11.5px;
-  color: var(--color-neutral-500);
-}
-
-/* — stat tiles — */
-
-.tiles {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 12px;
-}
-
-.tile {
-  background: var(--color-card);
-  border: 1px solid var(--color-neutral-300);
-  border-radius: var(--radius-md);
-  padding: 16px 16px;
-  min-width: 0;
-}
-
-.tile__label {
-  font-size: 10.5px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-neutral-600);
-  font-weight: 600;
-}
-
-.tile__value {
-  font-family: var(--font-heading);
-  font-size: 25px;
-  line-height: 1.15;
-  margin-top: 8px;
-  letter-spacing: -0.015em;
-}
-
-.tile__average {
-  margin-top: 6px;
-  font-size: 11px;
-  color: var(--color-neutral-500);
-}
-
-/* — income allocation — */
-
-.allocation__legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 18px;
-  align-items: center;
-}
-
-.allocation__legend-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-}
-
-.allocation__bar-wrap {
-  position: relative;
-  margin-top: 20px;
-}
-
-.allocation__bar {
-  display: flex;
-  height: 26px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: var(--color-neutral-200);
-}
-
-.allocation__segment {
-  flex: none;
-}
-
-/* Outflows breakdown reuses the allocation bar but is taller and carries the
-   amount inside each wide segment. White on the Type fills needs the soft
-   shadow to stay legible on the lighter fills across themes. */
-.outflows__bar {
-  height: 40px;
-  border-radius: var(--radius-md);
-}
-
-.outflows__segment {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
-  text-shadow: 0 0 3px rgba(0, 0, 0, 0.45);
-  white-space: nowrap;
-  overflow: hidden;
-}
-
-.allocation__marker {
-  position: absolute;
-  top: -6px;
-  bottom: -6px;
-  width: 0;
-  border-left: 1.5px dashed var(--color-neutral-700);
-}
-
-.allocation__ticks {
-  position: relative;
-  height: 20px;
-  margin-top: 8px;
-}
-
-.allocation__tick {
-  position: absolute;
-  transform: translateX(-50%);
-  font-size: 11.5px;
-  color: var(--color-neutral-500);
-}
-
-/* — two-column rows — */
-
-.row--split {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 16px;
-  align-items: stretch;
-}
-
-/* A narrow column stacking two cards beside one wide card that spans both
-   row-heights - the top/bottom cards vary by view (Overview restructure,
-   Issue #61), the wide card is always Budgeted vs Actual. */
-.row--wide-pair {
-  display: grid;
-  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
-  grid-template-rows: auto auto;
-  grid-template-areas:
-    "top wide"
-    "bottom wide";
-  gap: 16px;
-}
-
-/* Full year's narrow column holds Month by month, whose seven columns
-   (Bills & Subscriptions added by Issue #149) need an even split to read
-   cleanly - the per-month view's narrow column (the donut) keeps 0.85fr. */
-.row--wide-pair--even {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-}
-
-.row--wide-pair__top,
-.row--wide-pair__bottom,
-.row--wide-pair__wide {
-  display: flex;
-}
-
-.row--wide-pair__top > .card,
-.row--wide-pair__bottom > .card,
-.row--wide-pair__wide > .card {
-  flex: 1;
-}
-
-.row--wide-pair__top {
-  grid-area: top;
-}
-
-.row--wide-pair__bottom {
-  grid-area: bottom;
-}
-
-.row--wide-pair__wide {
-  grid-area: wide;
-}
-
-/* Full year: two equal columns of stacked cards. The last card in each column
-   stretches to the bottom edge so the columns end flush. */
-.row--columns {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 16px;
-  align-items: stretch;
-}
-
-.row--columns__col {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  min-width: 0;
-}
-
-.row--columns__col > .card:last-child {
-  flex: 1;
-}
-
-/* "Where did my income go?" beside the Balance check card (#168). */
-.row--allocation {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-  gap: 16px;
-  align-items: stretch;
-}
-
-@media (max-width: 900px) {
-  .tiles {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .row--split,
-  .row--columns,
-  .row--allocation {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .row--wide-pair {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas:
-      "top"
-      "wide"
-      "bottom";
-  }
-
-  .page {
-    padding: 24px 18px 40px;
-  }
-}
-
-/* — donut — */
-
-.donut {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 14px 0 6px;
-  position: relative;
-}
-
-.donut svg {
-  width: 196px;
-  height: 196px;
-  transform: rotate(-90deg);
-}
-
-.donut__centre {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-}
-
-.donut__total {
-  font-family: var(--font-heading);
-  font-size: 25px;
-  letter-spacing: -0.015em;
-}
-
-.donut__caption {
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-neutral-500);
-}
-
-.legend {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  margin-top: 14px;
-}
-
-.legend__row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 7px 0;
-  border-bottom: 1px solid var(--color-neutral-200);
-  font-size: 13.5px;
-}
-
-.legend__row:last-child {
-  border-bottom: 0;
-}
-
-.legend__name {
-  flex: 1;
-}
-
-.legend__amount {
-  font-weight: 600;
-}
-
-.dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 999px;
-  flex: none;
-}
-
-.dot--sm {
-  width: 8px;
-  height: 8px;
-}
-
-.dot--lg {
-  width: 10px;
-  height: 10px;
-}
-
-/* — budgeted vs actual — */
-
-.bva__row {
-  display: grid;
-  grid-template-columns: 20px minmax(78px, 1.3fr) 62px 62px 66px 46px;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 0;
-  border-bottom: 1px solid var(--color-neutral-200);
-  font-size: 13.5px;
-}
-
-.bva__row:last-child {
-  border-bottom: 0;
-}
-
-.bva__head {
-  padding: 14px 0 8px;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-neutral-500);
-  font-weight: 600;
-  border-bottom: 1px solid var(--color-neutral-300);
-}
-
-.bva__total {
-  margin-top: 6px;
-  padding: 12px 0 0;
-  border-top: 1px solid var(--color-neutral-300);
-  border-bottom: 0;
-}
-
-.bva__section {
-  display: block;
-  padding: 14px 0 6px;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-neutral-500);
-  font-weight: 600;
-  text-align: left;
-  border-bottom: 0;
-}
-
-tbody:first-of-type .bva__section {
-  padding-top: 4px;
-}
-
-.bva__num {
-  text-align: right;
-}
-
-.bva__actual {
-  text-align: right;
-  font-weight: 600;
-}
-
-/* — month by month — */
-
-.mbm__row {
-  display: grid;
-  grid-template-columns: 96px repeat(6, minmax(0, 1fr));
-  align-items: center;
-  gap: 8px;
-  padding: 9px 0;
-  border-bottom: 1px solid var(--color-neutral-200);
-  font-size: 13.5px;
-}
-
-.mbm__row:last-child {
-  border-bottom: 0;
-}
-
-.mbm__head {
-  padding: 14px 0 8px;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-neutral-500);
-  font-weight: 600;
-  border-bottom: 1px solid var(--color-neutral-300);
-}
-
-.mbm__total {
-  margin-top: 6px;
-  padding: 12px 0 0;
-  border-top: 1px solid var(--color-neutral-300);
-  border-bottom: 0;
-  font-weight: 600;
-}
-
-.mbm__name {
-  font-weight: 600;
-}
-
-.mbm__num {
-  text-align: right;
-}
-
-/* — debt summary — */
-
-.debt-summary {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  margin-top: 14px;
-}
-
-.debt-summary__row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 74px 48px;
-  align-items: center;
-  gap: 14px;
-  padding: 9px 0;
-  border-bottom: 1px solid var(--color-neutral-200);
-  font-size: 13.5px;
-}
-
-.debt-summary__row:last-child {
-  border-bottom: 0;
-}
-
-.debt-summary__head {
-  padding: 0 0 8px;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-neutral-500);
-  font-weight: 600;
-  border-bottom: 1px solid var(--color-neutral-300);
-}
-
-.debt-summary__name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.debt-summary__amount {
-  font-weight: 600;
-  text-align: right;
-}
-
-.debt-summary__pct {
-  text-align: right;
-  color: var(--color-neutral-500);
-}
-
-/* — top 5 — */
-
-.top5 {
-  display: flex;
-  flex-direction: column;
-  margin-top: 14px;
-}
-
-.top5__row {
-  display: grid;
-  grid-template-columns: 20px minmax(90px, 1fr) 58px 74px;
-  align-items: center;
-  gap: 10px;
-  padding: 11px 0;
-  border-bottom: 1px solid var(--color-neutral-200);
-}
-
-.top5__row:last-child {
-  border-bottom: 0;
-}
-
-.top5__rank {
-  font-size: 12.5px;
-  color: var(--color-neutral-500);
-}
-
-.top5__detail {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.top5__notes {
-  font-size: 14px;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.top5__category {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 12.5px;
-  color: var(--color-neutral-600);
-}
-
-/* Top merchants rows: rank, detail (name, Category, bar), optional count, total. */
-.top5__row--merchant {
-  grid-template-columns: 20px minmax(90px, 1fr) 84px;
-}
-
-.top5__row--merchant.top5__row--with-count {
-  grid-template-columns: 20px minmax(90px, 1fr) 52px 84px;
-}
-
-.top5__bar {
-  display: block;
-  height: 5px;
-  margin-top: 4px;
-  border-radius: 3px;
-  background: var(--color-neutral-200);
-  overflow: hidden;
-}
-
-.top5__bar > span {
-  display: block;
-  height: 100%;
-  border-radius: 3px;
-}
-
-.top5__count {
-  font-size: 13px;
-  text-align: right;
-  white-space: nowrap;
-}
-
-.toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--color-neutral-600);
-  cursor: pointer;
-}
-
-.top5__amount {
-  font-size: 14.5px;
-  font-weight: 600;
-  text-align: right;
-}
-
-/* — recurring charges — */
-
-.recurring {
-  width: 100%;
-  margin-top: 14px;
-  border-collapse: collapse;
-  font-size: 13.5px;
-}
-
-.recurring th {
-  padding: 6px 8px;
-  text-align: left;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-neutral-500);
-  border-bottom: 1px solid var(--color-neutral-300);
-}
-
-.recurring td {
-  padding: 9px 8px;
-  vertical-align: top;
-  border-bottom: 1px solid var(--color-neutral-200);
-}
-
-.recurring tr:last-child td {
-  border-bottom: 0;
-}
-
-.recurring .recurring__num {
-  text-align: right;
-}
-
-.recurring__merchant {
-  display: block;
-}
-
-.recurring__category {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11.5px;
-}
-
-/* — movers — */
-
-.movers__select {
-  padding: 7px 11px;
-  border: 1px solid var(--color-neutral-300);
-  border-radius: 10px;
-  background: var(--color-card);
-  color: var(--color-text);
-  font-family: var(--font-body);
-  font-size: 13.5px;
-}
-
-.movers__select:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 1px;
-}
-
-.movers {
-  margin-top: 14px;
-}
-
-.movers__head,
-.movers__row {
-  display: grid;
-  grid-template-columns: 150px minmax(60px, 1fr) 92px 84px;
-  gap: 10px;
-  align-items: center;
-}
-
-.movers__head {
-  padding-bottom: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-neutral-500);
-  border-bottom: 1px solid var(--color-neutral-300);
-}
-
-.movers__basis {
-  grid-column: 1 / -1;
-  margin-top: -6px;
-  font-size: 11.5px;
-  font-weight: 400;
-  text-align: right;
-}
-
-.movers__row {
-  padding: 9px 0;
-  font-size: 13.5px;
-  border-bottom: 1px solid var(--color-neutral-200);
-}
-
-.movers__row:last-child {
-  border-bottom: 0;
-}
-
-.movers__name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.movers .movers__num {
-  text-align: right;
-}
-
-/* The bar grows from the centre line: right for a rise, left for a fall. */
-.movers__track {
-  position: relative;
-  height: 12px;
-}
-
-.movers__mid {
-  position: absolute;
-  left: 50%;
-  top: -3px;
-  bottom: -3px;
-  width: 1px;
-  background: var(--color-neutral-400);
-}
-
-.movers__bar {
-  position: absolute;
-  top: 0;
-  height: 100%;
-  border-radius: 3px;
-}
-
-.movers__bar--up {
-  left: 50%;
-  background: var(--color-negative-fill);
-}
-
-.movers__bar--down {
-  right: 50%;
-  background: var(--color-positive);
-}
-
-@media (max-width: 480px) {
-  .movers__head,
-  .movers__row {
-    grid-template-columns: 90px minmax(30px, 1fr) 64px 58px;
-    gap: 6px;
-  }
-}
-
-/* — expenses over time — */
-
-.timechart {
-  flex: 1;
-  display: grid;
-  grid-template-columns: 60px minmax(0, 1fr);
-  grid-template-rows: minmax(300px, 1fr) auto;
-  margin-top: 18px;
-}
-
-.timechart__yaxis {
-  position: relative;
-  padding-right: 10px;
-  font-size: 11.5px;
-  color: var(--color-neutral-600);
-}
-
-.timechart__ylabel {
-  position: absolute;
-  right: 10px;
-  transform: translateY(-50%);
-  white-space: nowrap;
-}
-
-.timechart__plot {
-  position: relative;
-}
-
-.timechart__plot svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.timechart__marker {
-  position: absolute;
-  width: 9px;
-  height: 9px;
-  margin: -4.5px 0 0 -4.5px;
-  border-radius: 999px;
-  background: var(--color-negative-fill);
-}
-
-.timechart__xaxis {
-  position: relative;
-  height: 22px;
-  font-size: 11.5px;
-  color: var(--color-neutral-600);
-}
-
-.timechart__xlabel {
-  position: absolute;
-  top: 6px;
-  white-space: nowrap;
-}
-
-.card--chart {
-  display: flex;
-  flex-direction: column;
-}
-
-/* — income vs expenses by month — */
-
-.mbe__xaxis {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  height: 24px;
-  font-size: 11.5px;
-  color: var(--color-neutral-600);
-  text-align: center;
-  padding-top: 7px;
-}
-
-.mbe__line-swatch {
-  width: 14px;
-  height: 2px;
-  background: var(--color-chart-line);
-  flex: none;
-}
-
-/* — outflows breakdown, Full year columns — */
-
-/* The plot is a fixed 240px tall - the same number as OUTFLOWS_CHART_HEIGHT
-   in lib/charts.js - so the "segment under 16px gets no label" rule counts
-   real pixels. */
-.outflows-cols {
-  display: grid;
-  grid-template-columns: 60px minmax(0, 1fr);
-  grid-template-rows: 240px auto;
-  margin-top: 18px;
-}
-
-.outflows-cols__yaxis {
-  position: relative;
-  padding-right: 10px;
-  font-size: 11.5px;
-  color: var(--color-neutral-600);
-}
-
-.outflows-cols__plot {
-  position: relative;
-}
-
-.outflows-cols__plot svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-/* Same white-on-Type-fill treatment as the single-month bar's segments. */
-.outflows-cols__pct {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 600;
-  text-shadow: 0 0 3px rgba(0, 0, 0, 0.45);
-  white-space: nowrap;
-  /* Hover falls through to the segment's own <title> underneath. */
-  pointer-events: none;
-}
-
-/* — states — */
-
-.state {
-  padding: 28px 0;
-  text-align: center;
-  color: var(--color-neutral-600);
-  font-size: 13.5px;
-}
-
-.state--page {
-  padding: 64px 0;
-}
-
-.state--error {
-  color: var(--color-accent-700);
-}
-
-.state--warning {
-  padding: 8px 0 12px;
-  text-align: left;
-  color: var(--color-danger);
-  word-break: break-all;
-}
-
-/* — Recurring Transactions (Settings tab) — */
-
-.card__note {
-  margin-top: 6px;
-  max-width: 52ch;
-  font-size: 13px;
-  color: var(--color-neutral-600);
-}
-
-/* Display Settings (ADR-0027): the currency, Financial Year start and Date
-   Order fields side by side in one tile, one Save underneath. */
-.settings-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 18px 22px;
-  margin-top: 16px;
-}
-
-.settings-grid__item {
-  display: flex;
-  flex-direction: column;
-}
-
-.settings-footer {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-top: 20px;
-}
-
-.settings-footer__dirty {
-  font-size: 13px;
-  color: var(--color-neutral-600);
-}
-
-.button {
-  padding: 9px 16px;
-  border: 1px solid var(--color-accent-600);
-  border-radius: 999px;
-  background: var(--color-accent-600);
-  color: var(--color-on-accent);
-  font-family: var(--font-body);
-  font-size: 13.5px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.button:hover {
-  background: var(--color-button-hover);
-  border-color: var(--color-button-hover);
-}
-
-.button:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-
-.button--quiet {
-  padding: 6px 12px;
-  background: transparent;
-  border-color: var(--color-neutral-300);
-  color: var(--color-neutral-700);
-  font-weight: 500;
-}
-
-.button--quiet:hover {
-  background: var(--color-neutral-200);
-  border-color: var(--color-neutral-400);
-}
-
-.button--danger:hover {
-  background: var(--color-button-hover);
-  border-color: var(--color-button-hover);
-  color: var(--color-on-accent);
-}
-
-.rule-form {
-  margin-top: 22px;
-  padding: 22px;
-  border: 1px solid var(--color-neutral-300);
-  border-radius: var(--radius-md);
-  background: var(--color-neutral-100);
-}
-
-.rule-form__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 16px 18px;
-}
-
-.rule-form__actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 20px;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.field--wide {
-  grid-column: span 2;
-}
-
-/* The add/edit form's own controls - the Total Amount switch (Issue #148) -
-   sit above the fields, top right, out of the grid's flow. */
-.rule-form__head {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 12px;
-}
-
-.switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-neutral-700);
-  cursor: pointer;
-}
-
-.switch input {
-  appearance: none;
-  position: relative;
-  width: 34px;
-  height: 20px;
-  margin: 0;
-  border-radius: 999px;
-  background: var(--color-neutral-300);
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.switch input::before {
-  content: "";
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--color-card);
-  transition: transform 0.15s ease;
-}
-
-.switch input:checked {
-  background: var(--color-accent);
-}
-
-.switch input:checked::before {
-  transform: translateX(14px);
-}
-
-.switch input:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-/* A short note under an input - for Total Amount, what's still needed or
-   what the Total works out to per occurrence. */
-.field__hint {
-  font-size: 12px;
-  color: var(--color-neutral-600);
-}
-
-.field__hint--error {
-  color: var(--color-danger);
-}
-
-.field__label {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--color-neutral-600);
-}
-
-.field input,
-.field select,
-.table__edit input,
-.table__edit select {
-  padding: 9px 11px;
-  border: 1px solid var(--color-neutral-300);
-  border-radius: 10px;
-  background: var(--color-card);
-  color: var(--color-text);
-  font-family: var(--font-body);
-  font-size: 14px;
-}
-
-.field input:focus-visible,
-.field select:focus-visible,
-.table__edit input:focus-visible,
-.table__edit select:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 1px;
-}
-
-/* Day for a Weekly rule is derived from Start Date, not typed - it reads as a
-   value, so it should not look like an input the user can edit. */
-.field__derived {
-  padding: 9px 11px;
-  border: 1px dashed var(--color-neutral-300);
-  border-radius: 10px;
-  font-size: 14px;
-  color: var(--color-neutral-700);
-}
-
-.filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 14px 18px;
-  margin-top: 22px;
-}
-
-.filters .field {
-  min-width: 160px;
-}
-
-/* — Appearance / theme switcher (Settings tab, Issue #102) — */
-
-.theme-switcher {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 14px;
-}
-
-.theme-switcher__option {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px 8px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--color-neutral-300);
-  background: var(--color-card);
-  font-size: 13px;
-  font-family: inherit;
-  color: var(--color-neutral-600);
-  cursor: pointer;
-}
-
-.theme-switcher__option:hover {
-  border-color: var(--color-neutral-400);
-}
-
-.theme-switcher__option[aria-pressed="true"] {
-  border-color: var(--color-accent);
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.theme-switcher__option:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-.theme-switcher__swatch {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 1px solid color-mix(in srgb, var(--color-text) 15%, transparent);
-}
-
-/* — Category Management (Settings tab) — */
-
-.category-group {
-  margin-top: 18px;
-}
-
-.category-group:first-of-type {
-  margin-top: 14px;
-}
-
-.category-group__heading {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--color-neutral-500);
-}
-
-.category-chip-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.category-chip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--color-neutral-300);
-  background: var(--color-neutral-100);
-  font-size: 13.5px;
-}
-
-.category-chip__emoji {
-  font-size: 16px;
-}
-
-.category-chip__name {
-  font-weight: 600;
-}
-
-.category-chip__actions {
-  display: flex;
-  gap: 2px;
-  margin-left: 4px;
-}
-
-.category-chip__actions button {
-  border: none;
-  background: none;
-  cursor: pointer;
-  color: var(--color-neutral-500);
-  font-size: 13px;
-  padding: 2px;
-}
-
-.category-chip__actions button:hover {
-  color: var(--color-text);
-}
-
-.category-chip__lock {
-  margin-left: 4px;
-  font-size: 12px;
-}
-
-.category-chip--confirm {
-  border-color: var(--color-danger);
-  background: color-mix(in srgb, var(--color-danger) 12%, var(--color-card));
-  color: var(--color-danger);
-  font-size: 13px;
-}
-
-.category-chip--confirm .category-chip__actions button {
-  color: var(--color-danger);
-  font-weight: 700;
-}
-
-.category-chip--add {
-  border-style: dashed;
-  background: transparent;
-  color: var(--color-neutral-600);
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.category-chip--add:hover {
-  border-color: var(--color-accent);
-  color: var(--color-accent-700);
-}
-
-/* The Goal a Goals-Category Transaction contributes to (Transactions tab).
-   Muted once the Goal is archived or deleted. */
-.goal-chip {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 1px 8px;
-  border-radius: 999px;
-  border: 1px solid var(--color-neutral-300);
-  background: var(--color-neutral-100);
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.goal-chip--muted {
-  color: var(--color-neutral-500);
-  font-weight: 400;
-}
-
-.category-chip--form {
-  flex-wrap: wrap;
-  background: var(--color-card);
-  border-color: var(--color-accent);
-  gap: 6px;
-}
-
-.category-chip--form input[type="text"] {
-  border: none;
-  background: transparent;
-  font-family: var(--font-body);
-  font-size: 13.5px;
-  width: 140px;
-}
-
-.category-chip--form input[type="text"]:focus-visible {
-  outline: none;
-}
-
-.category-chip__save,
-.category-chip__cancel {
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.category-chip__save {
-  color: var(--color-positive);
-}
-
-.category-chip__cancel {
-  color: var(--color-neutral-500);
-}
-
-.category-chip__error {
-  flex-basis: 100%;
-  margin: 0;
-  padding: 0;
-}
-
-.emoji-picker {
-  position: relative;
-}
-
-.emoji-picker__trigger {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  border: 1px solid var(--color-neutral-300);
-  background: var(--color-card);
-  font-size: 16px;
-  cursor: pointer;
-}
-
-.emoji-picker__panel {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 5;
-  padding: 8px;
-  border-radius: 10px;
-  border: 1px solid var(--color-neutral-300);
-  background: var(--color-card);
-  box-shadow: 0 10px 30px color-mix(in srgb, var(--color-shadow) 18%, transparent);
-}
-
-.emoji-picker__grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 4px;
-  width: 220px;
-}
-
-.emoji-picker__option {
-  border: none;
-  background: none;
-  font-size: 18px;
-  padding: 4px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.emoji-picker__option:hover {
-  background: var(--color-neutral-200);
-}
-
-.emoji-picker__custom {
-  grid-column: 1 / -1;
-  margin-top: 4px;
-  padding: 6px 8px;
-  border: 1px solid var(--color-neutral-300);
-  border-radius: 8px;
-  font-size: 13px;
-}
-
-.table-scroll {
-  margin-top: 22px;
-  overflow-x: auto;
-}
-
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13.5px;
-  white-space: nowrap;
-}
-
-.table th {
-  padding: 0 14px 10px 0;
-  text-align: left;
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--color-neutral-600);
-  border-bottom: 1px solid var(--color-neutral-300);
-}
-
-.table td {
-  padding: 12px 14px 12px 0;
-  border-bottom: 1px solid var(--color-neutral-200);
-}
-
-.table tr:last-child td {
-  border-bottom: none;
-}
-
-/* The in-row Edit form (Transactions): the same inputs as a .field, but
-   tightened to the table's row height and font, and filling their column. */
-.table__edit td {
-  padding-top: 6px;
-  padding-bottom: 6px;
-}
-
-.table__edit input,
-.table__edit select {
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 110px;
-  padding: 6px 9px;
-  border-radius: 8px;
-  font-size: 13.5px;
-}
-
-.table__edit input[type="date"] {
-  min-width: 140px;
-}
-
-.table__num {
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-}
-
-.table__actions {
-  display: flex;
-  gap: 8px;
-  padding-right: 0;
-}
-
-.table__sort {
-  all: unset;
-  cursor: pointer;
-}
-
-.table__sort:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 1px;
-}
-
-.table th[aria-sort="ascending"] .table__sort::after {
-  content: " \25B2";
-}
-
-.table th[aria-sort="descending"] .table__sort::after {
-  content: " \25BC";
-}
-
-.pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  margin-top: 18px;
-}
-
-.pagination__status {
-  font-size: 13px;
-  color: var(--color-neutral-600);
-}
-
-/* — budget editor (Budget tab) — */
-
-.table th.table__section {
-  padding-top: 24px;
-  padding-bottom: 8px;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-text);
-  font-weight: 700;
-  border-bottom: 1px solid var(--color-neutral-200);
-}
-
-tbody:first-of-type .table th.table__section {
-  padding-top: 16px;
-}
-
-.budget__amount-input {
-  width: 110px;
-  padding: 7px 10px;
-  border: 1px solid var(--color-neutral-300);
-  border-radius: 8px;
-  background: var(--color-card);
-  color: var(--color-text);
-  font-family: var(--font-body);
-  font-size: 13.5px;
-  text-align: right;
-}
-
-.budget__amount-input:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 1px;
-}
-
-.budget__total-row td {
-  padding-top: 12px;
-  border-top: 1px solid var(--color-neutral-300);
-  font-weight: 700;
-}
-
-/* — Balance status (Left to Budget #167, Unallocated #168) — */
-
-/* Balanced / Over-budgeted / Over income - a pill inline with the figure it
-   qualifies (BalanceStatus.jsx). */
-.status-chip {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-family: var(--font-body);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  vertical-align: middle;
-}
-
-.status-chip--positive {
-  background: var(--color-positive-tint);
-  color: var(--color-positive);
-}
-
-.status-chip--negative {
-  background: var(--color-negative-tint);
-  color: var(--color-negative);
-}
-
-/* — Balance check card (Overview, Issue #168) — */
-
-/* The chip sits on the amount's line, right-aligned, so the card stays no
-   taller than "Where did my income go?" beside it. */
-.balance-check__value {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 6px;
-  font-family: var(--font-heading);
-  font-size: 32px;
-  line-height: 1.15;
-  letter-spacing: -0.015em;
-}
-
-/* Saved as a share of Available to Save. */
-.balance-check__meter {
-  height: 10px;
-  margin-top: 14px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: var(--color-neutral-200);
-}
-
-.balance-check__fill {
-  height: 100%;
-  background: var(--color-savings);
-}
-
-/* — Left to Budget (Budget tab, Issue #167) — */
-
-/* Month pills + Trailing window on the left, the Left to Budget block on
-   the right; stacks below 900px like the rest of the layout's rows. */
-.budget__selector-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
-}
-
-.budget__selector {
-  flex: 1;
-  min-width: 0;
-}
-
-.left-to-budget {
-  flex: none;
-  text-align: right;
-}
-
-.left-to-budget__value {
-  font-family: var(--font-heading);
-  font-size: 25px;
-  line-height: 1.15;
-  margin-top: 4px;
-}
-
-.left-to-budget__meter {
-  position: relative;
-  width: 240px;
-  max-width: 100%;
-  margin: 12px 0 0 auto;
-}
-
-.left-to-budget__track {
-  display: flex;
-  height: 10px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: var(--color-neutral-200);
-}
-
-.left-to-budget__segment {
-  flex: none;
-  height: 100%;
-}
-
-/* Budgeted Income - outflows past it are over-budgeted. */
-.left-to-budget__marker {
-  position: absolute;
-  top: -3px;
-  bottom: -3px;
-  width: 2px;
-  margin-left: -1px;
-  background: var(--color-text);
-}
-
-.left-to-budget__caption {
-  margin-top: 6px;
-  font-size: 11.5px;
-  color: var(--color-neutral-600);
-}
-
-.left-to-budget__row td {
-  border-top-width: 2px;
-  border-top-color: var(--color-neutral-400);
-}
-
-.left-to-budget__mini-meter {
-  height: 4px;
-  margin-top: 4px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: var(--color-neutral-200);
-}
-
-.left-to-budget__mini-fill {
-  height: 100%;
-  background: var(--color-accent-2-500);
-}
-
-.left-to-budget__mini-fill--over {
-  background: var(--color-danger);
-}
-
-@media (max-width: 900px) {
-  .budget__selector-row {
-    flex-direction: column;
-    gap: 18px;
-  }
-
-  .budget__selector {
-    flex: none;
-    width: 100%;
-  }
-
-  .left-to-budget {
-    text-align: left;
-  }
-
-  .left-to-budget__meter {
-    margin-left: 0;
-  }
-}
-
-/* — Budget Suggestion (own top-level card, Budget tab, Issue #66) — */
-
-.budget-suggestion__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 16px 0 14px;
-}
-
-.budget-suggestion__chip {
-  padding: 5px 11px;
-  border-radius: 999px;
-  background: var(--color-neutral-200);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.budget-suggestion__chip.figure--adverse {
-  background: var(--color-negative-tint);
-  color: var(--color-negative);
-}
-
-.budget-suggestion__chip.figure--favourable {
-  background: var(--color-positive-tint);
-  color: var(--color-positive);
-}
-
-.budget-suggestion__chips-empty {
-  margin: 16px 0 14px;
-  font-size: 12.5px;
-  color: var(--color-neutral-600);
-}
-
-.budget-suggestion .state .card__note {
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.budget-suggestion__list {
-  margin: 0;
-  padding-left: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 13.5px;
-  line-height: 1.5;
-  color: var(--color-text);
-}
-
-/* — card actions / Auto-populate menu (Budget tab, Issue #77) — */
-
-.card__actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.menu {
-  position: relative;
-}
-
-.menu__list {
-  position: absolute;
-  z-index: 1;
-  top: calc(100% + 6px);
-  right: 0;
-  display: flex;
-  flex-direction: column;
-  min-width: 180px;
-  padding: 6px;
-  border: 1px solid var(--color-neutral-300);
-  border-radius: 10px;
-  background: var(--color-card);
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--color-shadow) 12%, transparent);
-}
-
-.menu__item {
-  padding: 8px 10px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--color-text);
-  font-family: var(--font-body);
-  font-size: 13.5px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.menu__item:hover {
-  background: var(--color-neutral-200);
-}
-
-/* — Your data (Settings tab, Issue #196) — */
-
-.your-data {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 6px 20px;
-  margin: 10px 0 0;
-  font-size: 13.5px;
-}
-
-.your-data dt {
-  color: var(--color-neutral-600);
-}
-
-.your-data dd {
-  margin: 0;
-}
-
-.your-data__path {
-  overflow-wrap: anywhere;
-}
-
-/* Download Backup and Change location… sit side by side at one size, below the
-   facts. .change-location is display: contents while idle so its button joins
-   this row; its confirmation panels take a full row underneath. */
-.your-data__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 10px;
-  margin-top: 22px;
-}
-
-.your-data__actions > .button,
-.your-data__actions .change-location > .button {
-  box-sizing: border-box;
-  width: 180px;
-  padding: 9px 16px;
-  font-size: 13.5px;
-  font-weight: 600;
-  text-align: center;
-}
-
-.your-data__actions .change-location > :not(.button) {
-  flex-basis: 100%;
-}
-
-/* — Change location (Issue #198) — */
-
-.change-location {
-  display: contents;
-}
-
-.change-location__confirm p {
-  margin: 0 0 10px;
-  font-size: 13.5px;
-  overflow-wrap: anywhere;
-}
-
-.change-location__actions {
-  display: flex;
-  gap: 8px;
-}
-
-/* — Danger area: Delete data and reset dashboard (Issue #201) —
-   Set apart from the cards above by a warning-coloured frame. --color-danger
-   is the theme's contrast-checked warning text colour, so it is used for the
-   border, headings and button outline; on hover the button fills with it. */
-
-.danger-zone {
-  padding: 22px 26px 26px;
-  border: 2px solid var(--color-danger);
-  border-radius: var(--radius-md);
-  background: var(--color-card);
-}
-
-.danger-zone > h3 {
-  margin: 0 0 6px;
-  color: var(--color-danger);
-}
-
-.danger-zone .button--warning {
-  border-color: var(--color-danger);
-  background: transparent;
-  color: var(--color-danger);
-}
-
-.danger-zone .button--warning:hover:not(:disabled) {
-  background: var(--color-danger);
-  border-color: var(--color-danger);
-  color: var(--color-card);
-}
-
-.danger-zone .button--warning:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.danger-zone__backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: rgb(0 0 0 / 0.5);
-}
-
-.danger-zone__dialog {
-  width: min(560px, 100%);
-  max-height: 100%;
-  overflow-y: auto;
-  padding: 22px 24px;
-  border: 2px solid var(--color-danger);
-  border-radius: var(--radius-md);
-  background: var(--color-card);
-  color: var(--color-text);
-  font-size: 13.5px;
-}
-
-.danger-zone__dialog h4 {
-  margin: 0 0 12px;
-  color: var(--color-danger);
-}
-
-.danger-zone__dialog ul {
-  margin: 0 0 12px;
-  padding-left: 20px;
-}
-
-.danger-zone__path {
-  overflow-wrap: anywhere;
-  font-weight: 600;
-}
-
-.danger-zone__step,
-.danger-zone__check,
-.danger-zone__confirm {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 14px;
-}
-
-.danger-zone__confirm {
-  flex-wrap: wrap;
-}
-
-.danger-zone__done {
-  color: var(--color-positive);
-}
-
-.danger-zone__actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 18px;
-}
-
-/* — Goals tab (Goals spec section 10) — */
-
-.goals {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-top: 14px;
-}
-
-.goals__muted {
-  color: var(--color-neutral-600);
-  font-size: 13px;
-}
-
-.goals__row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 12px;
-}
-
-.goals__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-
-.goals__clamp {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  margin: 6px 0 0;
-}
-
-.goals__form {
-  margin-top: 0;
-}
-
-/* Goal cards are narrow: two equal columns that may shrink below an input's
-   intrinsic width, with every control filling its cell, keep the fields inside
-   the form box. */
-.goals__form .rule-form__grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.goals__form .field {
-  min-width: 0;
-}
-
-.goals__form .field input,
-.goals__form .field select {
-  width: 100%;
-  min-width: 0;
-}
-
-.goals__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
-  gap: 14px;
-}
-
-.goals__card {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.goals__card-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-}
-
-.goals__card .goals__actions {
-  margin-top: 14px;
-}
-
-.goals__headline {
-  margin-top: 10px;
-  font-family: var(--font-heading);
-  font-size: 24px;
-  letter-spacing: -0.015em;
-}
-
-/* The progress bar, with a tick where an even pace would have the Goal today. */
-.goals__bar {
-  position: relative;
-  height: 12px;
-  margin: 12px 0 8px;
-  border-radius: 999px;
-  background: var(--color-neutral-200);
-}
-
-.goals__bar-fill {
-  height: 100%;
-  border-radius: 999px;
-}
-
-.goals__bar-fill--ok {
-  background: var(--color-positive);
-}
-
-.goals__bar-fill--behind {
-  background: var(--color-negative);
-}
-
-.goals__bar-pace {
-  position: absolute;
-  top: -4px;
-  bottom: -4px;
-  width: 2px;
-  background: var(--color-text);
-  opacity: 0.7;
-}
-
-.goals__chip {
-  padding: 2px 9px;
-  border-radius: 999px;
-  font-size: 11.5px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.goals__chip--good {
-  background: var(--color-positive-tint);
-  color: var(--color-positive);
-}
-
-.goals__chip--bad {
-  background: var(--color-negative-tint);
-  color: var(--color-negative);
-}
-
-.goals__chip--muted {
-  background: var(--color-neutral-200);
-  color: var(--color-neutral-700);
-}
-
-/* The collapsed Past goals list under the card grid. */
-.goals__past summary {
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.goals__past-list {
-  list-style: none;
-  margin: 12px 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.goals__past-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.goals__past-title {
-  flex: 1 1 160px;
-  font-weight: 600;
-}
-
-/* The Overview's Goals tile: up to three Goals, each a title row, a bar and a
-   funded / monthly line. */
-.goals-tile__list {
-  list-style: none;
-  margin: 12px 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.goals-tile__list h4 {
-  margin: 0;
-  font-size: 14px;
-}
-
-.goals-tile__list .goals__bar {
-  margin: 10px 0 6px;
-}
-
-/* The Goal Details view: a title row, a stats strip, the trajectory chart and
-   the Contributions ledger. */
-.goals__details-button {
-  width: 100%;
-  margin-top: 10px;
-  padding: 12px 16px;
-}
-
-.goals__details {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.goals__details-title {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.goals__details-sub {
-  margin: 18px 0 0;
-  font-size: 15px;
-}
-
-.goals__stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 14px 20px;
-  margin: 14px 0 6px;
-}
-
-.goals__stats > div {
-  min-width: 0;
-}
-
-.goals__stats dt {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-neutral-500);
-}
-
-.goals__stats dd {
-  margin: 2px 0 0;
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.goals__stats-lead dd {
-  font-size: 22px;
-}
-
-.goals__chart {
-  width: 100%;
-  margin-top: 6px;
-}
-
-.goals__ledger {
-  max-width: 460px;
-}
-
-/* Split savings panel (Goals spec section 9): slides down from the Goals header. */
-@keyframes goals-split-slide {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.goals__split {
-  animation: goals-split-slide 160ms ease-out;
-}
-
-.goals__confirmation {
-  margin: 0;
-  font-weight: 600;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .goals__split {
-    animation: none;
-  }
-}
-
-/* — Budget trends toggle (Budget tab) — */
-
-.trends-seg {
+/* Design tokens and component classes lifted from the approved Claude Design
+   mockup (docs/mockups/overview-dashboard.html), whose design system is called
+   "Organic". The mockup carries its styling as inline attributes on every
+   element; the same values live here as classes so the components stay
+   readable. Fonts are vendored under public/fonts so the Dashboard renders
+   fully offline - nothing about this page reaches the network (ADR-0008). */
+
+@font-face {
+  font-family: "Caprasimo";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/caprasimo-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Caprasimo";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/caprasimo-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
+    U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Figtree";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/figtree-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Figtree";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/figtree-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
+    U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+:root {
+  --color-text: #201e1d;
+  --color-accent: #c67139;
+
+  --color-neutral-100: #f9f4ed;
+  --color-neutral-200: #eee7db;
+  --color-neutral-300: #dcd3c4;
+  --color-neutral-400: #c0b6a5;
+  --color-neutral-500: #a19786;
+  --color-neutral-600: #82796a;
+  --color-neutral-700: #645c50;
+
+  --color-accent-300: #ffc6a5;
+  --color-accent-600: #b2622d;
+  --color-accent-700: #8c491a;
+  --color-accent-800: #643312;
+
+  /* --color-positive/-tint, --color-accent-2-500, --color-negative/-tint,
+     --color-danger, --color-debt and --color-transfer were revised in Issue
+     #111 to follow the same hue-anchor + HSL-ramp + contrast-check
+     convention Midnight and Orchid's own semantic tokens already use,
+     rather than staying one-off literals (Blossom, Issue #102 follow-up,
+     had given positive/negative independent values, but as hand-picked
+     hexes with no documented formula - and --color-debt was an unrelated
+     indigo, --color-negative just aliased the accent ramp). Settled via
+     /prototype directly (three derived-shade variants compared live via a
+     throwaway ?variant=A/B/C toggle, see prototype/terracotta-theme-variants,
+     kept as the primary source, not merged) - Variant C, "Muted" won:
+
+     - --color-debt/--color-transfer move off the standalone indigo/accent
+       alias onto Terracotta's own (unvaried) neutral ramp's hue (~38deg -
+       measurably different from --color-accent's ~24deg, despite both
+       reading as "warm tan" at a glance) instead, matching the "debt/
+       transfer ride the neutral ramp" convention Midnight/Orchid use - not
+       part of the A/B/C comparison, since the neutral ramp itself didn't
+       change.
+     - --color-positive (+ --color-accent-2-500 for Income/Unallocated, + its
+       tint) keeps its existing olive/sage hue family (~88deg, close to the
+       old literal's ~82deg), now formula-derived and contrast-checked
+       against --color-card instead of a hand-picked hex.
+     - --color-negative (+ its tint) moves off aliasing the accent ramp onto
+       its own brick-red hue, distinct from both the accent (~24deg) and
+       --color-danger. Variant C landed at ~9deg; live feedback on the Budget
+       Suggestion chips (they read as "out of place" pink against the rest of
+       the earthy palette) warmed this further to ~17deg, closer to the
+       accent, while keeping it distinct enough to still read as "bad".
+     - --color-danger becomes its own crimson hue (~355deg), distinct from
+       --color-negative, rather than an unrelated hand-picked literal.
+
+     Every text-bearing token above (--color-positive, --color-negative,
+     --color-danger - all used as figure/chip text, see .figure--adverse/
+     .figure--favourable and the danger-confirm state below) is
+     contrast-checked >=4.5:1 (WCAG AA) against --color-card.
+     --color-debt/--color-transfer are swatch/fill-only (income-allocation
+     bar, month-by-month chart), so aren't held to the same bar. Terracotta's
+     category chart palette lives separately, in lib/categoryColours.js. */
+  --color-accent-2-500: #95a583;
+
+  --color-danger: #792a31;
+  --color-debt: #8d7b5e;
+  --color-savings: #c2af8e;
+  /* Issue #149 - swatch/fill-only like --color-debt (the allocation bar,
+     the by-month chart). Unlike debt/savings it can't ride a
+     theme's own ramp - every theme's ramp-derived fills already crowd each
+     other - so each theme gets a hue off its own palette instead, picked by
+     the dataviz skill's validator to clear >=15 dE (normal vision) and >=8
+     dE (protan/deutan) against every Type fill it sits beside, plus
+     --color-danger (Over income). Terracotta's is a dusty indigo (~285deg). */
+  --color-bills-subscriptions: #6a6aa8;
+
+  --color-positive: #53653e;
+  --color-positive-tint: #dfe8d4;
+  --color-negative: #7b4732;
+  --color-negative-tint: #e8dad4;
+
+  --color-card: #fffdf9;
+  --color-on-accent: #fff;
+
+  /* PROTOTYPE (prototype/orchid-pastel-palette, pass 9) - .button:hover and
+     .button--danger:hover used to read var(--color-accent-700) directly,
+     like the genuine text uses of that token (.state--error,
+     .category-chip--add:hover). Orchid's buttons move to a vivid,
+     unconstrained hot pink with dark text (see the pass 9 comment below),
+     which flips the direction a hover state needs to move in - lighter,
+     not darker, since a darker hover would fail contrast against dark
+     text - without dragging the AA-constrained text uses of accent-700
+     along with it. Aliased to accent-700 every other theme already used
+     so their (darker) hover direction is unchanged. */
+  --color-button-hover: var(--color-accent-700);
+
+  /* PROTOTYPE (prototype/orchid-pastel-palette) - the Net line/dot markers
+     (IncomeVsExpensesByMonth.jsx) and their .mbe__line-swatch legend marker
+     used to read var(--color-neutral-700) directly, like several genuine
+     text uses of that token (.button--quiet, .field__derived). Orchid's
+     revised palette wants this one decorative stroke pushed to white
+     without dragging those text uses along with it - hence a token of its
+     own, aliased to the neutral-700 every other theme already used so
+     their appearance is unchanged. */
+  --color-chart-line: var(--color-neutral-700);
+
+  /* PROTOTYPE (prototype/orchid-pastel-palette, pass 8) - IncomeAllocation's
+     "expenses" segment, IncomeVsExpensesByMonth's Expense bars/dot and
+     SpendingOverTime's line/gradient/marker all used to read
+     var(--color-accent-600) directly, like the genuine text/white-on-bg
+     uses of that token (.figure--adverse, .button backgrounds). Orchid
+     wants its Expenses fills pushed to a vivid hot pink well past what
+     4.5:1 text contrast allows, without dragging those text/button uses
+     along with it - hence a token of its own, aliased to accent-600 every
+     other theme already used so their appearance is unchanged. */
+  --color-negative-fill: var(--color-accent-600);
+
+  /* Separate from --color-neutral-100 (Issue #108) so a theme's page
+     backdrop can go bold without dragging along neutral-100's other
+     uses (selected month-pill text, .rule-form background,
+     .category-chip background) - Orchid needs this, Terracotta/Midnight
+     don't, so theirs is just neutral-100 unchanged. */
+  --color-background: var(--color-neutral-100);
+
+  /* Decoupled from --color-text (rather than every box-shadow's color-mix
+     reading --color-text directly) so a dark theme whose text is light can
+     still cast a dark shadow instead of a light glow - Midnight overrides
+     this, Terracotta/Orchid don't need to. */
+  --color-shadow: var(--color-text);
+
+  --font-heading: "Caprasimo", system-ui, sans-serif;
+  --font-body: "Figtree", system-ui, sans-serif;
+
+  --radius-md: 16px;
+}
+
+/* "Terracotta" (Issue #102) is the plain :root block above - the implicit
+   default when no data-theme is set. "Orchid" is the only theme that needs
+   its own block - it replaces "Blossom" (Issue #102), which even after its
+   own accent/debt fix (#102 follow-up) kept drawing feedback that it didn't
+   read well against yellow/gold.
+
+   Orchid was revised a third time (Issue #108): it still read too close to
+   Terracotta (same brown/taupe neutral ramp, similar off-white
+   background/card). Settled via /grilling, then compared as three
+   derived-shade variants via /prototype (see prototype/orchid-theme-variants,
+   kept as the primary source, not merged) - "Variant B, Richer" won:
+
+   - --color-background (page backdrop, decoupled from --color-neutral-100 -
+     see :root) and --color-card are a pale-vs-richer pink pairing, iterated
+     live against the running prototype after the initial derivation (both
+     started more saturated, then were lightened, then swapped so the card
+     carries the bolder of the two pinks and the page is the paler one).
+     --color-card was tuned again afterwards (#f7cbe4 -> #eacdd8 -> #ecd9e1):
+     hue-locked to --color-background's ~337° rather than its own ~326°, and
+     lightened/desaturated in two more live passes to sit closer to the
+     background, so the two pinks read as one family instead of visibly
+     different hues - the card still separates from the page via its own
+     border/lightness delta, not via a hue jump. --color-neutral-100
+     itself is unchanged - it keeps the selected
+     month-pill's text colour, .rule-form's background and .category-chip's
+     background, none of which should follow the page backdrop's colour.
+   - --color-neutral-200..700 (+ --color-debt/--color-transfer, which just
+     ride along the ramp rather than getting a standalone hue) move from
+     taupe/brown to a mauve/rose-grey hue-locked to --color-accent, matching
+     the convention Terracotta (warm tan) and Midnight (blue) already use.
+   - --color-positive (+ --color-accent-2-500 for Income/Unallocated, + its
+     tint) moves off purple to sage green: purple is reserved for the
+     dark-purple Plum theme (Issue #205, below), so Orchid needed to stop
+     using it everywhere, not just here.
+   - --color-negative (+ its tint) moves from wine to a rose-red derived from
+     a user-supplied seed (#DC7386).
+   - --color-danger is now Orchid's own (previously fell through to
+     Terracotta's shared #b3382a, which fails contrast - ~2.3:1 - against
+     the new, no-longer-near-white card).
+
+   Every text-bearing derived token above was contrast-checked >=4.5:1 (WCAG
+   AA) against --color-card (re-checked after the background/card swap -
+   --color-positive needed darkening, --color-negative/--color-danger
+   already had enough headroom). --color-accent itself uses the same derived
+   shade as --color-accent-600 rather than a literal seed, since the active
+   month pill uses --color-accent as a background under --color-neutral-100
+   text. Orchid's category chart palette lives separately, in
+   lib/categoryColours.js. */
+/* PROTOTYPE (prototype/orchid-pastel-palette) - a fourth Orchid revision,
+   starting from a user-supplied 4-colour palette (#F7DEE3 background,
+   #F4D2D8 card, #DCCFF7 lavender for secondary/inactive elements, #DC7386
+   rose as the single "pop" colour) rather than a /grilling role mapping.
+   Settled in two live-feedback passes:
+
+   Pass 1 compared #DC7386 applied literally vs. a darkened derivation, via
+   a throwaway ?variant=A/B toggle (now removed - "safe" won and is folded
+   in below). Raw #DC7386 measured ~2.2:1 as text against --color-card and
+   ~3.1:1 as white-on-fill (the selected month pill, 13px bold) - nowhere
+   near the 4.5:1 this project holds every other text-bearing token to, and
+   visibly washed out live (the Budgeted vs Actual Total Diff figure, the
+   Full year pill). --color-accent/--color-negative/--color-danger below
+   are all a ~349°-hue derivation darkened until both contexts clear AA:
+   #a32941 measures ~7.1:1 for the pill and ~5.1:1 for figure text.
+   --color-danger nudges darker/more crimson again so it stays visually
+   distinct from --color-negative, matching every other theme's convention.
+   This is the same seed hex Orchid's *previous* --color-negative was
+   already derived from (see the revision history above) - not a new
+   problem, the reason a derived shade exists at all.
+
+   Pass 2, live feedback on pass 1's build:
+   - --color-background lightened further (#f7dee3 -> #fbeef1) so it
+     separates more clearly from --color-card, which is unchanged.
+   - --color-neutral-100/200/300 keep the lavender ramp hue-locked to
+     #DCCFF7 (~260°) - deliberately distinct from the rose accent, per the
+     brief, and only ever a background/border/gridline colour
+     (.months__pill/.card/.nav border, hover fills), never text.
+   - --color-neutral-400/500/600/700 revert to the mauve/rose-grey ramp
+     hue-locked to --color-accent (~349°) that every prior Orchid revision
+     shipped with (see history above) - these steps are almost entirely
+     read as *text* (.nav__tab, .months__pill, table headers, muted
+     subtext, .button--quiet, .field__derived) and the lavender version of
+     them read as "purple, hard to read" live. --color-debt/--color-
+     transfer ride this ramp (600/400 steps) again too, same as before.
+   - --color-chart-line (new token, see :root) takes the one genuinely
+     decorative use of the old --color-neutral-700 - the Net line/dots in
+     IncomeVsExpensesByMonth.jsx and its .mbe__line-swatch legend marker -
+     to white, since "purple ornaments" in the live feedback specifically
+     called out that line. Kept as its own token rather than repointing
+     --color-neutral-700 itself, since that token's other, more numerous
+     uses are body text that needs to stay legible dark-on-light, not white.
+   - --color-text/--color-positive/-tint/--color-accent-2-500 are
+     untouched: text was already dark charcoal, and green stays reserved
+     for positive Available to Save per the brief.
+
+   Pass 3, live feedback on pass 2's build - green dropped entirely, and
+   the neutral ramp's remaining mauve tint still read as "purple":
+   - --color-accent-2-500 (Income bars/dots, the allocation bar's
+     "Unallocated" segment - all fill-only, no text ever sits directly on
+     it, see IncomeAllocation.jsx/IncomeVsExpensesByMonth.jsx) is now the
+     literal seed #DC7386 - safe here since it's never held to the 4.5:1
+     text bar.
+   - --color-positive (+ its tint) moves off green onto the same ~349° rose
+     family, but *is* text (.figure--favourable, the Available to Save figure,
+     Budget Suggestion chips) - so it's a separate, darker/less saturated
+     derivation (#642b35, ~7.8:1 against --color-card) from --color-accent/
+     --color-negative's brighter crimson (#a32941, ~5.1:1), rather than the
+     same value - a single hex for both signs would make the Month by
+     month table's per-row Available to Save column (favourable/adverse rows stacked
+     together) unreadable as a sequence.
+   - --color-neutral-100..700 all become literal white: text/border/
+     gridline elements that read as "purple" survived pass 2's hue
+     revert, so the ask this round was pure white rather than another
+     shade. This is a real, deliberate legibility trade: white-on-card
+     (--color-card #f4d2d8) measures ~1.4:1, so muted labels
+     (.nav__tab, table headers, .button--quiet, subtext) and borders
+     effectively disappear rather than staying faintly visible - shown
+     live rather than walked back unasked, since this is the second time
+     it's been requested after the contrast tradeoff was already flagged.
+   - --color-debt/--color-transfer no longer ride the neutral ramp (it's
+     white now, and both are fill-only chart/bar colours that need to stay
+     visible against --color-card) - they get their own fixed steps in the
+     same rose family instead, ordered so all four "Where did my income
+     go?" segments plus Income stay distinguishable by lightness: Expenses
+     #a32941 (darkest) -> Debt #c65068 -> Unallocated/Income #dc7386 ->
+     Savings #eeb3c0 (lightest).
+
+   Pass 4, live feedback on pass 3's build - white text still wasn't the
+   ask (asked again, this time for black), and green's replacement is now
+   its own purple rather than a lightness step of the negative rose:
+   - --color-neutral-300/400/500/600/700 go to literal black (#000000).
+     --color-neutral-100/200 do NOT - grep showed they're never a text/
+     border/gridline colour in this file, only backgrounds (.rule-form,
+     .category-chip, .months__pill[aria-pressed] hover fills, the
+     allocation bar's track) - flipping those to black would blacken form
+     panels and hover states, which is a different, unrequested change.
+     neutral-300 is border/gridline-only (confirmed via grep: no
+     `background:` use) so it's a clean flip - this is also the SVG chart
+     gridline stroke (IncomeVsExpensesByMonth.jsx). One known gap: a
+     handful of `border-bottom: var(--color-neutral-200)` row dividers
+     (Transactions/Budget list rows) stay whatever neutral-200 is, since
+     that token's background role wins - flag if those should go black
+     too, since it'd need splitting into its own token like
+     --color-chart-line below.
+   - --color-accent-2-500 (Income/Unallocated fill) and --color-positive
+     (+ its tint, the *text* form - same darken-for-contrast reasoning as
+     every other text token here) move off pink onto purple (~275°):
+     #6e3399 fill, #4d2768 text (~8.3:1 against --color-card).
+     --color-debt/--color-transfer become the two waypoints of a pink
+     (#a32941, ~349°) -> purple (#6e3399, ~275°) hue ramp instead of a
+     single-hue lightness ramp: Debt #962c6a (~325°), Savings #962c96
+     (~300°) - so the "Where did my income go?" bar now reads as a
+     genuine pink-to-purple gradient left to right (Expenses, Debt,
+     Savings, Unallocated) rather than one hue at four lightnesses.
+     --color-negative/--color-danger stay pink/crimson, unchanged.
+
+   Pass 5, live feedback on pass 4's build - flat black text/borders/
+   gridlines read as "too much":
+   - --color-neutral-300..700 move off literal black onto a single
+     hue-locked ramp instead, following the convention Terracotta (warm
+     tan/brown, ~36 deg) and Midnight (blue-grey, ~203 deg) already use -
+     tie the neutral ramp to a hue from the theme's own palette rather
+     than true grey/black/white. H=312 deg is the midpoint between
+     --color-accent's pink (~349 deg) and --color-positive's purple
+     (~275 deg), so the ramp reads as a muted version of *both* semantic
+     ends rather than favouring one - literally "complements the palette"
+     the way pass 2's short-lived mauve/rose-grey ramp did, but now
+     hue-locked to the pink<->purple pair instead of only the old
+     negative-rose accent. S=28% throughout, in the same
+     muted/low-saturation register as Terracotta's ~11% and Midnight's
+     ~22% (never full brand saturation).
+   - --color-neutral-300 (#b983ae, L=62%) and -400 (#a76299, L=52%) are
+     border/gridline/border-color-only roles (confirmed via the same grep
+     used for pass 4) so they're held to visibility, not the 4.5:1 text
+     bar - ~2.2:1 against --color-card, a deliberate step down from flat
+     black's ~17:1 but clearly more present than pass 3's white-on-pink
+     (~1.4:1). This is also the SVG chart gridline stroke.
+   - --color-neutral-500 (#7c4671, ~5.1:1), -600 (#623759, ~6.8:1) and
+     -700 (#482842, ~9.1:1) are predominantly *text* roles (nav tabs,
+     table headers, muted subtext, .field__derived) so each clears the
+     4.5:1 AA bar with the same kind of headroom the rest of this theme
+     uses, darkest-to-lightest matching the project's light-theme
+     convention (700 = darkest/most text-heavy, matching Terracotta).
+   - --color-neutral-100/200 and --color-chart-line are unchanged - still
+     white backgrounds/decorative net-line, per pass 4's and pass 2's
+     reasoning respectively; this round only touched the text/border/
+     gridline steps that were flagged as too harsh.
+
+   Pass 6, live feedback on pass 5's build - "red" negative asked to become
+   hot pink, "purple" positive asked to become royal purple, and the
+   pink<->purple bar/donut ramp (Expenses/Debt/Savings/Unallocated) was
+   "a little hard to decipher":
+   - --color-accent/-600/--color-negative move from crimson (~349 deg) to
+     canonical hot pink (~330 deg, the hue of the web colour #FF69B4),
+     darkened/saturated (S=85%, L=32% -> #970c52) until it clears 4.5:1
+     again (~6.0:1 against --color-card) - same derive-from-a-named-hue-
+     then-darken-for-contrast method as every prior Orchid pass.
+     --color-accent-700 (#71093d, ~8.3:1) and -800 (#50072b) step down by
+     the same ~8% L per step pass 4's crimson ramp used, just re-hued.
+   - --color-danger nudges further toward true red (~350 deg, #770d1f,
+     ~8.1:1) rather than following the accent hue this time - keeping it
+     a visually distinct "alert red" from the new hot pink, matching the
+     "stays visually distinct from --color-negative" rule every earlier
+     Orchid revision has followed for this token.
+   - --color-positive (+ --color-accent-2-500 for Income/Unallocated, + its
+     tint) move from ~275 deg to ~266 deg, the hue of the named colour
+     "royal purple" (#7851A9), at higher saturation (S=55%) than the
+     previous pass's more muted purple for a richer/more "royal" read.
+     --color-positive (#42206f, ~9.0:1 text) stays the darker/less-
+     saturated derivation from --color-accent-2-500 (#622bab, fill-only)
+     for the same reason established in pass 3 - one hex can't serve both
+     a 4.5:1 text bar and a vivid fill.
+   - The real fix for "hard to decipher": pass 4's ramp varied only hue
+     between the four bar/donut segments (Expenses/Debt/Savings/
+     Unallocated all sat at ~38-40% lightness) - on a thin stacked bar,
+     near-identical lightness made adjacent segments blur together even
+     though the hues technically differed. --color-debt (#d025a5, H=315,
+     L=48%) and --color-transfer (#ce4eda, H=295, L=58%) now swing
+     lightness *and* saturation, not just hue, between the two fixed
+     endpoints (dark hot-pink Expenses at L=32%, medium royal-purple
+     Unallocated at L=42%) - every adjacent pair in the sequence now differs
+     by >=16% lightness, which is what actually separates segments at a
+     glance, not hue alone.
+   - lib/categoryColours.js's ORCHID_PALETTE indices 4-7 (Spending by
+     Category's "positive" slot-group) still carried pass-108's sage
+     green, untouched by every CSS-token-only pass so far since that file
+     is a separate hand-maintained palette - re-derived onto the same
+     ~266 deg royal-purple hue as --color-positive above so no green
+     remains anywhere in Orchid. Indices 0-3 (pink) and 8-11 (neutral)
+     were already close enough in hue to the revised accent/neutral
+     tokens that they didn't need re-deriving.
+
+   Pass 7, live feedback on pass 6's build - Debt read as the "hot pink"
+   segment rather than Expenses, the buttons (--color-accent-600
+   background) still read as crimson rather than hot pink, the royal
+   purple leaned too blue, and the negative-tint Budget Suggestion chips
+   nearly vanished against --color-card:
+   - Root cause of both the Debt/Expenses mixup and the "still crimson"
+     button complaint was the same thing: pass 6's #970c52 (L=32%) sat
+     near the *bottom* of what 4.5:1 against --color-card allows, so it
+     read dark/muddy rather than "hot" - meanwhile pass 6's --color-debt
+     (#d025a5, fill-only, no contrast ceiling) sat at L=48%, genuinely
+     brighter, so it visually won the "which one is hot pink" contest.
+     Fix: push --color-accent/-600/--color-negative as light+saturated as
+     the AA floor allows (S=90%, L=36% -> #ae095c, ~5.0:1 against
+     --color-card and ~7:1 for white button text on top of it) - as
+     vivid as this hue can get while every text/background role it plays
+     still clears 4.5:1 - and pull --color-debt down to L=20% (#521442)
+     instead, so Expenses is unambiguously the boldest, most saturated
+     pink in the theme and Debt reads as a supporting, muted plum rather
+     than competing with it. --color-transfer/--color-accent-2-500's
+     lightness gap either side of the new --color-debt is still >=16%
+     (20 -> 58 -> 42), so pass 6's "decipherable at a glance" fix holds.
+     --color-accent-700 (#7e0742) / -800 (#52042b) re-derive off the new
+     S=90%/H=330deg base at the same ~10% L step pass 6 used.
+   - --color-positive (+ --color-accent-2-500, + its tint) move from
+     ~266deg to ~278deg - both are technically "royal purple" (named
+     royal purple #7851A9 itself measures ~266deg) but pale, moderately-
+     saturated colours near 266deg sit close enough to true blue (~240deg)
+     that they read as periwinkle rather than purple; 278deg is far
+     enough into violet territory to read unambiguously purple at any
+     lightness, and saturation is raised a step (accent-2-500 55%->65%,
+     positive 45%->60%) so the hue reads confidently rather than washed
+     out. --color-accent-2-500 (#7e25b1) and --color-positive (#531d72,
+     ~8.4:1) keep the same fill-vs-text split as every earlier pass.
+   - --color-negative-tint (#f6dae8, H=330/S=61%/L=91%) sat only ~2%
+     lighter than --color-card (H=349/S=61%/L=89%) and a scant 19deg
+     apart in hue - close enough that the adverse Budget Suggestion
+     chips' pill shape nearly disappeared into the card, leaving only the
+     text visible. Pushed to S=70%/L=87% (#f5c7de) - saturated/darkened
+     enough to read as its own pill against the card (still >=4.5:1 for
+     --color-negative text sitting on it, ~4.7:1) without needing a hue
+     change, since hue was never the problem here. --color-positive-tint
+     didn't have this problem (purple vs pink is a large hue jump from
+     --color-card even at similar lightness) so it only got the pass's
+     hue nudge, not a saturation/lightness rework.
+   - lib/categoryColours.js's ORCHID_PALETTE indices 4-7 re-derive onto
+     the new ~278deg hue too, keeping the "same hue as --color-positive"
+     rule pass 6 established.
+
+   Pass 8, live feedback on pass 7's build - the "Save budgets" button
+   only *looked* like a different colour from the Aug pill/Add
+   transaction/Add rule because it was disabled (no unsaved budget
+   changes yet) and .button:disabled is opacity:0.55 over --color-card -
+   confirmed live by entering a budget amount, which makes it render the
+   identical #ae095c; no token changed for that half of the report.
+   Savings (#ce4eda, fill-only, L=58%) still read as "the hot pink"
+   over Expenses itself, for the same structural reason pass 7 fixed for
+   Debt: a fill-only waypoint with no AA ceiling can always out-brighten
+   a text-constrained anchor. Pass 7 only fixed the Expenses-vs-Debt half
+   of that; Savings was still brighter than accent-600's L=36% AA
+   ceiling.
+   - This pass finally breaks the ceiling itself rather than patching
+     around it again: --color-negative-fill (new token, see :root) takes
+     over every Expenses-only *fill* role (IncomeAllocation's "expenses"
+     segment, IncomeVsExpensesByMonth's Expense bars/dot,
+     SpendingOverTime's line/gradient/marker) that used to read
+     --color-accent-600 directly. --color-accent/-600/--color-negative
+     stay at pass 7's #ae095c - still the token for buttons, the active
+     month pill and .figure--adverse text, all genuinely AA-constrained -
+     while --color-negative-fill (#fa429e, H=330/S=95%/L=62%) is free to
+     be actual, unconstrained hot pink, the same fill-vs-text split
+     --color-accent-2-500/--color-positive already used for the positive
+     side.
+   - --color-debt (#df20b6, H=313/L=50%) and --color-transfer (#b22fbc,
+     H=296/L=46%) are re-ramped as waypoints between the new, brighter
+     --color-negative-fill (L=62%) and --color-accent-2-500 (#7e25b1,
+     L=42%, unchanged) - lightness now descends the whole way across the
+     sequence (62 -> 50 -> 46 -> 42) so Expenses reads as the unambiguous
+     peak and nothing downstream of it competes for "the hot pink"
+     again.
+
+   Pass 9, live feedback on pass 8's build - "all buttons" (the Save
+   budgets/Add transaction/Add rule buttons, the selected Month pill)
+   asked to become the vivid hot pink too, not the AA-safe #ae095c pass 7
+   settled buttons on, and lib/categoryColours.js's ORCHID_PALETTE asked
+   to "match the new ramping between hot pink and royal purple":
+   - --color-accent/-600 move to #fa429e - the same value pass 8 already
+     established as --color-negative-fill - rather than another shade of
+     their own: the user's ask was for buttons and Expenses to read as
+     the same hot pink, so this is a deliberate merge, not a coincidence.
+     This is only possible now because pass 8 already split the
+     AA-constrained anchor (then --color-accent-600) away from the
+     unconstrained fill (--color-negative-fill) - without that split,
+     pushing buttons this vivid would have dragged Expenses-fill along
+     too tightly-coupled to re-tune independently. --color-negative
+     (.figure--adverse text) stays its own token at pass 7's #ae095c,
+     unmoved - it was already independent of --color-accent-600 in name,
+     just coincidentally the same hex, so decoupling needed no structural
+     change, only picking different literals.
+   - #fa429e as a *background* needs a different text colour than every
+     other theme's button: white (--color-on-accent's :root default)
+     measures ~3.3:1 against it, well under 4.5:1 AA, while this theme's
+     own --color-text (#22161f) measures ~5.3:1. --color-on-accent is
+     overridden to var(--color-text) here (confirmed via grep to have
+     exactly two usages, both button text, and to be otherwise unscoped -
+     safe to override without touching Terracotta/Midnight).
+     .months__pill[aria-pressed="true"] hardcodes color:
+     var(--color-neutral-100) instead of reading --color-on-accent (a
+     pre-existing, unrelated-to-this-pass quirk in the shared rule), so it
+     needed its own scoped override (below) to the same dark text - the
+     same theme-scoped-selector pattern Midnight already uses for its own
+     .months__pill text-legibility fix.
+   - Dark text flips which direction a hover state needs to move: with
+     white text, hover darkens for more contrast (every other theme); with
+     dark text on an already-vivid, high-lightness fill, darkening the
+     background would *reduce* contrast instead. New token
+     --color-button-hover (see :root - aliased to --color-accent-700
+     there, so every other theme's hover keeps darkening as before) takes
+     over .button:hover/.button--danger:hover's background here, set to
+     #f98bc2 (same H=330/S=90% as the button base, L pushed up from 62%
+     to 76%) - ~7.9:1 against --color-text, comfortably clear of AA and
+     brighter than the pass 7 #ae095c literal that used to sit there.
+     --color-accent-700 itself is untouched - .state--error and
+     .category-chip--add:hover still read it as AA-constrained *text*, a
+     role this pass didn't touch.
+   - --color-button-hover/--color-on-accent only affect .button and the
+     active month pill: .button--quiet (Auto-populate, and the default
+     Delete state) stays its existing transparent/outlined style,
+     unrequested and left alone; the user's own examples ("Add
+     transactions, Add rule") are all solid .button already.
+   - lib/categoryColours.js's ORCHID_PALETTE is rebuilt wholesale onto a
+     three-band hot-pink (H=330) -> mid (H=304) -> royal-purple (H=278)
+     sweep in place of the old three-unrelated-families arrangement - see
+     that file's own comment for the full derivation. */
+/* Pass 10 (settled via prototype/orchid-reference-palette, kept as the
+   primary source, not merged): a fifth Orchid revision, rebuilt from a user-supplied reference screenshot (a pink "Social
+   Media" UI kit) because Orchid was the one theme whose page was *lighter*
+   than its cards (#fbeef1 page vs #f4d2d8 card) - every other theme's cards
+   are the lightest surface and the page backdrop sits a step darker. Colours
+   only; no layout/design change.
+
+   - --color-card is now white and --color-background a soft pink
+     (#fbe0ec, 1.24:1 against the card), matching the reference's pale-pink
+     canvas with white tiles on it.
+   - --color-neutral-100/200 (backgrounds only: .rule-form, .category-chip,
+     progress tracks, row dividers, hover fills) were white, which would
+     vanish on a white card - they become the reference's light pink input
+     fill (#fdeef4) and a slightly deeper pink track (#f8d3e3).
+   - --color-neutral-300/400 (borders/gridlines) and 500-700 (muted text) are
+     re-hued from the old mauve (~312deg) to the reference's pink (~335deg).
+     500/600/700 clear 4.5:1 on both the white card (5.8/7.9/10.9) and the pink
+     page (4.7/6.4/8.8), since nav tabs and the "As at" line sit on the page.
+   - --color-accent/-600 (#d6196c) is the reference's hot pink, darkened just
+     enough that white button text clears 4.5:1 (5.0:1) - like the reference's
+     white-on-pink buttons. That retires pass 9's dark-text-on-pastel-pink
+     workaround: --color-on-accent and --color-button-hover are back to the
+     shared defaults (white text, hover darkens to accent-700), and the
+     .months__pill override below is gone.
+   - --color-negative-fill (#ee3f8e) stays a separate, brighter fill-only pink
+     for Expenses (pass 8's fill-vs-text split), echoing the reference's
+     chart bars.
+   - Untouched: --color-text, the positive/purple family, --color-debt/
+     --color-savings, --color-danger and lib/categoryColours.js's palette.
+     The reference is monochrome pink, but purple-for-positive is a
+     deliberately settled semantic (passes 3-7), not a surface colour. */
+[data-theme="orchid"] {
+  --color-text: #22161f;
+  --color-accent: #d6196c;
+
+  --color-background: #fbe0ec;
+  --color-card: #ffffff;
+
+  --color-neutral-100: #fdeef4;
+  --color-neutral-200: #f8d3e3;
+  --color-neutral-300: #ecaac8;
+  --color-neutral-400: #dd8ab3;
+  --color-neutral-500: #9a4a72;
+  --color-neutral-600: #7d3b5c;
+  --color-neutral-700: #5e2c46;
+
+  --color-accent-600: #d6196c;
+  --color-accent-700: #a8104f;
+  --color-accent-800: #7a0a38;
+  --color-negative-fill: #ee3f8e;
+  --color-button-hover: var(--color-accent-700);
+  --color-on-accent: #ffffff;
+
+  --color-accent-2-500: #7e25b1;
+  --color-debt: #df20b6;
+  --color-savings: #b22fbc;
+  /* Burnt orange - the one hue family Orchid's pink/purple fills leave free
+     (see :root's --color-bills-subscriptions for the selection method). */
+  --color-bills-subscriptions: #b8440f;
+
+  --color-positive: #531d72;
+  --color-positive-tint: #e5d0f1;
+  --color-negative: #ae095c;
+  --color-negative-tint: #f5c7de;
+  --color-danger: #770d1f;
+
+  /* Was white on the old pink card; on a white card that would vanish, so it
+     rides --color-neutral-700 again like Terracotta/Sage. */
+  --color-chart-line: var(--color-neutral-700);
+}
+
+/* Midnight (Issue #106) is the first genuinely dark theme - card/text invert
+   the tonal relationship every other theme uses (card near-white, text
+   near-black). Palette is a 4-colour set the user supplied (#1B262C, #0F4C75,
+   #3282B8, #BBE1FA), settled via /grilling (role mapping) then /prototype
+   (three derived-shade variants for the two new hues - amber positive, red
+   negative, since the source palette is monochrome blue - and the hover lift
+   size; see prototype/midnight-theme-variants). "Option C - Muted" won.
+
+   Card and text depart from the palette's own literals: #0F4C75 (the
+   palette's card seed) didn't read as distinct enough from accent-600 once
+   live, so the card goes darker to #082A42; #BBE1FA (the palette's text
+   seed) read as muted rather than crisp, so text goes to plain white -  both
+   adjustments made after viewing the live prototype. accent-700/accent-800
+   are lighter than accent-600, not darker - the opposite of every other
+   theme's hover direction - because a dark theme's hover wants to lift
+   toward the light end of the ramp. Midnight's category chart palette lives
+   separately, in lib/categoryColours.js. */
+[data-theme="midnight"] {
+  --color-text: #ffffff;
+  --color-accent: #3282b8;
+
+  --color-neutral-100: #1c252c;
+  --color-neutral-200: #28353e;
+  --color-neutral-300: #3c505d;
+  --color-neutral-400: #547083;
+  --color-neutral-500: #7694a7;
+  --color-neutral-600: #a2b6c3;
+  --color-neutral-700: #cdd8df;
+
+  --color-accent-600: #3282b8;
+  --color-accent-700: #679dc1;
+  --color-accent-800: #8bb4d0;
+
+  --color-accent-2-500: #dcbd74;
+  --color-debt: #627f93;
+  --color-savings: #495f6e;
+  /* Lavender (see :root's --color-bills-subscriptions for the selection
+     method). */
+  --color-bills-subscriptions: #b58fd6;
+
+  --color-positive: #c4aa6e;
+  --color-positive-tint: #453a21;
+  --color-negative: #ddb6b0;
+  --color-negative-tint: #4a2a26;
+  --color-danger: #ddb6b0;
+
+  --color-card: #082a42;
+  --color-shadow: #0b1014;
+  --color-background: var(--color-neutral-100);
+}
+
+/* Neutral-500/600 are Midnight's shared muted-text colours (used across the
+   whole app, e.g. tile labels, axis labels), tuned to read fine at a glance -
+   but the live prototype showed the reader's eye going straight to these
+   three (which month is selected, where income went, the bar's own percent
+   scale) wanting more pop than "muted" gives. Scoped to just these three
+   rather than brightening the neutral ramp itself, which would also lift
+   labels never flagged as a problem. */
+[data-theme="midnight"] .months__pill,
+[data-theme="midnight"] .allocation__legend-item .muted,
+[data-theme="midnight"] .allocation__tick {
+  color: var(--color-text);
+}
+
+/* "Sage" (Issue #203) - a light, green theme. Settled via /prototype (see
+   prototype/sage-theme-palettes, kept as the primary source, not merged):
+   three palettes were compared live and "Variant B, Sage wash" won. Variant A
+   ("Faithful": cool near-white page, white cards) and C ("Bold band": sage
+   page, slate accent) lost.
+
+   Seeds, sampled from the user's reference screenshot: sidebar sage #738276,
+   section band #bec8b7, page #f6f6fa, selected chip periwinkle #cfd4e7, slate
+   button #5d6772.
+
+   - --color-background is a pale sage and --color-card a warmer off-white, so
+     green is everywhere but quiet (Terracotta's cream-on-cream idea, in
+     green). --color-neutral-100..700 are one sage-tinted ramp (hue ~105-115deg),
+     the way Terracotta's is warm tan and Midnight's is blue.
+   - --color-neutral-500..700 are stepped darker than the prototype's ramp
+     because nav tabs, the "As at" line and the header Version sit directly on
+     --color-background rather than on a card, and the prototype's neutral-600
+     measured ~4.07:1 there. All three now clear 4.5:1 on both the page and the
+     card.
+   - --color-accent derives from the sidebar sage, darkened until the selected
+     pills' --color-neutral-100 text clears 4.5:1 (4.8:1).
+   - --color-accent-2-500 (Income/Unallocated fills) is the screenshot's
+     periwinkle, deepened to read as a fill. --color-positive/-negative/
+     -danger are text-bearing tokens, each contrast-checked >=4.5:1 against
+     --color-card (6.0:1/6.4:1/8.5:1).
+   - The five fills on the "Where did my income go?" bar - Expenses clay, Bills
+     & Subscriptions ochre, Debt deep teal, Savings pale sage, Income/
+     Unallocated periwinkle - plus --color-danger (Over income) were picked by
+     the dataviz skill's validator (Issue #149's convention) to clear >=15 dE
+     (normal vision) and >=8 dE (protan/deutan) against every other fill, not
+     only their neighbours. Savings is deliberately pale and low-contrast
+     against the card, like Terracotta's; the bar and its legend label it. Sage's
+     category chart palette lives separately, in lib/categoryColours.js. */
+[data-theme="sage"] {
+  --color-text: #2b3530;
+  --color-accent: #5f6f63;
+
+  --color-neutral-100: #f1f4f0;
+  --color-neutral-200: #e2e8e0;
+  --color-neutral-300: #ccd5c9;
+  --color-neutral-400: #aebaab;
+  --color-neutral-500: #596857;
+  --color-neutral-600: #4d5b4c;
+  --color-neutral-700: #3b473a;
+
+  --color-accent-300: #bec8b7;
+  --color-accent-600: #5f6f63;
+  --color-accent-700: #4a5a4d;
+  --color-accent-800: #34413a;
+
+  --color-accent-2-500: #8c97c9;
+  --color-debt: #2a6470;
+  --color-savings: #c9dcb8;
+  --color-bills-subscriptions: #d1a93f;
+  --color-negative-fill: #b0654f;
+
+  --color-positive: #3d6a4b;
+  --color-positive-tint: #dbe8d8;
+  --color-negative: #8a4a3e;
+  --color-negative-tint: #efdcd7;
+  --color-danger: #86283a;
+
+  --color-background: #e6ece3;
+  --color-card: #f9fbf7;
+  --color-shadow: #1f2a24;
+  --color-chart-line: var(--color-neutral-700);
+}
+
+/* "Plum" (Issue #205) - a dark, purple theme. Settled via /prototype (see
+   prototype/nebula-theme-palettes, kept as the primary source, not merged;
+   it was called "Nebula" there): three palettes were compared live and
+   "Variant B, Aubergine" won. Variant A ("Faithful": deep indigo page, neon
+   magenta) and C ("Inset panel": violet page, deepest-indigo card, hot
+   magenta) lost.
+
+   Seeds, sampled from the user's reference screenshot: panel deep indigo
+   #2a1569, surround muted violet #6b58a6, neon magenta #d23be7, secondary
+   violet #7b5cff, lavender text/labels #c9c0ee, dim labels #8f84c8. Plum
+   deliberately departs from them: the page and cards are near-black plum
+   rather than the screenshot's indigo, and the accent is a softer
+   orchid-violet (#b97cf0) rather than neon magenta.
+
+   Follows Midnight's dark-theme conventions: --color-neutral-100..700 run
+   dark to light, --color-background is --color-neutral-100, accent-700/800
+   are lighter than accent-600 (hover lifts toward light), --color-shadow
+   stays dark so card shadows don't glow, and text-bearing semantic tokens
+   are light with dark tints.
+
+   - Contrast (all measured; card #261739, page #120a20): --color-text 14.6:1
+     on the card; neutral-500/600/700 6.2/8.1/11.8:1 on the card and
+     7.1/9.4/13.6:1 on the page (nav tabs, "As at" line and Version sit on the
+     page); --color-positive/-negative/-danger 10.8/8.7/7.1:1 on the card;
+     positive and negative 7.6:1 and 7.4:1 on their own tints;
+     --color-on-accent 6.6:1 on --color-accent and 9.0:1 on the hover fill;
+     --color-accent 5.7:1 on the card (focus outlines). Card vs page is a
+     deliberately gentle 1.16:1 step.
+   - The selected month pill and Financial Year/Calendar Year toggle read
+     --color-neutral-100 for their text; --color-on-accent is pinned to the
+     same token here (its :root default is white), so the two stay in step
+     and no Plum-scoped pill rule is needed.
+   - The five fills on the "Where did my income go?" bar - Expenses magenta,
+     Bills & Subscriptions amber (the one hue off the purple axis), Debt
+     violet, Savings pale lavender, Income/Unallocated teal - plus
+     --color-danger (Over income) were run through the dataviz skill's
+     validator (Issue #149's convention): every pair clears >=15 dE (normal
+     vision) and >=8 dE (protan/deutan). The prototype's by-eye values missed
+     in three places, so Expenses (#e252f0 -> #e774f7, lighter, to separate
+     from Debt under protan), Savings (#cfc6f7 -> #e5e1fb, paler, to
+     separate from Income teal) and Danger (#ff8f8f -> #ff8589, redder, to
+     separate from amber) were nudged; Debt moved a hair (#8a63f2 ->
+     #8863f2) to clear the same Expenses pair. Plum's category chart palette lives
+     separately, in lib/categoryColours.js. */
+[data-theme="plum"] {
+  --color-text: #f3eefa;
+  --color-accent: #b97cf0;
+
+  --color-neutral-100: #120a20;
+  --color-neutral-200: #2b1b45;
+  --color-neutral-300: #3d2a5e;
+  --color-neutral-400: #5e4789;
+  --color-neutral-500: #a595cd;
+  --color-neutral-600: #bbaede;
+  --color-neutral-700: #ddd5f1;
+
+  --color-accent-300: #4a2a70;
+  --color-accent-600: #b97cf0;
+  --color-accent-700: #cf9df5;
+  --color-accent-800: #e1c1fa;
+
+  --color-accent-2-500: #3fd0d4;
+  --color-debt: #8863f2;
+  --color-savings: #e5e1fb;
+  --color-bills-subscriptions: #f5b94a;
+  --color-negative-fill: #e774f7;
+
+  --color-positive: #7fe3c0;
+  --color-positive-tint: #123f3a;
+  --color-negative: #ff9fc4;
+  --color-negative-tint: #4d1738;
+  --color-danger: #ff8589;
+
+  --color-card: #261739;
+  --color-on-accent: var(--color-neutral-100);
+  --color-button-hover: var(--color-accent-700);
+  --color-background: var(--color-neutral-100);
+  --color-shadow: #07031a;
+  --color-chart-line: #ffffff;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.55;
+  background: var(--color-background);
+  color: var(--color-text);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-heading);
+  font-weight: 400;
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  margin: 0;
+}
+
+.numeric {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.muted {
+  color: var(--color-neutral-600);
+}
+
+/* A figure that went the wrong way (overspent, negative Available to Save) reads in
+   --color-negative; one that went the right way reads in --color-positive. */
+.figure--adverse {
+  color: var(--color-negative);
+}
+
+.figure--favourable {
+  color: var(--color-positive);
+}
+
+/* — page shell — */
+
+.page {
+  min-height: 100vh;
+  padding: 36px 44px 56px;
+}
+
+.page__inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  /* Tighten the page's 26px section gap below the header to 16px. */
+  margin-bottom: -10px;
+}
+
+.header h1 {
+  font-size: 34px;
+  letter-spacing: -0.02em;
+}
+
+.header__version {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--color-neutral-500);
+}
+
+/* A button that reads as a text link - the header's Version history link and
+   the Version History view's Back to Dashboard. */
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--color-neutral-700);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* In the header the link is vertically centred on the title block: lower than
+   the very top, but not crowding the period switcher below. */
+.header > .link-button {
+  align-self: center;
+}
+
+.link-button:hover {
+  color: var(--color-text);
+}
+
+/* — Version History view — */
+
+.version-history {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.version-history__list,
+.version-history__entries {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.version-history__list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.version-history__head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.version-history__date {
+  font-size: 13px;
+  color: var(--color-neutral-500);
+}
+
+.version-history__current {
+  padding: 1px 8px;
+  border: 1px solid var(--color-neutral-300);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-neutral-700);
+}
+
+.version-history__entries {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.version-history__entries li {
+  padding-left: 16px;
+  text-indent: -16px;
+}
+
+.version-history__entries li::before {
+  content: "•";
+  display: inline-block;
+  width: 16px;
+  text-indent: 0;
+  color: var(--color-neutral-500);
+}
+
+/* — period switcher — */
+
+.period-switcher {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.period-switcher__nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.period-switcher__arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid var(--color-neutral-300);
+  background: var(--color-card);
+  color: var(--color-neutral-600);
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.period-switcher__arrow:hover:not(:disabled) {
+  border-color: var(--color-neutral-400);
+  color: var(--color-text);
+}
+
+.period-switcher__arrow:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.period-switcher__arrow:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.period-switcher__label {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--color-text);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.period-switcher__toggle {
+  display: flex;
+  gap: 6px;
+}
+
+.period-switcher__toggle-option {
+  padding: 5px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--color-neutral-300);
+  background: var(--color-card);
+  font-size: 12.5px;
+  color: var(--color-neutral-600);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.period-switcher__toggle-option:hover {
+  border-color: var(--color-neutral-400);
+}
+
+.period-switcher__toggle-option[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  font-weight: 600;
+  color: var(--color-neutral-100);
+}
+
+.period-switcher__toggle-option:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* — nav tabs — */
+
+.nav {
+  display: flex;
+  align-items: flex-end;
+  gap: 26px;
+  border-bottom: 1px solid var(--color-neutral-300);
+  flex-wrap: wrap;
+}
+
+.nav__tab {
+  padding: 0 2px 11px;
+  font-size: 14px;
+  color: var(--color-neutral-500);
+  /* Overview and Settings are buttons, the unwired tabs are spans - strip the
+     button chrome so the two kinds sit on the same line looking alike. */
+  border: none;
+  background: none;
+  font-family: inherit;
+  line-height: inherit;
+}
+
+button.nav__tab {
+  cursor: pointer;
+}
+
+button.nav__tab:hover {
+  color: var(--color-text);
+}
+
+.nav__tab--active {
+  font-weight: 600;
+  color: var(--color-text);
+  box-shadow: inset 0 -2px 0 0 var(--color-accent);
+}
+
+.nav__asat {
+  margin-left: auto;
+  padding: 0 2px 11px;
+  font-size: 12.5px;
+  color: var(--color-neutral-500);
+  white-space: nowrap;
+}
+
+/* — month selector — */
+
+.months {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.months__pill {
+  padding: 6px 15px;
+  border-radius: 999px;
+  border: 1px solid var(--color-neutral-300);
+  background: var(--color-card);
+  font-size: 13px;
+  color: var(--color-neutral-600);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.months__pill:hover {
+  border-color: var(--color-neutral-400);
+}
+
+.months__pill[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  font-weight: 600;
+  color: var(--color-neutral-100);
+}
+
+.months__pill:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* — cards — */
+
+.card {
+  background: var(--color-card);
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-md);
+  padding: 24px 26px 26px;
+}
+
+.card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.card h3 {
+  font-size: 19px;
+}
+
+.card__aside {
+  text-align: right;
+}
+
+.card__aside-figure {
+  font-family: var(--font-heading);
+  font-size: 22px;
+  letter-spacing: -0.015em;
+}
+
+.card__aside-label {
+  font-size: 11.5px;
+  color: var(--color-neutral-500);
+}
+
+/* — stat tiles — */
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+}
+
+.tile {
+  background: var(--color-card);
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-md);
+  padding: 16px 16px;
+  min-width: 0;
+}
+
+.tile__label {
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-neutral-600);
+  font-weight: 600;
+}
+
+.tile__value {
+  font-family: var(--font-heading);
+  font-size: 25px;
+  line-height: 1.15;
+  margin-top: 8px;
+  letter-spacing: -0.015em;
+}
+
+.tile__average {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--color-neutral-500);
+}
+
+/* — income allocation — */
+
+.allocation__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  align-items: center;
+}
+
+.allocation__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.allocation__bar-wrap {
+  position: relative;
+  margin-top: 20px;
+}
+
+.allocation__bar {
+  display: flex;
+  height: 26px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--color-neutral-200);
+}
+
+.allocation__segment {
+  flex: none;
+}
+
+/* Outflows breakdown reuses the allocation bar but is taller and carries the
+   amount inside each wide segment. White on the Type fills needs the soft
+   shadow to stay legible on the lighter fills across themes. */
+.outflows__bar {
+  height: 40px;
+  border-radius: var(--radius-md);
+}
+
+.outflows__segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.allocation__marker {
+  position: absolute;
+  top: -6px;
+  bottom: -6px;
+  width: 0;
+  border-left: 1.5px dashed var(--color-neutral-700);
+}
+
+.allocation__ticks {
+  position: relative;
+  height: 20px;
+  margin-top: 8px;
+}
+
+.allocation__tick {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 11.5px;
+  color: var(--color-neutral-500);
+}
+
+/* — two-column rows — */
+
+.row--split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+/* A narrow column stacking two cards beside one wide card that spans both
+   row-heights - the top/bottom cards vary by view (Overview restructure,
+   Issue #61), the wide card is always Budgeted vs Actual. */
+.row--wide-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  grid-template-rows: auto auto;
+  grid-template-areas:
+    "top wide"
+    "bottom wide";
+  gap: 16px;
+}
+
+/* Full year's narrow column holds Month by month, whose seven columns
+   (Bills & Subscriptions added by Issue #149) need an even split to read
+   cleanly - the per-month view's narrow column (the donut) keeps 0.85fr. */
+.row--wide-pair--even {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.row--wide-pair__top,
+.row--wide-pair__bottom,
+.row--wide-pair__wide {
+  display: flex;
+}
+
+.row--wide-pair__top > .card,
+.row--wide-pair__bottom > .card,
+.row--wide-pair__wide > .card {
+  flex: 1;
+}
+
+.row--wide-pair__top {
+  grid-area: top;
+}
+
+.row--wide-pair__bottom {
+  grid-area: bottom;
+}
+
+.row--wide-pair__wide {
+  grid-area: wide;
+}
+
+/* Full year: two equal columns of stacked cards. The last card in each column
+   stretches to the bottom edge so the columns end flush. */
+.row--columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.row--columns__col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.row--columns__col > .card:last-child {
+  flex: 1;
+}
+
+/* "Where did my income go?" beside the Balance check card (#168). */
+.row--allocation {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+@media (max-width: 900px) {
+  .tiles {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .row--split,
+  .row--columns,
+  .row--allocation {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .row--wide-pair {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "top"
+      "wide"
+      "bottom";
+  }
+
+  .page {
+    padding: 24px 18px 40px;
+  }
+}
+
+/* — donut — */
+
+.donut {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 14px 0 6px;
+  position: relative;
+}
+
+.donut svg {
+  width: 196px;
+  height: 196px;
+  transform: rotate(-90deg);
+}
+
+.donut__centre {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.donut__total {
+  font-family: var(--font-heading);
+  font-size: 25px;
+  letter-spacing: -0.015em;
+}
+
+.donut__caption {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-neutral-500);
+}
+
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 14px;
+}
+
+.legend__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--color-neutral-200);
+  font-size: 13.5px;
+}
+
+.legend__row:last-child {
+  border-bottom: 0;
+}
+
+.legend__name {
+  flex: 1;
+}
+
+.legend__amount {
+  font-weight: 600;
+}
+
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  flex: none;
+}
+
+.dot--sm {
+  width: 8px;
+  height: 8px;
+}
+
+.dot--lg {
+  width: 10px;
+  height: 10px;
+}
+
+/* — budgeted vs actual — */
+
+.bva__row {
+  display: grid;
+  grid-template-columns: 20px minmax(78px, 1.3fr) 62px 62px 66px 46px;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--color-neutral-200);
+  font-size: 13.5px;
+}
+
+.bva__row:last-child {
+  border-bottom: 0;
+}
+
+.bva__head {
+  padding: 14px 0 8px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-neutral-500);
+  font-weight: 600;
+  border-bottom: 1px solid var(--color-neutral-300);
+}
+
+.bva__total {
+  margin-top: 6px;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--color-neutral-300);
+  border-bottom: 0;
+}
+
+.bva__section {
+  display: block;
+  padding: 14px 0 6px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-neutral-500);
+  font-weight: 600;
+  text-align: left;
+  border-bottom: 0;
+}
+
+tbody:first-of-type .bva__section {
+  padding-top: 4px;
+}
+
+.bva__num {
+  text-align: right;
+}
+
+.bva__actual {
+  text-align: right;
+  font-weight: 600;
+}
+
+/* — month by month — */
+
+.mbm__row {
+  display: grid;
+  grid-template-columns: 96px repeat(6, minmax(0, 1fr));
+  align-items: center;
+  gap: 8px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--color-neutral-200);
+  font-size: 13.5px;
+}
+
+.mbm__row:last-child {
+  border-bottom: 0;
+}
+
+.mbm__head {
+  padding: 14px 0 8px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-neutral-500);
+  font-weight: 600;
+  border-bottom: 1px solid var(--color-neutral-300);
+}
+
+.mbm__total {
+  margin-top: 6px;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--color-neutral-300);
+  border-bottom: 0;
+  font-weight: 600;
+}
+
+.mbm__name {
+  font-weight: 600;
+}
+
+.mbm__num {
+  text-align: right;
+}
+
+/* — debt summary — */
+
+.debt-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 14px;
+}
+
+.debt-summary__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 74px 48px;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--color-neutral-200);
+  font-size: 13.5px;
+}
+
+.debt-summary__row:last-child {
+  border-bottom: 0;
+}
+
+.debt-summary__head {
+  padding: 0 0 8px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-neutral-500);
+  font-weight: 600;
+  border-bottom: 1px solid var(--color-neutral-300);
+}
+
+.debt-summary__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.debt-summary__amount {
+  font-weight: 600;
+  text-align: right;
+}
+
+.debt-summary__pct {
+  text-align: right;
+  color: var(--color-neutral-500);
+}
+
+/* — top 5 — */
+
+.top5 {
+  display: flex;
+  flex-direction: column;
+  margin-top: 14px;
+}
+
+.top5__row {
+  display: grid;
+  grid-template-columns: 20px minmax(90px, 1fr) 58px 74px;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--color-neutral-200);
+}
+
+.top5__row:last-child {
+  border-bottom: 0;
+}
+
+.top5__rank {
+  font-size: 12.5px;
+  color: var(--color-neutral-500);
+}
+
+.top5__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.top5__notes {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.top5__category {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  color: var(--color-neutral-600);
+}
+
+/* Top merchants rows: rank, detail (name, Category, bar), optional count, total. */
+.top5__row--merchant {
+  grid-template-columns: 20px minmax(90px, 1fr) 84px;
+}
+
+.top5__row--merchant.top5__row--with-count {
+  grid-template-columns: 20px minmax(90px, 1fr) 52px 84px;
+}
+
+.top5__bar {
+  display: block;
+  height: 5px;
+  margin-top: 4px;
+  border-radius: 3px;
+  background: var(--color-neutral-200);
+  overflow: hidden;
+}
+
+.top5__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+}
+
+.top5__count {
+  font-size: 13px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--color-neutral-600);
+  cursor: pointer;
+}
+
+.top5__amount {
+  font-size: 14.5px;
+  font-weight: 600;
+  text-align: right;
+}
+
+/* — recurring charges — */
+
+.recurring {
+  width: 100%;
+  margin-top: 14px;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.recurring th {
+  padding: 6px 8px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-neutral-500);
+  border-bottom: 1px solid var(--color-neutral-300);
+}
+
+.recurring td {
+  padding: 9px 8px;
+  vertical-align: top;
+  border-bottom: 1px solid var(--color-neutral-200);
+}
+
+.recurring tr:last-child td {
+  border-bottom: 0;
+}
+
+.recurring .recurring__num {
+  text-align: right;
+}
+
+.recurring__merchant {
+  display: block;
+}
+
+.recurring__category {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+}
+
+/* — movers — */
+
+.movers__select {
+  padding: 7px 11px;
+  border: 1px solid var(--color-neutral-300);
+  border-radius: 10px;
+  background: var(--color-card);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 13.5px;
+}
+
+.movers__select:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.movers {
+  margin-top: 14px;
+}
+
+.movers__head,
+.movers__row {
+  display: grid;
+  grid-template-columns: 150px minmax(60px, 1fr) 92px 84px;
+  gap: 10px;
+  align-items: center;
+}
+
+.movers__head {
+  padding-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-neutral-500);
+  border-bottom: 1px solid var(--color-neutral-300);
+}
+
+.movers__basis {
+  grid-column: 1 / -1;
+  margin-top: -6px;
+  font-size: 11.5px;
+  font-weight: 400;
+  text-align: right;
+}
+
+.movers__row {
+  padding: 9px 0;
+  font-size: 13.5px;
+  border-bottom: 1px solid var(--color-neutral-200);
+}
+
+.movers__row:last-child {
+  border-bottom: 0;
+}
+
+.movers__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.movers .movers__num {
+  text-align: right;
+}
+
+/* The bar grows from the centre line: right for a rise, left for a fall. */
+.movers__track {
+  position: relative;
+  height: 12px;
+}
+
+.movers__mid {
+  position: absolute;
+  left: 50%;
+  top: -3px;
+  bottom: -3px;
+  width: 1px;
+  background: var(--color-neutral-400);
+}
+
+.movers__bar {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 3px;
+}
+
+.movers__bar--up {
+  left: 50%;
+  background: var(--color-negative-fill);
+}
+
+.movers__bar--down {
+  right: 50%;
+  background: var(--color-positive);
+}
+
+@media (max-width: 480px) {
+  .movers__head,
+  .movers__row {
+    grid-template-columns: 90px minmax(30px, 1fr) 64px 58px;
+    gap: 6px;
+  }
+}
+
+/* — expenses over time — */
+
+.timechart {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1fr);
+  grid-template-rows: minmax(300px, 1fr) auto;
+  margin-top: 18px;
+}
+
+.timechart__yaxis {
+  position: relative;
+  padding-right: 10px;
+  font-size: 11.5px;
+  color: var(--color-neutral-600);
+}
+
+.timechart__ylabel {
+  position: absolute;
+  right: 10px;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+
+.timechart__plot {
+  position: relative;
+}
+
+.timechart__plot svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.timechart__marker {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  border-radius: 999px;
+  background: var(--color-negative-fill);
+}
+
+.timechart__xaxis {
+  position: relative;
+  height: 22px;
+  font-size: 11.5px;
+  color: var(--color-neutral-600);
+}
+
+.timechart__xlabel {
+  position: absolute;
+  top: 6px;
+  white-space: nowrap;
+}
+
+.card--chart {
+  display: flex;
+  flex-direction: column;
+}
+
+/* — income vs expenses by month — */
+
+.mbe__xaxis {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  height: 24px;
+  font-size: 11.5px;
+  color: var(--color-neutral-600);
+  text-align: center;
+  padding-top: 7px;
+}
+
+.mbe__line-swatch {
+  width: 14px;
+  height: 2px;
+  background: var(--color-chart-line);
+  flex: none;
+}
+
+/* — outflows breakdown, Full year columns — */
+
+/* The plot is a fixed 240px tall - the same number as OUTFLOWS_CHART_HEIGHT
+   in lib/charts.js - so the "segment under 16px gets no label" rule counts
+   real pixels. */
+.outflows-cols {
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1fr);
+  grid-template-rows: 240px auto;
+  margin-top: 18px;
+}
+
+.outflows-cols__yaxis {
+  position: relative;
+  padding-right: 10px;
+  font-size: 11.5px;
+  color: var(--color-neutral-600);
+}
+
+.outflows-cols__plot {
+  position: relative;
+}
+
+.outflows-cols__plot svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Same white-on-Type-fill treatment as the single-month bar's segments. */
+.outflows-cols__pct {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+  /* Hover falls through to the segment's own <title> underneath. */
+  pointer-events: none;
+}
+
+/* — states — */
+
+.state {
+  padding: 28px 0;
+  text-align: center;
+  color: var(--color-neutral-600);
+  font-size: 13.5px;
+}
+
+.state--page {
+  padding: 64px 0;
+}
+
+.state--error {
+  color: var(--color-accent-700);
+}
+
+.state--warning {
+  padding: 8px 0 12px;
+  text-align: left;
+  color: var(--color-danger);
+  word-break: break-all;
+}
+
+/* — Recurring Transactions (Settings tab) — */
+
+.card__note {
+  margin-top: 6px;
+  max-width: 52ch;
+  font-size: 13px;
+  color: var(--color-neutral-600);
+}
+
+/* Display Settings (ADR-0027): the currency, Financial Year start and Date
+   Order fields side by side in one tile, one Save underneath. */
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 18px 22px;
+  margin-top: 16px;
+}
+
+.settings-grid__item {
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-footer {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.settings-footer__dirty {
+  font-size: 13px;
+  color: var(--color-neutral-600);
+}
+
+.button {
+  padding: 9px 16px;
+  border: 1px solid var(--color-accent-600);
+  border-radius: 999px;
+  background: var(--color-accent-600);
+  color: var(--color-on-accent);
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.button:hover {
+  background: var(--color-button-hover);
+  border-color: var(--color-button-hover);
+}
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.button--quiet {
+  padding: 6px 12px;
+  background: transparent;
+  border-color: var(--color-neutral-300);
+  color: var(--color-neutral-700);
+  font-weight: 500;
+}
+
+.button--quiet:hover {
+  background: var(--color-neutral-200);
+  border-color: var(--color-neutral-400);
+}
+
+.button--danger:hover {
+  background: var(--color-button-hover);
+  border-color: var(--color-button-hover);
+  color: var(--color-on-accent);
+}
+
+.rule-form {
+  margin-top: 22px;
+  padding: 22px;
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-md);
+  background: var(--color-neutral-100);
+}
+
+.rule-form__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px 18px;
+}
+
+.rule-form__actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field--wide {
+  grid-column: span 2;
+}
+
+/* The add/edit form's own controls - the Total Amount switch (Issue #148) -
+   sit above the fields, top right, out of the grid's flow. */
+.rule-form__head {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-neutral-700);
+  cursor: pointer;
+}
+
+.switch input {
+  appearance: none;
+  position: relative;
+  width: 34px;
+  height: 20px;
+  margin: 0;
+  border-radius: 999px;
+  background: var(--color-neutral-300);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.switch input::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-card);
+  transition: transform 0.15s ease;
+}
+
+.switch input:checked {
+  background: var(--color-accent);
+}
+
+.switch input:checked::before {
+  transform: translateX(14px);
+}
+
+.switch input:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* A short note under an input - for Total Amount, what's still needed or
+   what the Total works out to per occurrence. */
+.field__hint {
+  font-size: 12px;
+  color: var(--color-neutral-600);
+}
+
+.field__hint--error {
+  color: var(--color-danger);
+}
+
+.field__label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--color-neutral-600);
+}
+
+.field input,
+.field select,
+.table__edit input,
+.table__edit select {
+  padding: 9px 11px;
+  border: 1px solid var(--color-neutral-300);
+  border-radius: 10px;
+  background: var(--color-card);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+
+.field input:focus-visible,
+.field select:focus-visible,
+.table__edit input:focus-visible,
+.table__edit select:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* Day for a Weekly rule is derived from Start Date, not typed - it reads as a
+   value, so it should not look like an input the user can edit. */
+.field__derived {
+  padding: 9px 11px;
+  border: 1px dashed var(--color-neutral-300);
+  border-radius: 10px;
+  font-size: 14px;
+  color: var(--color-neutral-700);
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px 18px;
+  margin-top: 22px;
+}
+
+.filters .field {
+  min-width: 160px;
+}
+
+/* — Appearance / theme switcher (Settings tab, Issue #102) — */
+
+.theme-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.theme-switcher__option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px 8px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--color-neutral-300);
+  background: var(--color-card);
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--color-neutral-600);
+  cursor: pointer;
+}
+
+.theme-switcher__option:hover {
+  border-color: var(--color-neutral-400);
+}
+
+.theme-switcher__option[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.theme-switcher__option:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.theme-switcher__swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--color-text) 15%, transparent);
+}
+
+/* — Category Management (Settings tab) — */
+
+.category-group {
+  margin-top: 18px;
+}
+
+.category-group:first-of-type {
+  margin-top: 14px;
+}
+
+.category-group__heading {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-neutral-500);
+}
+
+.category-chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.category-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--color-neutral-300);
+  background: var(--color-neutral-100);
+  font-size: 13.5px;
+}
+
+.category-chip__emoji {
+  font-size: 16px;
+}
+
+.category-chip__name {
+  font-weight: 600;
+}
+
+.category-chip__actions {
+  display: flex;
+  gap: 2px;
+  margin-left: 4px;
+}
+
+.category-chip__actions button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--color-neutral-500);
+  font-size: 13px;
+  padding: 2px;
+}
+
+.category-chip__actions button:hover {
+  color: var(--color-text);
+}
+
+.category-chip__lock {
+  margin-left: 4px;
+  font-size: 12px;
+}
+
+.category-chip--confirm {
+  border-color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 12%, var(--color-card));
+  color: var(--color-danger);
+  font-size: 13px;
+}
+
+.category-chip--confirm .category-chip__actions button {
+  color: var(--color-danger);
+  font-weight: 700;
+}
+
+.category-chip--add {
+  border-style: dashed;
+  background: transparent;
+  color: var(--color-neutral-600);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.category-chip--add:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent-700);
+}
+
+/* The Goal a Goals-Category Transaction contributes to (Transactions tab).
+   Muted once the Goal is archived or deleted. */
+.goal-chip {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--color-neutral-300);
+  background: var(--color-neutral-100);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.goal-chip--muted {
+  color: var(--color-neutral-500);
+  font-weight: 400;
+}
+
+.category-chip--form {
+  flex-wrap: wrap;
+  background: var(--color-card);
+  border-color: var(--color-accent);
+  gap: 6px;
+}
+
+.category-chip--form input[type="text"] {
+  border: none;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  width: 140px;
+}
+
+.category-chip--form input[type="text"]:focus-visible {
+  outline: none;
+}
+
+.category-chip__save,
+.category-chip__cancel {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.category-chip__save {
+  color: var(--color-positive);
+}
+
+.category-chip__cancel {
+  color: var(--color-neutral-500);
+}
+
+.category-chip__error {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.emoji-picker {
+  position: relative;
+}
+
+.emoji-picker__trigger {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--color-neutral-300);
+  background: var(--color-card);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.emoji-picker__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid var(--color-neutral-300);
+  background: var(--color-card);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--color-shadow) 18%, transparent);
+}
+
+.emoji-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+  width: 220px;
+}
+
+.emoji-picker__option {
+  border: none;
+  background: none;
+  font-size: 18px;
+  padding: 4px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.emoji-picker__option:hover {
+  background: var(--color-neutral-200);
+}
+
+.emoji-picker__custom {
+  grid-column: 1 / -1;
+  margin-top: 4px;
+  padding: 6px 8px;
+  border: 1px solid var(--color-neutral-300);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.table-scroll {
+  margin-top: 22px;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+
+.table th {
+  padding: 0 14px 10px 0;
+  text-align: left;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-neutral-600);
+  border-bottom: 1px solid var(--color-neutral-300);
+}
+
+.table td {
+  padding: 12px 14px 12px 0;
+  border-bottom: 1px solid var(--color-neutral-200);
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+/* The in-row Edit form (Transactions): the same inputs as a .field, but
+   tightened to the table's row height and font, and filling their column. */
+.table__edit td {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.table__edit input,
+.table__edit select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 110px;
+  padding: 6px 9px;
+  border-radius: 8px;
+  font-size: 13.5px;
+}
+
+.table__edit input[type="date"] {
+  min-width: 140px;
+}
+
+.table__num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.table__actions {
+  display: flex;
+  gap: 8px;
+  padding-right: 0;
+}
+
+.table__sort {
+  all: unset;
+  cursor: pointer;
+}
+
+.table__sort:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.table th[aria-sort="ascending"] .table__sort::after {
+  content: " \25B2";
+}
+
+.table th[aria-sort="descending"] .table__sort::after {
+  content: " \25BC";
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.pagination__status {
+  font-size: 13px;
+  color: var(--color-neutral-600);
+}
+
+/* — budget editor (Budget tab) — */
+
+.table th.table__section {
+  padding-top: 24px;
+  padding-bottom: 8px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text);
+  font-weight: 700;
+  border-bottom: 1px solid var(--color-neutral-200);
+}
+
+tbody:first-of-type .table th.table__section {
+  padding-top: 16px;
+}
+
+.budget__amount-input {
+  width: 110px;
+  padding: 7px 10px;
+  border: 1px solid var(--color-neutral-300);
+  border-radius: 8px;
+  background: var(--color-card);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  text-align: right;
+}
+
+.budget__amount-input:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.budget__total-row td {
+  padding-top: 12px;
+  border-top: 1px solid var(--color-neutral-300);
+  font-weight: 700;
+}
+
+/* — Balance status (Left to Budget #167, Unallocated #168) — */
+
+/* Balanced / Over-budgeted / Over income - a pill inline with the figure it
+   qualifies (BalanceStatus.jsx). */
+.status-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+
+.status-chip--positive {
+  background: var(--color-positive-tint);
+  color: var(--color-positive);
+}
+
+.status-chip--negative {
+  background: var(--color-negative-tint);
+  color: var(--color-negative);
+}
+
+/* — Balance check card (Overview, Issue #168) — */
+
+/* The chip sits on the amount's line, right-aligned, so the card stays no
+   taller than "Where did my income go?" beside it. */
+.balance-check__value {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
+  font-family: var(--font-heading);
+  font-size: 32px;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+}
+
+/* Saved as a share of Available to Save. */
+.balance-check__meter {
+  height: 10px;
+  margin-top: 14px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--color-neutral-200);
+}
+
+.balance-check__fill {
+  height: 100%;
+  background: var(--color-savings);
+}
+
+/* — Left to Budget (Budget tab, Issue #167) — */
+
+/* Month pills + Trailing window on the left, the Left to Budget block on
+   the right; stacks below 900px like the rest of the layout's rows. */
+.budget__selector-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.budget__selector {
+  flex: 1;
+  min-width: 0;
+}
+
+.left-to-budget {
+  flex: none;
+  text-align: right;
+}
+
+.left-to-budget__value {
+  font-family: var(--font-heading);
+  font-size: 25px;
+  line-height: 1.15;
+  margin-top: 4px;
+}
+
+.left-to-budget__meter {
+  position: relative;
+  width: 240px;
+  max-width: 100%;
+  margin: 12px 0 0 auto;
+}
+
+.left-to-budget__track {
+  display: flex;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--color-neutral-200);
+}
+
+.left-to-budget__segment {
+  flex: none;
+  height: 100%;
+}
+
+/* Budgeted Income - outflows past it are over-budgeted. */
+.left-to-budget__marker {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--color-text);
+}
+
+.left-to-budget__caption {
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--color-neutral-600);
+}
+
+.left-to-budget__row td {
+  border-top-width: 2px;
+  border-top-color: var(--color-neutral-400);
+}
+
+.left-to-budget__mini-meter {
+  height: 4px;
+  margin-top: 4px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--color-neutral-200);
+}
+
+.left-to-budget__mini-fill {
+  height: 100%;
+  background: var(--color-accent-2-500);
+}
+
+.left-to-budget__mini-fill--over {
+  background: var(--color-danger);
+}
+
+@media (max-width: 900px) {
+  .budget__selector-row {
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .budget__selector {
+    flex: none;
+    width: 100%;
+  }
+
+  .left-to-budget {
+    text-align: left;
+  }
+
+  .left-to-budget__meter {
+    margin-left: 0;
+  }
+}
+
+/* — Budget Suggestion (own top-level card, Budget tab, Issue #66) — */
+
+.budget-suggestion__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0 14px;
+}
+
+.budget-suggestion__chip {
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: var(--color-neutral-200);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.budget-suggestion__chip.figure--adverse {
+  background: var(--color-negative-tint);
+  color: var(--color-negative);
+}
+
+.budget-suggestion__chip.figure--favourable {
+  background: var(--color-positive-tint);
+  color: var(--color-positive);
+}
+
+.budget-suggestion__chips-empty {
+  margin: 16px 0 14px;
+  font-size: 12.5px;
+  color: var(--color-neutral-600);
+}
+
+.budget-suggestion .state .card__note {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.budget-suggestion__list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--color-text);
+}
+
+/* — card actions / Auto-populate menu (Budget tab, Issue #77) — */
+
+.card__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.menu {
+  position: relative;
+}
+
+.menu__list {
+  position: absolute;
+  z-index: 1;
+  top: calc(100% + 6px);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  padding: 6px;
+  border: 1px solid var(--color-neutral-300);
+  border-radius: 10px;
+  background: var(--color-card);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--color-shadow) 12%, transparent);
+}
+
+.menu__item {
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu__item:hover {
+  background: var(--color-neutral-200);
+}
+
+/* — Your data (Settings tab, Issue #196) — */
+
+.your-data {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 20px;
+  margin: 10px 0 0;
+  font-size: 13.5px;
+}
+
+.your-data dt {
+  color: var(--color-neutral-600);
+}
+
+.your-data dd {
+  margin: 0;
+}
+
+.your-data__path {
+  overflow-wrap: anywhere;
+}
+
+/* Download Backup and Change location… sit side by side at one size, below the
+   facts. .change-location is display: contents while idle so its button joins
+   this row; its confirmation panels take a full row underneath. */
+.your-data__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.your-data__actions > .button,
+.your-data__actions .change-location > .button {
+  box-sizing: border-box;
+  width: 180px;
+  padding: 9px 16px;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.your-data__actions .change-location > :not(.button) {
+  flex-basis: 100%;
+}
+
+/* — Change location (Issue #198) — */
+
+.change-location {
+  display: contents;
+}
+
+.change-location__confirm p {
+  margin: 0 0 10px;
+  font-size: 13.5px;
+  overflow-wrap: anywhere;
+}
+
+.change-location__actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* — Danger area: Delete data and reset dashboard (Issue #201) —
+   Set apart from the cards above by a warning-coloured frame. --color-danger
+   is the theme's contrast-checked warning text colour, so it is used for the
+   border, headings and button outline; on hover the button fills with it. */
+
+.danger-zone {
+  padding: 22px 26px 26px;
+  border: 2px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  background: var(--color-card);
+}
+
+.danger-zone > h3 {
+  margin: 0 0 6px;
+  color: var(--color-danger);
+}
+
+.danger-zone .button--warning {
+  border-color: var(--color-danger);
+  background: transparent;
+  color: var(--color-danger);
+}
+
+.danger-zone .button--warning:hover:not(:disabled) {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: var(--color-card);
+}
+
+.danger-zone .button--warning:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.danger-zone__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgb(0 0 0 / 0.5);
+}
+
+.danger-zone__dialog {
+  width: min(560px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 22px 24px;
+  border: 2px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  background: var(--color-card);
+  color: var(--color-text);
+  font-size: 13.5px;
+}
+
+.danger-zone__dialog h4 {
+  margin: 0 0 12px;
+  color: var(--color-danger);
+}
+
+.danger-zone__dialog ul {
+  margin: 0 0 12px;
+  padding-left: 20px;
+}
+
+.danger-zone__path {
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+.danger-zone__step,
+.danger-zone__check,
+.danger-zone__confirm {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.danger-zone__confirm {
+  flex-wrap: wrap;
+}
+
+.danger-zone__done {
+  color: var(--color-positive);
+}
+
+.danger-zone__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+/* — Goals tab (Goals spec section 10) — */
+
+.goals {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.goals__muted {
+  color: var(--color-neutral-600);
+  font-size: 13px;
+}
+
+.goals__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.goals__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.goals__clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 6px 0 0;
+}
+
+.goals__form {
+  margin-top: 0;
+}
+
+/* Goal cards are narrow: two equal columns that may shrink below an input's
+   intrinsic width, with every control filling its cell, keep the fields inside
+   the form box. */
+.goals__form .rule-form__grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.goals__form .field {
+  min-width: 0;
+}
+
+.goals__form .field input,
+.goals__form .field select {
+  width: 100%;
+  min-width: 0;
+}
+
+.goals__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 14px;
+}
+
+.goals__card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.goals__card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.goals__card .goals__actions {
+  margin-top: 14px;
+}
+
+.goals__headline {
+  margin-top: 10px;
+  font-family: var(--font-heading);
+  font-size: 24px;
+  letter-spacing: -0.015em;
+}
+
+/* The progress bar, with a tick where an even pace would have the Goal today. */
+.goals__bar {
+  position: relative;
+  height: 12px;
+  margin: 12px 0 8px;
+  border-radius: 999px;
+  background: var(--color-neutral-200);
+}
+
+.goals__bar-fill {
+  height: 100%;
+  border-radius: 999px;
+}
+
+.goals__bar-fill--ok {
+  background: var(--color-positive);
+}
+
+.goals__bar-fill--behind {
+  background: var(--color-negative);
+}
+
+.goals__bar-pace {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  background: var(--color-text);
+  opacity: 0.7;
+}
+
+.goals__chip {
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.goals__chip--good {
+  background: var(--color-positive-tint);
+  color: var(--color-positive);
+}
+
+.goals__chip--bad {
+  background: var(--color-negative-tint);
+  color: var(--color-negative);
+}
+
+.goals__chip--muted {
+  background: var(--color-neutral-200);
+  color: var(--color-neutral-700);
+}
+
+/* The collapsed Past goals list under the card grid. */
+.goals__past summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.goals__past-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.goals__past-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.goals__past-title {
+  flex: 1 1 160px;
+  font-weight: 600;
+}
+
+/* The Overview's Goals tile: up to three Goals, each a title row, a bar and a
+   funded / monthly line. */
+.goals-tile__list {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.goals-tile__list h4 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.goals-tile__list .goals__bar {
+  margin: 10px 0 6px;
+}
+
+/* The Goal Details view: a title row, a stats strip, the trajectory chart and
+   the Contributions ledger. */
+.goals__details-button {
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px 16px;
+}
+
+.goals__details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.goals__details-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.goals__details-sub {
+  margin: 18px 0 0;
+  font-size: 15px;
+}
+
+.goals__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px 20px;
+  margin: 14px 0 6px;
+}
+
+.goals__stats > div {
+  min-width: 0;
+}
+
+.goals__stats dt {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-neutral-500);
+}
+
+.goals__stats dd {
+  margin: 2px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.goals__stats-lead dd {
+  font-size: 22px;
+}
+
+.goals__chart {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.goals__ledger {
+  max-width: 460px;
+}
+
+/* Split savings panel (Goals spec section 9): slides down from the Goals header. */
+@keyframes goals-split-slide {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.goals__split {
+  animation: goals-split-slide 160ms ease-out;
+}
+
+.goals__confirmation {
+  margin: 0;
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .goals__split {
+    animation: none;
+  }
+}
+
+/* — Budget Simple | Advanced toggle (Budget tab) — */
+
+.detail-seg {
   display: inline-flex;
   padding: 3px;
   border: 1px solid var(--color-neutral-300);
@@ -3344,7 +3344,7 @@ tbody:first-of-type .table th.table__section {
   background: var(--color-card);
 }
 
-.trends-seg button {
+.detail-seg button {
   padding: 6px 14px;
   border: 0;
   border-radius: 999px;
@@ -3355,22 +3355,22 @@ tbody:first-of-type .table th.table__section {
   cursor: pointer;
 }
 
-.trends-seg button:hover {
+.detail-seg button:hover {
   color: var(--color-text);
 }
 
-.trends-seg button[aria-pressed="true"] {
+.detail-seg button[aria-pressed="true"] {
   background: var(--color-accent);
   color: var(--color-neutral-100);
   font-weight: 600;
 }
 
-.trends-seg button:focus-visible {
+.detail-seg button:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 
-/* Keeps the Trailing window's space while "With trends" is off, so the table
+/* Keeps the Trailing window's space while Advanced is off, so the table
    below doesn't jump when the toggle flips. */
 .field--reserved {
   visibility: hidden;
