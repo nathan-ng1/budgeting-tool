@@ -100,7 +100,7 @@ Rules (the prototype's `describeGoal` in `goalsMath.js` implements these and may
 
 - **Saved** = sum of linked Contributions, regardless of date, including Contributions to archived or deleted Goals. Overshoot is allowed.
 - **Status**, in this precedence: **Achieved** (saved >= target), else **Ended** (today after the end date), else **Upcoming** (today before the start date), else **Active**.
-- **Months**: inclusive calendar months, minimum 1 (14 Oct to 15 Dec is Oct, Nov, Dec = 3).
+- **Months**: calendar months elapsed from the start date's day, a partial month rounded up, minimum 1 (20 Oct to 20 Dec = 2, 20 Oct to 21 Dec = 3, 20 Oct to 5 Nov = 1). A start day past the end of a shorter month clamps to that month's last day (31 Jan to 28 Feb = 1).
 - **Required per month** = (target - saved) / months from **today** to the end date (so Upcoming Goals count from today). Not shown once Achieved or when the end date has passed.
 - **Original plan** hint = target / months from start to end date (same counting).
 - **Pace** = target spread evenly by days from start to end date; the pace marker sits at 0 until the start date and at the target from the end date. **On track** = saved >= pace (a half-cent tolerance), else **Behind**. On track/Behind is only meaningful while a Goal is Active.
