@@ -2178,6 +2178,35 @@ describe("Version History", () => {
     expect(await screen.findByText("11 Oct 2026")).toBeInTheDocument();
   });
 
+  it("shows a Version's New features and Bug fixes under their own headings", async () => {
+    respondWith({
+      version: "0.6.0",
+      history: [
+        {
+          version: "0.6.0",
+          date: "2026-10-16",
+          entries: [],
+          groups: [
+            { title: "New features", entries: ["Added a thing."] },
+            { title: "Bug fixes", entries: ["Fixed a thing."] },
+          ],
+        },
+        ...HISTORY,
+      ],
+    });
+    render(<App />);
+    await openHistory();
+
+    const version = await screen.findByRole("listitem", { name: "v0.6.0" });
+    const features = within(version).getByRole("group", { name: "New features" });
+    const fixes = within(version).getByRole("group", { name: "Bug fixes" });
+
+    expect(within(features).getByText("Added a thing.")).toBeInTheDocument();
+    expect(within(features).queryByText("Fixed a thing.")).not.toBeInTheDocument();
+    expect(within(fixes).getByText("Fixed a thing.")).toBeInTheDocument();
+    expect(within(await screen.findByRole("listitem", { name: "v0.4.1" })).queryByRole("group")).not.toBeInTheDocument();
+  });
+
   it("returns to the same tab, year and month selection from Back to Dashboard", async () => {
     respondWith();
     render(<App />);

@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.6.0 — 2026-10-16
+
+### New features
+
+- The Budget tab is simpler by default. A new Simple | Advanced toggle keeps it to Category, Last Month Actual and Budgeted Amount, and Advanced adds the trend columns (averages and variance over your chosen Trailing window) and Current Month Actual. Alternate rows are shaded on the Budget table and the Overview's Budgeted vs Actual, so it's easier to follow a row across.
+- The Overview is split into two named sections. Goals holds your top three Goals with a View all goals button, and Breakdown shows one topic at a time (Month by month, Budgeted vs Actual, Spending, Debt, or Bills & Subscriptions) instead of one long scroll. Recurring Charges is now called Bills & Subscriptions.
+- Top merchants is replaced by Top expenses, the largest single Expenses and Bills & Subscriptions Transactions with their Notes, Category, date and amount, so it works for hand-entered Transactions too.
+- A Goal's Details view now shows "You need to save" in a header pill, so a large figure no longer overflows.
+
+### Bug fixes
+
+- Goals no longer count a part-month as two. Months left and the Original plan now count whole months from the start date's day and round a partial month up, so a Goal running from 20 Oct to 5 Nov is 1 month, not 2. Goals whose windows cross a month end may now show fewer months left.
+
 ## v0.5.0 — 2026-10-15
 
 - New Goals tab for savings targets. Set a Goal with a target amount and an end date, then fund it with Contributions. Each Goal shows its progress, whether you're on track and how much to save per month, and you can open a Details view with a trajectory chart. A Split savings tool divides one amount across your active Goals, and the Overview shows a tile with your top three. Archived and deleted Goals move to Past goals.

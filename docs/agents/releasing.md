@@ -7,8 +7,9 @@ without assets leaves new installs nothing to download.
 1. On a `chore/release-X.Y.Z` branch, bump `version` in `pyproject.toml` and add the Version's entry to
    the top of `CHANGELOG.md` (ADR-0029), in the same PR, then merge to `master`. Draft the entry from the
    PRs merged since the last tag (`git log vA.B.C..HEAD --merges`, or `gh pr list --state merged`). The
-   heading is `## vX.Y.Z — YYYY-MM-DD` (release date), followed by a flat bullet list of plain-language
-   changes a Collaborator would notice, including Installation Pack changes. Leave out release PRs,
+   heading is `## vX.Y.Z — YYYY-MM-DD` (release date), followed by plain-language changes a Collaborator
+   would notice, including Installation Pack changes, as bullets under `### New features` and
+   `### Bug fixes` sub-headings (leave out a sub-heading with nothing under it). Leave out release PRs,
    refactors and test-only changes. There is no Unreleased section. A test fails if the newest entry's
    version doesn't match the installed package's version (what the Dashboard reports as the running
    Version). That tracks `pyproject.toml` only once the environment is re-synced, so run `uv sync` after

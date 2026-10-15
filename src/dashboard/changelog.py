@@ -1,7 +1,8 @@
 """Reads the Version History out of CHANGELOG.md (ADR-0029).
 
 The file is hand-curated: newest first, each Version a level-2 heading
-`## v<version> — <ISO date>` followed by a flat list of `- ` bullets. Anything
+`## v<version> — <ISO date>` followed by `- ` bullets, optionally gathered under
+`### <title>` sub-headings such as "New features" and "Bug fixes". Anything
 that doesn't fit that shape reads as no history at all rather than a partial
 one, so the Dashboard shows its "isn't available" message instead of a
 half-right list.
@@ -28,15 +29,25 @@ def read_history(path: Path) -> list[dict] | None:
             heading = HEADING.match(stripped)
             if heading is None or not _is_iso_date(heading["date"]):
                 return None
-            history.append({"version": heading["version"], "date": heading["date"], "entries": []})
+            history.append({"version": heading["version"], "date": heading["date"], "entries": [], "groups": []})
+        elif stripped.startswith("### "):
+            if not history:
+                return None
+            history[-1]["groups"].append({"title": stripped[4:].strip(), "entries": []})
         elif stripped.startswith("- "):
             if not history:
                 return None
-            history[-1]["entries"].append(stripped[2:].strip())
+            # A bullet belongs to the latest sub-heading, or is ungrouped before the first.
+            current = history[-1]["groups"][-1] if history[-1]["groups"] else history[-1]
+            current["entries"].append(stripped[2:].strip())
 
-    if not history or any(not version["entries"] for version in history):
+    if not history or any(not _has_entries(version) for version in history):
         return None
     return history
+
+
+def _has_entries(version: dict) -> bool:
+    return bool(version["entries"]) or any(group["entries"] for group in version["groups"])
 
 
 def _is_iso_date(text: str) -> bool:

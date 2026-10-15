@@ -990,6 +990,18 @@ h3 {
   color: var(--color-neutral-500);
 }
 
+.version-history__group + .version-history__group,
+.version-history__entries + .version-history__group {
+  margin-top: 12px;
+}
+
+.version-history__group h4 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-neutral-700);
+}
+
 /* — period switcher — */
 
 .period-switcher {
