@@ -539,8 +539,8 @@
      three-band hot-pink (H=330) -> mid (H=304) -> royal-purple (H=278)
      sweep in place of the old three-unrelated-families arrangement - see
      that file's own comment for the full derivation. */
-/* PROTOTYPE (prototype/orchid-reference-palette) - pass 10: a fifth Orchid
-   revision, rebuilt from a user-supplied reference screenshot (a pink "Social
+/* Pass 10 (settled via prototype/orchid-reference-palette, kept as the
+   primary source, not merged): a fifth Orchid revision, rebuilt from a user-supplied reference screenshot (a pink "Social
    Media" UI kit) because Orchid was the one theme whose page was *lighter*
    than its cards (#fbeef1 page vs #f4d2d8 card) - every other theme's cards
    are the lightest surface and the page backdrop sits a step darker. Colours
