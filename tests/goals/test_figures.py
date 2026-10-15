@@ -56,6 +56,15 @@ def test_months_from_a_month_end_clamp_to_the_shorter_month():
     assert goal_months(date(2026, 1, 31), date(2026, 3, 31)) == 2
 
 
+def test_months_past_a_clamped_month_end_round_up():
+    assert goal_months(date(2026, 1, 31), date(2026, 3, 1)) == 2
+
+
+def test_months_across_a_leap_day():
+    assert goal_months(date(2024, 2, 29), date(2025, 2, 28)) == 12
+    assert goal_months(date(2024, 2, 29), date(2025, 3, 1)) == 13
+
+
 def test_months_on_the_same_day_is_one():
     assert goal_months(date(2026, 10, 1), date(2026, 10, 1)) == 1
 
@@ -130,6 +139,22 @@ def test_an_upcoming_goal_counts_months_from_today_not_from_its_start():
 
     assert figures.months_left == 3
     assert figures.required_per_month == pytest.approx(400.0)
+
+
+def test_a_window_under_a_month_straddling_a_month_end_has_one_month_left():
+    figures = describe(
+        goal(target=300.0, start=date(2026, 10, 20), end=date(2026, 11, 5)), saved=0.0, today=date(2026, 10, 20)
+    )
+
+    assert figures.months_left == 1
+    assert figures.required_per_month == pytest.approx(300.0)
+    assert figures.original_plan_per_month == pytest.approx(300.0)
+
+
+def test_the_end_date_itself_has_one_month_left():
+    figures = describe(goal(), saved=0.0, today=date(2026, 12, 31))
+
+    assert figures.months_left == 1
 
 
 def test_required_per_month_is_absent_once_achieved():

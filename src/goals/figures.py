@@ -34,7 +34,7 @@ class GoalFigures:
     original_plan_per_month: float
 
 
-def _add_months(start: date, months: int) -> date:
+def _shift_months_clamped(start: date, months: int) -> date:
     """`start` shifted by whole calendar months, its day clamped to the target
     month's length (31 Jan + 1 month = 28 Feb)."""
     year, month_index = divmod(start.year * 12 + start.month - 1 + months, 12)
@@ -46,9 +46,10 @@ def goal_months(start: date, end: date) -> int:
     anniversary of `start` and rounding a partial month up, never below one
     (20 Oct to 20 Dec is 2, 20 Oct to 21 Dec is 3, 20 Oct to 5 Nov is 1)."""
     whole = (end.year - start.year) * 12 + end.month - start.month
-    if _add_months(start, whole) > end:
+    if _shift_months_clamped(start, whole) > end:
         whole -= 1
-    if _add_months(start, whole) < end:
+    anniversary = _shift_months_clamped(start, whole)
+    if anniversary < end:
         whole += 1
     return max(1, whole)
 
