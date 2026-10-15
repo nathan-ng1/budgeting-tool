@@ -22,6 +22,22 @@ import MonthSelector from "./MonthSelector.jsx";
 // dashboard.queries.TRAILING_WINDOWS.
 const TRAILING_WINDOWS = [3, 6, 12];
 
+// Simple | With trends. "With trends" is the opt-in that reveals the Trailing
+// window and the two columns it feeds (N-Month Avg Actual / Avg Variance %) -
+// off by default so the table stays light for most people.
+function TrendsToggle({ on, onChange }) {
+  return (
+    <div className="trends-seg" role="group" aria-label="Budget detail">
+      <button type="button" aria-pressed={!on} onClick={() => onChange(false)}>
+        Simple
+      </button>
+      <button type="button" aria-pressed={on} onClick={() => onChange(true)}>
+        With trends
+      </button>
+    </div>
+  );
+}
+
 // `periodType`/`referenceYear` are the shared Financial Year/Calendar Year
 // switcher state (ADR-0021), lifted to App.jsx alongside Overview's own -
 // Budget keeps its own independent `selected`/`onSelect` (null for Full year,
@@ -36,6 +52,7 @@ export default function Budget({ periodType, referenceYear, selected, onSelect }
   // 3 matches dashboard.budgets.DEFAULT_TRAILING_WINDOW - kept in sync by
   // hand since the two live either side of the HTTP boundary.
   const [trailingWindow, setTrailingWindow] = useState(3);
+  const [showTrends, setShowTrends] = useState(false);
   const [editor, setEditor] = useState(null);
   const [values, setValues] = useState({});
   const [initial, setInitial] = useState({});
@@ -258,7 +275,11 @@ export default function Budget({ periodType, referenceYear, selected, onSelect }
 
             {selected !== null && (
               <div className="filters">
-                <label className="field">
+                <TrendsToggle on={showTrends} onChange={setShowTrends} />
+                {/* Hidden rather than unmounted while trends are off, so its
+                    space stays reserved and toggling doesn't shift the table
+                    up and down. */}
+                <label className={`field${showTrends ? "" : " field--reserved"}`}>
                   <span className="field__label">Trailing window</span>
                   <select
                     value={trailingWindow}
@@ -306,14 +327,18 @@ export default function Budget({ periodType, referenceYear, selected, onSelect }
                   <th scope="col" className="table__num">
                     Last Month Actual
                   </th>
+                  {showTrends && (
+                    <>
+                      <th scope="col" className="table__num table__trend">
+                        {trailingWindow}-Month Avg Actual
+                      </th>
+                      <th scope="col" className="table__num table__trend">
+                        {trailingWindow}-Month Avg Variance %
+                      </th>
+                    </>
+                  )}
                   <th scope="col" className="table__num">
-                    {trailingWindow}-Month Avg Actual
-                  </th>
-                  <th scope="col" className="table__num">
-                    Avg Variance %
-                  </th>
-                  <th scope="col" className="table__num">
-                    Month Actual
+                    Current Month Actual
                   </th>
                   <th scope="col" className="table__num">
                     Budgeted Amount
@@ -323,7 +348,7 @@ export default function Budget({ periodType, referenceYear, selected, onSelect }
               {Object.entries(editor).map(([type, rows]) => (
                 <tbody key={type}>
                   <tr>
-                    <th scope="colgroup" colSpan={6} className="table__section">
+                    <th scope="colgroup" colSpan={showTrends ? 6 : 4} className="table__section">
                       {type}
                     </th>
                   </tr>
@@ -331,8 +356,16 @@ export default function Budget({ periodType, referenceYear, selected, onSelect }
                     <tr key={category}>
                       <td>{categoryLabel(category, emoji)}</td>
                       <td className="table__num muted">{money(last_month_actual)}</td>
-                      <td className="table__num muted">{trailing_average_actual === null ? UNSET : money(trailing_average_actual)}</td>
-                      <td className="table__num muted">{average_variance_pct === null ? UNSET : signedPct(average_variance_pct)}</td>
+                      {showTrends && (
+                        <>
+                          <td className="table__num table__trend muted">
+                            {trailing_average_actual === null ? UNSET : money(trailing_average_actual)}
+                          </td>
+                          <td className="table__num table__trend muted">
+                            {average_variance_pct === null ? UNSET : signedPct(average_variance_pct)}
+                          </td>
+                        </>
+                      )}
                       <td className="table__num muted">{money(month_actual)}</td>
                       <td className="table__num">
                         <input
@@ -348,7 +381,14 @@ export default function Budget({ periodType, referenceYear, selected, onSelect }
                     </tr>
                   ))}
                   <tr className="budget__total-row">
-                    <td colSpan={5}>Total</td>
+                    <td colSpan={showTrends ? 2 : 3}>Total</td>
+                    {showTrends && (
+                      <>
+                        <td className="table__trend" />
+                        <td className="table__trend" />
+                        <td />
+                      </>
+                    )}
                     <td className="table__num">{money(totals[type])}</td>
                   </tr>
                 </tbody>

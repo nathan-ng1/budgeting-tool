@@ -216,9 +216,28 @@ describe("Budget", () => {
     expect(await screen.findByText("🛒 Groceries")).toBeInTheDocument();
   });
 
+  async function showTrends() {
+    await userEvent.click(screen.getByRole("button", { name: "With trends" }));
+  }
+
+  it("shows only Category, Last Month Actual, Current Month Actual and Budgeted Amount by default", async () => {
+    render(<ControlledBudget />);
+    await screen.findByText("Groceries");
+
+    const headerRow = screen.getAllByRole("columnheader")[0].closest("tr");
+    const headers = within(headerRow)
+      .getAllByRole("columnheader")
+      .map((header) => header.textContent);
+    expect(headers).toEqual(["Category", "Last Month Actual", "Current Month Actual", "Budgeted Amount"]);
+    expect(screen.getByRole("button", { name: "Simple" })).toHaveAttribute("aria-pressed", "true");
+    // Hidden by CSS (jsdom loads none) so its space stays reserved.
+    expect(screen.getByLabelText("Trailing window").closest("label")).toHaveClass("field--reserved");
+  });
+
   it("shows each Category's historical context columns, greyed out from the editable Budgeted column", async () => {
     render(<ControlledBudget />);
     await screen.findByText("Groceries");
+    await showTrends();
 
     const groceriesRow = screen.getByText("Groceries").closest("tr");
     const cells = within(groceriesRow).getAllByRole("cell");
@@ -229,14 +248,23 @@ describe("Budget", () => {
     expect(cells[2]).toHaveClass("muted");
     expect(cells[3]).toHaveTextContent("+12%"); // average variance %
     expect(cells[3]).toHaveClass("muted");
-    expect(cells[4]).toHaveTextContent("$306"); // month actual
+    expect(cells[4]).toHaveTextContent("$306"); // current month actual
     expect(cells[4]).toHaveClass("muted");
     expect(cells[5]).not.toHaveClass("muted"); // the editable Budgeted cell
   });
 
-  it("positions Month Actual immediately before Budgeted Amount, after Avg Variance %", async () => {
+  it("shows the Current Month Actual of the Groceries row in the default view", async () => {
     render(<ControlledBudget />);
     await screen.findByText("Groceries");
+
+    const cells = within(screen.getByText("Groceries").closest("tr")).getAllByRole("cell");
+    expect(cells[2]).toHaveTextContent("$306");
+  });
+
+  it("reveals the trend columns between Last Month Actual and Current Month Actual, named for the window", async () => {
+    render(<ControlledBudget />);
+    await screen.findByText("Groceries");
+    await showTrends();
 
     const headerRow = screen.getAllByRole("columnheader")[0].closest("tr");
     const headers = within(headerRow)
@@ -246,15 +274,34 @@ describe("Budget", () => {
       "Category",
       "Last Month Actual",
       "3-Month Avg Actual",
-      "Avg Variance %",
-      "Month Actual",
+      "3-Month Avg Variance %",
+      "Current Month Actual",
       "Budgeted Amount",
     ]);
+
+    await userEvent.selectOptions(screen.getByLabelText("Trailing window"), "6");
+    expect(await screen.findByRole("columnheader", { name: "6-Month Avg Variance %" })).toBeInTheDocument();
+  });
+
+  it("marks the trend columns as temporary and hides them again on Simple", async () => {
+    render(<ControlledBudget />);
+    await screen.findByText("Groceries");
+    await showTrends();
+
+    expect(screen.getByRole("columnheader", { name: "3-Month Avg Actual" })).toHaveClass("table__trend");
+    expect(within(screen.getByText("Groceries").closest("tr")).getAllByRole("cell")[2]).toHaveClass("table__trend");
+
+    await userEvent.click(screen.getByRole("button", { name: "Simple" }));
+
+    expect(screen.queryByRole("columnheader", { name: "3-Month Avg Actual" })).not.toBeInTheDocument();
+    // Hidden by CSS (jsdom loads none) so its space stays reserved.
+    expect(screen.getByLabelText("Trailing window").closest("label")).toHaveClass("field--reserved");
   });
 
   it("shows an unset historical column as a dash, not $0", async () => {
     render(<ControlledBudget />);
     await screen.findByText("Salary");
+    await showTrends();
 
     const salaryRow = screen.getByText("Salary").closest("tr");
     const cells = within(salaryRow).getAllByRole("cell");
@@ -266,13 +313,16 @@ describe("Budget", () => {
   it("defaults the trailing window dropdown to 3 months", async () => {
     render(<ControlledBudget />);
     await screen.findByText("Salary");
+    await showTrends();
 
     expect(screen.getByLabelText("Trailing window")).toHaveValue("3");
+    expect(screen.getByLabelText("Trailing window").closest("label")).not.toHaveClass("field--reserved");
   });
 
   it("requests the newly selected trailing window from the backend", async () => {
     render(<ControlledBudget />);
     await screen.findByText("Salary");
+    await showTrends();
 
     await userEvent.selectOptions(screen.getByLabelText("Trailing window"), "12");
 
@@ -284,6 +334,7 @@ describe("Budget", () => {
   it("changing the trailing window does not discard an unsaved Budgeted edit", async () => {
     render(<ControlledBudget />);
     const salary = await screen.findByLabelText("Salary Budgeted Amount");
+    await showTrends();
 
     await userEvent.type(salary, "5000");
     await userEvent.selectOptions(screen.getByLabelText("Trailing window"), "6");
