@@ -106,7 +106,7 @@ function Dashboard({ settings, onSettingsSaved }) {
   const [overview, setOverview] = useState(null);
   const [error, setError] = useState(null);
   // Feeds Spending by Category's legend and Budgeted vs Actual's table
-  // (Issue #92) - fetched once, the same way `asAt` is: those cards' emoji
+  // (Issue #92) - refetched whenever the Overview is shown: those cards' emoji
   // is cosmetic, so a stale/empty list just means name-only labels, never a
   // page-blocking error.
   const [categories, setCategories] = useState([]);
@@ -172,6 +172,13 @@ function Dashboard({ settings, onSettingsSaved }) {
   useEffect(() => {
     const controller = new AbortController();
 
+    // Only the Overview reads this list, and Category Management or the
+    // Budget tab can change an emoji while it is off screen - so refetch each
+    // time it comes back rather than keeping the first copy for the session.
+    if (tab !== "Overview") {
+      return undefined;
+    }
+
     fetchCategories({ signal: controller.signal })
       .then(setCategories)
       .catch(() => {
@@ -179,7 +186,7 @@ function Dashboard({ settings, onSettingsSaved }) {
       });
 
     return () => controller.abort();
-  }, []);
+  }, [tab]);
 
   useEffect(() => {
     const controller = new AbortController();

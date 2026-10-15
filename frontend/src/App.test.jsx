@@ -413,6 +413,30 @@ describe("App", () => {
     expect(dotColour(gymBudgetRow)).toBe(dotColour(recurringRow));
   });
 
+  it("re-fetches the Category list when switching back to the Overview, so a new emoji shows without a reload", async () => {
+    let categories = [];
+    fetchMock.mockImplementation(async (url) => ({
+      ok: true,
+      status: 200,
+      json: async () => {
+        if (url.startsWith("/api/annual-overview")) return annualWithSpending();
+        if (url.startsWith("/api/categories")) return categories;
+        if (url.startsWith("/api/transactions")) return [];
+        return monthWithSpending(2026, 8);
+      },
+    }));
+    render(<App />);
+    await userEvent.click(await screen.findByRole("button", { name: "Aug" }));
+    expect(await screen.findByText("Groceries", { selector: ".bva__row td" })).toBeInTheDocument();
+
+    categories = [{ id: 1, type: "Expense", name: "Groceries", emoji: "🛒", locked: false }];
+    await userEvent.click(screen.getByRole("button", { name: "Transactions" }));
+    await screen.findByRole("heading", { name: "Transactions" });
+    await userEvent.click(screen.getByRole("button", { name: "Overview" }));
+
+    expect(await screen.findByText("🛒 Groceries", { selector: ".bva__row td" })).toBeInTheDocument();
+  });
+
   it("re-fetches and re-renders every section when the month changes", async () => {
     fetchMock.mockImplementation(async (url) => ({
       ok: true,
