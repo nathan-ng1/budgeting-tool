@@ -3089,6 +3089,23 @@ tbody:first-of-type .table th.table__section {
   margin-top: 0;
 }
 
+/* Goal cards are narrow: two equal columns that may shrink below an input's
+   intrinsic width, with every control filling its cell, keep the fields inside
+   the form box. */
+.goals__form .rule-form__grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.goals__form .field {
+  min-width: 0;
+}
+
+.goals__form .field input,
+.goals__form .field select {
+  width: 100%;
+  min-width: 0;
+}
+
 .goals__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
