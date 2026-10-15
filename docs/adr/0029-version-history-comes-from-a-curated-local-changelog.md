@@ -28,8 +28,11 @@ items) will supply its own source and shipping mechanism. See
   in the same PR as the version bump. `docs/agents/releasing.md` carries this step.
 - There is no Unreleased section. The newest entry's version always equals the `pyproject.toml`
   version, and a test enforces it so a release can't ship without its entry.
-- Entries are `## v<version> — <ISO date>` headings followed by a flat list of bullets, newest first.
-  The backend parses them into `{version, date, entries[]}` and the page renders plain text.
+- Entries are `## v<version> — <ISO date>` headings followed by bullets, newest first. From v0.6.0 the
+  bullets sit under `### New features` and `### Bug fixes` sub-headings; earlier entries stay flat.
+  The backend parses them into `{version, date, entries[], groups[{title, entries[]}]}`, where
+  `entries` holds any bullets outside a sub-heading, and the page renders plain text with the group
+  titles as headings.
 - A missing or malformed `CHANGELOG.md` degrades the page to an "isn't available" message. It never
   breaks the rest of the Dashboard.
 - Between releases the Dashboard reports the last released Version, since `pyproject.toml` is only

@@ -59,9 +59,41 @@ def test_the_history_is_the_changelog_parsed_newest_first(serve, store, tmp_path
             "version": "0.4.1",
             "date": "2026-10-11",
             "entries": ["Updating no longer stops on a stray file.", "Second change."],
+            "groups": [],
         },
-        {"version": "0.4.0", "date": "2026-10-04", "entries": ["Something older."]},
+        {"version": "0.4.0", "date": "2026-10-04", "entries": ["Something older."], "groups": []},
     ]
+
+
+def test_sub_headings_group_a_versions_bullets(serve, store, tmp_path):
+    text = (
+        "## v0.6.0 — 2026-10-16\n\n"
+        "### New features\n\n- A feature.\n- Another feature.\n\n"
+        "### Bug fixes\n\n- A fix.\n\n"
+        "## v0.5.0 — 2026-10-15\n\n- Flat and older.\n"
+    )
+
+    assert history_from(serve, store, tmp_path, text) == [
+        {
+            "version": "0.6.0",
+            "date": "2026-10-16",
+            "entries": [],
+            "groups": [
+                {"title": "New features", "entries": ["A feature.", "Another feature."]},
+                {"title": "Bug fixes", "entries": ["A fix."]},
+            ],
+        },
+        {"version": "0.5.0", "date": "2026-10-15", "entries": ["Flat and older."], "groups": []},
+    ]
+
+
+def test_bullets_before_the_first_sub_heading_stay_ungrouped(serve, store, tmp_path):
+    text = "## v0.6.0 — 2026-10-16\n\n- Loose.\n\n### Bug fixes\n\n- A fix.\n"
+
+    [version] = history_from(serve, store, tmp_path, text)
+
+    assert version["entries"] == ["Loose."]
+    assert version["groups"] == [{"title": "Bug fixes", "entries": ["A fix."]}]
 
 
 def test_a_missing_changelog_gives_no_history_but_still_200(serve, store, tmp_path):
@@ -76,6 +108,8 @@ def test_a_missing_changelog_gives_no_history_but_still_200(serve, store, tmp_pa
         "## v0.4.1 - not a date\n\n- A change.\n",
         "## v0.4.1 — 2026-10-11\n\nNo bullets here.\n",
         "## 0.4.1 — 2026-10-11\n\n- Missing the v.\n",
+        "### New features\n\n- A group before any version.\n",
+        "## v0.4.1 — 2026-10-11\n\n### New features\n\nNo bullets under the group.\n",
     ],
 )
 def test_a_malformed_changelog_gives_no_history_but_still_200(serve, store, tmp_path, text):
