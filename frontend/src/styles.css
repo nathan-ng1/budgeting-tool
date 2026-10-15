@@ -3376,9 +3376,9 @@ tbody:first-of-type .table th.table__section {
   visibility: hidden;
 }
 
-/* The two opt-in trend columns are tinted so they read as temporary
-   decision-support, distinct from the always-on columns. */
-.table th.table__trend,
-.table td.table__trend {
-  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+/* The Trailing window's row in the Budget table header: no rule or row padding
+   of its own, just the dropdown over the trend columns. */
+.table .table__window-row td {
+  padding: 0 14px 12px 0;
+  border-bottom: none;
 }

@@ -283,13 +283,15 @@ describe("Budget", () => {
     expect(await screen.findByRole("columnheader", { name: "6-Month Avg Variance %" })).toBeInTheDocument();
   });
 
-  it("marks the trend columns as temporary and hides them again on Simple", async () => {
+  it("hides the trend columns again on Simple, leaving the Trailing window's space reserved", async () => {
     render(<ControlledBudget />);
     await screen.findByText("Groceries");
     await showTrends();
 
-    expect(screen.getByRole("columnheader", { name: "3-Month Avg Actual" })).toHaveClass("table__trend");
-    expect(within(screen.getByText("Groceries").closest("tr")).getAllByRole("cell")[2]).toHaveClass("table__trend");
+    // The Trailing window sits in the header over the two trend columns.
+    const windowCell = screen.getByLabelText("Trailing window").closest("td");
+    expect(windowCell).toHaveAttribute("colspan", "2");
+    expect(windowCell.previousElementSibling).toHaveAttribute("colspan", "2");
 
     await userEvent.click(screen.getByRole("button", { name: "Simple" }));
 

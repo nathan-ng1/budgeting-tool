@@ -170,6 +170,21 @@ export default function Budget({ periodType, referenceYear, selected, onSelect }
     setAutoPopulateOpen(false);
   }
 
+  // Rendered in the table's header, over the trend columns (and hidden while
+  // trends are off - see the window row below).
+  const windowField = (
+    <label className={`field${showTrends ? "" : " field--reserved"}`}>
+      <span className="field__label">Trailing window</span>
+      <select value={trailingWindow} onChange={(event) => setTrailingWindow(Number(event.target.value))}>
+        {TRAILING_WINDOWS.map((months) => (
+          <option key={months} value={months}>
+            {months} months
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+
   const changes = changesFrom(initial, values);
   const totals = editor === null ? null : totalsByType(editor, values);
 
@@ -276,22 +291,6 @@ export default function Budget({ periodType, referenceYear, selected, onSelect }
             {selected !== null && (
               <div className="filters">
                 <TrendsToggle on={showTrends} onChange={setShowTrends} />
-                {/* Hidden rather than unmounted while trends are off, so its
-                    space stays reserved and toggling doesn't shift the table
-                    up and down. */}
-                <label className={`field${showTrends ? "" : " field--reserved"}`}>
-                  <span className="field__label">Trailing window</span>
-                  <select
-                    value={trailingWindow}
-                    onChange={(event) => setTrailingWindow(Number(event.target.value))}
-                  >
-                    {TRAILING_WINDOWS.map((months) => (
-                      <option key={months} value={months}>
-                        {months} months
-                      </option>
-                    ))}
-                  </select>
-                </label>
               </div>
             )}
           </div>
@@ -322,6 +321,19 @@ export default function Budget({ periodType, referenceYear, selected, onSelect }
           <div className="table-scroll">
             <table className="table">
               <thead>
+                {/* The Trailing window sits above the two trend columns it
+                    feeds. The row is always rendered (hidden while trends are
+                    off) so its height is reserved and toggling doesn't shift
+                    the table up and down. */}
+                <tr className="table__window-row">
+                  <td colSpan={showTrends ? 2 : 4}>{!showTrends && windowField}</td>
+                  {showTrends && (
+                    <>
+                      <td colSpan={2}>{windowField}</td>
+                      <td colSpan={2} />
+                    </>
+                  )}
+                </tr>
                 <tr>
                   <th scope="col">Category</th>
                   <th scope="col" className="table__num">
@@ -329,10 +341,10 @@ export default function Budget({ periodType, referenceYear, selected, onSelect }
                   </th>
                   {showTrends && (
                     <>
-                      <th scope="col" className="table__num table__trend">
+                      <th scope="col" className="table__num">
                         {trailingWindow}-Month Avg Actual
                       </th>
-                      <th scope="col" className="table__num table__trend">
+                      <th scope="col" className="table__num">
                         {trailingWindow}-Month Avg Variance %
                       </th>
                     </>
@@ -358,10 +370,10 @@ export default function Budget({ periodType, referenceYear, selected, onSelect }
                       <td className="table__num muted">{money(last_month_actual)}</td>
                       {showTrends && (
                         <>
-                          <td className="table__num table__trend muted">
+                          <td className="table__num muted">
                             {trailing_average_actual === null ? UNSET : money(trailing_average_actual)}
                           </td>
-                          <td className="table__num table__trend muted">
+                          <td className="table__num muted">
                             {average_variance_pct === null ? UNSET : signedPct(average_variance_pct)}
                           </td>
                         </>
@@ -381,14 +393,7 @@ export default function Budget({ periodType, referenceYear, selected, onSelect }
                     </tr>
                   ))}
                   <tr className="budget__total-row">
-                    <td colSpan={showTrends ? 2 : 3}>Total</td>
-                    {showTrends && (
-                      <>
-                        <td className="table__trend" />
-                        <td className="table__trend" />
-                        <td />
-                      </>
-                    )}
+                    <td colSpan={showTrends ? 5 : 3}>Total</td>
                     <td className="table__num">{money(totals[type])}</td>
                   </tr>
                 </tbody>
