@@ -3382,3 +3382,17 @@ tbody:first-of-type .table th.table__section {
   padding: 0 14px 12px 0;
   border-bottom: none;
 }
+
+/* Budget table: every other Category row is shaded (dark, light, dark, light)
+   so the eye can follow a row across to its Budgeted Amount. The section
+   heading is each body's first row, so the first Category is the 2nd child;
+   the Total row is left plain. First cells get a little left padding so the
+   shading doesn't sit flush against the text. */
+.budget__table tbody tr:nth-child(even):not(.budget__total-row) {
+  background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+}
+
+.budget__table th:first-child,
+.budget__table td:first-child {
+  padding-left: 12px;
+}

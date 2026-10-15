@@ -319,7 +319,7 @@ export default function Budget({ periodType, referenceYear, selected, onSelect }
 
         {selected !== null && editor !== null && (
           <div className="table-scroll">
-            <table className="table">
+            <table className="table budget__table">
               <thead>
                 {/* The Trailing window sits above the two trend columns it
                     feeds. The row is always rendered (hidden while Advanced
