@@ -7,7 +7,7 @@ const STORAGE_KEY = "dashboard.theme";
 
 export const THEMES = [
   { key: "terracotta", label: "Terracotta", swatch: "#c67139" },
-  { key: "orchid", label: "Orchid", swatch: "#f1a7dd" },
+  { key: "orchid", label: "Orchid", swatch: "#d6196c" },
   { key: "midnight", label: "Midnight", swatch: "#3282b8" },
   { key: "sage", label: "Sage", swatch: "#5f6f63" },
   { key: "plum", label: "Plum", swatch: "#b97cf0" },

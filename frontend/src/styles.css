@@ -539,27 +539,58 @@
      three-band hot-pink (H=330) -> mid (H=304) -> royal-purple (H=278)
      sweep in place of the old three-unrelated-families arrangement - see
      that file's own comment for the full derivation. */
+/* PROTOTYPE (prototype/orchid-reference-palette) - pass 10: a fifth Orchid
+   revision, rebuilt from a user-supplied reference screenshot (a pink "Social
+   Media" UI kit) because Orchid was the one theme whose page was *lighter*
+   than its cards (#fbeef1 page vs #f4d2d8 card) - every other theme's cards
+   are the lightest surface and the page backdrop sits a step darker. Colours
+   only; no layout/design change.
+
+   - --color-card is now white and --color-background a soft pink
+     (#fbe0ec, 1.24:1 against the card), matching the reference's pale-pink
+     canvas with white tiles on it.
+   - --color-neutral-100/200 (backgrounds only: .rule-form, .category-chip,
+     progress tracks, row dividers, hover fills) were white, which would
+     vanish on a white card - they become the reference's light pink input
+     fill (#fdeef4) and a slightly deeper pink track (#f8d3e3).
+   - --color-neutral-300/400 (borders/gridlines) and 500-700 (muted text) are
+     re-hued from the old mauve (~312deg) to the reference's pink (~335deg).
+     500/600/700 clear 4.5:1 on both the white card (5.8/7.9/10.9) and the pink
+     page (4.7/6.4/8.8), since nav tabs and the "As at" line sit on the page.
+   - --color-accent/-600 (#d6196c) is the reference's hot pink, darkened just
+     enough that white button text clears 4.5:1 (5.0:1) - like the reference's
+     white-on-pink buttons. That retires pass 9's dark-text-on-pastel-pink
+     workaround: --color-on-accent and --color-button-hover are back to the
+     shared defaults (white text, hover darkens to accent-700), and the
+     .months__pill override below is gone.
+   - --color-negative-fill (#ee3f8e) stays a separate, brighter fill-only pink
+     for Expenses (pass 8's fill-vs-text split), echoing the reference's
+     chart bars.
+   - Untouched: --color-text, the positive/purple family, --color-debt/
+     --color-savings, --color-danger and lib/categoryColours.js's palette.
+     The reference is monochrome pink, but purple-for-positive is a
+     deliberately settled semantic (passes 3-7), not a surface colour. */
 [data-theme="orchid"] {
   --color-text: #22161f;
-  --color-accent: #fa429e;
+  --color-accent: #d6196c;
 
-  --color-background: #fbeef1;
-  --color-card: #f4d2d8;
+  --color-background: #fbe0ec;
+  --color-card: #ffffff;
 
-  --color-neutral-100: #ffffff;
-  --color-neutral-200: #ffffff;
-  --color-neutral-300: #b983ae;
-  --color-neutral-400: #a76299;
-  --color-neutral-500: #7c4671;
-  --color-neutral-600: #623759;
-  --color-neutral-700: #482842;
+  --color-neutral-100: #fdeef4;
+  --color-neutral-200: #f8d3e3;
+  --color-neutral-300: #ecaac8;
+  --color-neutral-400: #dd8ab3;
+  --color-neutral-500: #9a4a72;
+  --color-neutral-600: #7d3b5c;
+  --color-neutral-700: #5e2c46;
 
-  --color-accent-600: #fa429e;
-  --color-accent-700: #7e0742;
-  --color-accent-800: #52042b;
-  --color-negative-fill: #fa429e;
-  --color-button-hover: #f98bc2;
-  --color-on-accent: var(--color-text);
+  --color-accent-600: #d6196c;
+  --color-accent-700: #a8104f;
+  --color-accent-800: #7a0a38;
+  --color-negative-fill: #ee3f8e;
+  --color-button-hover: var(--color-accent-700);
+  --color-on-accent: #ffffff;
 
   --color-accent-2-500: #7e25b1;
   --color-debt: #df20b6;
@@ -574,34 +605,9 @@
   --color-negative-tint: #f5c7de;
   --color-danger: #770d1f;
 
-  --color-chart-line: #ffffff;
-}
-
-/* PROTOTYPE (prototype/orchid-pastel-palette, pass 9) - Orchid's
-   .months__pill[aria-pressed="true"] would otherwise keep the shared rule's
-   color: var(--color-neutral-100) (near-white, chosen for every other
-   theme's darker --color-accent background) - illegible against pass 9's
-   much lighter vivid-pink pill background below. Scoped to Orchid only,
-   the same pattern styles.css already uses for Midnight's muted
-   .months__pill text (see that theme's block). */
-[data-theme="orchid"] .months__pill[aria-pressed="true"] {
-  color: var(--color-text);
-}
-
-/* Issue #139 - .category-chip reads var(--color-neutral-100) like every
-   other theme, but Orchid pinned that token to literal white across several
-   /prototype passes (see the block above) for .rule-form's background and
-   .months__pill's hover fill specifically - .category-chip just rode along
-   unflagged, standing out white against Orchid's pink page/card rather than
-   blending in the way Terracotta/Midnight's chips do (there,
-   --color-background *is* --color-neutral-100, so no divergence exists to
-   paper over). Scoped to .category-chip alone, reusing --color-background
-   rather than a new literal, so chips regain the "same colour as the page"
-   relationship every other theme already has - .rule-form and
-   .months__pill's hover fill are untouched, since white there is still the
-   deliberate, several-times-confirmed choice. */
-[data-theme="orchid"] .category-chip {
-  background: var(--color-background);
+  /* Was white on the old pink card; on a white card that would vanish, so it
+     rides --color-neutral-700 again like Terracotta/Sage. */
+  --color-chart-line: var(--color-neutral-700);
 }
 
 /* Midnight (Issue #106) is the first genuinely dark theme - card/text invert
