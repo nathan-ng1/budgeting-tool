@@ -1552,6 +1552,18 @@ tbody:first-of-type .bva__section {
   font-weight: 600;
 }
 
+/* Every other Category row is shaded (dark, light, dark, light), the same as
+   the Budget tab's table. The section heading is each body's first row, so
+   the first Category is the 2nd child; the Total row is left plain. The
+   negative margin lets the shading extend past the text without shifting the
+   columns out of line with the header. */
+.bva tbody .bva__row:nth-child(even):not(.bva__total) {
+  margin: 0 -8px;
+  padding-left: 8px;
+  padding-right: 8px;
+  background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+}
+
 /* — month by month — */
 
 .mbm__row {
