@@ -293,13 +293,13 @@ function Dashboard({ settings, onSettingsSaved }) {
   // One Category colour mapping per Overview period, shared by every card that
   // draws a Category dot so a Category is one colour across the page.
   // Spending Categories the other cards show without any spend this period (an
-  // earlier Recurring Charge, a top merchant's Category, a budgeted Category)
+  // earlier Recurring Charge, a top expense's Category, a budgeted Category)
   // are handed slots too, so they never fall back to a Type grey.
   const colourFor = useMemo(
     () =>
       categoryColours(overview?.spending_by_category ?? [], [
         ...(overview?.recurring_charges?.rows ?? []).map((row) => row.category),
-        ...(overview?.top_merchants ?? []).map((row) => row.category),
+        ...(overview?.top_expenses ?? []).map((row) => row.category),
         ...(overview?.budgeted_vs_actual ?? []).filter((row) => SPENDING_TYPES.includes(row.type)).map((row) => row.category),
       ]),
     [overview],

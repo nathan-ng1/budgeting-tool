@@ -116,11 +116,11 @@ class DebtByNotes:
 
 
 @dataclass(frozen=True)
-class TopMerchant:
-    merchant: str
+class TopExpense:
+    notes: str
     category: str
-    total: float
-    count: int
+    date: str
+    amount: float
 
 
 # Recurring Charges names a cadence when the median gap between charges (in days,
@@ -205,7 +205,7 @@ class MonthOverview:
     spending_by_category: list[CategorySpend]
     budgeted_vs_actual: list[BudgetVsActual]
     debt_summary: list[DebtByNotes]
-    top_merchants: list[TopMerchant]
+    top_expenses: list[TopExpense]
     spending_over_time: SpendingOverTime
     recurring_charges: RecurringCharges
     movers: Movers
@@ -233,7 +233,7 @@ class AnnualOverview:
     spending_by_category: list[CategorySpend]
     budgeted_vs_actual: list[BudgetVsActual]
     debt_summary: list[DebtByNotes]
-    top_merchants: list[TopMerchant]
+    top_expenses: list[TopExpense]
     recurring_charges: RecurringCharges
     month_by_month: list[MonthlyTotals]
     income_vs_expenses_by_month: list[MonthlyTotals]
@@ -261,7 +261,7 @@ def get_month_overview(store, year: int, month: int) -> MonthOverview:
             transactions, store.read_category_budgets(year, month), store.read_categories()
         ),
         debt_summary=_debt_summary(transactions, stat_tiles.debt),
-        top_merchants=_top_merchants(transactions, limit=5),
+        top_expenses=_top_expenses(transactions, limit=5),
         spending_over_time=_spending_over_time(transactions, year, month),
         recurring_charges=_recurring_charges(
             _transactions_between(window, _add_months(window_end, -TRAILING_WINDOW_MONTHS), window_end)
@@ -297,7 +297,7 @@ def get_annual_overview(store, year: int, today: date | None = None, start_month
         spending_by_category=_spending_by_category(transactions, stat_tiles.expenses + stat_tiles.bills_subscriptions),
         budgeted_vs_actual=_annual_budgeted_vs_actual(store, transactions, start, elapsed_months),
         debt_summary=_debt_summary(transactions, stat_tiles.debt),
-        top_merchants=_top_merchants(transactions, limit=10),
+        top_expenses=_top_expenses(transactions, limit=10),
         recurring_charges=_recurring_charges(trailing),
         # Two named series over the same rows, not two computations: the Month
         # by month table and the Income vs Expenses chart both need one row
@@ -786,28 +786,22 @@ def _merchant_key(notes: str) -> str:
 def _merchant_groups(transactions: Iterable[Transaction]) -> list[tuple[Transaction, list[Transaction]]]:
     """`transactions` grouped by merchant key, each group paired with its latest
     Transaction (by date, then id) - the one whose Notes and Category name the
-    merchant. Shared by Top merchants and Recurring Charges."""
+    merchant. Used by Recurring Charges."""
     groups: dict[str, list[Transaction]] = {}
     for t in transactions:
         groups.setdefault(_merchant_key(t.notes), []).append(t)
     return [(max(rows, key=lambda t: (t.date, t.id)), rows) for rows in groups.values()]
 
 
-def _top_merchants(transactions: list[Transaction], limit: int) -> list[TopMerchant]:
-    spending = (t for t in transactions if t.type in SPENDING_TYPES and t.category != BEEM_ADJUSTMENT)
-
-    merchants = []
-    for latest, rows in _merchant_groups(spending):
-        merchants.append(
-            TopMerchant(
-                merchant=latest.notes,
-                category=latest.category,
-                total=_round(sum(t.amount for t in rows)),
-                count=len(rows),
-            )
-        )
-    merchants.sort(key=lambda m: (-m.total, m.merchant.lower(), m.merchant))
-    return merchants[:limit]
+def _top_expenses(transactions: list[Transaction], limit: int) -> list[TopExpense]:
+    """The largest single Spending Transactions (Debt and Beem Adjustment out),
+    not grouped: Notes on a Transaction often don't name the merchant."""
+    spending = [t for t in transactions if t.type in SPENDING_TYPES and t.category != BEEM_ADJUSTMENT]
+    ranked = sorted(spending, key=lambda t: (-t.amount, t.date, t.notes))
+    return [
+        TopExpense(notes=t.notes, category=t.category, date=t.date.isoformat(), amount=_round(t.amount))
+        for t in ranked[:limit]
+    ]
 
 
 def _transactions_between(transactions: list[Transaction], start: date, end: date) -> list[Transaction]:
@@ -817,8 +811,8 @@ def _transactions_between(transactions: list[Transaction], start: date, end: dat
 
 def _recurring_charges(transactions: list[Transaction]) -> RecurringCharges:
     """Every Bills & Subscriptions merchant in `transactions` (already the
-    trailing-12-month window), grouped by the same merchant key as Top
-    merchants so slightly varying charges stay one merchant. Typical charge is
+    trailing-12-month window), grouped by the merchant key (the History Match
+    normaliser) so slightly varying charges stay one merchant. Typical charge is
     the median amount; cadence the median gap between distinct charge dates
     (shown in whole days, but snapping and the yearly cost use the un-rounded
     gap). A near-standard gap is named (NAMED_CADENCES) and projected as typical

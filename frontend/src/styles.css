@@ -1704,43 +1704,10 @@ tbody:first-of-type .bva__section {
   color: var(--color-neutral-600);
 }
 
-/* Top merchants rows: rank, detail (name, Category, bar), optional count, total. */
-.top5__row--merchant {
-  grid-template-columns: 20px minmax(90px, 1fr) 84px;
-}
-
-.top5__row--merchant.top5__row--with-count {
-  grid-template-columns: 20px minmax(90px, 1fr) 52px 84px;
-}
-
-.top5__bar {
-  display: block;
-  height: 5px;
-  margin-top: 4px;
-  border-radius: 3px;
-  background: var(--color-neutral-200);
-  overflow: hidden;
-}
-
-.top5__bar > span {
-  display: block;
-  height: 100%;
-  border-radius: 3px;
-}
-
-.top5__count {
+.top5__date {
   font-size: 13px;
-  text-align: right;
+  color: var(--color-neutral-500);
   white-space: nowrap;
-}
-
-.toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--color-neutral-600);
-  cursor: pointer;
 }
 
 .top5__amount {
