@@ -105,7 +105,7 @@ export default function Goals({ selectedMonth = null }) {
             </div>
           </div>
           <div className="goals__actions">
-            <button type="button" className="button" onClick={() => setSplitting(true)}>
+            <button type="button" className="button button--quiet" onClick={() => setSplitting(true)}>
               Split savings
             </button>
             <button type="button" className="button" onClick={() => setPanel("new")}>

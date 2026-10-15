@@ -180,6 +180,13 @@ function respondWith({
   });
 }
 
+// Opens one of the Overview's Breakdown sections (Spending, Debt, ...); the
+// Overview opens on Budgeted vs Actual.
+async function openSection(name) {
+  const group = await screen.findByRole("group", { name: "Overview section" });
+  await userEvent.click(within(group).getByRole("button", { name }));
+}
+
 describe("App", () => {
   it("opens on Full year by default, for the Financial Year containing today", async () => {
     respondWith();
@@ -223,25 +230,76 @@ describe("App", () => {
     expect(screen.queryByText(/Left to Budget/)).not.toBeInTheDocument();
   });
 
-  it("renders Full year's Spending by Category, Budgeted vs Actual, Month by month, Cash Flow by Month, and Top merchants", async () => {
+  it("lays the Overview out as untitled tiles, a Goals section and a Breakdown section", async () => {
     respondWith();
     render(<App />);
     await screen.findByText("$8,000");
 
-    expect(screen.getByRole("heading", { name: "Spending by Category" })).toBeInTheDocument();
+    const headings = screen.getAllByRole("heading").map((h) => h.textContent);
+    // The top block (tiles, "Where did my income go?") has no section title of its own.
+    expect(headings.indexOf("Where did my income go?")).toBeLessThan(headings.indexOf("Goals"));
+    expect(headings.indexOf("Goals")).toBeLessThan(headings.indexOf("Saving Goals"));
+    expect(headings.indexOf("Saving Goals")).toBeLessThan(headings.indexOf("Breakdown"));
+    expect(screen.getByText("Your savings goals and how they are tracking.")).toBeInTheDocument();
+  });
+
+  it("offers Full year the Month by month section as well as the sections a month has, opening on Budgeted vs Actual", async () => {
+    respondWith();
+    render(<App />);
+    await screen.findByText("$8,000");
+
+    const sections = () => within(screen.getByRole("group", { name: "Overview section" })).getAllByRole("button");
+    expect(sections().map((button) => button.textContent)).toEqual([
+      "Month by month",
+      "Budgeted vs Actual",
+      "Spending",
+      "Debt",
+      "Bills & Subscriptions",
+    ]);
+    expect(screen.getByRole("button", { name: "Budgeted vs Actual" })).toHaveAttribute("aria-pressed", "true");
+    // One section at a time: the others' cards are not on the page.
+    expect(screen.queryByRole("heading", { name: "Spending by Category" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Aug" }));
+    await screen.findByText("$5,240");
+
+    expect(sections().map((button) => button.textContent)).toEqual([
+      "Budgeted vs Actual",
+      "Spending",
+      "Debt",
+      "Bills & Subscriptions",
+    ]);
+  });
+
+  it("renders Full year's Budgeted vs Actual, Month by month, Spending and Debt sections", async () => {
+    respondWith();
+    render(<App />);
+    await screen.findByText("$8,000");
+
     expect(screen.getByRole("heading", { name: "Budgeted vs Actual" })).toBeInTheDocument();
     // Full year's Budgeted vs Actual now reports a real per-Category rollup,
     // not ADR-0011's placeholder "—" (ADR-0013).
     expect(screen.getByRole("row", { name: /Groceries/ })).toHaveTextContent("$3,000");
 
-    expect(screen.getByRole("heading", { name: "Month by month" })).toBeInTheDocument();
+    await openSection("Month by month");
     expect(screen.getByRole("heading", { name: "Cash Flow by Month" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Month by month" })).toBeInTheDocument();
+    // Month by month is those two cards and nothing else.
+    expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual([
+      "Where did my income go?",
+      "Saving Goals",
+      "Cash Flow by Month",
+      "Month by month",
+    ]);
 
+    await openSection("Spending");
+    expect(screen.getByRole("heading", { name: "Spending by Category" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Top merchants" })).toBeInTheDocument();
     expect(screen.getByText("Woolworths")).toBeInTheDocument();
-
-    // Per-month-only sections stay off Full year.
+    expect(screen.getByRole("heading", { name: "Outflows breakdown" })).toBeInTheDocument();
+    // Per-month-only cards stay off Full year.
     expect(screen.queryByRole("heading", { name: "Spending over time" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Movers" })).not.toBeInTheDocument();
   });
 
   describe("Goals tile", () => {
@@ -275,14 +333,14 @@ describe("App", () => {
       respondWithGoal();
       render(<App />);
 
-      const tile = await screen.findByRole("region", { name: "Goals" });
+      const tile = await screen.findByRole("region", { name: "Saving Goals" });
       expect(await within(tile).findByText("Japan trip")).toBeInTheDocument();
       expect(within(tile).getByText("25% funded")).toBeInTheDocument();
 
       await userEvent.click(screen.getByRole("button", { name: "Aug" }));
       await screen.findByText("$5,240");
 
-      expect(await within(screen.getByRole("region", { name: "Goals" })).findByText("Japan trip")).toBeInTheDocument();
+      expect(await within(screen.getByRole("region", { name: "Saving Goals" })).findByText("Japan trip")).toBeInTheDocument();
     });
 
     it("is not scoped to the selected period: it only ever asks for /api/goals", async () => {
@@ -309,7 +367,7 @@ describe("App", () => {
     });
   });
 
-  it("selecting a month pill still shows the existing per-month Overview, unchanged", async () => {
+  it("selecting a month pill still shows the existing per-month Overview's cards, one section at a time", async () => {
     respondWith();
     render(<App />);
     await screen.findByText("$8,000");
@@ -321,12 +379,32 @@ describe("App", () => {
     );
     expect(await screen.findByText("$5,240")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Where did my income go?" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Spending by Category" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Budgeted vs Actual" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Aug" })).toHaveAttribute("aria-pressed", "true");
+
+    await openSection("Spending");
+    expect(screen.getByRole("heading", { name: "Spending by Category" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Top merchants" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Spending over time" })).toBeInTheDocument();
     expect(screen.getByText("Woolworths")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Aug" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("keeps the chosen Breakdown section when the month changes, and falls back to Budgeted vs Actual where it does not exist", async () => {
+    respondWith();
+    render(<App />);
+    await screen.findByText("$8,000");
+    await openSection("Month by month");
+
+    await userEvent.click(screen.getByRole("button", { name: "Aug" }));
+    await screen.findByText("$5,240");
+    // A month has no Month by month section, so it opens on Budgeted vs Actual.
+    expect(screen.getByRole("button", { name: "Budgeted vs Actual" })).toHaveAttribute("aria-pressed", "true");
+
+    await openSection("Spending");
+    await userEvent.click(screen.getByRole("button", { name: "Full year" }));
+    await screen.findByText("$8,000");
+    expect(screen.getByRole("button", { name: "Spending" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("heading", { name: "Spending by Category" })).toBeInTheDocument();
   });
 
   it("totals the Spending by Category card as Expenses plus Bills & Subscriptions, for a month", async () => {
@@ -341,6 +419,7 @@ describe("App", () => {
     });
     render(<App />);
     await userEvent.click(await screen.findByRole("button", { name: "Aug" }));
+    await openSection("Spending");
 
     expect(await screen.findByRole("img", { name: "Spending by Category, $4,287 total" })).toBeInTheDocument();
   });
@@ -356,6 +435,7 @@ describe("App", () => {
       }),
     });
     render(<App />);
+    await openSection("Spending");
 
     expect(await screen.findByRole("img", { name: "Spending by Category, $7,000 total" })).toBeInTheDocument();
   });
@@ -377,17 +457,24 @@ describe("App", () => {
     });
     render(<App />);
     await userEvent.click(await screen.findByRole("button", { name: "Aug" }));
+    await openSection("Spending");
     await screen.findByRole("img", { name: /Spending by Category/ });
 
+    // The cards are in different sections, so read each section's colours as it
+    // is shown and compare afterwards.
     const dotColour = (row) => row.querySelector(".dot").style.background;
     const legendRow = (name) => screen.getByText(new RegExp(name), { selector: ".legend__name" }).closest(".legend__row");
-    const bvaRow = (name) => screen.getByRole("row", { name: new RegExp(name) });
-    const topRow = screen.getByText("Woolworths").closest(".top5__row");
+    const groceries = dotColour(legendRow("Groceries"));
+    const insurance = dotColour(legendRow("Insurance"));
+    const merchant = screen.getByText("Woolworths").closest(".top5__row").querySelector(".dot").style.background;
 
-    expect(dotColour(legendRow("Groceries"))).not.toBe(dotColour(legendRow("Insurance")));
-    expect(dotColour(bvaRow("Groceries"))).toBe(dotColour(legendRow("Groceries")));
-    expect(dotColour(bvaRow("Insurance"))).toBe(dotColour(legendRow("Insurance")));
-    expect(topRow.querySelector(".dot").style.background).toBe(dotColour(legendRow("Groceries")));
+    await openSection("Budgeted vs Actual");
+    const bvaRow = (name) => screen.getByRole("row", { name: new RegExp(name) });
+
+    expect(groceries).not.toBe(insurance);
+    expect(dotColour(bvaRow("Groceries"))).toBe(groceries);
+    expect(dotColour(bvaRow("Insurance"))).toBe(insurance);
+    expect(merchant).toBe(groceries);
     expect(dotColour(bvaRow("Mortgage"))).toBe("var(--color-debt)");
   });
 
@@ -404,13 +491,16 @@ describe("App", () => {
     });
     render(<App />);
     await userEvent.click(await screen.findByRole("button", { name: "Aug" }));
+    const dotColour = (row) => row.querySelector(".dot").style.background;
+    const gymBudgetRow = (await screen.findByText("Gym", { selector: ".bva__row td" })).closest("tr");
+    const gymBudgetColour = dotColour(gymBudgetRow);
+
+    await openSection("Bills & Subscriptions");
     const recurringRow = (await screen.findByText("Anytime Fitness")).closest("tr");
 
-    const dotColour = (row) => row.querySelector(".dot").style.background;
-    const gymBudgetRow = screen.getByText("Gym", { selector: ".bva__row td" }).closest("tr");
     expect(dotColour(recurringRow)).toMatch(/^rgb\(/);
     expect(dotColour(recurringRow)).not.toBe("var(--color-bills-subscriptions)");
-    expect(dotColour(gymBudgetRow)).toBe(dotColour(recurringRow));
+    expect(gymBudgetColour).toBe(dotColour(recurringRow));
   });
 
   it("re-fetches the Category list when switching back to the Overview, so a new emoji shows without a reload", async () => {
@@ -488,7 +578,8 @@ describe("App", () => {
 
     await waitFor(() => expect(screen.queryByText("$5,240")).not.toBeInTheDocument());
     releaseSeptember();
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Spending by Category" })).toBeInTheDocument());
+    await openSection("Spending");
+    expect(screen.getByRole("heading", { name: "Spending by Category" })).toBeInTheDocument();
   });
 
   it("renders a month with no Transactions as a coherent empty state, not an error", async () => {
@@ -498,22 +589,31 @@ describe("App", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Sep" }));
 
-    // Every section is still on the page...
-    expect(await screen.findByRole("heading", { name: "Spending by Category" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Budgeted vs Actual" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Spending over time" })).toBeInTheDocument();
+    // Every section is still on offer...
+    expect(await screen.findByRole("button", { name: "Spending" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Debt" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Bills & Subscriptions" })).toBeInTheDocument();
 
     // ...with zeroes and plain empty copy rather than a crash or blank panels.
     expect(screen.getAllByText("$0").length).toBeGreaterThan(0);
+    expect(screen.getByText(/No spending or Category Budgets/i)).toBeInTheDocument();
+
+    await openSection("Spending");
+    expect(screen.getByRole("heading", { name: "Spending by Category" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Spending over time" })).toBeInTheDocument();
     expect(screen.getByText(/No spending recorded for this month/i)).toBeInTheDocument();
     expect(screen.getByText("No spending recorded for this period.")).toBeInTheDocument();
-    expect(screen.getByText(/No spending or Category Budgets/i)).toBeInTheDocument();
+
+    await openSection("Debt");
     expect(screen.getByRole("heading", { name: "Debt" })).toBeInTheDocument();
     expect(screen.getByText(/No Debt repayments recorded/i)).toBeInTheDocument();
+
+    await openSection("Bills & Subscriptions");
+    expect(screen.getByText(/No Bills & Subscriptions recorded/)).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("renders the Debt card between Spending by Category/Budgeted vs Actual and Top 5/Spending over time, for a month with Debt", async () => {
+  it("shows the Debt card in its own section, without a monthly average, for a month with Debt", async () => {
     respondWith({
       month: monthWithSpending(2026, 8, {
         stat_tiles: { income: 5240, expenses: 3667, debt: 875, available_to_save: 698, saved: 900, unallocated: -202 },
@@ -525,19 +625,20 @@ describe("App", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Aug" }));
     await screen.findByText("$5,240");
+    expect(screen.queryByRole("heading", { name: "Debt" })).not.toBeInTheDocument();
 
-    const headings = screen.getAllByRole("heading").map((h) => h.textContent);
-    expect(headings.indexOf("Budgeted vs Actual")).toBeLessThan(headings.indexOf("Debt"));
-    expect(headings.indexOf("Debt")).toBeLessThan(headings.indexOf("Top merchants"));
+    await openSection("Debt");
+    expect(screen.getByRole("heading", { name: "Debt" })).toBeInTheDocument();
     expect(screen.getByText("Werribee")).toBeInTheDocument();
     expect(screen.getAllByText("$875").length).toBeGreaterThan(0);
     expect(screen.queryByText(/month average/)).not.toBeInTheDocument();
   });
 
-  it("places the Outflows breakdown full width between the wide-pair row and the split row, for a month", async () => {
+  it("puts the Outflows breakdown in Spending between Spending by Category | Top merchants and Spending over time | Movers, for a month", async () => {
     respondWith({
       month: monthWithSpending(2026, 8, {
         stat_tiles: { income: 5240, expenses: 3667, debt: 875, available_to_save: 698, saved: 900, unallocated: -202 },
+        movers: DINING_MOVERS,
       }),
     });
     render(<App />);
@@ -545,35 +646,30 @@ describe("App", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Aug" }));
     await screen.findByText("$5,240");
+    await openSection("Spending");
 
     const heading = screen.getByRole("heading", { name: "Outflows breakdown" });
-    expect(heading.closest(".row--wide-pair")).toBeNull();
     expect(heading.closest(".row--split")).toBeNull();
     const card = heading.closest("section");
-    const widePair = screen.getByRole("heading", { name: "Budgeted vs Actual" }).closest(".row--wide-pair");
-    expect(widePair.nextElementSibling).toBe(card);
-    expect(card.nextElementSibling).toHaveClass("row--split");
+    const before = card.previousElementSibling;
+    const after = card.nextElementSibling;
+    expect(before).toHaveClass("row--split");
+    expect(within(before).getByRole("heading", { name: "Spending by Category" })).toBeInTheDocument();
+    expect(within(before).getByRole("heading", { name: "Top merchants" })).toBeInTheDocument();
+    expect(after).toHaveClass("row--split");
+    expect(within(after).getByRole("heading", { name: "Spending over time" })).toBeInTheDocument();
+
+    // Movers sits in the right half of that last row, with its comparison picker.
+    const movers = within(after).getByRole("heading", { name: "Movers" }).closest("section");
+    expect(after.lastElementChild).toBe(movers);
+    expect(within(movers).getByText("vs the average of the preceding 3 months")).toBeInTheDocument();
+    expect(within(movers).getByText("+$150")).toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Compare against" }), "previous_month");
+    expect(within(movers).getByText("+$100")).toBeInTheDocument();
   });
 
-  it("groups Spending by Category, Budgeted vs Actual, and Debt into the wide-pair layout, for a month", async () => {
-    respondWith({
-      month: monthWithSpending(2026, 8, {
-        stat_tiles: { income: 5240, expenses: 3667, debt: 875, available_to_save: 698, saved: 900, unallocated: -202 },
-        debt_summary: [{ notes: "Werribee", amount: 875, pct_of_debt: 100 }],
-      }),
-    });
-    render(<App />);
-    await screen.findByText("$8,000");
-    await userEvent.click(screen.getByRole("button", { name: "Aug" }));
-    await screen.findByText("$5,240");
-
-    const widePair = screen.getByRole("heading", { name: "Budgeted vs Actual" }).closest(".row--wide-pair");
-    expect(widePair).not.toBeNull();
-    expect(within(widePair).getByRole("heading", { name: "Spending by Category" })).toBeInTheDocument();
-    expect(within(widePair).getByRole("heading", { name: "Debt" })).toBeInTheDocument();
-  });
-
-  it("renders the Debt card with a $/month average, for Full year", async () => {
+  it("shows the Debt card with a $/month average in its own section, for Full year", async () => {
     respondWith({
       annual: annualWithSpending({
         stat_tiles: { income: 8000, expenses: 6000, debt: 1600, available_to_save: 400, saved: 1000, unallocated: -600 },
@@ -583,42 +679,31 @@ describe("App", () => {
     });
     render(<App />);
     await screen.findByText("$8,000");
+    await openSection("Debt");
 
-    const headings = screen.getAllByRole("heading").map((h) => h.textContent);
-    expect(headings.indexOf("Month by month")).toBeLessThan(headings.indexOf("Budgeted vs Actual"));
-    expect(headings.indexOf("Budgeted vs Actual")).toBeLessThan(headings.indexOf("Debt"));
     expect(screen.getByText("Werribee")).toBeInTheDocument();
-
     const debtCard = screen.getByRole("heading", { name: "Debt" }).closest("section");
     expect(within(debtCard).getByText("$800 / month average")).toBeInTheDocument();
   });
 
-  it("re-flows Full year into two equal columns, then a row for Top merchants, with no Top Expenses card", async () => {
+  it("puts Full year's Spending by Category beside Top merchants, with the Outflows breakdown by month below", async () => {
     respondWith({
       annual: annualWithSpending({
-        stat_tiles: { income: 8000, expenses: 6000, debt: 1600, available_to_save: 400, saved: 1000, unallocated: -600 },
-        monthly_average: { income: 4000, expenses: 3000, debt: 800, available_to_save: 200, saved: 500, unallocated: -300 },
-        debt_summary: [{ notes: "Werribee", amount: 1600, pct_of_debt: 100 }],
         outflows_by_month: ZERO_MONTHS.map((m, index) => (index === 0 ? { ...m, expenses: 600, debt: 400 } : m)),
       }),
     });
     render(<App />);
     await screen.findByText("$8,000");
-
-    const columns =screen.getByRole("heading", { name: "Month by month" }).closest(".row--columns");
-    expect(columns).not.toBeNull();
-    const [left, right] = columns.querySelectorAll(":scope > .row--columns__col");
-    const cardTitles = (column) => [...column.querySelectorAll(":scope > .card h3")].map((h) => h.textContent);
-    expect(cardTitles(left)).toEqual(["Month by month", "Spending by Category"]);
-    expect(cardTitles(right)).toEqual(["Budgeted vs Actual", "Debt"]);
-    expect(columns.closest(".row--wide-pair")).toBeNull();
+    await openSection("Spending");
 
     const split = screen.getByRole("heading", { name: "Top merchants" }).closest(".row--split");
     expect(split).not.toBeNull();
-    // The full-width Outflows breakdown sits between the columns and Top merchants.
+    const [left, right] = split.children;
+    expect(within(left).getByRole("heading", { name: "Spending by Category" })).toBeInTheDocument();
+    expect(within(right).getByRole("heading", { name: "Top merchants" })).toBeInTheDocument();
+    // The full-width Outflows breakdown by month follows the pair.
     const outflows = screen.getByTestId("outflows-columns-legend").closest("section");
-    expect(columns.nextElementSibling).toBe(outflows);
-    expect(outflows.nextElementSibling).toBe(split);
+    expect(split.nextElementSibling).toBe(outflows);
     expect(screen.queryByText(/Top \d+ expenses/i)).not.toBeInTheDocument();
   });
 
@@ -632,6 +717,7 @@ describe("App", () => {
     });
     render(<App />);
     await screen.findByText("$8,000");
+    await openSection("Spending");
 
     expect(screen.getByRole("img", { name: /Outflows by Type for every month/ })).toBeInTheDocument();
     expect(screen.getByTestId("outflows-columns-legend")).toHaveTextContent("Expenses 60.0%");
@@ -642,63 +728,37 @@ describe("App", () => {
     expect(screen.queryByRole("img", { name: /Outflows by Type for every month/ })).not.toBeInTheDocument();
   });
 
-  it("places Recurring Charges in the left half of a new bottom row after Top merchants | Spending over time, for a month", async () => {
+  it("shows Bills & Subscriptions in its own section, titled so it isn't mistaken for Settings' Recurring Transactions, for a month", async () => {
     respondWith({ month: monthWithSpending(2026, 8, { recurring_charges: GYM_RECURRING }) });
     render(<App />);
     await screen.findByText("$8,000");
-    expect(screen.getAllByRole("heading", { name: "Recurring Charges" })).toHaveLength(1);
 
     await userEvent.click(screen.getByRole("button", { name: "Aug" }));
     await screen.findByText("$5,240");
+    expect(screen.queryByRole("heading", { name: "Bills & Subscriptions" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Recurring Charges" })).not.toBeInTheDocument();
 
-    const row = screen.getByRole("heading", { name: "Recurring Charges" }).closest(".row--split");
-    expect(row).not.toBeNull();
-    expect(within(row).queryByRole("heading", { name: "Top merchants" })).not.toBeInTheDocument();
-    expect(row.firstElementChild).toContainElement(screen.getByRole("heading", { name: "Recurring Charges" }));
-    expect(screen.getByRole("heading", { name: "Top merchants" }).closest(".row--split").nextElementSibling).toBe(row);
-    expect(within(row).getByText("Anytime Fitness")).toBeInTheDocument();
-    expect(within(row).getByText("$975 / year")).toBeInTheDocument();
+    await openSection("Bills & Subscriptions");
+    const card = screen.getByRole("heading", { name: "Bills & Subscriptions" }).closest("section");
+    expect(within(card).getByText("Anytime Fitness")).toBeInTheDocument();
+    expect(within(card).getByText("$975 / year")).toBeInTheDocument();
   });
 
-  it("places Movers in the right half beside Recurring Charges, for a month, and not at all for Full year", async () => {
-    respondWith({
-      month: monthWithSpending(2026, 8, { recurring_charges: GYM_RECURRING, movers: DINING_MOVERS }),
-      annual: annualWithSpending(),
-    });
-    render(<App />);
-    await screen.findByText("$8,000");
-    expect(screen.queryByRole("heading", { name: "Movers" })).not.toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("button", { name: "Aug" }));
-    await screen.findByText("$5,240");
-
-    const row = screen.getByRole("heading", { name: "Recurring Charges" }).closest(".row--split");
-    const [left, right] = row.children;
-    expect(within(left).getByRole("heading", { name: "Recurring Charges" })).toBeInTheDocument();
-    expect(within(right).getByRole("heading", { name: "Movers" })).toBeInTheDocument();
-    expect(within(right).getByText("vs the average of the preceding 3 months")).toBeInTheDocument();
-    expect(within(right).getByText("+$150")).toBeInTheDocument();
-
-    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Compare against" }), "previous_month");
-    expect(within(right).getByText("+$100")).toBeInTheDocument();
-  });
-
-  it("places Recurring Charges beside Top merchants, for Full year", async () => {
+  it("shows Bills & Subscriptions in its own section, for Full year", async () => {
     respondWith({ annual: annualWithSpending({ recurring_charges: GYM_RECURRING }) });
     render(<App />);
     await screen.findByText("$8,000");
+    await openSection("Bills & Subscriptions");
 
-    const split = screen.getByRole("heading", { name: "Top merchants" }).closest(".row--split");
-    const [left, right] = split.children;
-    expect(within(left).getByRole("heading", { name: "Top merchants" })).toBeInTheDocument();
-    expect(within(right).getByRole("heading", { name: "Recurring Charges" })).toBeInTheDocument();
-    expect(within(right).getByText("Fortnightly")).toBeInTheDocument();
+    const card = screen.getByRole("heading", { name: "Bills & Subscriptions" }).closest("section");
+    expect(within(card).getByText("Fortnightly")).toBeInTheDocument();
   });
 
-  it("shows the Recurring Charges empty state for a view with no Bills & Subscriptions", async () => {
+  it("shows the Bills & Subscriptions empty state for a view with none", async () => {
     respondWith({});
     render(<App />);
     await screen.findByText("$8,000");
+    await openSection("Bills & Subscriptions");
 
     expect(screen.getByText(/No Bills & Subscriptions recorded/)).toBeInTheDocument();
   });
@@ -716,6 +776,7 @@ describe("App", () => {
     });
     render(<App />);
     await screen.findByText("$8,000");
+    await openSection("Spending");
 
     expect(screen.getAllByText(/^Merchant [A-J]$/)).toHaveLength(10);
 
@@ -1004,8 +1065,8 @@ describe("App", () => {
       await waitFor(() =>
         expect(screen.getByRole("button", { name: "Full year" })).toHaveAttribute("aria-pressed", "true"),
       );
-      // Full year's own sections show, not Aug's per-month-only ones.
-      expect(await screen.findByRole("heading", { name: "Month by month" })).toBeInTheDocument();
+      // Full year's own sections are on offer, not Aug's per-month-only cards.
+      expect(await screen.findByRole("button", { name: "Month by month" })).toBeInTheDocument();
       expect(screen.queryByRole("heading", { name: "Spending over time" })).not.toBeInTheDocument();
     });
 
@@ -1619,6 +1680,7 @@ describe("Date Order setting", () => {
     expect(await screen.findByText("As at 19 August")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Aug" }));
+    await openSection("Spending");
     expect(await screen.findByText("1 Aug")).toBeInTheDocument(); // Spending Over Time axis
 
     await userEvent.click(screen.getByRole("button", { name: "Budget" }));
@@ -1656,6 +1718,7 @@ describe("Date Order setting", () => {
     expect(await screen.findByText("As at August 19")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Overview" }));
     await userEvent.click(await screen.findByRole("button", { name: "Aug" }));
+    await openSection("Spending");
     expect(await screen.findByText("Aug 1")).toBeInTheDocument();
     expect(screen.queryByText("1 Aug")).not.toBeInTheDocument();
 

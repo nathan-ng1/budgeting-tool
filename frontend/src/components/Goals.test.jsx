@@ -454,14 +454,13 @@ describe("Goals", () => {
       expect(screen.queryByRole("button", { name: "New goal" })).not.toBeInTheDocument();
     });
 
-    it("shows the Status chip beside the title and the stats with Needs / month as the headline", async () => {
+    it("shows the Status chip beside the title and the stats strip, without the headline in it", async () => {
       await openDetails();
 
       const view = screen.getByRole("heading", { name: "Japan trip" }).closest("section");
       expect(within(view).getByText("Behind")).toBeInTheDocument();
       const stats = within(view).getByLabelText("Goal stats");
       expect(within(stats).getAllByRole("term").map((term) => term.textContent)).toEqual([
-        "Needs",
         "Saved",
         "Left",
         "Remaining time",
@@ -470,7 +469,6 @@ describe("Goals", () => {
         "Start date",
       ]);
       expect(within(stats).getAllByRole("definition").map((value) => value.textContent)).toEqual([
-        "$750 / month",
         "$1,500 of $6,000",
         "$4,500",
         "6 months",
@@ -478,6 +476,38 @@ describe("Goals", () => {
         "$667 / month",
         "1 Jul 2026",
       ]);
+    });
+
+    it("puts what the Goal needs per month in a headline pill beside All goals", async () => {
+      await openDetails();
+
+      const pill = within(screen.getByRole("heading", { name: "Japan trip" }).closest("section")).getByLabelText("Goal headline");
+      expect(pill).toHaveTextContent("You need to save");
+      expect(pill).toHaveTextContent("$750 / month");
+      expect(pill.nextElementSibling).toHaveTextContent("All goals");
+    });
+
+    it("says how an Achieved Goal finished in the headline pill, with any amount over target", async () => {
+      await openDetails(
+        {},
+        { status: "Achieved", flag: "Achieved", saved: 11000, over: 5000, remaining: 0, fraction: 1, months_left: 0, required_per_month: null },
+      );
+
+      const pill = screen.getByLabelText("Goal headline");
+      expect(pill).toHaveTextContent("Status");
+      expect(pill).toHaveTextContent("Goal reached");
+      expect(pill).toHaveTextContent("+$5,000 over target");
+    });
+
+    it("shows what an Ended Goal fell short by in the headline pill", async () => {
+      await openDetails(
+        {},
+        { status: "Ended", flag: "Ended", remaining: 1000, months_left: 0, required_per_month: null },
+      );
+
+      const pill = screen.getByLabelText("Goal headline");
+      expect(pill).toHaveTextContent("Shortfall");
+      expect(pill).toHaveTextContent("$1,000 short");
     });
 
     it("shows an Achieved Goal past its end date as Achieved, not Ended, under Remaining time", async () => {

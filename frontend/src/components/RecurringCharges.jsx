@@ -11,7 +11,7 @@ export default function RecurringCharges({ recurring, colourFor = categoryColour
   return (
     <section className="card">
       <div className="card__head">
-        <h3>Recurring Charges</h3>
+        <h3>Bills & Subscriptions</h3>
         <div className="card__aside">
           <div className="card__aside-figure numeric">{money(recurring.per_year)} / year</div>
           <div className="card__aside-label numeric">{money(recurring.per_month)} / month</div>

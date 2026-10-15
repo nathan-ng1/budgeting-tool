@@ -41,9 +41,9 @@ export default function GoalsTile({ onViewAll }) {
   const active = [...(goals ?? [])].sort((a, b) => a.end_date.localeCompare(b.end_date));
 
   return (
-    <section className="card goals-tile" aria-label="Goals">
+    <section className="card goals-tile" aria-label="Saving Goals">
       <div className="card__head">
-        <h3>Goals</h3>
+        <h3>Saving Goals</h3>
         <div className="card__aside">
           <div className="card__aside-figure numeric">{active.length}</div>
           <div className="card__aside-label">active</div>
@@ -75,7 +75,7 @@ export default function GoalsTile({ onViewAll }) {
         </ul>
       )}
 
-      <button type="button" className="link-button" onClick={onViewAll}>
+      <button type="button" className="button" onClick={onViewAll}>
         View all goals
       </button>
     </section>

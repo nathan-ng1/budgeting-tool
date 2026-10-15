@@ -3,15 +3,18 @@ import { useDateFormat, useMoney } from "../lib/settings.jsx";
 import { StatusChip } from "./GoalCard.jsx";
 import GoalTrajectory from "./GoalTrajectory.jsx";
 
-// The headline stat: what it takes each month, or how the Goal finished.
+// The headline, drawn as a pill beside the way back: what it takes each month,
+// or how the Goal finished. It sits outside the stats strip so a long figure
+// (the Achieved case especially) never has to fit a strip column; `note` is a
+// small line under the figure, when there is one.
 function headline(goal, money) {
   if (goal.required_per_month !== null) {
-    return ["Needs", `${money(goal.required_per_month)} / month`];
+    return { label: "You need to save", value: `${money(goal.required_per_month)} / month`, note: null };
   }
   if (goal.status === "Achieved") {
-    return ["Status", goal.over > 0 ? `Reached, +${money(goal.over)} over` : "Reached"];
+    return { label: "Status", value: "Goal reached", note: goal.over > 0 ? `+${money(goal.over)} over target` : null };
   }
-  return ["Shortfall", money(goal.remaining)];
+  return { label: "Shortfall", value: `${money(goal.remaining)} short`, note: null };
 }
 
 // What "Remaining time" says: the months left, or - once the end date has
@@ -26,10 +29,9 @@ function remainingTime(goal) {
 export default function GoalDetails({ goal, today, onBack }) {
   const { money } = useMoney();
   const { dayMonthYear } = useDateFormat();
-  const [lead, leadValue] = headline(goal, money);
+  const lead = headline(goal, money);
 
   const stats = [
-    [lead, leadValue],
     ["Saved", `${money(goal.saved)} of ${money(goal.target_amount)}`],
     ["Left", money(goal.remaining)],
     ["Remaining time", remainingTime(goal)],
@@ -48,14 +50,21 @@ export default function GoalDetails({ goal, today, onBack }) {
           </div>
           {goal.description && <p className="goals__muted">{goal.description}</p>}
         </div>
-        <button type="button" className="button" onClick={onBack}>
-          &larr; All goals
-        </button>
+        <div className="goals__details-head-right">
+          <div className="goals__pill" aria-label="Goal headline">
+            <div className="goals__pill-label">{lead.label}</div>
+            <div className="goals__pill-value numeric">{lead.value}</div>
+            {lead.note && <div className="goals__pill-note numeric">{lead.note}</div>}
+          </div>
+          <button type="button" className="button" onClick={onBack}>
+            &larr; All goals
+          </button>
+        </div>
       </div>
 
       <dl className="goals__stats" aria-label="Goal stats">
-        {stats.map(([label, value], index) => (
-          <div key={label} className={index === 0 ? "goals__stats-lead" : undefined}>
+        {stats.map(([label, value]) => (
+          <div key={label}>
             <dt>{label}</dt>
             <dd className="numeric">{value}</dd>
           </div>
