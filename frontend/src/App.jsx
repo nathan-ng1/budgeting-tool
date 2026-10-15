@@ -2,28 +2,19 @@ import { useEffect, useMemo, useState } from "react";
 
 import BalanceCheck from "./components/BalanceCheck.jsx";
 import Budget from "./components/Budget.jsx";
-import BudgetedVsActual from "./components/BudgetedVsActual.jsx";
 import CategoryManagement from "./components/CategoryManagement.jsx";
-import DebtSummary from "./components/DebtSummary.jsx";
 import DeleteData from "./components/DeleteData.jsx";
 import DisplaySettings from "./components/DisplaySettings.jsx";
 import Goals from "./components/Goals.jsx";
 import GoalsTile from "./components/GoalsTile.jsx";
-import SpendingOverTime from "./components/SpendingOverTime.jsx";
 import IncomeAllocation from "./components/IncomeAllocation.jsx";
-import OutflowsBreakdown from "./components/OutflowsBreakdown.jsx";
-import OutflowsByMonth from "./components/OutflowsByMonth.jsx";
-import IncomeVsExpensesByMonth from "./components/IncomeVsExpensesByMonth.jsx";
-import MonthByMonth from "./components/MonthByMonth.jsx";
 import MonthSelector from "./components/MonthSelector.jsx";
+import OverviewDetails, { DEFAULT_SECTION } from "./components/OverviewDetails.jsx";
 import PeriodSwitcher from "./components/PeriodSwitcher.jsx";
 import RecurringRules from "./components/RecurringRules.jsx";
-import SpendingByCategory from "./components/SpendingByCategory.jsx";
+import SectionHead from "./components/SectionHead.jsx";
 import StatTiles from "./components/StatTiles.jsx";
 import ThemeSwitcher from "./components/ThemeSwitcher.jsx";
-import RecurringCharges from "./components/RecurringCharges.jsx";
-import Movers from "./components/Movers.jsx";
-import TopMerchants from "./components/TopMerchants.jsx";
 import Transactions from "./components/Transactions.jsx";
 import VersionHistory from "./components/VersionHistory.jsx";
 import YourData from "./components/YourData.jsx";
@@ -104,6 +95,10 @@ function Dashboard({ settings, onSettingsSaved }) {
   // as local state (Budget.jsx used to unmount on every tab change).
   const [budgetSelected, setBudgetSelected] = useState(currentMonth);
   const [overview, setOverview] = useState(null);
+  // The Breakdown section shown under the Goals (Budget, Spending, ...). Lifted
+  // here so it survives a change of month or year, where it would otherwise
+  // reset every time the figures reload.
+  const [overviewSection, setOverviewSection] = useState(DEFAULT_SECTION);
   const [error, setError] = useState(null);
   // Feeds Spending by Category's legend and Budgeted vs Actual's table
   // (Issue #92) - refetched whenever the Overview is shown: those cards' emoji
@@ -416,73 +411,19 @@ function Dashboard({ settings, onSettingsSaved }) {
                   />
                 </div>
 
+                <SectionHead title="Goals" note="Your savings goals and how they are tracking." />
                 {/* Goals follow no month or Financial Year (Goals spec section 11), so
                     the tile is the same whichever period the pills select. */}
                 <GoalsTile onViewAll={() => setTab("Goals")} />
 
-                {selected !== null ? (
-                  <>
-                    <div className="row--wide-pair">
-                      <div className="row--wide-pair__top">
-                        <SpendingByCategory
-                          spending={overview.spending_by_category}
-                          total={overview.stat_tiles.expenses + overview.stat_tiles.bills_subscriptions}
-                          categories={categories}
-                          colourFor={colourFor}
-                        />
-                      </div>
-                      <div className="row--wide-pair__wide">
-                        <BudgetedVsActual rows={overview.budgeted_vs_actual} categories={categories} colourFor={colourFor} />
-                      </div>
-                      <div className="row--wide-pair__bottom">
-                        <DebtSummary debtSummary={overview.debt_summary} total={overview.stat_tiles.debt} />
-                      </div>
-                    </div>
-                    <OutflowsBreakdown tiles={overview.stat_tiles} />
-                    <div className="row--split">
-                      <TopMerchants merchants={overview.top_merchants} count={5} colourFor={colourFor} />
-                      <SpendingOverTime overTime={overview.spending_over_time} />
-                    </div>
-                    <div className="row--split">
-                      <RecurringCharges recurring={overview.recurring_charges} colourFor={colourFor} />
-                      <Movers movers={overview.movers} />
-                    </div>
-                  </>
-                ) : (
-                  // Full year runs two equal columns - Month by month over
-                  // Spending by Category on the left, Budgeted vs Actual over
-                  // Debt on the right (the last card in each stretches to the
-                  // bottom edge) - then a row for Top merchants. Over a whole
-                  // Financial Year the month-by-month shape is what the donut
-                  // begs the reader to ask about (ADR-0011).
-                  <>
-                    <IncomeVsExpensesByMonth months={overview.income_vs_expenses_by_month} />
-                    <div className="row--columns">
-                      <div className="row--columns__col">
-                        <MonthByMonth months={overview.month_by_month} />
-                        <SpendingByCategory
-                          spending={overview.spending_by_category}
-                          total={overview.stat_tiles.expenses + overview.stat_tiles.bills_subscriptions}
-                          categories={categories}
-                          colourFor={colourFor}
-                        />
-                      </div>
-                      <div className="row--columns__col">
-                        <BudgetedVsActual rows={overview.budgeted_vs_actual} categories={categories} colourFor={colourFor} />
-                        <DebtSummary
-                          debtSummary={overview.debt_summary}
-                          total={overview.stat_tiles.debt}
-                          average={overview.monthly_average.debt}
-                        />
-                      </div>
-                    </div>
-                    <OutflowsByMonth months={overview.outflows_by_month} />
-                    <div className="row--split">
-                      <TopMerchants merchants={overview.top_merchants} count={10} colourFor={colourFor} />
-                      <RecurringCharges recurring={overview.recurring_charges} colourFor={colourFor} />
-                    </div>
-                  </>
-                )}
+                <OverviewDetails
+                  overview={overview}
+                  selected={selected}
+                  categories={categories}
+                  colourFor={colourFor}
+                  section={overviewSection}
+                  onSectionChange={setOverviewSection}
+                />
               </>
             )}
           </>

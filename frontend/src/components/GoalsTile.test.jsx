@@ -116,7 +116,10 @@ describe("GoalsTile", () => {
     const onViewAll = vi.fn();
     renderTile(onViewAll);
 
-    await userEvent.click(await screen.findByRole("button", { name: "View all goals" }));
+    const button = await screen.findByRole("button", { name: "View all goals" });
+    // A filled button like the rest of the Dashboard's actions, not a text link.
+    expect(button).toHaveClass("button");
+    await userEvent.click(button);
 
     expect(onViewAll).toHaveBeenCalledTimes(1);
   });

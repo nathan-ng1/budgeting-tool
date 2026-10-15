@@ -17,7 +17,7 @@ describe("RecurringCharges", () => {
   it("titles the card and shows the total per year and per month in the header", () => {
     render(<RecurringCharges recurring={RECURRING} />);
 
-    expect(screen.getByRole("heading", { name: "Recurring Charges" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Bills & Subscriptions" })).toBeInTheDocument();
     expect(screen.getByText("$1,455 / year")).toBeInTheDocument();
     expect(screen.getByText("$121 / month")).toBeInTheDocument();
   });
@@ -92,7 +92,7 @@ describe("RecurringCharges", () => {
   it("shows a friendly empty state when there are no Bills & Subscriptions", () => {
     render(<RecurringCharges recurring={{ per_year: 0, per_month: 0, rows: [] }} />);
 
-    expect(screen.getByRole("heading", { name: "Recurring Charges" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Bills & Subscriptions" })).toBeInTheDocument();
     expect(screen.getByText("No Bills & Subscriptions recorded in the last 12 months.")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });

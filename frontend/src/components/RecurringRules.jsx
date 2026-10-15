@@ -155,7 +155,7 @@ export default function RecurringRules() {
           <div className="card__actions">
             <button
               type="button"
-              className="button"
+              className="button button--outline"
               disabled={rules === null || rules.length === 0 || running}
               onClick={runRules}
             >
