@@ -213,7 +213,7 @@ def test_editing_an_unknown_goal_is_404(server):
 
 
 def test_the_endpoint_returns_each_goals_derived_figures_against_today(server):
-    # 2026-07-01 to 2027-03-31: 9 inclusive months, 273 days. Today is day 105.
+    # 2026-07-01 to 2027-03-31: 8 months and 30 days = 9 months, 273 days. Today is day 105.
     _, goal = call(server, "POST", "/api/goals", JAPAN)
 
     assert goal["status"] == "Active"
@@ -222,7 +222,7 @@ def test_the_endpoint_returns_each_goals_derived_figures_against_today(server):
     assert goal["saved"] == 0
     assert goal["remaining"] == 6000.0
     assert goal["fraction"] == 0.0
-    assert goal["months_left"] == 6  # Oct 2026 to Mar 2027
+    assert goal["months_left"] == 6  # 16 Oct 2026 to 31 Mar 2027: 5 months and 15 days
     assert goal["required_per_month"] == pytest.approx(1000.0)
     assert goal["original_plan_per_month"] == pytest.approx(6000.0 / 9)
     assert goal["pace_fraction"] == pytest.approx(105 / 273)

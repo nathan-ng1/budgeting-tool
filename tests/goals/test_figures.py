@@ -6,7 +6,7 @@ from datetime import date
 
 import pytest
 
-from goals.figures import describe, months_inclusive
+from goals.figures import describe, goal_months
 from goals.goal import ACTIVE, Goal
 
 
@@ -22,23 +22,46 @@ def goal(target=1200.0, start=date(2026, 1, 1), end=date(2026, 12, 31)) -> Goal:
     )
 
 
-# --- months: inclusive calendar months, minimum one ---
+# --- months: elapsed calendar months, rounded up, minimum one ---
 
 
-def test_months_count_both_end_months():
-    assert months_inclusive(date(2026, 10, 14), date(2026, 12, 15)) == 3
+def test_months_round_a_partial_month_up():
+    # 14 Oct to 14 Dec is two months, plus a day to the 15th.
+    assert goal_months(date(2026, 10, 14), date(2026, 12, 15)) == 3
+
+
+def test_months_under_a_month_apart_is_one_even_across_a_month_end():
+    assert goal_months(date(2026, 10, 20), date(2026, 11, 5)) == 1
 
 
 def test_months_within_one_calendar_month_is_one():
-    assert months_inclusive(date(2026, 10, 1), date(2026, 10, 31)) == 1
+    assert goal_months(date(2026, 10, 1), date(2026, 10, 31)) == 1
+
+
+def test_months_exactly_whole_months_apart_are_not_rounded_up():
+    assert goal_months(date(2026, 10, 20), date(2026, 12, 20)) == 2
+
+
+def test_months_one_day_past_whole_months_rounds_up():
+    assert goal_months(date(2026, 10, 20), date(2026, 12, 21)) == 3
 
 
 def test_months_across_a_year_boundary():
-    assert months_inclusive(date(2026, 11, 30), date(2027, 2, 1)) == 4
+    # 30 Nov to 30 Jan is two months, plus two days to 1 Feb.
+    assert goal_months(date(2026, 11, 30), date(2027, 2, 1)) == 3
+
+
+def test_months_from_a_month_end_clamp_to_the_shorter_month():
+    assert goal_months(date(2026, 1, 31), date(2026, 2, 28)) == 1
+    assert goal_months(date(2026, 1, 31), date(2026, 3, 31)) == 2
+
+
+def test_months_on_the_same_day_is_one():
+    assert goal_months(date(2026, 10, 1), date(2026, 10, 1)) == 1
 
 
 def test_months_never_drop_below_one_when_the_dates_are_reversed():
-    assert months_inclusive(date(2026, 12, 1), date(2026, 10, 1)) == 1
+    assert goal_months(date(2026, 12, 1), date(2026, 10, 1)) == 1
 
 
 # --- Status, in precedence: Achieved, Ended, Upcoming, Active ---
@@ -94,7 +117,7 @@ def test_achieved_beats_upcoming():
 
 
 def test_required_per_month_spreads_what_is_left_over_the_months_from_today():
-    # 14 Oct to 31 Dec 2026 is Oct, Nov, Dec = 3 months; 1200 - 300 left.
+    # 14 Oct to 31 Dec 2026 is two months and 17 days = 3 months; 1200 - 300 left.
     figures = describe(goal(target=1200.0), saved=300.0, today=date(2026, 10, 14))
 
     assert figures.months_left == 3
@@ -123,7 +146,7 @@ def test_required_per_month_is_absent_once_the_end_date_has_passed():
 
 
 def test_original_plan_spreads_the_target_over_start_to_end_months():
-    # Jan to Dec 2026 is 12 inclusive months.
+    # 1 Jan to 31 Dec 2026 is 11 months and 30 days = 12 months.
     figures = describe(goal(target=1200.0), saved=0.0, today=date(2026, 6, 15))
 
     assert figures.original_plan_per_month == pytest.approx(100.0)
