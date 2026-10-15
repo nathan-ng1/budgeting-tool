@@ -3395,6 +3395,12 @@ tbody:first-of-type .table th.table__section {
   border-bottom: none;
 }
 
+/* Centred over the two trend columns it feeds. */
+.table__window-row .field {
+  width: fit-content;
+  margin: 0 auto;
+}
+
 /* Budget table: every other Category row is shaded (dark, light, dark, light)
    so the eye can follow a row across to its Budgeted Amount. The section
    heading is each body's first row, so the first Category is the 2nd child;
