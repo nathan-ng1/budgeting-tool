@@ -1552,6 +1552,18 @@ tbody:first-of-type .bva__section {
   font-weight: 600;
 }
 
+/* Every other Category row is shaded (dark, light, dark, light), the same as
+   the Budget tab's table. The section heading is each body's first row, so
+   the first Category is the 2nd child; the Total row is left plain. The
+   negative margin lets the shading extend past the text without shifting the
+   columns out of line with the header. */
+.bva tbody .bva__row:nth-child(even):not(.bva__total) {
+  margin: 0 -8px;
+  padding-left: 8px;
+  padding-right: 8px;
+  background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+}
+
 /* — month by month — */
 
 .mbm__row {
@@ -3332,4 +3344,73 @@ tbody:first-of-type .table th.table__section {
   .goals__split {
     animation: none;
   }
+}
+
+/* — Budget Simple | Advanced toggle (Budget tab) — */
+
+.detail-seg {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--color-neutral-300);
+  border-radius: 999px;
+  background: var(--color-card);
+}
+
+.detail-seg button {
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  color: var(--color-neutral-600);
+  cursor: pointer;
+}
+
+.detail-seg button:hover {
+  color: var(--color-text);
+}
+
+.detail-seg button[aria-pressed="true"] {
+  background: var(--color-accent);
+  color: var(--color-neutral-100);
+  font-weight: 600;
+}
+
+.detail-seg button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Keeps the Trailing window's space while Advanced is off, so the table
+   below doesn't jump when the toggle flips. */
+.field--reserved {
+  visibility: hidden;
+}
+
+/* The Trailing window's row in the Budget table header: no rule or row padding
+   of its own, just the dropdown over the trend columns. */
+.table .table__window-row td {
+  padding: 0 14px 12px 0;
+  border-bottom: none;
+}
+
+/* Centred over the two trend columns it feeds. */
+.table__window-row .field {
+  width: fit-content;
+  margin: 0 auto;
+}
+
+/* Budget table: every other Category row is shaded (dark, light, dark, light)
+   so the eye can follow a row across to its Budgeted Amount. The section
+   heading is each body's first row, so the first Category is the 2nd child;
+   the Total row is left plain. First cells get a little left padding so the
+   shading doesn't sit flush against the text. */
+.budget__table tbody tr:nth-child(even):not(.budget__total-row) {
+  background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+}
+
+.budget__table th:first-child,
+.budget__table td:first-child {
+  padding-left: 12px;
 }
