@@ -59,6 +59,7 @@ DATABASE_RESET_SUMMARY_PATH = f"{DATABASE_PATH}/reset-summary"
 DATABASE_RESET_PATH = f"{DATABASE_PATH}/reset"
 RECURRING_RULES_PATH = "/api/recurring-rules"
 RECURRING_RULES_RUN_PATH = f"{RECURRING_RULES_PATH}/run"
+RECURRING_RULES_DUE_PATH = f"{RECURRING_RULES_PATH}/due"
 RECURRING_RULES_SPLIT_PATH = f"{RECURRING_RULES_PATH}/split"
 TRANSACTIONS_PATH = "/api/transactions"
 TRANSACTIONS_EXPORT_PATH = "/api/transactions/export"
@@ -172,6 +173,8 @@ def _make_handler(
                         "latest": latest.isoformat() if latest is not None else None,
                     },
                 )
+            elif parsed.path == RECURRING_RULES_DUE_PATH:
+                self._send_recurring_due_count()
             elif parsed.path == RECURRING_RULES_PATH:
                 self._send_json(200, [recurring.as_payload(r) for r in store.read_stored_recurring_rules()])
             elif parsed.path == TRANSACTIONS_EXPORT_PATH:
@@ -410,6 +413,13 @@ def _make_handler(
                 self._send_json(400, {"error": str(cause)})
                 return
             self._send_json(200, {"amount": rule.amount, "occurrences": occurrences})
+
+        def _send_recurring_due_count(self) -> None:
+            """How many occurrences "Run now" would write if clicked, without
+            writing any - the same expansion/dedupe pass, as a dry run, so the
+            Dashboard can prompt for it and nothing lands unasked (Issue #240)."""
+            result = pipeline.run(candidates=[], store=store, through=date.today(), dry_run=True)
+            self._send_json(200, {"due": len(result.to_write)})
 
         def _run_recurring_rules(self) -> None:
             """Manually expand every Recurring Transactions Config rule

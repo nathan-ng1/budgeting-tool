@@ -3482,3 +3482,28 @@ tbody:first-of-type .table th.table__section {
 .budget__table td:first-child {
   padding-left: 12px;
 }
+
+/* — Recurring due prompt (Overview tab, Issue #240) — */
+
+.due-prompt {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  margin-bottom: 16px;
+  padding: 14px 18px;
+  background: var(--color-card);
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+}
+
+.due-prompt__text {
+  flex: 1 1 auto;
+}
+
+.due-prompt__error {
+  flex-basis: 100%;
+  padding: 0;
+  text-align: left;
+}

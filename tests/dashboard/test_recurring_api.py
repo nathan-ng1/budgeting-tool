@@ -371,6 +371,74 @@ def test_run_endpoint_with_no_rules_configured_writes_nothing(running_server):
     assert body == {"written": 0}
 
 
+# The due count behind the Dashboard's "N recurring transactions are due" prompt
+# (Issue #240): what Run now would write, reported without writing it.
+
+
+def test_due_count_is_zero_with_no_rules_configured(running_server):
+    _store, server = running_server
+
+    status, body = call(server, "GET", "/api/recurring-rules/due")
+
+    assert status == 200
+    assert body == {"due": 0}
+
+
+def test_due_count_reports_the_occurrences_run_now_would_write(running_server):
+    _store, server = running_server
+    today = date.today()
+    call(server, "POST", "/api/recurring-rules", weekly_rule_payload_starting(today - timedelta(weeks=2)))
+
+    status, body = call(server, "GET", "/api/recurring-rules/due")
+
+    assert status == 200
+    assert body == {"due": 3}
+
+
+def test_due_count_writes_nothing_to_the_transaction_log(running_server):
+    store, server = running_server
+    call(server, "POST", "/api/recurring-rules", weekly_rule_payload_starting(date.today()))
+
+    call(server, "GET", "/api/recurring-rules/due")
+    call(server, "GET", "/api/recurring-rules/due")
+
+    assert store.read_existing_rows() == []
+
+
+def test_due_count_is_zero_once_everything_is_in_the_transaction_log(running_server):
+    _store, server = running_server
+    call(server, "POST", "/api/recurring-rules", weekly_rule_payload_starting(date.today()))
+    call(server, "POST", "/api/recurring-rules/run")
+
+    status, body = call(server, "GET", "/api/recurring-rules/due")
+
+    assert status == 200
+    assert body == {"due": 0}
+
+
+def test_due_count_ignores_occurrences_that_fall_after_today(running_server):
+    _store, server = running_server
+    next_week = date.today() + timedelta(weeks=1)
+    call(server, "POST", "/api/recurring-rules", weekly_rule_payload_starting(next_week))
+
+    assert call(server, "GET", "/api/recurring-rules/due")[1] == {"due": 0}
+
+
+def test_a_deliberately_deleted_occurrence_comes_back_only_in_the_due_count(running_server):
+    store, server = running_server
+    today = date.today()
+    call(server, "POST", "/api/recurring-rules", weekly_rule_payload_starting(today))
+    call(server, "POST", "/api/recurring-rules/run")
+    (logged,) = store.read_transactions()
+    call(server, "DELETE", f"/api/transactions/{logged.id}")
+
+    status, body = call(server, "GET", "/api/recurring-rules/due")
+
+    assert status == 200
+    assert body == {"due": 1}
+    assert store.read_existing_rows() == []
+
+
 # Splitting a Total Amount across the schedule (Issue #148). The rule that
 # gets stored is an ordinary one - only its per-occurrence Amount was
 # derived from the Total, nothing about the split is kept.
