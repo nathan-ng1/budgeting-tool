@@ -23,6 +23,7 @@ def serve():
         static_root: Path | None = None,
         changelog_path: Path | None = None,
         env_path: Path | None = None,
+        data_folder: Path | None = None,
         pick_folder=None,
         today=None,
     ):
@@ -31,6 +32,8 @@ def serve():
             kwargs["changelog_path"] = changelog_path
         if env_path is not None:
             kwargs["env_path"] = env_path
+        if data_folder is not None:
+            kwargs["data_folder"] = data_folder
         if pick_folder is not None:
             kwargs["pick_folder"] = pick_folder
         if today is not None:

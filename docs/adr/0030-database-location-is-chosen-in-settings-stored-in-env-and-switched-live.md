@@ -1,5 +1,9 @@
 # The Database's location is chosen in Settings, stored in `.env`, and switched live
 
+> **Partly superseded by [ADR-0032](./0032-one-data-location-resolver-with-a-pointer-file.md).** The location
+> is stored in `.env` only while a `DATABASE_PATH` override exists; otherwise it is stored in a pointer
+> file in the per-user data folder, and "Change location…" is available in the Retail Edition too.
+
 The Settings tab now shows where the Database lives and offers a "Change location…" control. The
 location has to be stored outside the Database, because a pointer can't live inside the file it
 points to. We decided the Dashboard rewrites `DATABASE_PATH` in the repo-root `.env`, the same key
@@ -44,5 +48,5 @@ own configuration doesn't conflict with it.
 - Choosing a folder with no Database moves the current one there, together with its
   `*.pre-migration-*.db` files. The old files are deleted only once the copy is verified and the
   switch succeeds.
-- This feature is Collaborator Edition only. The Retail Edition needs its own way to store the
-  location.
+- ~~This feature is Collaborator Edition only.~~ It now ships in both editions; ADR-0032 adds the
+  pointer file the Retail Edition stores its location in.

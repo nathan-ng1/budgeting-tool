@@ -66,14 +66,15 @@ def test_the_env_path_and_folder_picker_can_be_injected(store, tmp_path: Path):
         server.server_close()
 
 
-def test_the_env_path_and_folder_picker_default_to_the_real_ones(store):
+def test_the_env_path_and_folder_picker_default_to_the_real_ones(store, monkeypatch):
     from dashboard.folder_picker import pick_folder
-    from dashboard.server import ENV_PATH
+    from database import location
+
+    monkeypatch.setattr(location, "ENV_PATH", location.REPO_ROOT / ".env")  # undo the test isolation
 
     server = build_server(store)
     try:
-        assert server.env_path == ENV_PATH
-        assert ENV_PATH.name == ".env"
+        assert server.env_path == location.REPO_ROOT / ".env"
         assert server.pick_folder is pick_folder
     finally:
         server.server_close()

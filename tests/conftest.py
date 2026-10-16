@@ -7,6 +7,7 @@ import pytest
 
 from categorisation.history import Example
 from categorisation.interface import BatchResult, CategoryResult
+from database import location
 from database.budget_suggestion import BudgetSuggestion
 from goals.goal import Contribution, Goal, GoalNotFound
 from goals.links import require_not_goals_category, require_valid_goal_link
@@ -317,6 +318,17 @@ class FakeStore:
             if category.id == category_id:
                 return category
         raise CategoryNotFound(f"No Category has id {category_id}")
+
+
+@pytest.fixture(autouse=True)
+def _isolated_database_location(tmp_path_factory, monkeypatch):
+    """No test may read or create files in the real per-user data folder, which
+    is where an unconfigured Database now lands (ADR-0032), nor read the
+    developer's own repo-root `.env`."""
+    folder = tmp_path_factory.mktemp("default-data-folder")
+    monkeypatch.setattr(location, "default_data_folder", lambda *args, **kwargs: folder)
+    monkeypatch.setattr(location, "ENV_PATH", folder / "no.env")
+    monkeypatch.delenv("DATABASE_PATH", raising=False)
 
 
 @pytest.fixture

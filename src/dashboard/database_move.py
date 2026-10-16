@@ -24,9 +24,13 @@ A foreign file is judged by `check_foreign_database` on a plain, read-only
 sqlite3 connection - never by `open_connection`, which would create tables,
 seed Categories and mark migrations in a file that isn't ours to change.
 
-A failure at any step leaves the live Database, its files and `.env` exactly
-as they were; whatever a move copied is cleaned up, and a Database that was
-already in the folder is never removed.
+Where the new location is recorded follows `database.location`: `.env` when a
+`DATABASE_PATH` override exists (it would win over anything else), otherwise the
+pointer file in the per-user data folder (Issue #238, ADR-0032).
+
+A failure at any step leaves the live Database, its files, `.env` and the
+pointer file exactly as they were; whatever a move copied is cleaned up, and a
+Database that was already in the folder is never removed.
 """
 
 import os
@@ -40,6 +44,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from database.backup import pre_migration_backup
+from database import location
+from database.location import SOURCE_OVERRIDE, resolve_location, write_pointer
 from database.store import connect
 from migration.registry import MIGRATIONS
 from migration.runner import MigrationFailed, pending, run_pending, unknown_applied
@@ -175,21 +181,64 @@ def apply_folder(
     verify_copy: Callable[[Path], None] = check_copy,
     open_store: Callable[[Path], object] = connect,
     write_location: Callable[[Path, dict[str, str]], None] = write_env,
+    data_folder: Path | None = None,
+    write_pointer_file: Callable[[Path, Path], None] = write_pointer,
 ) -> list[Path]:
     """Carry out the confirmed choice of `chosen` as the Database's folder.
+
+    The new location goes into `.env` (`write_location`) if a `DATABASE_PATH`
+    override exists, otherwise into the pointer file in `data_folder`
+    (`write_pointer_file`).
 
     Returns the old files a move could not delete (empty for any other outcome
     or a clean move), so the caller can tell the user they are still there."""
     report = inspect_folder(chosen, Path(handle.path), ensure_writable=ensure_writable)
     if report.outcome == OUTCOME_CURRENT:
         raise FolderUnusable("The Database is already in that folder")
+    record = _Recorder(
+        overridden=resolve_location(env_path=env_path, data_folder=data_folder).source == SOURCE_OVERRIDE,
+        env_path=env_path,
+        data_folder=data_folder,
+        write_location=write_location,
+        write_pointer_file=write_pointer_file,
+    )
     if report.outcome in (OUTCOME_EXISTING, OUTCOME_MIGRATE):
-        _switch(handle, report, env_path, open_store, write_location)
+        _switch(handle, report, record, open_store)
         return []
-    return _move(handle, report, env_path, verify_copy, open_store, write_location)
+    return _move(handle, report, record, verify_copy, open_store)
 
 
-def _switch(handle, report, env_path, open_store, write_location) -> None:
+@dataclass(frozen=True)
+class _Recorder:
+    """Records a new Database location where the resolver will look for it."""
+
+    overridden: bool
+    env_path: Path
+    data_folder: Path | None
+    write_location: Callable[[Path, dict[str, str]], None]
+    write_pointer_file: Callable[[Path, Path], None]
+
+    def save(self, target: Path) -> None:
+        """Raise MoveFailed if it can't be written; the old record is then as it was."""
+        if self.overridden:
+            try:
+                self.write_location(self.env_path, {"DATABASE_PATH": str(target)})
+            except OSError as cause:
+                raise MoveFailed(f"Couldn't update .env: {cause}") from cause
+            return
+        folder = location.default_data_folder() if self.data_folder is None else self.data_folder
+        try:
+            self.write_pointer_file(folder, target)
+        except OSError as cause:
+            raise MoveFailed(f"Couldn't save the new location: {cause}") from cause
+
+    def apply_in_process(self, target: Path) -> None:
+        """Make this process's own environment agree with what was saved."""
+        if self.overridden:
+            os.environ["DATABASE_PATH"] = str(target)
+
+
+def _switch(handle, report, record, open_store) -> None:
     """Start using the Database already in the folder. Nothing is copied or
     overwritten, and the current Database stays exactly where it is. An older
     Database is migrated first, before the normal open (which would create
@@ -202,18 +251,15 @@ def _switch(handle, report, env_path, open_store, write_location) -> None:
             new_store = open_store(report.target)
         except Exception as cause:
             raise MoveFailed(f"Couldn't open {report.target.name}: {cause}") from cause
-        try:
-            # `.env` only after the new connection opened; the swap comes last.
-            write_location(env_path, {"DATABASE_PATH": str(report.target)})
-        except OSError as cause:
-            raise MoveFailed(f"Couldn't update .env: {cause}") from cause
+        # The location is saved only after the new connection opened; the swap comes last.
+        record.save(report.target)
     except MoveFailed as failure:
         if new_store is not None:
             new_store.close()
         if copy is not None:
             _put_back(report.target, copy, str(failure))
         raise
-    os.environ["DATABASE_PATH"] = str(report.target)
+    record.apply_in_process(report.target)
     # The old file is kept, so it is closed only to release it, not to delete it.
     handle.swap(new_store).close()
 
@@ -252,7 +298,7 @@ def _put_back(path: Path, copy: Path, reason: str) -> None:
     raise MoveFailed(f"{reason} {path.name} was left as it was and the Dashboard stays on its current Database.")
 
 
-def _move(handle, report, env_path, verify_copy, open_store, write_location) -> list[Path]:
+def _move(handle, report, record, verify_copy, open_store) -> list[Path]:
     old_database = Path(handle.path)
     sources = [old_database, *pre_migration_files(old_database)]
     # Never overwrite (or, on rollback, delete) a file that was already there.
@@ -271,13 +317,10 @@ def _move(handle, report, env_path, verify_copy, open_store, write_location) -> 
 
         new_store = open_store(report.target)
 
-        # `.env` is rewritten only now that the new connection opened, and the
-        # live swap comes after it, so a failure up to here changes nothing.
-        try:
-            write_location(env_path, {"DATABASE_PATH": str(report.target)})
-        except OSError as cause:
-            raise MoveFailed(f"Couldn't update .env: {cause}") from cause
-        os.environ["DATABASE_PATH"] = str(report.target)
+        # The location is saved only now that the new connection opened, and
+        # the live swap comes after it, so a failure up to here changes nothing.
+        record.save(report.target)
+        record.apply_in_process(report.target)
     except BaseException as failure:
         if new_store is not None:
             new_store.close()

@@ -128,7 +128,7 @@ cp .env.example .env
 | Variable | Required | Meaning |
 |---|---|---|
 | `TRANSACTIONS_INBOX` | yes | Absolute path to the folder outside this repo where you download raw Statement Exports. Read by `uv run python -m sanitising`. |
-| `DATABASE_PATH` | yes | Path to your local SQLite database file — the live Transaction Log and Recurring Transactions Config. Created automatically on first run if it doesn't exist yet. |
+| `DATABASE_PATH` | set by the installer | Path to your local SQLite database file — the live Transaction Log and Recurring Transactions Config. Created automatically on first run if it doesn't exist yet. When set, it wins over everything else; when absent, the Dashboard uses the location saved by Settings → Change location, or a default folder in your user data (ADR-0032). |
 | `BEEM_USERNAME` | only for Beem reports | Which side of each row (`Payer`/`Recipient`) is you, so the Beem sanitising handler can derive a signed amount. |
 | `CATEGORISER_BACKEND` | yes | Which categorisation backend to use: `claude`, `codex`, or `openai-compatible`. Read by `uv run python -m statement_export`. |
 | `ADVISOR_BACKEND` | only for Budget Suggestion | Which backend `generate_budget_suggestion` uses: `claude`, `codex`, or `openai-compatible` — a separate setting from `CATEGORISER_BACKEND` (ADR-0014), though the guided installer sets both to the same value on the AI path. Read by `uv run python -m budget_suggestions`. |

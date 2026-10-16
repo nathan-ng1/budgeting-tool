@@ -15,7 +15,8 @@ from contextlib import closing
 from pathlib import Path
 
 from database.backup import pre_migration_backup
-from database.store import open_connection, resolve_database_path
+from database.location import resolve_database_path
+from database.store import open_connection
 from migration.registry import MIGRATIONS
 from migration.runner import MigrationFailed, pending, run_pending
 
