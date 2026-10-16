@@ -21,6 +21,7 @@ import VersionHistory from "./components/VersionHistory.jsx";
 import YourData from "./components/YourData.jsx";
 import {
   fetchAnnualOverview,
+  fetchCapabilities,
   fetchLatestTransactionDate,
   fetchMonthOverview,
   fetchTransactionDateRange,
@@ -119,6 +120,10 @@ function Dashboard({ settings, onSettingsSaved }) {
   const [version, setVersion] = useState(null);
   const [history, setHistory] = useState(null);
   const [showingHistory, setShowingHistory] = useState(false);
+  // Which optional features this build ships (ADR-0033). Null until it
+  // lands or if it can't be read, which hides them all: a feature appears only
+  // once the backend has said it exists.
+  const [capabilities, setCapabilities] = useState(null);
 
   // The Financial Year/Calendar Year switcher's shared state (ADR-0021),
   // consumed by the Overview, Budget, and Transactions tabs below.
@@ -186,6 +191,18 @@ function Dashboard({ settings, onSettingsSaved }) {
 
     return () => controller.abort();
   }, [tab]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    fetchCapabilities({ signal: controller.signal })
+      .then((loaded) => setCapabilities(loaded ?? null))
+      .catch(() => {
+        // Failing closed is the safe degradation: the features just stay hidden.
+      });
+
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -385,6 +402,7 @@ function Dashboard({ settings, onSettingsSaved }) {
             referenceYear={referenceYear}
             selected={budgetSelected}
             onSelect={setBudgetSelected}
+            capabilities={capabilities}
           />
         )}
 
