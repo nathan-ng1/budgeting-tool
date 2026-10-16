@@ -3,7 +3,7 @@ from datetime import date
 from pathlib import Path
 
 from database.store import connect
-from statement_export.pipeline import Archive, run
+from transaction_log.pipeline import Archive, run
 
 
 def test_candidates_are_written_and_deduped_against_a_real_sqlite_store(make_candidate, tmp_path: Path):

@@ -235,7 +235,7 @@ def test_a_non_numeric_rule_id_returns_404(running_server):
 
 def expanded_notes_and_amounts(store, through: date):
     """What the next Statement Export run would write from the Config alone."""
-    from statement_export.pipeline import run
+    from transaction_log.pipeline import run
 
     result = run(candidates=[], store=store, through=through, dry_run=True)
     return [(entry.notes, entry.amount) for entry in result.to_write]

@@ -5,9 +5,9 @@ from dataclasses import replace
 
 import pytest
 
-from budget_suggestions.suggestion import BudgetSuggestion
 from categorisation.history import Example
 from categorisation.interface import BatchResult, CategoryResult
+from database.budget_suggestion import BudgetSuggestion
 from goals.goal import Contribution, Goal, GoalNotFound
 from goals.links import require_not_goals_category, require_valid_goal_link
 from database.store import (

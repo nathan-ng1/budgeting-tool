@@ -11,9 +11,9 @@ from dataclasses import dataclass
 from datetime import date
 from statistics import median
 
-from categorisation.history import normalise_notes
 from transaction_log.categories import TYPE_ORDER, Category, categories_by_type, type_lookup
 from transaction_log.entries import Transaction
+from transaction_log.notes import normalise_notes
 
 # The Types a Category Budget can apply to - every Type (ADR-0023 extended it
 # from Income/Expense/Debt to Savings), so this is just TYPE_ORDER: a new Type

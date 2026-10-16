@@ -32,7 +32,7 @@ from dashboard.folder_picker import FolderPickerError
 from dashboard.folder_picker import pick_folder as real_pick_folder
 from database.store import CategoryNotFound, RecurringRuleNotFound, TransactionNotFound
 from goals.goal import ARCHIVED, DELETED, GoalNotFound
-from statement_export import pipeline
+from transaction_log import pipeline
 from transaction_log.categories import type_lookup
 
 # Where `npm run build` puts the frontend (see frontend/vite.config.js). The

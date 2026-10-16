@@ -5,11 +5,11 @@ from typing import Callable
 
 from categorisation.history import Example, prompt_examples, split_history_matches
 from categorisation.interface import Categoriser, MalformedResponseError
-from statement_export import pipeline
 from statement_export.parser import RawTransaction
-from statement_export.pipeline import Archive
+from transaction_log import pipeline
 from transaction_log.categories import Category
 from transaction_log.entries import Candidate, WriteResult
+from transaction_log.pipeline import Archive
 
 logger = logging.getLogger(__name__)
 

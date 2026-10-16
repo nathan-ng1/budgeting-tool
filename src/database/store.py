@@ -6,8 +6,8 @@ from pathlib import Path
 from goals.goal import ACTIVE, ARCHIVED, DELETED, Contribution, Goal, GoalDraft, GoalNotFound
 from goals.links import require_not_goals_category, require_valid_goal_link
 
-from budget_suggestions.suggestion import BudgetSuggestion
 from database.backup import backup_to
+from database.budget_suggestion import BudgetSuggestion
 from recurring.rules import RecurringRule, StoredRecurringRule
 from transaction_log.categories import CATEGORIES_BY_TYPE, TYPE_ORDER, Category, default_category_rows
 from transaction_log.entries import Candidate, ExistingRow, Transaction

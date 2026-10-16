@@ -8,7 +8,7 @@ from categorisation.interface import Categoriser
 from statement_export import parser as statement_export_parser
 from statement_export.orchestrator import NeedsReviewResolver, OrchestrationResult
 from statement_export.orchestrator import run as orchestrate
-from statement_export.pipeline import Archive
+from transaction_log.pipeline import Archive
 
 logger = logging.getLogger(__name__)
 
