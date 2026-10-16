@@ -9,8 +9,6 @@ from dataclasses import asdict
 from datetime import date, datetime
 from functools import wraps
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from importlib.metadata import PackageNotFoundError
-from importlib.metadata import version as installed_version
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
@@ -26,6 +24,7 @@ from dashboard import (
     settings,
     transactions,
 )
+from dashboard.build_info import BUILD_INFO_PATH, CHANGELOG_PATH, package_version, read_build_info
 from dashboard.changelog import read_history
 from dashboard.database_handle import DatabaseHandle
 from dashboard.folder_picker import FolderPickerError
@@ -40,9 +39,6 @@ from transaction_log.categories import type_lookup
 # directory is a build artefact, so it is absent in a fresh clone until the
 # frontend has been built once.
 STATIC_ROOT = Path(__file__).resolve().parent / "static"
-
-# The hand-curated Version History at the repo root (ADR-0029).
-CHANGELOG_PATH = Path(__file__).resolve().parents[2] / "CHANGELOG.md"
 
 # Only what the build actually emits - see frontend/ (a page, its JS/CSS bundle,
 # and the vendored fonts).
@@ -85,19 +81,13 @@ BUILD_INSTRUCTIONS = (
 )
 
 
-def _installed_version() -> str | None:
-    try:
-        return installed_version("budgeting-tool")
-    except PackageNotFoundError:
-        return None
-
-
 def build_server(
     store,
     host: str = "127.0.0.1",
     port: int = 0,
     static_root: Path = STATIC_ROOT,
     changelog_path: Path = CHANGELOG_PATH,
+    build_info_path: Path = BUILD_INFO_PATH,
     env_path: Path | None = None,
     data_folder: Path | None = None,
     pick_folder: Callable[[], str | None] = real_pick_folder,
@@ -119,7 +109,7 @@ def build_server(
     # never arrives, and queues every real request behind it - index.html
     # arrives, its JS and CSS never do, and the page renders empty (Issue #45).
     database = store if isinstance(store, DatabaseHandle) else DatabaseHandle(store)
-    server = ThreadingHTTPServer((host, port), _make_handler(database, static_root, changelog_path, today))
+    server = ThreadingHTTPServer((host, port), _make_handler(database, static_root, changelog_path, build_info_path, today))
     server.env_path = location.ENV_PATH if env_path is None else env_path
     server.data_folder = data_folder
     server.pick_folder = pick_folder
@@ -128,7 +118,13 @@ def build_server(
     return server
 
 
-def _make_handler(store: DatabaseHandle, static_root: Path, changelog_path: Path, today: Callable[[], date]):
+def _make_handler(
+    store: DatabaseHandle,
+    static_root: Path,
+    changelog_path: Path,
+    build_info_path: Path,
+    today: Callable[[], date],
+):
     # `store` is the swappable DatabaseHandle, which forwards to the open
     # LocalStore. Serialises the handlers, so they keep the
     # single-request-at-a-time access to it that its sqlite connection needs.
@@ -221,8 +217,14 @@ def _make_handler(store: DatabaseHandle, static_root: Path, changelog_path: Path
                 # refreshed by the update scripts' re-sync), so between
                 # releases it is the last released Version (ADR-0029).
                 # `history` is the parsed CHANGELOG.md, or null (still 200)
-                # when it is missing or malformed.
-                self._send_json(200, {"version": _installed_version(), "history": read_history(changelog_path)})
+                # when it is missing or malformed. A compiled build has neither,
+                # so when `build_info.json` is present it is the source of both
+                # instead (spec #236, S3); present but unreadable, both are null.
+                if build_info_path.is_file():
+                    payload = read_build_info(build_info_path) or {"version": None, "history": None}
+                else:
+                    payload = {"version": package_version(), "history": read_history(changelog_path)}
+                self._send_json(200, payload)
             elif parsed.path.startswith("/api/"):
                 self._send_json(404, {"error": "Not found"})
             else:

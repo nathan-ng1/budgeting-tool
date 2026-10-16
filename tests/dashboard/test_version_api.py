@@ -79,8 +79,8 @@ def test_sub_headings_group_a_versions_bullets(serve, store, tmp_path):
             "date": "2026-10-16",
             "entries": [],
             "groups": [
-                {"title": "New features", "entries": ["A feature.", "Another feature."]},
-                {"title": "Bug fixes", "entries": ["A fix."]},
+                {"title": "New features", "collaborator_only": False, "entries": ["A feature.", "Another feature."]},
+                {"title": "Bug fixes", "collaborator_only": False, "entries": ["A fix."]},
             ],
         },
         {"version": "0.5.0", "date": "2026-10-15", "entries": ["Flat and older."], "groups": []},
@@ -93,7 +93,30 @@ def test_bullets_before_the_first_sub_heading_stay_ungrouped(serve, store, tmp_p
     [version] = history_from(serve, store, tmp_path, text)
 
     assert version["entries"] == ["Loose."]
-    assert version["groups"] == [{"title": "Bug fixes", "entries": ["A fix."]}]
+    assert version["groups"] == [{"title": "Bug fixes", "collaborator_only": False, "entries": ["A fix."]}]
+
+
+def test_the_collaborator_only_sub_heading_is_a_distinct_group(serve, store, tmp_path):
+    text = (
+        "## v0.6.0 — 2026-10-16\n\n"
+        "### New features\n\n- A feature.\n\n"
+        "### Collaborator Edition only\n\n- A pipeline change.\n"
+    )
+
+    [version] = history_from(serve, store, tmp_path, text)
+
+    assert version["groups"] == [
+        {"title": "New features", "collaborator_only": False, "entries": ["A feature."]},
+        {"title": "Collaborator Edition only", "collaborator_only": True, "entries": ["A pipeline change."]},
+    ]
+
+
+def test_the_collaborator_only_sub_heading_matches_regardless_of_case(serve, store, tmp_path):
+    text = "## v0.6.0 — 2026-10-16\n\n### Collaborator edition only\n\n- A pipeline change.\n"
+
+    [version] = history_from(serve, store, tmp_path, text)
+
+    assert version["groups"][0]["collaborator_only"] is True
 
 
 def test_a_missing_changelog_gives_no_history_but_still_200(serve, store, tmp_path):

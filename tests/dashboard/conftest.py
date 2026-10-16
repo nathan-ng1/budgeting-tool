@@ -22,6 +22,7 @@ def serve():
         store,
         static_root: Path | None = None,
         changelog_path: Path | None = None,
+        build_info_path: Path | None = None,
         env_path: Path | None = None,
         data_folder: Path | None = None,
         pick_folder=None,
@@ -30,6 +31,8 @@ def serve():
         kwargs = {} if static_root is None else {"static_root": static_root}
         if changelog_path is not None:
             kwargs["changelog_path"] = changelog_path
+        if build_info_path is not None:
+            kwargs["build_info_path"] = build_info_path
         if env_path is not None:
             kwargs["env_path"] = env_path
         if data_folder is not None:
