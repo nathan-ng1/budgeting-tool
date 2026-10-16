@@ -1,8 +1,10 @@
 # The Database's location is chosen in Settings, stored in `.env`, and switched live
 
-> **Partly superseded by [ADR-0032](./0032-one-data-location-resolver-with-a-pointer-file.md).** The location
-> is stored in `.env` only while a `DATABASE_PATH` override exists; otherwise it is stored in a pointer
-> file in the per-user data folder, and "Change location…" is available in the Retail Edition too.
+> **Partly superseded by [ADR-0032](./0032-one-data-location-resolver-with-a-pointer-file.md) and
+> [ADR-0033](./0033-the-editions-differ-by-what-ships.md).** The location is stored in `.env` only
+> while a `DATABASE_PATH` override exists; otherwise it is stored in a pointer file in the per-user
+> data folder, and "Change location…" is available in the Retail Edition too. ADR-0033 records why
+> there is one resolver for both editions.
 
 The Settings tab now shows where the Database lives and offers a "Change location…" control. The
 location has to be stored outside the Database, because a pointer can't live inside the file it

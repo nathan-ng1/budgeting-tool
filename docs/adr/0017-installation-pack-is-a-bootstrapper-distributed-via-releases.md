@@ -1,5 +1,10 @@
 # Installation Pack is a standalone bootstrapper distributed via private-repo GitHub Releases
 
+> **Distribution scope superseded by [ADR-0033](./0033-the-editions-differ-by-what-ships.md).** This
+> ADR's decision stands for the Collaborator Edition, but its limit to "personal/invited-user
+> distribution" no longer holds: the Retail Edition is sold to the public and distributed separately
+> from this Installation Pack.
+
 A new user has nothing installed yet — not even Git — so `setup.bat` can't live only inside the
 repo the way `open_dashboard.bat` and friends do; it has to be downloadable and runnable before a
 clone exists. We chose to make it a standalone bootstrapper (installs Git via `winget` if missing,
