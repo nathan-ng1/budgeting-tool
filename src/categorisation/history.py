@@ -8,20 +8,17 @@ as hints for everything else. Neither does any I/O: the caller reads the
 rows once per file and passes them in.
 """
 
-import re
 from dataclasses import dataclass
 from datetime import date
 
 from statement_export.parser import RawTransaction
 from transaction_log.categories import Category, assignable_categories_by_type, types_with_categories
 from transaction_log.entries import Candidate, Transaction
+from transaction_log.notes import normalise_notes
 
 # How many normalised Notes keys the prompt examples carry - the most
 # recently seen first. Kept small enough for small-context local backends.
 MAX_EXAMPLES = 200
-
-_DIGITS = re.compile(r"\d")
-_WHITESPACE = re.compile(r"\s+")
 
 
 @dataclass(frozen=True)
@@ -31,12 +28,6 @@ class Example:
 
     notes_key: str
     pairs: tuple[tuple[str, str], ...]
-
-
-def normalise_notes(notes: str) -> str:
-    """Lowercase, strip every digit, collapse whitespace, trim - so store
-    numbers, terminal IDs, case and spacing don't defeat the lookup."""
-    return _WHITESPACE.sub(" ", _DIGITS.sub("", notes.lower())).strip()
 
 
 def split_history_matches(

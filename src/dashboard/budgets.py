@@ -6,7 +6,7 @@ editor's rows look like on the wire is a question about the domain, not about
 HTTP - mirrors dashboard.recurring.
 """
 
-from budget_suggestions.suggestion import BudgetSuggestion
+from database.budget_suggestion import BudgetSuggestion
 from dashboard.queries import BUDGETABLE_TYPES, BudgetEditorRow, BudgetGridRow
 
 # The trailing window the Budget tab editor requests when its dropdown query
