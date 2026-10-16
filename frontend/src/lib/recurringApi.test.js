@@ -4,6 +4,7 @@ import {
   createRecurringRule,
   deleteRecurringRule,
   fetchCategories,
+  fetchRecurringDueCount,
   fetchRecurringRules,
   previewSplit,
   updateRecurringRule,
@@ -32,6 +33,14 @@ describe("recurringApi", () => {
 
     expect(await fetchRecurringRules()).toEqual([{ id: 1, ...RULE }]);
     expect(fetchMock).toHaveBeenCalledWith("/api/recurring-rules", expect.anything());
+  });
+
+  it("asks for the due count with a GET, which writes nothing", async () => {
+    ok({ due: 3 });
+
+    expect(await fetchRecurringDueCount()).toEqual({ due: 3 });
+    expect(fetchMock).toHaveBeenCalledWith("/api/recurring-rules/due", expect.anything());
+    expect(fetchMock.mock.calls[0][1].method).toBeUndefined();
   });
 
   it("fetches every Category the form offers", async () => {

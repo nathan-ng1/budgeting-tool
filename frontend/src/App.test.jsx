@@ -1001,6 +1001,55 @@ describe("App", () => {
     expect(screen.queryByRole("group", { name: "Financial Year or Calendar Year" })).not.toBeInTheDocument();
   });
 
+  describe("recurring due prompt", () => {
+    function respondWithDue(due) {
+      let written = false;
+      fetchMock.mockImplementation(async (url, options = {}) => {
+        let body;
+        if (url === "/api/recurring-rules/due") body = { due: written ? 0 : due };
+        else if (url === "/api/recurring-rules/run") {
+          written = true;
+          body = { written: due };
+        } else if (url.startsWith("/api/annual-overview")) body = annualWithSpending();
+        else if (url.startsWith("/api/overview")) body = monthWithSpending(2026, 8);
+        else if (url === "/api/latest-transaction-date") body = { date: "2026-08-03" };
+        else if (url === "/api/transaction-date-range") body = { earliest: "2025-12-17", latest: "2026-08-03" };
+        else if (url === "/api/goals") body = { today: "2026-08-21", goals: [], past: [] };
+        else body = [];
+        return { ok: true, status: 200, json: async () => body };
+      });
+    }
+
+    it("shows on the Overview when occurrences are due, writing nothing until clicked", async () => {
+      respondWithDue(3);
+      render(<App />);
+
+      expect(await screen.findByText("3 recurring transactions are due.")).toBeInTheDocument();
+      expect(fetchMock.mock.calls.filter(([url]) => url === "/api/recurring-rules/run")).toHaveLength(0);
+    });
+
+    it("clears after Run now and reloads the Overview figures", async () => {
+      respondWithDue(3);
+      render(<App />);
+      await userEvent.click(await screen.findByRole("button", { name: "Run now" }));
+
+      expect(await screen.findByText("3 transactions added.")).toBeInTheDocument();
+      expect(screen.queryByText("3 recurring transactions are due.")).not.toBeInTheDocument();
+      await waitFor(() =>
+        expect(fetchMock.mock.calls.filter(([url]) => url.startsWith("/api/annual-overview"))).toHaveLength(2),
+      );
+    });
+
+    it("is absent when nothing is due", async () => {
+      respondWithDue(0);
+      render(<App />);
+      await screen.findByRole("region", { name: "Saving Goals" });
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/recurring-rules/due", expect.anything()));
+
+      expect(screen.queryByRole("region", { name: "Recurring transactions due" })).not.toBeInTheDocument();
+    });
+  });
+
   describe("Financial Year/Calendar Year switcher", () => {
     it("renders above the nav, and hides on the Settings tab", async () => {
       routeTo({

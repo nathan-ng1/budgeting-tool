@@ -55,6 +55,12 @@ export function deleteRecurringRule(id) {
   return request(`${BASE}/${id}`, { method: "DELETE" });
 }
 
+// How many occurrences "Run now" would write - the Dashboard's prompt
+// (Issue #240). Reading it writes nothing.
+export function fetchRecurringDueCount({ signal } = {}) {
+  return request(`${BASE}/due`, { signal });
+}
+
 export function runRecurringRules() {
   return request(`${BASE}/run`, { method: "POST" });
 }

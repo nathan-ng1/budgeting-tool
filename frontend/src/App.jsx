@@ -11,6 +11,7 @@ import IncomeAllocation from "./components/IncomeAllocation.jsx";
 import MonthSelector from "./components/MonthSelector.jsx";
 import OverviewDetails, { DEFAULT_SECTION } from "./components/OverviewDetails.jsx";
 import PeriodSwitcher from "./components/PeriodSwitcher.jsx";
+import RecurringDuePrompt from "./components/RecurringDuePrompt.jsx";
 import RecurringRules from "./components/RecurringRules.jsx";
 import SectionHead from "./components/SectionHead.jsx";
 import StatTiles from "./components/StatTiles.jsx";
@@ -95,6 +96,9 @@ function Dashboard({ settings, onSettingsSaved }) {
   // as local state (Budget.jsx used to unmount on every tab change).
   const [budgetSelected, setBudgetSelected] = useState(currentMonth);
   const [overview, setOverview] = useState(null);
+  // Bumped when recurring transactions are written from the Overview's due
+  // prompt (Issue #240), so the figures reload to include them.
+  const [overviewRevision, setOverviewRevision] = useState(0);
   // The Breakdown section shown under the Goals (Budget, Spending, ...). Lifted
   // here so it survives a change of month or year, where it would otherwise
   // reset every time the figures reload.
@@ -225,7 +229,7 @@ function Dashboard({ settings, onSettingsSaved }) {
       });
 
     return () => controller.abort();
-  }, [selected, tab, referenceYear, periodType]);
+  }, [selected, tab, referenceYear, periodType, overviewRevision]);
 
   // Full year's and a month's Overview responses are different shapes
   // (Issue #38) - clearing `overview` in the same update as `selected`
@@ -386,6 +390,8 @@ function Dashboard({ settings, onSettingsSaved }) {
 
         {visibleTab === "Overview" && (
           <>
+            <RecurringDuePrompt onRun={() => setOverviewRevision((revision) => revision + 1)} />
+
             <MonthSelector referenceYear={referenceYear} periodType={periodType} selected={selected} onSelect={selectPill} />
 
             {error !== null && (
