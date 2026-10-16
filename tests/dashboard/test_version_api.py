@@ -111,6 +111,14 @@ def test_the_collaborator_only_sub_heading_is_a_distinct_group(serve, store, tmp
     ]
 
 
+def test_the_collaborator_only_sub_heading_matches_regardless_of_case(serve, store, tmp_path):
+    text = "## v0.6.0 — 2026-10-16\n\n### Collaborator edition only\n\n- A pipeline change.\n"
+
+    [version] = history_from(serve, store, tmp_path, text)
+
+    assert version["groups"][0]["collaborator_only"] is True
+
+
 def test_a_missing_changelog_gives_no_history_but_still_200(serve, store, tmp_path):
     assert history_from(serve, store, tmp_path, None) is None
 

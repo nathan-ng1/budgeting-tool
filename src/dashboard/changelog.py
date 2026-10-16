@@ -40,7 +40,7 @@ def read_history(path: Path) -> list[dict] | None:
                 return None
             title = stripped[4:].strip()
             history[-1]["groups"].append(
-                {"title": title, "collaborator_only": title == COLLABORATOR_ONLY_TITLE, "entries": []}
+                {"title": title, "collaborator_only": title.casefold() == COLLABORATOR_ONLY_TITLE.casefold(), "entries": []}
             )
         elif stripped.startswith("- "):
             if not history:

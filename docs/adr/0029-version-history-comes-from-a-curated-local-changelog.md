@@ -12,8 +12,8 @@ Dashboard never fetches its history over the network.
 The Dashboard's frontend only asks its backend for a Version and a history. Where those come from is
 edition-specific: the Collaborator Edition reads installed package metadata and `CHANGELOG.md`, while
 the Retail Edition (a compiled build with no clone, whose Buyers shouldn't see Collaborator-only
-items) will supply its own source and shipping mechanism. See
-[retail-edition-design-notes.md](../retail-edition-design-notes.md).
+items) reads a `build_info.json` baked in at build time from the same `CHANGELOG.md` (see
+Consequences). See [retail-edition-design-notes.md](../retail-edition-design-notes.md).
 
 ## Considered Options
 

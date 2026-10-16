@@ -125,8 +125,8 @@ The number of a tagged release of the tool (e.g. `0.4.1`), shown on the Dashboar
 _Avoid_: Build number, Release (that's the GitHub object that carries the Installation Pack)
 
 **Version History**:
-The Dashboard page, linked from the top right of its header, listing every Version newest-first with its release date and a short plain-language summary of what changed. Distinct from GitHub's auto-generated release notes, which list raw PR titles and are not shown in the Dashboard. Both editions have one, but the content and how it ships with a release differ by edition.
-_Avoid_: Changelog (that's the Collaborator Edition's source file, not the page), Release notes
+The Dashboard page, linked from the top right of its header, listing every Version newest-first with its release date and a short plain-language summary of what changed. Distinct from GitHub's auto-generated release notes, which list raw PR titles and are not shown in the Dashboard. Both editions have one, from the same `CHANGELOG.md`: the Collaborator Edition reads it directly (including bullets under its `### Collaborator Edition only` sub-heading), while a compiled build serves a `build_info.json` baked in at build time with those bullets filtered out.
+_Avoid_: Changelog (that's the source file, not the page), Release notes
 
 **Financial Year**:
 The twelve-month window the Dashboard's Overview, Budget, and Transactions tabs can be organised around — the default framing, and one of the two options on the Financial Year/Calendar Year switcher shared across those three tabs (see [ADR-0021](./docs/adr/0021-financial-year-switcher-and-calendar-year-toggle.md)). It begins on the first day of a month the user chooses in Settings, defaulting to July (the Australian convention, implicit in this project's card issuers ANZ and NAB, giving July 1–June 30); a start on any other day of the month, such as the UK's 6 April, is not supported. Its selector shows the twelve months of one Financial Year plus a Full year option.
