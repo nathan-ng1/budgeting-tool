@@ -3498,20 +3498,12 @@ tbody:first-of-type .table th.table__section {
   font-size: 13.5px;
 }
 
-.startup-notice {
+.startup-notice,
+.update-banner {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 12px 16px;
-  margin-bottom: 16px;
-  padding: 14px 18px;
-  background: var(--color-card);
-  border: 1px solid var(--color-neutral-300);
-  border-radius: var(--radius-md);
-  font-size: 13.5px;
-}
-
-.update-banner {
   margin-bottom: 16px;
   padding: 14px 18px;
   background: var(--color-card);

@@ -9,8 +9,7 @@ export default function UpdateBanner({ version }) {
   return (
     <section className="update-banner" role="status" aria-label="Update available">
       <p>
-        <strong>Version {version} is available.</strong> To update, re-run the installer you downloaded. Your data is
-        kept.
+        <strong>Version {version} is available.</strong> To update, re-run the installer you downloaded.
       </p>
     </section>
   );

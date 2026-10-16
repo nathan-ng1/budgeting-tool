@@ -35,10 +35,14 @@ def fetch_manifest(url: str) -> object:
         return json.loads(response.read(MAX_MANIFEST_BYTES))
 
 
-def installed_version() -> str | None:
-    """This build's Version: the baked-in one when compiled, else the installed package's."""
-    info = read_build_info(BUILD_INFO_PATH)
-    return info["version"] if info is not None else package_version()
+def current_version() -> str | None:
+    """This build's Version, by the rule the Dashboard's /api/version uses: the
+    baked-in one when `build_info.json` is present (None if unreadable), else the
+    installed package's."""
+    if BUILD_INFO_PATH.is_file():
+        info = read_build_info(BUILD_INFO_PATH)
+        return info["version"] if info is not None else None
+    return package_version()
 
 
 def check_for_update(
@@ -80,6 +84,7 @@ def _newest_from(manifest_url: str, fetch: Callable[[str], object]) -> str | Non
         return None
     if not isinstance(version, str):
         return None
+    # No installed Version to compare against: this is only to normalise and validate.
     return check_update_available("", version).latest_version
 
 

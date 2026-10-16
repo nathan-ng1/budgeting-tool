@@ -432,7 +432,7 @@ def checking(manifest, *, installed="1.3.0", now=NOON):
     return {
         "update_manifest_url": MANIFEST_URL,
         "fetch_manifest": manifest,
-        "installed_version": lambda: installed,
+        "current_version": lambda: installed,
         "now": lambda: now,
     }
 
@@ -499,7 +499,7 @@ def test_reopening_a_running_instance_makes_no_request(runs, data_folder):
 def test_with_no_manifest_address_configured_nothing_is_requested(runs, data_folder):
     manifest = Manifest()
 
-    run = start(runs, data_folder, fetch_manifest=manifest, installed_version=lambda: "1.3.0")
+    run = start(runs, data_folder, fetch_manifest=manifest, current_version=lambda: "1.3.0")
 
     assert launcher_state(run)["update"] is None
     assert manifest.requested == []
@@ -527,3 +527,23 @@ def test_the_dashboard_serving_an_update_banner_connects_to_nothing_but_this_mac
 
     assert destinations, "the requests above should have been recorded"
     assert {address[0] for address in destinations} == {"127.0.0.1"}
+
+
+def test_finding_the_app_already_answering_on_a_passed_over_port_makes_no_request(runs, data_folder):
+    first = start(runs, data_folder)
+    port = port_of(first.wait_until_open())
+    launcher.clear_instance(data_folder)
+    manifest = Manifest()
+
+    second = start(
+        runs,
+        data_folder,
+        preferred_port=port,
+        port_is_free=lambda candidate: candidate != port,
+        instance_running=lambda candidate: candidate == port,
+        **checking(manifest),
+    )
+    second.wait_until_finished()
+
+    assert manifest.requested == []
+    assert not (data_folder / "update-check.json").exists()

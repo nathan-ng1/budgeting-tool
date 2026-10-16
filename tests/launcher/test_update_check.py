@@ -208,3 +208,47 @@ def test_a_data_folder_that_cannot_be_written_does_not_stop_the_check(tmp_path):
     not_a_folder.write_text("x", encoding="utf-8")
 
     assert check(not_a_folder, Fetcher()) == "1.4.0"
+
+
+# The real fetch, against a local server standing in for the update host.
+
+
+@pytest.fixture
+def host():
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    from threading import Thread
+
+    body = {"bytes": b'{"version": "1.4.0", "history": []}'}
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body["bytes"])))
+            self.end_headers()
+            self.wfile.write(body["bytes"])
+
+        def log_message(self, format, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    Thread(target=server.serve_forever, daemon=True).start()
+    yield body, f"http://127.0.0.1:{server.server_port}/latest.json"
+    server.shutdown()
+    server.server_close()
+
+
+def test_the_real_fetch_reads_and_parses_the_manifest(tmp_path, host):
+    _, url = host
+
+    assert check(tmp_path, update_check.fetch_manifest, url=url) == "1.4.0"
+
+
+def test_the_real_fetch_of_something_that_is_not_json_shows_nothing(tmp_path, host):
+    body, url = host
+    body["bytes"] = b"<html>an error page</html>"
+
+    assert check(tmp_path, update_check.fetch_manifest, url=url) is None
+
+
+def test_the_real_fetch_of_an_address_nothing_answers_shows_nothing(tmp_path):
+    assert check(tmp_path, update_check.fetch_manifest, url="http://127.0.0.1:1/latest.json") is None

@@ -124,7 +124,7 @@ def launch(
     migrations: list[Migration] = MIGRATIONS,
     update_manifest_url: str | None = UPDATE_MANIFEST_URL,
     fetch_manifest: Callable[[str], object] = update_check.fetch_manifest,
-    installed_version: Callable[[], str | None] = update_check.installed_version,
+    current_version: Callable[[], str | None] = update_check.current_version,
     now: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
 ) -> None:
     """Start the Dashboard and open it, or reopen the one already running.
@@ -147,19 +147,9 @@ def launch(
         return
     (data_folder / ERROR_PAGE_NAME).unlink(missing_ok=True)
 
-    update_available = update_check.check_for_update(
-        data_folder,
-        installed_version=installed_version(),
-        manifest_url=update_manifest_url,
-        fetch=fetch_manifest,
-        now=now,
-    )
-
     store = database_store.connect(database_path)
     try:
-        server, running_port = _bind(
-            store, data_folder, preferred_port, port_is_free, instance_running, update_available
-        )
+        server, running_port = _bind(store, data_folder, preferred_port, port_is_free, instance_running)
     except BaseException:
         store.close()
         raise
@@ -170,6 +160,15 @@ def launch(
         open_browser(instance_url(running_port))
         return
 
+    # Only a launch that really starts the Dashboard checks for updates, so a
+    # reopen never makes a request. Set before serving, so the first page load has it.
+    server.update_available = update_check.check_for_update(
+        data_folder,
+        installed_version=current_version(),
+        manifest_url=update_manifest_url,
+        fetch=fetch_manifest,
+        now=now,
+    )
     port = server.server_port
     try:
         write_instance(data_folder, port)
@@ -182,7 +181,7 @@ def launch(
         store.close()
 
 
-def _bind(store, data_folder, preferred_port, port_is_free, instance_running, update_available):
+def _bind(store, data_folder, preferred_port, port_is_free, instance_running):
     """`(server, None)` bound to the first free port from `preferred_port`, or
     `(None, port)` if the app itself already answers on a port passed on the way."""
     for port in range(preferred_port, min(preferred_port + PORT_ATTEMPTS, 65536)):
@@ -191,13 +190,7 @@ def _bind(store, data_folder, preferred_port, port_is_free, instance_running, up
                 return None, port
             continue
         try:
-            server = build_server(
-                store,
-                port=port,
-                data_folder=data_folder,
-                on_quit=lambda: _stop_soon(server),
-                update_available=update_available,
-            )
+            server = build_server(store, port=port, data_folder=data_folder, on_quit=lambda: _stop_soon(server))
         except OSError:
             # Free when probed, taken by the time we bound it.
             continue
