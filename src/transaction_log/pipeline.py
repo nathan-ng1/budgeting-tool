@@ -1,3 +1,8 @@
+"""Writes Candidates to the Transaction Log (deduped) and optionally archives a source file.
+
+Shared by the Statement Export run and the Dashboard's recurring "Run now", so it lives
+outside the Collaborator-only statement_export package (Retail Edition spec #236)."""
+
 import logging
 from dataclasses import dataclass
 from datetime import date

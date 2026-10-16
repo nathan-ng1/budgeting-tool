@@ -2,8 +2,8 @@ from datetime import date
 from pathlib import Path
 
 from statement_export.orchestrator import run
-from transaction_log.pipeline import Archive
 from statement_export.parser import RawTransaction
+from transaction_log.pipeline import Archive
 
 
 def make_transaction(**overrides):

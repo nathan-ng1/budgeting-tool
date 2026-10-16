@@ -38,7 +38,7 @@ executable:
   containing the budget spreadsheet, so the tool doesn't enumerate unrelated Drive content.
 
 The deterministic write path used to be a separate connection from this MCP server
-(`transaction_log.sheets_client.connect`, used by `statement_export.pipeline.run`) that talked to
+(`transaction_log.sheets_client.connect`, used by `transaction_log.pipeline.run`) that talked to
 the Sheets API directly rather than through MCP tools, reading `SERVICE_ACCOUNT_PATH` and
 `SPREADSHEET_ID` from the environment. That module is retired as of ADR-0005 — the live pipeline
 now reads/writes `DATABASE_PATH` instead, and neither `SERVICE_ACCOUNT_PATH` nor `SPREADSHEET_ID`

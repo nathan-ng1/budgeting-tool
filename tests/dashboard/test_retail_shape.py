@@ -6,6 +6,7 @@ The check imports the Dashboard in a fresh interpreter in which those packages
 are unimportable - the same shape as the compiled Retail build.
 """
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -45,8 +46,8 @@ import migration.runner
 
 def test_dashboard_imports_without_the_collaborator_only_packages():
     result = subprocess.run(
-        [sys.executable, "-I", "-c", SCRIPT],
-        env={"PYTHONPATH": str(SRC)},
+        [sys.executable, "-c", SCRIPT],
+        env={**os.environ, "PYTHONPATH": str(SRC)},
         capture_output=True,
         text=True,
     )
