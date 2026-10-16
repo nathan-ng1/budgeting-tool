@@ -31,6 +31,7 @@ import {
 } from "./lib/api.js";
 import { fetchCategories } from "./lib/categoriesApi.js";
 import { fetchLauncher } from "./lib/launcherApi.js";
+import UpdateBanner from "./components/UpdateBanner.jsx";
 import { SPENDING_TYPES, categoryColours } from "./lib/categoryColours.js";
 import { DEFAULT_SETTINGS, SettingsProvider, useDateFormat } from "./lib/settings.jsx";
 import { fetchSettings } from "./lib/settingsApi.js";
@@ -130,6 +131,8 @@ function Dashboard({ settings, onSettingsSaved }) {
   // Whether the Retail launcher is running this Dashboard (Issue #249): only
   // then are there a startup notice and a Quit. False until it says so.
   const [launcherActive, setLauncherActive] = useState(false);
+  // The newer Version the launcher found on its daily check, if any (Issue #251).
+  const [availableUpdate, setAvailableUpdate] = useState(null);
 
   // The Financial Year/Calendar Year switcher's shared state (ADR-0021),
   // consumed by the Overview, Budget, and Transactions tabs below.
@@ -214,7 +217,10 @@ function Dashboard({ settings, onSettingsSaved }) {
     const controller = new AbortController();
 
     fetchLauncher({ signal: controller.signal })
-      .then((loaded) => setLauncherActive(loaded?.active === true))
+      .then((loaded) => {
+        setLauncherActive(loaded?.active === true);
+        setAvailableUpdate(typeof loaded?.update?.version === "string" ? loaded.update.version : null);
+      })
       .catch(() => {
         // Failing closed, as above: no notice and no Quit.
       });
@@ -362,6 +368,7 @@ function Dashboard({ settings, onSettingsSaved }) {
           </button>
         </header>
 
+        <UpdateBanner version={availableUpdate} />
         <StartupNotice active={launcherActive} />
 
         {showingHistory && (

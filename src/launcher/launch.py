@@ -9,6 +9,10 @@ the recorded port, sees the Dashboard answering there, reopens the browser and
 exits without starting a second server (so there is never a second writer on the
 Database). Quit in Settings stops the server and clears the record.
 
+Once a day at most it also checks the update manifest and passes a newer Version
+to the Dashboard to show as a banner (Issue #251, decision S7); see
+`launcher.update_check`. The Dashboard itself makes no network call.
+
 Pending migrations run before the Dashboard starts, after an automatic backup
 (Issue #250, decision S8). If that fails, or the Database is from a newer
 Version, no server starts: the reason is written to a small page in the data
@@ -26,6 +30,7 @@ import threading
 import webbrowser
 from collections.abc import Callable
 from contextlib import closing
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.error import URLError
 from urllib.request import urlopen
@@ -33,6 +38,7 @@ from urllib.request import urlopen
 from dashboard.server import LAUNCHER_PATH, build_server
 from database import location
 from database import store as database_store
+from launcher import update_check
 from launcher.migrate_on_launch import LaunchMigrationError, migrate_on_launch
 from migration.registry import MIGRATIONS
 from migration.runner import Migration
@@ -43,6 +49,9 @@ PORT_ATTEMPTS = 50
 INSTANCE_FILE_NAME = "instance.json"
 ERROR_PAGE_NAME = "startup-error.html"
 LOCALHOST = "127.0.0.1"
+# Where the update manifest is published. Unset until the host exists (Issue
+# #247): with no address the launcher makes no request and shows no banner.
+UPDATE_MANIFEST_URL: str | None = None
 
 
 class NoFreePort(RuntimeError):
@@ -113,6 +122,10 @@ def launch(
     port_is_free: Callable[[int], bool] = port_is_free,
     instance_running: Callable[[int], bool] = instance_running,
     migrations: list[Migration] = MIGRATIONS,
+    update_manifest_url: str | None = UPDATE_MANIFEST_URL,
+    fetch_manifest: Callable[[str], object] = update_check.fetch_manifest,
+    current_version: Callable[[], str | None] = update_check.current_version,
+    now: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
 ) -> None:
     """Start the Dashboard and open it, or reopen the one already running.
     Blocks while serving; returns once Quit stops the server."""
@@ -147,6 +160,15 @@ def launch(
         open_browser(instance_url(running_port))
         return
 
+    # Only a launch that really starts the Dashboard checks for updates, so a
+    # reopen never makes a request. Set before serving, so the first page load has it.
+    server.update_available = update_check.check_for_update(
+        data_folder,
+        installed_version=current_version(),
+        manifest_url=update_manifest_url,
+        fetch=fetch_manifest,
+        now=now,
+    )
     port = server.server_port
     try:
         write_instance(data_folder, port)

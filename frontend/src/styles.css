@@ -3498,7 +3498,8 @@ tbody:first-of-type .table th.table__section {
   font-size: 13.5px;
 }
 
-.startup-notice {
+.startup-notice,
+.update-banner {
   display: flex;
   align-items: center;
   flex-wrap: wrap;

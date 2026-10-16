@@ -28,6 +28,7 @@ def serve():
         pick_folder=None,
         today=None,
         on_quit=None,
+        update_available=None,
     ):
         kwargs = {} if static_root is None else {"static_root": static_root}
         if changelog_path is not None:
@@ -44,6 +45,8 @@ def serve():
             kwargs["today"] = today
         if on_quit is not None:
             kwargs["on_quit"] = on_quit
+        if update_available is not None:
+            kwargs["update_available"] = update_available
         server = build_server(store, **kwargs)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()

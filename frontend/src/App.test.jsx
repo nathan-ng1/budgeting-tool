@@ -926,6 +926,23 @@ describe("App", () => {
     expect(screen.queryByRole("button", { name: "Quit" })).not.toBeInTheDocument();
   });
 
+  it("shows a banner naming the new Version when the launcher found an update", async () => {
+    respondWith({ extra: { "/api/launcher": { active: true, update: { version: "1.4.0" } } } });
+    render(<App />);
+
+    const banner = await screen.findByRole("status", { name: "Update available" });
+
+    expect(banner).toHaveTextContent("Version 1.4.0 is available");
+  });
+
+  it("shows no update banner when the launcher found none", async () => {
+    respondWith({ extra: { "/api/launcher": { active: true, update: null } } });
+    render(<App />);
+    expect(await screen.findByText("$8,000")).toBeInTheDocument();
+
+    expect(screen.queryByRole("status", { name: "Update available" })).not.toBeInTheDocument();
+  });
+
   it("keeps Budget's own pill selection across a tab switch, the same way Overview's persists", async () => {
     routeTo({
       "/api/annual-overview": annualWithSpending(),

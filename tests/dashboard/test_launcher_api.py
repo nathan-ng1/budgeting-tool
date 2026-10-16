@@ -23,7 +23,7 @@ def request(server, method, path, headers=None):
 def test_a_dashboard_run_directly_reports_the_launcher_inactive(serve, store):
     server = serve(store)
 
-    assert request(server, "GET", "/api/launcher") == (200, {"active": False})
+    assert request(server, "GET", "/api/launcher") == (200, {"active": False, "update": None})
 
 
 def test_a_dashboard_run_directly_has_no_quit(serve, store):
@@ -38,7 +38,7 @@ def test_quit_asks_the_launcher_to_stop_and_says_so(serve, store):
     quits = []
     server = serve(store, on_quit=lambda: quits.append("quit"))
 
-    assert request(server, "GET", "/api/launcher") == (200, {"active": True})
+    assert request(server, "GET", "/api/launcher") == (200, {"active": True, "update": None})
     assert request(server, "POST", "/api/quit") == (200, {"quitting": True})
     assert quits == ["quit"]
 
@@ -63,3 +63,9 @@ def test_quit_accepts_a_request_from_the_dashboards_own_page(serve, store):
 
     assert status == 200
     assert quits == ["quit"]
+
+
+def test_a_launcher_that_found_a_newer_version_has_the_dashboard_report_it(serve, store):
+    server = serve(store, on_quit=lambda: None, update_available="1.4.0")
+
+    assert request(server, "GET", "/api/launcher") == (200, {"active": True, "update": {"version": "1.4.0"}})
