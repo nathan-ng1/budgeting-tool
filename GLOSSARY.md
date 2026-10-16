@@ -188,6 +188,9 @@ _Avoid_: Dev build, full version
 The compiled, Dashboard-only build of the tool sold to Buyers; contains none of the Statement Export pipeline or AI-backed flows.
 _Avoid_: Paid version, public version, packaged app
 
+**Launcher**:
+The Retail Edition's entry point, a double-clickable app separate from the Dashboard server. Starts the Dashboard on the usual port or the next free one (recording the port), opens the browser, and on a repeat launch reopens the running instance instead of starting a second. Has no window or tray icon, so Settings has a **Quit** that stops it, and a startup notice explains this. Not part of the Collaborator Edition, whose Dashboard is started from a terminal.
+
 **Budget Suggestion**:
 A written analysis of how actual spend has tracked against Category Budgets recently, covering Expense and Debt Categories only (Income is excluded — under/over-earning isn't the kind of thing this advises on). One standing write-up at a time, not tied to any particular month: regenerating it replaces the previous write-up outright, no history kept. Produced by a scripted, deliberately non-interactive flow — the same shape as Categorising a Transaction (see [ADR-0004](./docs/adr/0004-categorisation-backend-is-pluggable-and-scripted.md)), not something triggered live from the Dashboard. See [ADR-0014](./docs/adr/0014-budget-suggestion-is-a-scripted-flow-not-a-live-dashboard-call.md).
 _Avoid_: Budget advice, AI insights, Recommendation

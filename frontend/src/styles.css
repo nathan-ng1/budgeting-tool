@@ -3498,6 +3498,27 @@ tbody:first-of-type .table th.table__section {
   font-size: 13.5px;
 }
 
+.startup-notice {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  margin-bottom: 16px;
+  padding: 14px 18px;
+  background: var(--color-card);
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+}
+
+.startup-notice__text {
+  flex: 1 1 320px;
+}
+
+.startup-notice__text p + p {
+  margin-top: 6px;
+}
+
 .due-prompt__text {
   flex: 1 1 auto;
 }

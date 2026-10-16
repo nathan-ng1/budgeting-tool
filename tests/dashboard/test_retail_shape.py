@@ -41,6 +41,7 @@ sys.meta_path.insert(0, Blocker())
 import dashboard.__main__
 import dashboard.server
 import database.store
+import launcher.launch
 import migration.runner
 """
 
