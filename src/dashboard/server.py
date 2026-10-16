@@ -268,8 +268,7 @@ def _make_handler(
             elif path == DATABASE_RESET_PATH:
                 self._reset_database()
             elif path == QUIT_PATH and self.server.on_quit is not None:
-                self._send_json(200, {"quitting": True})
-                self.server.on_quit()
+                self._quit()
             elif path == RECURRING_RULES_RUN_PATH:
                 self._run_recurring_rules()
             elif path == RECURRING_RULES_SPLIT_PATH:
@@ -612,6 +611,17 @@ def _make_handler(
                 return
 
             self._send_json(200, {"written": [transactions.as_candidate_payload(c) for c in to_write]})
+
+        def _quit(self) -> None:
+            """Stop the server for Settings' Quit (Issue #249). Refuses a request
+            from another site's page, which a browser would otherwise send on the
+            Buyer's behalf to localhost."""
+            origin = self.headers.get("Origin")
+            if origin is not None and origin != f"http://{self.headers.get('Host')}":
+                self._send_json(403, {"error": "Quit must come from the Dashboard itself"})
+                return
+            self._send_json(200, {"quitting": True})
+            self.server.on_quit()
 
         def _choose_database_folder(self) -> None:
             """Open the native folder picker and report what the chosen folder

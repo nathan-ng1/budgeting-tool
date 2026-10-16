@@ -6,9 +6,12 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 
-def request(server, method, path):
+def request(server, method, path, headers=None):
     http_request = Request(
-        f"http://127.0.0.1:{server.server_port}{path}", method=method, data=b"{}" if method == "POST" else None
+        f"http://127.0.0.1:{server.server_port}{path}",
+        method=method,
+        data=b"{}" if method == "POST" else None,
+        headers=headers or {},
     )
     try:
         with urlopen(http_request) as response:
@@ -37,4 +40,26 @@ def test_quit_asks_the_launcher_to_stop_and_says_so(serve, store):
 
     assert request(server, "GET", "/api/launcher") == (200, {"active": True})
     assert request(server, "POST", "/api/quit") == (200, {"quitting": True})
+    assert quits == ["quit"]
+
+
+def test_quit_refuses_a_request_from_another_sites_page(serve, store):
+    quits = []
+    server = serve(store, on_quit=lambda: quits.append("quit"))
+
+    status, _ = request(server, "POST", "/api/quit", headers={"Origin": "https://evil.example"})
+
+    assert status == 403
+    assert quits == []
+
+
+def test_quit_accepts_a_request_from_the_dashboards_own_page(serve, store):
+    quits = []
+    server = serve(store, on_quit=lambda: quits.append("quit"))
+
+    status, _ = request(
+        server, "POST", "/api/quit", headers={"Origin": f"http://127.0.0.1:{server.server_port}"}
+    )
+
+    assert status == 200
     assert quits == ["quit"]

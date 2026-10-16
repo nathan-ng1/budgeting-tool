@@ -9,8 +9,8 @@ the recorded port, sees the Dashboard answering there, reopens the browser and
 exits without starting a second server (so there is never a second writer on the
 Database). Quit in Settings stops the server and clears the record.
 
-There is no console window and no tray icon: the process is windowless and
-prints nothing. The browser opener, port probe and running-instance check are
+There is no tray icon and nothing is printed; running with no console window is
+the compiled build's job (Issues #252, #253). The browser opener, port probe and running-instance check are
 parameters so the entry function is tested without a real browser.
 """
 
@@ -99,7 +99,7 @@ def launch(
 
     store = database_store.connect(location.resolve_database_path(data_folder=data_folder))
     try:
-        server, running_port = _bind(store, preferred_port, port_is_free, instance_running)
+        server, running_port = _bind(store, data_folder, preferred_port, port_is_free, instance_running)
     except BaseException:
         store.close()
         raise
@@ -122,7 +122,7 @@ def launch(
         store.close()
 
 
-def _bind(store, preferred_port, port_is_free, instance_running):
+def _bind(store, data_folder, preferred_port, port_is_free, instance_running):
     """`(server, None)` bound to the first free port from `preferred_port`, or
     `(None, port)` if the app itself already answers on a port passed on the way."""
     for port in range(preferred_port, min(preferred_port + PORT_ATTEMPTS, 65536)):
@@ -131,7 +131,7 @@ def _bind(store, preferred_port, port_is_free, instance_running):
                 return None, port
             continue
         try:
-            server = build_server(store, port=port, on_quit=lambda: _stop_soon(server))
+            server = build_server(store, port=port, data_folder=data_folder, on_quit=lambda: _stop_soon(server))
         except OSError:
             # Free when probed, taken by the time we bound it.
             continue
