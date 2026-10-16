@@ -11,9 +11,11 @@ import IncomeAllocation from "./components/IncomeAllocation.jsx";
 import MonthSelector from "./components/MonthSelector.jsx";
 import OverviewDetails, { DEFAULT_SECTION } from "./components/OverviewDetails.jsx";
 import PeriodSwitcher from "./components/PeriodSwitcher.jsx";
+import QuitApp from "./components/QuitApp.jsx";
 import RecurringDuePrompt from "./components/RecurringDuePrompt.jsx";
 import RecurringRules from "./components/RecurringRules.jsx";
 import SectionHead from "./components/SectionHead.jsx";
+import StartupNotice from "./components/StartupNotice.jsx";
 import StatTiles from "./components/StatTiles.jsx";
 import ThemeSwitcher from "./components/ThemeSwitcher.jsx";
 import Transactions from "./components/Transactions.jsx";
@@ -28,6 +30,7 @@ import {
   fetchVersion,
 } from "./lib/api.js";
 import { fetchCategories } from "./lib/categoriesApi.js";
+import { fetchLauncher } from "./lib/launcherApi.js";
 import { SPENDING_TYPES, categoryColours } from "./lib/categoryColours.js";
 import { DEFAULT_SETTINGS, SettingsProvider, useDateFormat } from "./lib/settings.jsx";
 import { fetchSettings } from "./lib/settingsApi.js";
@@ -124,6 +127,9 @@ function Dashboard({ settings, onSettingsSaved }) {
   // lands or if it can't be read, which hides them all: a feature appears only
   // once the backend has said it exists.
   const [capabilities, setCapabilities] = useState(null);
+  // Whether the Retail launcher is running this Dashboard (Issue #249): only
+  // then are there a startup notice and a Quit. False until it says so.
+  const [launcherActive, setLauncherActive] = useState(false);
 
   // The Financial Year/Calendar Year switcher's shared state (ADR-0021),
   // consumed by the Overview, Budget, and Transactions tabs below.
@@ -199,6 +205,18 @@ function Dashboard({ settings, onSettingsSaved }) {
       .then((loaded) => setCapabilities(loaded ?? null))
       .catch(() => {
         // Failing closed is the safe degradation: the features just stay hidden.
+      });
+
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    fetchLauncher({ signal: controller.signal })
+      .then((loaded) => setLauncherActive(loaded?.active === true))
+      .catch(() => {
+        // Failing closed, as above: no notice and no Quit.
       });
 
     return () => controller.abort();
@@ -344,6 +362,8 @@ function Dashboard({ settings, onSettingsSaved }) {
           </button>
         </header>
 
+        <StartupNotice active={launcherActive} />
+
         {showingHistory && (
           <VersionHistory history={history} currentVersion={version} onBack={() => setShowingHistory(false)} />
         )}
@@ -388,6 +408,7 @@ function Dashboard({ settings, onSettingsSaved }) {
             <CategoryManagement />
             <RecurringRules />
             <YourData />
+            <QuitApp active={launcherActive} />
             <DeleteData />
           </>
         )}

@@ -71,6 +71,8 @@ BUDGET_EDITOR_PATH = "/api/budget-editor"
 BUDGET_GRID_PATH = "/api/budget-grid"
 BUDGET_SUGGESTION_PATH = "/api/budget-suggestion"
 CAPABILITIES_PATH = "/api/capabilities"
+LAUNCHER_PATH = "/api/launcher"
+QUIT_PATH = "/api/quit"
 CATEGORIES_PATH = "/api/categories"
 GOALS_PATH = "/api/goals"
 GOALS_SPLIT_PATH = "/api/goals/split"
@@ -95,13 +97,16 @@ def build_server(
     data_folder: Path | None = None,
     pick_folder: Callable[[], str | None] = real_pick_folder,
     today: Callable[[], date] = date.today,
+    on_quit: Callable[[], None] | None = None,
 ) -> ThreadingHTTPServer:
     # `store` may be a bare store or an already-built DatabaseHandle; handlers
     # always go through a handle, so the Database can be swapped while the
     # server keeps running (ADR-0030). `env_path`, `data_folder` (where the
     # pointer file lives, ADR-0032) and `pick_folder` are injectable so tests
     # can use a temporary `.env`, data folder and a stand-in dialog, and
-    # `today` so the Goals figures can be pinned to a date.
+    # `today` so the Goals figures can be pinned to a date. `on_quit` is how the
+    # Retail launcher (Issue #249) lets Settings stop the server: without it the
+    # Dashboard has no Quit, and says the launcher is not running it.
     # Threaded, but one request at a time: `store_lock` serialises every
     # handler, so the sqlite connection on `store` is still only ever touched
     # by one request at once.
@@ -120,6 +125,7 @@ def build_server(
     server.env_path = location.ENV_PATH if env_path is None else env_path
     server.data_folder = data_folder
     server.pick_folder = pick_folder
+    server.on_quit = on_quit
     # Idle preconnect sockets must not keep the process alive at shutdown.
     server.daemon_threads = True
     return server
@@ -198,6 +204,8 @@ def _make_handler(
                 # Which Collaborator-only features this build ships; the
                 # frontend reads it instead of an edition name (spec #236, S14).
                 self._send_json(200, features)
+            elif parsed.path == LAUNCHER_PATH:
+                self._send_json(200, {"active": self.server.on_quit is not None})
             elif parsed.path == BUDGET_SUGGESTION_PATH and features["budget_suggestion"]:
                 # Not scoped to a (year, month) - the one standing write-up
                 # renders identically no matter which month pill is selected
@@ -259,6 +267,9 @@ def _make_handler(
                 self._apply_database_folder()
             elif path == DATABASE_RESET_PATH:
                 self._reset_database()
+            elif path == QUIT_PATH and self.server.on_quit is not None:
+                self._send_json(200, {"quitting": True})
+                self.server.on_quit()
             elif path == RECURRING_RULES_RUN_PATH:
                 self._run_recurring_rules()
             elif path == RECURRING_RULES_SPLIT_PATH:

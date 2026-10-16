@@ -904,6 +904,28 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "Budget Suggestion" })).toBeInTheDocument();
   });
 
+  it("shows the startup notice and a Quit in Settings when the launcher runs the Dashboard", async () => {
+    respondWith({ extra: { "/api/launcher": { active: true }, "/api/settings": {}, "/api/recurring-rules": [], "/api/categories": [], "/api/database": { path: "/data/budget.db", size_bytes: 1024 } } });
+    render(<App />);
+
+    expect(await screen.findByRole("region", { name: "Before you start" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+
+    expect(await screen.findByRole("button", { name: "Quit" })).toBeInTheDocument();
+  });
+
+  it("shows neither the startup notice nor a Quit when the launcher is not running the Dashboard", async () => {
+    respondWith({ extra: { "/api/launcher": { active: false }, "/api/settings": {}, "/api/recurring-rules": [], "/api/categories": [], "/api/database": { path: "/data/budget.db", size_bytes: 1024 } } });
+    render(<App />);
+    expect(await screen.findByText("$8,000")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+    await screen.findByRole("heading", { name: "Your data" });
+
+    expect(screen.queryByRole("region", { name: "Before you start" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Quit" })).not.toBeInTheDocument();
+  });
+
   it("keeps Budget's own pill selection across a tab switch, the same way Overview's persists", async () => {
     routeTo({
       "/api/annual-overview": annualWithSpending(),

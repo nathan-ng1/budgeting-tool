@@ -117,6 +117,18 @@ the Budget Suggestion panel, endpoint and table (hide in Retail); Version/histor
 folder picker runs Tk in a child process, so the Nuitka build must bundle Tk and re-launch itself
 for it; the first-run walkthrough (Q14) doesn't exist yet.
 
+## Built: the launcher (Issue #249)
+
+`src/launcher/launch.py` (`python -m launcher`). The instance record is `instance.json` (`{"port": n}`) in the
+per-user data folder, beside the pointer file. A repeat launch reopens the recorded port if the Dashboard answers
+`GET /api/launcher` there with `active: true`; a stale record is discarded. The port scan also treats a taken port
+that answers as the app as the running instance, so a double-click right behind the first reuses it rather than
+starting a second server. The Dashboard has Quit (`POST /api/quit`) and the startup notice only when the launcher
+started it (`build_server(on_quit=...)`); the frontend reads `/api/launcher`, not an edition name. The startup
+notice's dismissal is kept in the browser's localStorage, so a launch on a new port shows it again. Not yet done
+(other tickets): migrate on launch (#250), the daily update check (#251), and running windowless in the compiled
+build (#252, #253).
+
 ## Not yet discussed
 
 - Build pipeline: Nuitka standalone per platform, plus bundled built frontend assets.
