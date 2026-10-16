@@ -8,15 +8,19 @@ the real server it starts over HTTP.
 
 import json
 import socket
+import sqlite3
 import threading
 from contextlib import closing
+from pathlib import Path
 from urllib.error import URLError
-from urllib.request import Request, urlopen
+from urllib.parse import urlparse
+from urllib.request import Request, url2pathname, urlopen
 
 import pytest
 
 from database import location
 from launcher import launch as launcher
+from migration.runner import Migration, run_pending
 
 
 def free_port() -> int:
@@ -269,3 +273,135 @@ def test_an_unreadable_instance_record_is_treated_as_no_instance(data_folder):
     (data_folder / launcher.INSTANCE_FILE_NAME).write_text("not json", encoding="utf-8")
 
     assert launcher.read_instance(data_folder) is None
+
+
+# Migrate on launch (Issue #250, decision S8). Each Database below is a plain
+# SQLite file at the resolved location, written before `launch` opens it.
+
+OLD_INSTALL_SCHEMA = """
+CREATE TABLE categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT NOT NULL, name TEXT NOT NULL UNIQUE,
+    emoji TEXT, locked INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE transactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, amount REAL NOT NULL,
+    type TEXT NOT NULL, category_id INTEGER NOT NULL REFERENCES categories(id), notes TEXT NOT NULL
+);
+INSERT INTO categories (type, name) VALUES ('Savings', 'Savings');
+INSERT INTO transactions (date, amount, type, category_id, notes) VALUES ('2026-01-05', 10, 'Savings', 1, 'old');
+"""
+
+
+def database_path_in(data_folder):
+    return data_folder / location.DEFAULT_DATABASE_NAME
+
+
+def write_old_install(data_folder):
+    path = database_path_in(data_folder)
+    with closing(sqlite3.connect(path)) as connection:
+        connection.executescript(OLD_INSTALL_SCHEMA)
+    return path
+
+
+def pre_migration_files(path):
+    return sorted(path.parent.glob(f"{path.stem}.pre-migration-*{path.suffix}"))
+
+
+def test_launching_with_pending_migrations_backs_up_migrates_then_starts_the_dashboard(runs, data_folder):
+    path = write_old_install(data_folder)
+
+    run = start(runs, data_folder)
+    url = run.wait_until_open()
+
+    assert url == f"http://127.0.0.1:{run.kwargs['preferred_port']}/"
+    (backup,) = pre_migration_files(path)
+    with closing(sqlite3.connect(backup)) as before:
+        assert "goal_id" not in [row[1] for row in before.execute("PRAGMA table_info(transactions)")]
+    with closing(sqlite3.connect(path)) as after:
+        assert "goal_id" in [row[1] for row in after.execute("PRAGMA table_info(transactions)")]
+        assert after.execute("SELECT notes FROM transactions").fetchall() == [("old",)]
+    status, _ = get(port_of(url), "/api/transactions?year=2026&month=1")
+    assert status == 200
+
+
+def broken_migration(name="breaks"):
+    def migrate(connection):
+        connection.execute("DELETE FROM transactions")
+        connection.commit()
+        raise RuntimeError("boom")
+
+    return Migration(name=name, migrate=migrate)
+
+
+def test_a_failed_migration_restores_the_database_and_shows_the_error_instead_of_the_dashboard(runs, data_folder):
+    path = write_old_install(data_folder)
+    run = start(runs, data_folder, migrations=[broken_migration()])
+
+    run.wait_until_finished()
+
+    with closing(sqlite3.connect(path)) as restored:
+        assert restored.execute("SELECT notes FROM transactions").fetchall() == [("old",)]
+    assert pre_migration_files(path) == []
+    (shown,) = run.opened
+    assert shown.startswith("file:")
+    page = Path(url2pathname(urlparse(shown).path)).read_text(encoding="utf-8")
+    assert "breaks" in page
+    assert "boom" in page
+    assert "exactly as it was" in page
+    assert launcher.read_instance(data_folder) is None
+
+
+def test_a_database_from_a_newer_version_is_refused_with_the_error_shown(runs, data_folder):
+    path = write_old_install(data_folder)
+    with closing(sqlite3.connect(path)) as connection:
+        run_pending(connection, [Migration("from_the_future", lambda c: None)])
+    before = path.read_bytes()
+    run = start(runs, data_folder)
+
+    run.wait_until_finished()
+
+    assert path.read_bytes() == before
+    (shown,) = run.opened
+    assert shown.startswith("file:")
+    assert "newer version" in Path(url2pathname(urlparse(shown).path)).read_text(encoding="utf-8")
+    assert launcher.read_instance(data_folder) is None
+
+
+def test_the_error_page_escapes_what_it_shows(runs, data_folder):
+    write_old_install(data_folder)
+    failing = Migration("<script>x</script>", lambda c: (_ for _ in ()).throw(RuntimeError("<b>")))
+    run = start(runs, data_folder, migrations=[failing])
+
+    run.wait_until_finished()
+
+    (shown,) = run.opened
+    page = Path(url2pathname(urlparse(shown).path)).read_text(encoding="utf-8")
+    assert "<script>x</script>" not in page
+    assert "&lt;script&gt;" in page
+
+
+def test_a_second_launch_never_migrates_underneath_a_running_instance(runs, data_folder):
+    first = start(runs, data_folder)
+    port = port_of(first.wait_until_open())
+    path = database_path_in(data_folder)
+    before = path.read_bytes()
+
+    second = start(
+        runs,
+        data_folder,
+        instance_running=lambda candidate: candidate == port,
+        migrations=[broken_migration()],
+    )
+    second.wait_until_finished()
+
+    assert second.opened == [f"http://127.0.0.1:{port}/"]
+    assert path.read_bytes() == before
+    assert pre_migration_files(path) == []
+
+
+def test_a_good_launch_clears_the_error_page_an_earlier_failure_left(runs, data_folder):
+    launcher.write_error_page(data_folder, "old problem")
+
+    start(runs, data_folder).wait_until_open()
+
+    assert not (data_folder / launcher.ERROR_PAGE_NAME).exists()
