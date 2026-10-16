@@ -44,7 +44,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from database.backup import pre_migration_backup
-from database.location import SOURCE_OVERRIDE, default_data_folder, resolve_location, write_pointer
+from database import location
+from database.location import SOURCE_OVERRIDE, resolve_location, write_pointer
 from database.store import connect
 from migration.registry import MIGRATIONS
 from migration.runner import MigrationFailed, pending, run_pending, unknown_applied
@@ -225,7 +226,7 @@ class _Recorder:
             except OSError as cause:
                 raise MoveFailed(f"Couldn't update .env: {cause}") from cause
             return
-        folder = default_data_folder() if self.data_folder is None else self.data_folder
+        folder = location.default_data_folder() if self.data_folder is None else self.data_folder
         try:
             self.write_pointer_file(folder, target)
         except OSError as cause:

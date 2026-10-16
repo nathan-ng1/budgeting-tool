@@ -30,6 +30,7 @@ from dashboard.changelog import read_history
 from dashboard.database_handle import DatabaseHandle
 from dashboard.folder_picker import FolderPickerError
 from dashboard.folder_picker import pick_folder as real_pick_folder
+from database import location
 from database.store import CategoryNotFound, RecurringRuleNotFound, TransactionNotFound
 from goals.goal import ARCHIVED, DELETED, GoalNotFound
 from transaction_log import pipeline
@@ -53,8 +54,6 @@ CONTENT_TYPES = {
     ".svg": "image/svg+xml",
 }
 
-# The repo-root `.env` that may hold a DATABASE_PATH override (ADR-0030, ADR-0032).
-ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
 
 DATABASE_PATH = "/api/database"
 DATABASE_CHOOSE_FOLDER_PATH = f"{DATABASE_PATH}/choose-folder"
@@ -99,7 +98,7 @@ def build_server(
     port: int = 0,
     static_root: Path = STATIC_ROOT,
     changelog_path: Path = CHANGELOG_PATH,
-    env_path: Path = ENV_PATH,
+    env_path: Path | None = None,
     data_folder: Path | None = None,
     pick_folder: Callable[[], str | None] = real_pick_folder,
     today: Callable[[], date] = date.today,
@@ -121,7 +120,7 @@ def build_server(
     # arrives, its JS and CSS never do, and the page renders empty (Issue #45).
     database = store if isinstance(store, DatabaseHandle) else DatabaseHandle(store)
     server = ThreadingHTTPServer((host, port), _make_handler(database, static_root, changelog_path, today))
-    server.env_path = env_path
+    server.env_path = location.ENV_PATH if env_path is None else env_path
     server.data_folder = data_folder
     server.pick_folder = pick_folder
     # Idle preconnect sockets must not keep the process alive at shutdown.
