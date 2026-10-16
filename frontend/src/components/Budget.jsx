@@ -47,8 +47,11 @@ function DetailToggle({ on, onChange }) {
 // (see App.jsx's changePeriodType/changeReferenceYear). Its default of the
 // current month, rather than Overview's Full year default, is unchanged from
 // before this tab was wired to the switcher.
-export default function Budget({ periodType, referenceYear, selected, onSelect }) {
+export default function Budget({ periodType, referenceYear, selected, onSelect, capabilities }) {
   const { money } = useMoney();
+  // The Budget Suggestion panel exists only in builds that ship it (ADR-0033);
+  // null/absent capabilities hide it.
+  const hasSuggestion = capabilities?.budget_suggestion === true;
   // 3 matches dashboard.budgets.DEFAULT_TRAILING_WINDOW - kept in sync by
   // hand since the two live either side of the HTTP boundary.
   const [trailingWindow, setTrailingWindow] = useState(3);
@@ -135,6 +138,9 @@ export default function Budget({ periodType, referenceYear, selected, onSelect }
   // the write-up displays identically no matter which month pill (or Full
   // year) is selected (Issue #66).
   useEffect(() => {
+    if (!hasSuggestion) {
+      return undefined;
+    }
     const controller = new AbortController();
     fetchBudgetSuggestion({ signal: controller.signal })
       .then((loaded) => setSuggestion(loaded.write_up === null ? null : loaded))
@@ -144,7 +150,7 @@ export default function Budget({ periodType, referenceYear, selected, onSelect }
         }
       });
     return () => controller.abort();
-  }, []);
+  }, [hasSuggestion]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -211,7 +217,7 @@ export default function Budget({ periodType, referenceYear, selected, onSelect }
 
   return (
     <>
-      {suggestionError !== null && (
+      {hasSuggestion && suggestionError !== null && (
         <section className="card budget-suggestion">
           <h3>Budget Suggestion</h3>
           <p className="state state--error" role="alert">
@@ -220,14 +226,14 @@ export default function Budget({ periodType, referenceYear, selected, onSelect }
         </section>
       )}
 
-      {suggestionError === null && suggestion === undefined && (
+      {hasSuggestion && suggestionError === null && suggestion === undefined && (
         <section className="card budget-suggestion">
           <h3>Budget Suggestion</h3>
           <p className="state">Loading the Budget Suggestion&hellip;</p>
         </section>
       )}
 
-      {suggestionError === null && suggestion !== undefined && (
+      {hasSuggestion && suggestionError === null && suggestion !== undefined && (
         <BudgetSuggestion suggestion={suggestion} editor={editor} />
       )}
 

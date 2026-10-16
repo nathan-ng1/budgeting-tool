@@ -13,11 +13,19 @@ import Budget from "./Budget.jsx";
 // current month the same way App.jsx's own `budgetSelected` state does, so
 // the existing (period-agnostic) tests below still exercise real pill
 // clicks. Tests about the shared switcher itself pass their own props
-// straight to <Budget /> instead.
+// straight to <Budget /> instead. It reports Budget Suggestion as present, as
+// a full build does; the capability tests below override that.
 function ControlledBudget(props) {
   const [selected, setSelected] = useState(currentMonth);
   return (
-    <Budget periodType="financial" referenceYear={2026} selected={selected} onSelect={setSelected} {...props} />
+    <Budget
+      periodType="financial"
+      referenceYear={2026}
+      selected={selected}
+      onSelect={setSelected}
+      capabilities={{ budget_suggestion: true }}
+      {...props}
+    />
   );
 }
 
@@ -879,5 +887,29 @@ describe("Budget Suggestion", () => {
     await userEvent.click(screen.getByRole("button", { name: "Full year" }));
 
     expect(await screen.findByText("Standing advice.")).toBeInTheDocument();
+  });
+});
+
+describe("Budget Suggestion capability", () => {
+  it("hides the Budget Suggestion panel, and never asks for it, when the capability is absent", async () => {
+    render(<ControlledBudget capabilities={{ budget_suggestion: false, statement_export: false }} />);
+    await screen.findByText("Salary");
+
+    expect(screen.queryByRole("heading", { name: "Budget Suggestion" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/No Budget Suggestion yet/)).not.toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalledWith("/api/budget-suggestion", expect.anything());
+  });
+
+  it("hides the panel until the capabilities have loaded", async () => {
+    render(<ControlledBudget capabilities={null} />);
+    await screen.findByText("Salary");
+
+    expect(screen.queryByRole("heading", { name: "Budget Suggestion" })).not.toBeInTheDocument();
+  });
+
+  it("shows the panel as before when the capability is present", async () => {
+    render(<ControlledBudget capabilities={{ budget_suggestion: true }} />);
+
+    expect(await screen.findByText(/No Budget Suggestion yet/)).toBeInTheDocument();
   });
 });

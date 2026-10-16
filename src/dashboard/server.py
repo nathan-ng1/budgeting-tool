@@ -14,6 +14,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from dashboard import (
     budgets,
+    capabilities,
     categories,
     database_info,
     database_move,
@@ -69,6 +70,7 @@ TRANSACTIONS_IMPORT_COMMIT_PATH = "/api/transactions/import-commit"
 BUDGET_EDITOR_PATH = "/api/budget-editor"
 BUDGET_GRID_PATH = "/api/budget-grid"
 BUDGET_SUGGESTION_PATH = "/api/budget-suggestion"
+CAPABILITIES_PATH = "/api/capabilities"
 CATEGORIES_PATH = "/api/categories"
 GOALS_PATH = "/api/goals"
 GOALS_SPLIT_PATH = "/api/goals/split"
@@ -110,7 +112,11 @@ def build_server(
     # never arrives, and queues every real request behind it - index.html
     # arrives, its JS and CSS never do, and the page renders empty (Issue #45).
     database = store if isinstance(store, DatabaseHandle) else DatabaseHandle(store)
-    server = ThreadingHTTPServer((host, port), _make_handler(database, static_root, changelog_path, build_info_path, today))
+    # Fixed for the life of the process: what ships does not change while running.
+    features = capabilities.detect()
+    server = ThreadingHTTPServer(
+        (host, port), _make_handler(database, static_root, changelog_path, build_info_path, today, features)
+    )
     server.env_path = location.ENV_PATH if env_path is None else env_path
     server.data_folder = data_folder
     server.pick_folder = pick_folder
@@ -125,6 +131,7 @@ def _make_handler(
     changelog_path: Path,
     build_info_path: Path,
     today: Callable[[], date],
+    features: dict[str, bool],
 ):
     # `store` is the swappable DatabaseHandle, which forwards to the open
     # LocalStore. Serialises the handlers, so they keep the
@@ -187,7 +194,11 @@ def _make_handler(
                 self._serve_budget_editor(parse_qs(parsed.query))
             elif parsed.path == BUDGET_GRID_PATH:
                 self._serve_budget_grid(parse_qs(parsed.query))
-            elif parsed.path == BUDGET_SUGGESTION_PATH:
+            elif parsed.path == CAPABILITIES_PATH:
+                # Which Collaborator-only features this build ships; the
+                # frontend reads it instead of an edition name (spec #236, S14).
+                self._send_json(200, features)
+            elif parsed.path == BUDGET_SUGGESTION_PATH and features["budget_suggestion"]:
                 # Not scoped to a (year, month) - the one standing write-up
                 # renders identically no matter which month pill is selected
                 # (Issue #66).

@@ -53,6 +53,19 @@ export async function fetchTransactionDateRange({ signal } = {}) {
   return response.json();
 }
 
+// Which optional features this build ships (spec #236, S14), as
+// { budget_suggestion: bool, statement_export: bool }. The frontend shows or
+// hides features from this and never from the name of a build (ADR-0033).
+export async function fetchCapabilities({ signal } = {}) {
+  const response = await fetch("/api/capabilities", { signal });
+
+  if (!response.ok) {
+    throw new Error(`The Dashboard backend returned ${response.status} for the capabilities.`);
+  }
+
+  return response.json();
+}
+
 // The running Version and its Version History (ADR-0029): { version, history },
 // where history is null when it can't be read. Where either comes from is the
 // backend's concern, so the frontend only asks.

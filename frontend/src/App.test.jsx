@@ -871,6 +871,39 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Budget" })).toHaveAttribute("aria-current", "page");
   });
 
+  it("hides Budget's Budget Suggestion panel when the backend reports the capability absent", async () => {
+    routeTo({
+      "/api/annual-overview": annualWithSpending(),
+      "/api/budget-editor": { Income: [{ category: "Salary", amount: null }], Expense: [], Debt: [] },
+      "/api/capabilities": { budget_suggestion: false, statement_export: false },
+      "/api/categories": [],
+    });
+    render(<App />);
+    expect(await screen.findByText("$8,000")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Budget" }));
+    await screen.findByText("Salary");
+
+    expect(screen.queryByRole("heading", { name: "Budget Suggestion" })).not.toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalledWith("/api/budget-suggestion", expect.anything());
+  });
+
+  it("shows Budget's Budget Suggestion panel when the backend reports the capability present", async () => {
+    routeTo({
+      "/api/annual-overview": annualWithSpending(),
+      "/api/budget-editor": { Income: [{ category: "Salary", amount: null }], Expense: [], Debt: [] },
+      "/api/budget-suggestion": { write_up: null, generated_at: null },
+      "/api/capabilities": { budget_suggestion: true, statement_export: true },
+      "/api/categories": [],
+    });
+    render(<App />);
+    expect(await screen.findByText("$8,000")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Budget" }));
+
+    expect(await screen.findByRole("heading", { name: "Budget Suggestion" })).toBeInTheDocument();
+  });
+
   it("keeps Budget's own pill selection across a tab switch, the same way Overview's persists", async () => {
     routeTo({
       "/api/annual-overview": annualWithSpending(),
@@ -1702,6 +1735,7 @@ describe("Date Order setting", () => {
       "/api/budget-editor": { Income: [], Expense: [], Debt: [] },
       "/api/budget-grid": { Income: [], Expense: [], Debt: [] },
       "/api/budget-suggestion": { write_up: "- Trim groceries", generated_at: "2026-08-20T14:32:00" },
+      "/api/capabilities": { budget_suggestion: true, statement_export: true },
     };
     fetchMock.mockImplementation(async (url, options = {}) => {
       if (url.startsWith("/api/settings")) {
