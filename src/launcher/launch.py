@@ -9,11 +9,17 @@ the recorded port, sees the Dashboard answering there, reopens the browser and
 exits without starting a second server (so there is never a second writer on the
 Database). Quit in Settings stops the server and clears the record.
 
+Pending migrations run before the Dashboard starts, after an automatic backup
+(Issue #250, decision S8). If that fails, or the Database is from a newer
+Version, no server starts: the reason is written to a small page in the data
+folder and the browser is opened to that instead.
+
 There is no tray icon and nothing is printed; running with no console window is
 the compiled build's job (Issues #252, #253). The browser opener, port probe and running-instance check are
 parameters so the entry function is tested without a real browser.
 """
 
+import html
 import json
 import socket
 import threading
@@ -27,11 +33,15 @@ from urllib.request import urlopen
 from dashboard.server import LAUNCHER_PATH, build_server
 from database import location
 from database import store as database_store
+from launcher.migrate_on_launch import LaunchMigrationError, migrate_on_launch
+from migration.registry import MIGRATIONS
+from migration.runner import Migration
 
 DEFAULT_PORT = 8765
 # How many ports to try from the preferred one before giving up.
 PORT_ATTEMPTS = 50
 INSTANCE_FILE_NAME = "instance.json"
+ERROR_PAGE_NAME = "startup-error.html"
 LOCALHOST = "127.0.0.1"
 
 
@@ -77,6 +87,24 @@ def clear_instance(data_folder: Path) -> None:
     (data_folder / INSTANCE_FILE_NAME).unlink(missing_ok=True)
 
 
+def write_error_page(data_folder: Path, message: str) -> Path:
+    """A self-contained page saying why the app couldn't start, for the browser
+    to open in place of the Dashboard. Everything shown is escaped."""
+    data_folder.mkdir(parents=True, exist_ok=True)
+    page = data_folder / ERROR_PAGE_NAME
+    page.write_text(
+        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+        "<title>Budgeting Tool couldn't start</title>"
+        "<style>body{font-family:system-ui,sans-serif;max-width:40rem;margin:4rem auto;padding:0 1rem;line-height:1.5}</style>"
+        "</head><body><h1>Budgeting Tool couldn't start</h1>"
+        f"<p>{html.escape(message)}</p>"
+        "<p>You can close this tab. Opening Budgeting Tool again will try once more.</p>"
+        "</body></html>",
+        encoding="utf-8",
+    )
+    return page
+
+
 def launch(
     *,
     data_folder: Path | None = None,
@@ -84,6 +112,7 @@ def launch(
     open_browser: Callable[[str], object] = webbrowser.open,
     port_is_free: Callable[[int], bool] = port_is_free,
     instance_running: Callable[[int], bool] = instance_running,
+    migrations: list[Migration] = MIGRATIONS,
 ) -> None:
     """Start the Dashboard and open it, or reopen the one already running.
     Blocks while serving; returns once Quit stops the server."""
@@ -97,7 +126,14 @@ def launch(
         # A record left by an instance that died without clearing it.
         clear_instance(data_folder)
 
-    store = database_store.connect(location.resolve_database_path(data_folder=data_folder))
+    database_path = location.resolve_database_path(data_folder=data_folder)
+    try:
+        migrate_on_launch(database_path, migrations)
+    except LaunchMigrationError as refusal:
+        open_browser(write_error_page(data_folder, str(refusal)).as_uri())
+        return
+
+    store = database_store.connect(database_path)
     try:
         server, running_port = _bind(store, data_folder, preferred_port, port_is_free, instance_running)
     except BaseException:

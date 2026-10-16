@@ -126,8 +126,20 @@ that answers as the app as the running instance, so a double-click right behind 
 starting a second server. The Dashboard has Quit (`POST /api/quit`) and the startup notice only when the launcher
 started it (`build_server(on_quit=...)`); the frontend reads `/api/launcher`, not an edition name. The startup
 notice's dismissal is kept in the browser's localStorage, so a launch on a new port shows it again. Not yet done
-(other tickets): migrate on launch (#250), the daily update check (#251), and running windowless in the compiled
+(other tickets): the daily update check (#251), and running windowless in the compiled
 build (#252, #253).
+
+## Built: migrate on launch (Issue #250)
+
+`src/launcher/migrate_on_launch.py`, called by `launch` after the running-instance check (a second launch never
+migrates underneath a running Dashboard) and before the Database is opened. It uses the shared runner and
+`pre_migration_backup` on a plain connection: nothing pending means no backup; otherwise the backup is made, the
+migrations run, and the `.pre-migration-` file stays beside the Database (ADR-0025). A failure copies the backup back
+over the Database and removes the copy, so the file is byte-for-byte what it was. A Database recording a migration
+this build doesn't know (a newer Version) is refused before anything is written, and so is an unreadable file. Either
+way no server starts and no instance is recorded: the launcher writes `startup-error.html` into the data folder and
+opens the browser to it, so the next launch simply tries again. The Collaborator startup guard in
+`dashboard.__main__` is unchanged.
 
 ## Not yet discussed
 
