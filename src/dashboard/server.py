@@ -98,6 +98,7 @@ def build_server(
     pick_folder: Callable[[], str | None] = real_pick_folder,
     today: Callable[[], date] = date.today,
     on_quit: Callable[[], None] | None = None,
+    update_available: str | None = None,
 ) -> ThreadingHTTPServer:
     # `store` may be a bare store or an already-built DatabaseHandle; handlers
     # always go through a handle, so the Database can be swapped while the
@@ -107,6 +108,8 @@ def build_server(
     # `today` so the Goals figures can be pinned to a date. `on_quit` is how the
     # Retail launcher (Issue #249) lets Settings stop the server: without it the
     # Dashboard has no Quit, and says the launcher is not running it.
+    # `update_available` is the newer Version the launcher found on its daily
+    # check (Issue #251): handed in, never looked up here (ADR-0008).
     # Threaded, but one request at a time: `store_lock` serialises every
     # handler, so the sqlite connection on `store` is still only ever touched
     # by one request at once.
@@ -126,6 +129,7 @@ def build_server(
     server.data_folder = data_folder
     server.pick_folder = pick_folder
     server.on_quit = on_quit
+    server.update_available = update_available
     # Idle preconnect sockets must not keep the process alive at shutdown.
     server.daemon_threads = True
     return server
@@ -205,7 +209,14 @@ def _make_handler(
                 # frontend reads it instead of an edition name (spec #236, S14).
                 self._send_json(200, features)
             elif parsed.path == LAUNCHER_PATH:
-                self._send_json(200, {"active": self.server.on_quit is not None})
+                update = self.server.update_available
+                self._send_json(
+                    200,
+                    {
+                        "active": self.server.on_quit is not None,
+                        "update": {"version": update} if update is not None else None,
+                    },
+                )
             elif parsed.path == BUDGET_SUGGESTION_PATH and features["budget_suggestion"]:
                 # Not scoped to a (year, month) - the one standing write-up
                 # renders identically no matter which month pill is selected

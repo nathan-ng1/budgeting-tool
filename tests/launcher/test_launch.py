@@ -11,6 +11,7 @@ import socket
 import sqlite3
 import threading
 from contextlib import closing
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.error import URLError
 from urllib.parse import urlparse
@@ -247,7 +248,7 @@ def test_the_launched_dashboard_says_it_is_launcher_managed(runs, data_folder):
     run = start(runs, data_folder)
     port = port_of(run.wait_until_open())
 
-    assert get(port, "/api/launcher") == (200, {"active": True})
+    assert get(port, "/api/launcher") == (200, {"active": True, "update": None})
 
 
 def test_the_real_port_probe_sees_a_listening_port_as_taken_and_a_free_one_as_free():
@@ -405,3 +406,124 @@ def test_a_good_launch_clears_the_error_page_an_earlier_failure_left(runs, data_
     start(runs, data_folder).wait_until_open()
 
     assert not (data_folder / launcher.ERROR_PAGE_NAME).exists()
+
+
+# The daily update check (Issue #251, decision S7). The launcher fetches the
+# manifest and hands the answer to the Dashboard, which only reports it.
+
+MANIFEST_URL = "https://updates.example/abc123/latest.json"
+NOON = datetime(2026, 10, 17, 12, 0, tzinfo=timezone.utc)
+
+
+class Manifest:
+    def __init__(self, version="1.4.0", error: BaseException | None = None):
+        self.version = version
+        self.error = error
+        self.requested: list[str] = []
+
+    def __call__(self, url):
+        self.requested.append(url)
+        if self.error is not None:
+            raise self.error
+        return {"version": self.version}
+
+
+def checking(manifest, *, installed="1.3.0", now=NOON):
+    return {
+        "update_manifest_url": MANIFEST_URL,
+        "fetch_manifest": manifest,
+        "installed_version": lambda: installed,
+        "now": lambda: now,
+    }
+
+
+def launcher_state(run):
+    return get(port_of(run.wait_until_open()), "/api/launcher")[1]
+
+
+def test_a_newer_manifest_version_has_the_dashboard_report_an_update(runs, data_folder):
+    manifest = Manifest("1.4.0")
+
+    run = start(runs, data_folder, **checking(manifest))
+
+    assert launcher_state(run) == {"active": True, "update": {"version": "1.4.0"}}
+    assert manifest.requested == [MANIFEST_URL]
+
+
+@pytest.mark.parametrize("published", ["1.3.0", "1.2.0"])
+def test_an_equal_or_older_manifest_version_reports_no_update(runs, data_folder, published):
+    run = start(runs, data_folder, **checking(Manifest(published)))
+
+    assert launcher_state(run)["update"] is None
+
+
+def test_a_launch_a_day_later_asks_again_and_one_within_the_day_does_not(runs, data_folder):
+    manifest = Manifest("1.4.0")
+    first = start(runs, data_folder, **checking(manifest))
+    post(port_of(first.wait_until_open()), "/api/quit")
+    first.wait_until_finished()
+
+    same_day = start(runs, data_folder, **checking(manifest, now=NOON + timedelta(hours=23)))
+    assert launcher_state(same_day)["update"] == {"version": "1.4.0"}
+    post(port_of(same_day.wait_until_open()), "/api/quit")
+    same_day.wait_until_finished()
+    assert manifest.requested == [MANIFEST_URL]
+
+    manifest.version = "1.5.0"
+    next_day = start(runs, data_folder, **checking(manifest, now=NOON + timedelta(days=1)))
+
+    assert launcher_state(next_day)["update"] == {"version": "1.5.0"}
+    assert manifest.requested == [MANIFEST_URL, MANIFEST_URL]
+
+
+def test_a_failed_fetch_still_opens_the_dashboard_with_no_update(runs, data_folder):
+    run = start(runs, data_folder, **checking(Manifest(error=OSError("offline"))))
+
+    assert launcher_state(run) == {"active": True, "update": None}
+    assert run.error is None
+
+
+def test_reopening_a_running_instance_makes_no_request(runs, data_folder):
+    first = start(runs, data_folder)
+    port = port_of(first.wait_until_open())
+    manifest = Manifest()
+
+    second = start(
+        runs, data_folder, instance_running=lambda candidate: candidate == port, **checking(manifest)
+    )
+    second.wait_until_finished()
+
+    assert manifest.requested == []
+
+
+def test_with_no_manifest_address_configured_nothing_is_requested(runs, data_folder):
+    manifest = Manifest()
+
+    run = start(runs, data_folder, fetch_manifest=manifest, installed_version=lambda: "1.3.0")
+
+    assert launcher_state(run)["update"] is None
+    assert manifest.requested == []
+
+
+def test_the_dashboard_serving_an_update_banner_connects_to_nothing_but_this_machine(runs, data_folder, monkeypatch):
+    destinations = []
+    real_connect, real_connect_ex = socket.socket.connect, socket.socket.connect_ex
+
+    def recording_connect(self, address):
+        destinations.append(address)
+        return real_connect(self, address)
+
+    def recording_connect_ex(self, address):
+        destinations.append(address)
+        return real_connect_ex(self, address)
+
+    monkeypatch.setattr(socket.socket, "connect", recording_connect)
+    monkeypatch.setattr(socket.socket, "connect_ex", recording_connect_ex)
+    run = start(runs, data_folder, **checking(Manifest("1.4.0")))
+    port = port_of(run.wait_until_open())
+
+    for path in ("/api/launcher", "/api/version", "/api/capabilities", "/api/settings"):
+        get(port, path)
+
+    assert destinations, "the requests above should have been recorded"
+    assert {address[0] for address in destinations} == {"127.0.0.1"}

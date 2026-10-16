@@ -23,3 +23,9 @@ the part that actually changes the user's install.
   existing install (e.g. switching AI path), which stays `setup.bat`'s job. (Amended by
   [ADR-0025](./0025-update-runs-pending-migrations-tracked-in-the-database.md): re-syncing now also
   runs pending database migrations.)
+- The Retail Edition keeps the same rule with a different mechanism
+  ([ADR-0033](./0033-the-editions-differ-by-what-ships.md), decision S7 in
+  `docs/retail-edition-design-notes.md`): the launcher, not the Dashboard process, reads the update
+  manifest (`latest.json`) at most once a day and hands a newer Version to the Dashboard, which shows
+  a banner. A failed or malformed fetch shows nothing, and a failed attempt still counts as the day's
+  check. Applying the update is re-running the installer.
