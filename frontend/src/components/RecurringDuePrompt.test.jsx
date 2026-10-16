@@ -89,6 +89,15 @@ describe("RecurringDuePrompt", () => {
     expect(onRun).toHaveBeenCalledWith(2);
   });
 
+  it("says there's nothing new when the run writes nothing", async () => {
+    backend({ due: 2, written: 0 });
+    render(<RecurringDuePrompt />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Run now" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Nothing new to add.");
+  });
+
   it("keeps the prompt and shows the error when the run fails", async () => {
     fetchMock.mockImplementation(async (url) =>
       url === "/api/recurring-rules/due" ? json({ due: 2 }) : json({ error: "Disk is full" }, 500),

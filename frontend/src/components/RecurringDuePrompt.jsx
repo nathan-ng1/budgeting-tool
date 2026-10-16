@@ -7,6 +7,9 @@ function describeDue(due) {
 }
 
 function describeRun(written) {
+  if (written === 0) {
+    return "Nothing new to add.";
+  }
   return `${written} transaction${written === 1 ? "" : "s"} added.`;
 }
 
