@@ -29,3 +29,6 @@ src/dashboard/static/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Written by `python -m dashboard.build_info` for a compiled build (spec #236, S3)
+src/dashboard/build_info.json

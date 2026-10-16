@@ -2,15 +2,20 @@
 
 The file is hand-curated: newest first, each Version a level-2 heading
 `## v<version> — <ISO date>` followed by `- ` bullets, optionally gathered under
-`### <title>` sub-headings such as "New features" and "Bug fixes". Anything
-that doesn't fit that shape reads as no history at all rather than a partial
-one, so the Dashboard shows its "isn't available" message instead of a
+`### <title>` sub-headings such as "New features" and "Bug fixes". The
+sub-heading `### Collaborator Edition only` marks bullets a Retail Buyer
+shouldn't see: the parser carries that group with `collaborator_only` set, the
+Collaborator Edition shows it, and the build step drops it (see build_info.py).
+Anything that doesn't fit that shape reads as no history at all rather than a
+partial one, so the Dashboard shows its "isn't available" message instead of a
 half-right list.
 """
 
 import re
 from datetime import date
 from pathlib import Path
+
+COLLABORATOR_ONLY_TITLE = "Collaborator Edition only"
 
 HEADING = re.compile(r"^## v(?P<version>\d+\.\d+\.\d+) — (?P<date>\d{4}-\d{2}-\d{2})\s*$")
 
@@ -33,7 +38,10 @@ def read_history(path: Path) -> list[dict] | None:
         elif stripped.startswith("### "):
             if not history:
                 return None
-            history[-1]["groups"].append({"title": stripped[4:].strip(), "entries": []})
+            title = stripped[4:].strip()
+            history[-1]["groups"].append(
+                {"title": title, "collaborator_only": title == COLLABORATOR_ONLY_TITLE, "entries": []}
+            )
         elif stripped.startswith("- "):
             if not history:
                 return None
@@ -44,6 +52,17 @@ def read_history(path: Path) -> list[dict] | None:
     if not history or any(not _has_entries(version) for version in history):
         return None
     return history
+
+
+def without_collaborator_only(history: list[dict]) -> list[dict]:
+    """`history` minus the Collaborator-only groups, and minus any Version left with nothing to show."""
+    shared = []
+    for version in history:
+        groups = [group for group in version["groups"] if not group["collaborator_only"]]
+        remaining = {**version, "groups": groups}
+        if _has_entries(remaining):
+            shared.append(remaining)
+    return shared
 
 
 def _has_entries(version: dict) -> bool:

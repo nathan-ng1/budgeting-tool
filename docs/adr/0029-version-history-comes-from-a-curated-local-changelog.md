@@ -33,6 +33,14 @@ items) will supply its own source and shipping mechanism. See
   The backend parses them into `{version, date, entries[], groups[{title, entries[]}]}`, where
   `entries` holds any bullets outside a sub-heading, and the page renders plain text with the group
   titles as headings.
+- A Version's bullets can also sit under a `### Collaborator Edition only` sub-heading. The parser
+  carries that group with `collaborator_only: true` on it (every group has the flag), and the
+  Collaborator Edition shows it like any other. A build step (`python -m dashboard.build_info`)
+  writes `build_info.json` holding the Version and the history with those groups, and any Version
+  left empty, filtered out. When that file is present the backend serves the Version and history
+  from it instead of the package metadata and `CHANGELOG.md`, so a compiled Retail build with no
+  clone still reports both. A present-but-malformed `build_info.json` degrades like a malformed
+  changelog (Version and history both null).
 - A missing or malformed `CHANGELOG.md` degrades the page to an "isn't available" message. It never
   breaks the rest of the Dashboard.
 - Between releases the Dashboard reports the last released Version, since `pyproject.toml` is only
