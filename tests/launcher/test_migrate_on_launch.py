@@ -18,7 +18,7 @@ from migration.runner import Migration, run_pending
 
 def add_column(name: str) -> Migration:
     def migrate(connection: sqlite3.Connection) -> None:
-        connection.execute(f"ALTER TABLE things ADD COLUMN {name} TEXT")
+        connection.execute(f"ALTER TABLE transactions ADD COLUMN {name} TEXT")
         connection.commit()
 
     return Migration(name=f"add_{name}", migrate=migrate)
@@ -26,8 +26,8 @@ def add_column(name: str) -> Migration:
 
 def database_with_a_row(path: Path, applied: list[Migration] = ()) -> Path:
     with closing(sqlite3.connect(path)) as connection:
-        connection.execute("CREATE TABLE things (id INTEGER PRIMARY KEY, label TEXT)")
-        connection.execute("INSERT INTO things (label) VALUES ('keep me')")
+        connection.execute("CREATE TABLE transactions (id INTEGER PRIMARY KEY, label TEXT)")
+        connection.execute("INSERT INTO transactions (label) VALUES ('keep me')")
         connection.commit()
         run_pending(connection, list(applied))
     return path
@@ -35,7 +35,7 @@ def database_with_a_row(path: Path, applied: list[Migration] = ()) -> Path:
 
 def columns(path: Path) -> list[str]:
     with closing(sqlite3.connect(path)) as connection:
-        return [row[1] for row in connection.execute("PRAGMA table_info(things)")]
+        return [row[1] for row in connection.execute("PRAGMA table_info(transactions)")]
 
 
 def pre_migration_files(path: Path) -> list[Path]:
@@ -80,8 +80,8 @@ def test_a_failing_migration_restores_the_backup_byte_for_byte(tmp_path):
         # By now the backup exists on disk; remember it, then half-do the work.
         (backup,) = pre_migration_files(path)
         seen_by_the_failing_migration["backup"] = backup.read_bytes()
-        connection.execute("ALTER TABLE things ADD COLUMN partial TEXT")
-        connection.execute("DELETE FROM things")
+        connection.execute("ALTER TABLE transactions ADD COLUMN partial TEXT")
+        connection.execute("DELETE FROM transactions")
         connection.commit()
         raise RuntimeError("boom")
 
@@ -91,7 +91,7 @@ def test_a_failing_migration_restores_the_backup_byte_for_byte(tmp_path):
     assert path.read_bytes() == seen_by_the_failing_migration["backup"]
     assert columns(path) == ["id", "label"]
     with closing(sqlite3.connect(path)) as connection:
-        assert connection.execute("SELECT label FROM things").fetchall() == [("keep me",)]
+        assert connection.execute("SELECT label FROM transactions").fetchall() == [("keep me",)]
     assert "breaks" in str(failed.value)
     assert "boom" in str(failed.value)
     assert pre_migration_files(path) == []
@@ -101,7 +101,7 @@ def test_a_failure_that_comes_with_no_migration_name_still_restores(tmp_path):
     path = database_with_a_row(tmp_path / "budget.db")
 
     def corrupts(connection: sqlite3.Connection) -> None:
-        connection.execute("DROP TABLE things")
+        connection.execute("DROP TABLE transactions")
         connection.commit()
         raise sqlite3.OperationalError("disk I/O error")
 
@@ -132,3 +132,33 @@ def test_a_file_that_is_not_a_database_is_reported_not_crashed_on(tmp_path):
         migrate_on_launch(path, [add_column("colour")])
 
     assert pre_migration_files(path) == []
+
+
+def test_an_empty_file_is_left_for_the_normal_open_to_build(tmp_path):
+    # e.g. a first run that crashed after creating the file: no tables, so it is
+    # brand new, not an old install to migrate.
+    path = tmp_path / "budget.db"
+    path.write_bytes(b"")
+
+    assert migrate_on_launch(path, [add_column("colour")]) == []
+
+    assert pre_migration_files(path) == []
+
+
+def test_when_the_restore_itself_fails_the_error_says_where_the_backup_is(tmp_path, monkeypatch):
+    path = database_with_a_row(tmp_path / "budget.db")
+
+    def breaks(connection: sqlite3.Connection) -> None:
+        raise RuntimeError("boom")
+
+    def cannot_replace(source, target):
+        raise PermissionError("locked by another program")
+
+    monkeypatch.setattr("launcher.migrate_on_launch.os.replace", cannot_replace)
+
+    with pytest.raises(LaunchMigrationError) as failed:
+        migrate_on_launch(path, [Migration("breaks", breaks)])
+
+    (backup,) = pre_migration_files(path)
+    assert str(backup) in str(failed.value)
+    assert "locked by another program" in str(failed.value)

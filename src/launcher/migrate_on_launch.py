@@ -13,6 +13,7 @@ file (it builds missing tables and seeds Categories), so the backup really is
 the Database as the Buyer left it.
 """
 
+import os
 import shutil
 import sqlite3
 from contextlib import closing
@@ -32,15 +33,18 @@ class LaunchMigrationError(Exception):
 def migrate_on_launch(database_path: Path, migrations: list[Migration] = MIGRATIONS) -> list[str]:
     """Run the pending migrations on `database_path`, returning the names it ran.
 
-    A Database that doesn't exist yet is brand new: the normal open builds it on
-    the current schema and marks every migration applied, so there is nothing to
-    back up or run.
+    A Database that doesn't exist yet, or has no `transactions` table (e.g. a
+    first run that stopped after creating the file), is brand new: the normal
+    open builds it on the current schema and marks every migration applied, so
+    there is nothing to back up or run.
     """
     if not database_path.exists():
         return []
 
     with closing(sqlite3.connect(database_path)) as connection:
         try:
+            if not _has_transactions_table(connection):
+                return []
             ahead = unknown_applied(connection, migrations)
             behind = pending(connection, migrations)
         except sqlite3.DatabaseError as cause:  # not a SQLite file, or unreadable
@@ -72,10 +76,20 @@ def migrate_on_launch(database_path: Path, migrations: list[Migration] = MIGRATI
     _put_back(database_path, backup, reason)
 
 
+def _has_transactions_table(connection: sqlite3.Connection) -> bool:
+    row = connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'transactions'").fetchone()
+    return row is not None
+
+
 def _put_back(database_path: Path, backup: Path, reason: str) -> None:
+    # Copied beside the Database and swapped in, so an interrupted restore never
+    # leaves a half-written Database in its place.
+    restoring = database_path.with_name(database_path.name + ".restoring")
     try:
-        shutil.copyfile(backup, database_path)
+        shutil.copyfile(backup, restoring)
+        os.replace(restoring, database_path)
     except OSError as cause:
+        restoring.unlink(missing_ok=True)
         raise LaunchMigrationError(
             f"{reason} Your data couldn't be put back automatically ({cause}); "
             f"a copy from before the update is saved at {backup}."

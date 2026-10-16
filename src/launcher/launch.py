@@ -132,6 +132,7 @@ def launch(
     except LaunchMigrationError as refusal:
         open_browser(write_error_page(data_folder, str(refusal)).as_uri())
         return
+    (data_folder / ERROR_PAGE_NAME).unlink(missing_ok=True)
 
     store = database_store.connect(database_path)
     try:

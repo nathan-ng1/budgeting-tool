@@ -397,3 +397,11 @@ def test_a_second_launch_never_migrates_underneath_a_running_instance(runs, data
     assert second.opened == [f"http://127.0.0.1:{port}/"]
     assert path.read_bytes() == before
     assert pre_migration_files(path) == []
+
+
+def test_a_good_launch_clears_the_error_page_an_earlier_failure_left(runs, data_folder):
+    launcher.write_error_page(data_folder, "old problem")
+
+    start(runs, data_folder).wait_until_open()
+
+    assert not (data_folder / launcher.ERROR_PAGE_NAME).exists()
