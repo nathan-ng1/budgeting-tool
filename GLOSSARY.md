@@ -89,7 +89,7 @@ The database table this process writes to. One row per categorised Transaction: 
 _Avoid_: Budget sheet, spreadsheet, Google Sheet, Description (for the Notes field — Notes is the term everywhere it appears, including the Dashboard's Transactions tab)
 
 **Database**:
-The single local file holding everything the Dashboard shows: the Transaction Log, the Recurring Transactions Config, Category Budgets, Categories, Goals, the Budget Suggestion and Display Settings. Where it lives is chosen in Settings, and Settings also shows that location. See [ADR-0030](./docs/adr/0030-database-location-is-chosen-in-settings-stored-in-env-and-switched-live.md).
+The single local file holding everything the Dashboard shows: the Transaction Log, the Recurring Transactions Config, Category Budgets, Categories, Goals, the Budget Suggestion and Display Settings. Where it lives is chosen in Settings, and Settings also shows that location. It is found through a `DATABASE_PATH` override if one is set, then a pointer file, then the default per-user data folder. See [ADR-0030](./docs/adr/0030-database-location-is-chosen-in-settings-stored-in-env-and-switched-live.md) and [ADR-0032](./docs/adr/0032-one-data-location-resolver-with-a-pointer-file.md).
 _Avoid_: Data file, save file, the data (on its own)
 
 **Backup**:

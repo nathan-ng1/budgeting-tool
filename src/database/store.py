@@ -1,4 +1,3 @@
-import os
 import sqlite3
 from datetime import date, datetime
 from pathlib import Path
@@ -8,14 +7,13 @@ from goals.links import require_not_goals_category, require_valid_goal_link
 
 from database.backup import backup_to
 from database.budget_suggestion import BudgetSuggestion
+from database.location import resolve_database_path
 from recurring.rules import RecurringRule, StoredRecurringRule
 from transaction_log.categories import CATEGORIES_BY_TYPE, TYPE_ORDER, Category, default_category_rows
 from transaction_log.entries import Candidate, ExistingRow, Transaction
 
 # The `settings` row recording the latest Backup (Issue #197).
 LAST_BACKED_UP_KEY = "last_backed_up"
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # `categories` is additive (CREATE TABLE IF NOT EXISTS), same as every other
 # table here. `transactions`/`recurring_rules`/`category_budgets` are written
@@ -787,19 +785,6 @@ def _seed_default_categories(connection: sqlite3.Connection) -> None:
         ],
     )
     connection.commit()
-
-
-def resolve_database_path(database_path: Path | None = None) -> Path:
-    """database_path if given, else DATABASE_PATH from the environment
-    (loaded from a repo-root `.env` if present).
-    """
-    if database_path is not None:
-        return database_path
-
-    from dotenv import load_dotenv
-
-    load_dotenv(REPO_ROOT / ".env")
-    return Path(os.environ["DATABASE_PATH"])
 
 
 def open_connection(database_path: Path | None = None) -> sqlite3.Connection:

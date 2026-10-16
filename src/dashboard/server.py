@@ -53,7 +53,7 @@ CONTENT_TYPES = {
     ".svg": "image/svg+xml",
 }
 
-# The repo-root `.env` that holds DATABASE_PATH (ADR-0030).
+# The repo-root `.env` that may hold a DATABASE_PATH override (ADR-0030, ADR-0032).
 ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
 
 DATABASE_PATH = "/api/database"
@@ -100,13 +100,15 @@ def build_server(
     static_root: Path = STATIC_ROOT,
     changelog_path: Path = CHANGELOG_PATH,
     env_path: Path = ENV_PATH,
+    data_folder: Path | None = None,
     pick_folder: Callable[[], str | None] = real_pick_folder,
     today: Callable[[], date] = date.today,
 ) -> ThreadingHTTPServer:
     # `store` may be a bare store or an already-built DatabaseHandle; handlers
     # always go through a handle, so the Database can be swapped while the
-    # server keeps running (ADR-0030). `env_path` and `pick_folder` are
-    # injectable so tests can use a temporary `.env` and a stand-in dialog, and
+    # server keeps running (ADR-0030). `env_path`, `data_folder` (where the
+    # pointer file lives, ADR-0032) and `pick_folder` are injectable so tests
+    # can use a temporary `.env`, data folder and a stand-in dialog, and
     # `today` so the Goals figures can be pinned to a date.
     # Threaded, but one request at a time: `store_lock` serialises every
     # handler, so the sqlite connection on `store` is still only ever touched
@@ -120,6 +122,7 @@ def build_server(
     database = store if isinstance(store, DatabaseHandle) else DatabaseHandle(store)
     server = ThreadingHTTPServer((host, port), _make_handler(database, static_root, changelog_path, today))
     server.env_path = env_path
+    server.data_folder = data_folder
     server.pick_folder = pick_folder
     # Idle preconnect sockets must not keep the process alive at shutdown.
     server.daemon_threads = True
@@ -610,7 +613,9 @@ def _make_handler(store: DatabaseHandle, static_root: Path, changelog_path: Path
                 folder = self._read_json().get("folder")
                 if not isinstance(folder, str) or not folder:
                     raise database_move.FolderUnusable("Choose a folder first")
-                left_behind = database_move.apply_folder(store, folder, self.server.env_path)
+                left_behind = database_move.apply_folder(
+                    store, folder, self.server.env_path, data_folder=self.server.data_folder
+                )
             except (ValueError, AttributeError) as cause:
                 # FolderUnusable is a ValueError, like an unreadable body.
                 self._send_json(400, {"error": str(cause)})
