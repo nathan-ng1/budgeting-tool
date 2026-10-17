@@ -39,3 +39,28 @@ without assets leaves new installs nothing to download.
 
 To add or replace assets on an existing release:
 `gh release upload vX.Y.Z <files…> --clobber`.
+
+## The Retail Windows build
+
+`.github/workflows/retail-windows-build.yml` compiles the Retail Edition with Nuitka (standalone, not onefile)
+and smoke-tests it (Issue #252). It runs when a `vX.Y.Z` tag is pushed, so step 3 above also starts it. It
+fails if the tag does not match the Version in `pyproject.toml`. It can also be run by hand from the Actions
+tab, and runs on pull requests that touch the build files. The output is a `BudgetingTool-windows` workflow
+artifact (a zip of the standalone folder) kept for 14 days; the installer and the upload to the host are separate work.
+
+To build and test it on a Windows machine with the repo's tools (a C compiler is downloaded by Nuitka if
+Visual Studio's is not installed), from the repo root:
+
+```sh
+uv sync --group retail-build          # adds Nuitka to the environment; a plain `uv sync` removes it again
+(cd frontend && npm ci && npm run build)
+uv run python -m dashboard.build_info
+uv run python -m retail_build build   # compile, then check no Collaborator-only module is in it
+uv run python -m retail_build smoke   # launch it and check capabilities, Version, picker and Quit
+```
+
+The result is in `retail-build/retail_app.dist/` (git-ignored). The smoke test may open a browser tab.
+
+**Actions minutes.** The repo is public, so Actions are free today. On a private repo the Free plan gives 2,000
+minutes a month, Windows minutes count double and macOS minutes ten times (a macOS job of N minutes uses 10N).
+Releases so far have come at up to several a week; see the figures noted on Issue #252.

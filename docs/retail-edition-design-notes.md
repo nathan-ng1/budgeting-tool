@@ -126,8 +126,7 @@ that answers as the app as the running instance, so a double-click right behind 
 starting a second server. The Dashboard has Quit (`POST /api/quit`) and the startup notice only when the launcher
 started it (`build_server(on_quit=...)`); the frontend reads `/api/launcher`, not an edition name. The startup
 notice's dismissal is kept in the browser's localStorage, so a launch on a new port shows it again. Not yet done
-(other tickets): the daily update check (#251), and running windowless in the compiled
-build (#252, #253).
+(other tickets): the daily update check (#251), and running windowless on macOS (#253).
 
 ## Built: migrate on launch (Issue #250)
 
@@ -141,8 +140,34 @@ way no server starts and no instance is recorded: the launcher writes `startup-e
 opens the browser to it, so the next launch simply tries again. The Collaborator startup guard in
 `dashboard.__main__` is unchanged.
 
+## Built: the Windows build (Issue #252)
+
+`.github/workflows/retail-windows-build.yml`, which only calls `python -m retail_build` (`src/retail_build/`, tooling
+that is not in the build) so a build can be reproduced locally with `uv sync --group retail-build`. It runs on a
+`v*` tag, by hand, and on pull requests that touch the build files. Steps: build the frontend, write
+`build_info.json`, compile, smoke test, upload `BudgetingTool-windows.zip` as a workflow artifact (the Setup.exe and
+the upload to R2 are other tickets).
+
+- **Allowlist.** `retail_build.plan.SHARED_PACKAGES` is passed as `--include-package`; the Collaborator-only packages
+  as `--nofollow-import-to`. A test fails if a package appears in `src/` that is in neither list (or the tooling
+  list), so a new package is a decision and not a default. After compiling, `bundle_check` reads Nuitka's
+  compilation report and fails if any Collaborator-only module was compiled in.
+- **Entry point.** `src/retail_app.py` is the one executable (`BudgetingTool.exe`, `--windows-console-mode=disable`).
+  It runs the launcher, or the folder picker's process when given `--pick-folder`.
+- **Folder picker.** A compiled app has no `python -m`, so it starts itself again with `--pick-folder`. That
+  uses `sys.argv[0]`: Nuitka's `sys.executable` is a made-up `...\python.exe` beside the app that does not exist.
+  `--enable-plugin=tk-inter` bundles Tcl/Tk. A CI machine cannot answer a dialog, so the smoke test runs
+  `BudgetingTool.exe --check-folder-picker`, which starts the picker the way the app does and has it load Tk
+  and exit (`--check`) rather than show a dialog. Whether the dialog looks right is checked by hand on a clean machine.
+- **Smoke test.** `retail_build.smoke` launches the built app against a throwaway Database and data folder, waits for
+  `instance.json`, and fails unless capabilities report every Collaborator-only feature absent, the Version is the one
+  being built with no Collaborator-only history, the spreadsheet library works (the import template), the folder
+  picker check passes, and Quit stops the app. It also runs in the test suite against a source checkout.
+- **Data files.** The built frontend (`dashboard/static`) and `build_info.json` are bundled beside the compiled
+  modules, where `Path(__file__)` in `dashboard/server.py` and `build_info.py` already looks.
+- **Version.** On a tag the workflow fails unless the tag matches `pyproject.toml`'s version.
+- **Actions minutes.** See the note in `docs/agents/releasing.md`.
+
 ## Not yet discussed
 
-- Build pipeline: Nuitka standalone per platform, plus bundled built frontend assets.
-- Exactly which modules or code paths get excluded from the Retail build, and how.
 - Etsy listing and PDF content checklist; pricing.
