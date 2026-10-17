@@ -61,10 +61,12 @@ uv run python -m retail_build smoke   # launch it and check capabilities, Versio
 
 The result is in `retail-build/retail_app.dist/` (git-ignored). The smoke test may open a browser tab.
 
-**Actions minutes.** The repo is public, so Actions are free today. On a private repo the Free plan gives 2,000
-minutes a month, Windows minutes count double and macOS minutes ten times (a job of N minutes uses 2N on Windows,
-10N on macOS). Eight releases were tagged in the first two weeks of October 2026; a steady cadence of a few a month
-is the plan. At roughly 15 minutes a Windows build (an estimate until the first CI run is timed), that is about 30
-billed minutes a release, so a few releases a month use a small fraction of 2,000 and even the early burst fits. The
-macOS build (Issue #253) is the one to watch: the same 15 minutes bills 150, so about thirteen a month on the Free
-plan. Pull requests only start the build when they touch the build files, so ordinary work costs nothing.
+**Actions minutes.** The repo is public, so Actions are free today. A private repo gets free minutes each month
+(2,000 on the Free plan, 3,000 on Pro or Team) and is billed per minute after that, at the standard runner rates
+(USD, checked October 2026): Linux $0.006, Windows $0.010, macOS $0.062. GitHub's older docs said Windows minutes
+use up the free allowance at 2x and macOS at 10x; the current docs list rates instead and no longer say, so check
+the usage on the billing page after the first private run. Eight releases were tagged in the first two weeks of
+October 2026; a steady cadence of a few a month is the plan. At roughly 15 minutes a Windows build (an estimate
+until a CI run is timed), a build is about $0.15 if billed, so a few a month stay within the free minutes or cost
+a dollar or two even at the old 2x. The macOS build (Issue #253) costs about six times as much per minute. Pull
+requests only start the build when they touch the build files, so ordinary work costs nothing.
