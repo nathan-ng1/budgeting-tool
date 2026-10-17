@@ -12,16 +12,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-SRC = Path(__file__).resolve().parents[2] / "src"
+from retail_build.plan import COLLABORATOR_ONLY_PACKAGES
 
-COLLABORATOR_ONLY_PACKAGES = (
-    "statement_export",
-    "categorisation",
-    "sanitising",
-    "advisor",
-    "budget_suggestions",
-    "beem",
-)
+SRC = Path(__file__).resolve().parents[2] / "src"
 
 SCRIPT = f"""
 import sys

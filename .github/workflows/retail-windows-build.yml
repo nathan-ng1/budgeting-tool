@@ -1,0 +1,74 @@
+# Compiles the Retail Edition for Windows and smoke-tests the result (Issue #252,
+# spec #236, decision S11). Runs on the same vX.Y.Z tag as the Collaborator
+# release, by hand from the Actions tab, and on pull requests that change the build.
+# The steps are `python -m retail_build ...`, so the same build runs locally; see
+# docs/agents/releasing.md.
+name: Retail Windows build
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/retail-windows-build.yml"
+      - "src/retail_build/**"
+      - "src/retail_app.py"
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    env:
+      # Use the setup-python interpreter, which ships Tcl/Tk for the folder picker.
+      UV_PYTHON_PREFERENCE: only-system
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: python -m pip install uv
+
+      - name: Install the build's dependencies
+        run: uv sync --frozen --no-dev --group retail-build
+
+      - name: Check the tag matches the Version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: uv run --no-sync python -m retail_build version --tag "${{ github.ref_name }}"
+
+      - name: Build the frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Write the Version and Version History into the build
+        run: uv run --no-sync python -m dashboard.build_info
+
+      - name: Compile with Nuitka
+        run: uv run --no-sync python -m retail_build build
+
+      - name: Smoke test the built app
+        run: uv run --no-sync python -m retail_build smoke
+
+      - name: Zip the build
+        run: Compress-Archive -Path retail-build/retail_app.dist -DestinationPath BudgetingTool-windows.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BudgetingTool-windows
+          path: BudgetingTool-windows.zip
+          if-no-files-found: error
+          retention-days: 14

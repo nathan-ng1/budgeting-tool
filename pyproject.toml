@@ -14,6 +14,8 @@ mcp = ["mcp-google-sheets==0.6.3", "mcp<2.0.0"]
 
 [dependency-groups]
 dev = ["pytest>=8"]
+# Compiles the Retail Edition (Issue #252). zstandard and ordered-set make Nuitka faster and its output smaller.
+retail-build = ["nuitka==2.8.10", "zstandard", "ordered-set"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

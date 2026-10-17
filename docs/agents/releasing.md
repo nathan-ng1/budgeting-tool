@@ -39,3 +39,34 @@ without assets leaves new installs nothing to download.
 
 To add or replace assets on an existing release:
 `gh release upload vX.Y.Z <files…> --clobber`.
+
+## The Retail Windows build
+
+`.github/workflows/retail-windows-build.yml` compiles the Retail Edition with Nuitka (standalone, not onefile)
+and smoke-tests it (Issue #252). It runs when a `vX.Y.Z` tag is pushed, so step 3 above also starts it. It
+fails if the tag does not match the Version in `pyproject.toml`. It can also be run by hand from the Actions
+tab, and runs on pull requests that touch the build files. The output is a `BudgetingTool-windows` workflow
+artifact (a zip of the standalone folder) kept for 14 days; the installer and the upload to the host are separate work.
+
+To build and test it on a Windows machine with the repo's tools (a C compiler is downloaded by Nuitka if
+Visual Studio's is not installed), from the repo root:
+
+```sh
+uv sync --group retail-build          # adds Nuitka to the environment; a plain `uv sync` removes it again
+(cd frontend && npm ci && npm run build)
+uv run python -m dashboard.build_info
+uv run python -m retail_build build   # compile, then check no Collaborator-only module is in it
+uv run python -m retail_build smoke   # launch it and check capabilities, Version, picker and Quit
+```
+
+The result is in `retail-build/retail_app.dist/` (git-ignored). The smoke test may open a browser tab.
+
+**Actions minutes.** The repo is public, so Actions are free today. A private repo gets free minutes each month
+(2,000 on the Free plan, 3,000 on Pro or Team) and is billed per minute after that, at the standard runner rates
+(USD, checked October 2026): Linux $0.006, Windows $0.010, macOS $0.062. GitHub's older docs said Windows minutes
+use up the free allowance at 2x and macOS at 10x; the current docs list rates instead and no longer say, so check
+the usage on the billing page after the first private run. Eight releases were tagged in the first two weeks of
+October 2026; a steady cadence of a few a month is the plan. The first CI run took 8 minutes 13 seconds (7 of them
+compiling), billed as 9, so a Windows build costs about $0.09, or 18 free minutes if the old 2x still applies. A
+few a month stay inside the free allowance or cost cents. The macOS build (Issue #253) costs about six times as
+much per minute. Pull requests only start the build when they touch the build files, so ordinary work costs nothing.

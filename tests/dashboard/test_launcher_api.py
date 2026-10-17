@@ -2,6 +2,7 @@
 and no startup notice: both belong to the Retail launcher (Issue #249)."""
 
 import json
+import threading
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
@@ -35,12 +36,13 @@ def test_a_dashboard_run_directly_has_no_quit(serve, store):
 
 
 def test_quit_asks_the_launcher_to_stop_and_says_so(serve, store):
-    quits = []
-    server = serve(store, on_quit=lambda: quits.append("quit"))
+    quit_asked = threading.Event()
+    server = serve(store, on_quit=quit_asked.set)
 
     assert request(server, "GET", "/api/launcher") == (200, {"active": True, "update": None})
     assert request(server, "POST", "/api/quit") == (200, {"quitting": True})
-    assert quits == ["quit"]
+    # The server answers, then asks the launcher: the request can return first.
+    assert quit_asked.wait(5)
 
 
 def test_quit_refuses_a_request_from_another_sites_page(serve, store):
@@ -54,15 +56,15 @@ def test_quit_refuses_a_request_from_another_sites_page(serve, store):
 
 
 def test_quit_accepts_a_request_from_the_dashboards_own_page(serve, store):
-    quits = []
-    server = serve(store, on_quit=lambda: quits.append("quit"))
+    quit_asked = threading.Event()
+    server = serve(store, on_quit=quit_asked.set)
 
     status, _ = request(
         server, "POST", "/api/quit", headers={"Origin": f"http://127.0.0.1:{server.server_port}"}
     )
 
     assert status == 200
-    assert quits == ["quit"]
+    assert quit_asked.wait(5)
 
 
 def test_a_launcher_that_found_a_newer_version_has_the_dashboard_report_it(serve, store):
