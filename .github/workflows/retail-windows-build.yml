@@ -14,8 +14,6 @@ on:
       - ".github/workflows/retail-windows-build.yml"
       - "src/retail_build/**"
       - "src/retail_app.py"
-      - "pyproject.toml"
-      - "uv.lock"
 
 permissions:
   contents: read
