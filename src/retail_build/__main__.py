@@ -22,6 +22,15 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SRC = REPO_ROOT / "src"
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "retail-build"
 REPORT_NAME = "compilation-report.xml"
+FRONTEND = REPO_ROOT / "frontend"
+# What `npm run build` turns into the bundled frontend.
+FRONTEND_SOURCES = (
+    FRONTEND / "src",
+    FRONTEND / "public",
+    FRONTEND / "index.html",
+    FRONTEND / "package.json",
+    FRONTEND / "vite.config.js",
+)
 
 
 def project_version(pyproject: Path = REPO_ROOT / "pyproject.toml") -> str:
@@ -34,6 +43,16 @@ def check_tag(tag: str, version: str) -> None:
         raise SystemExit(f"Tag {tag} does not match the Version in pyproject.toml ({version}).")
 
 
+def frontend_is_stale(built: Path, sources: tuple[Path, ...] = FRONTEND_SOURCES) -> bool:
+    """True if anything the frontend is built from changed after `built` was written.
+    The built frontend is not committed, so a leftover copy can predate the sources."""
+    newest = 0.0
+    for source in sources:
+        files = source.rglob("*") if source.is_dir() else [source]
+        newest = max([newest, *(file.stat().st_mtime for file in files if file.is_file())])
+    return newest > built.stat().st_mtime
+
+
 def build(output_dir: Path) -> None:
     version = project_version()
     for needed in (plan.STATIC_DIR / "index.html", plan.BUILD_INFO_FILE):
@@ -42,6 +61,8 @@ def build(output_dir: Path) -> None:
                 f"src/{needed.as_posix()} is missing: run `npm run build` in frontend/ "
                 "and `python -m dashboard.build_info` first."
             )
+    if frontend_is_stale(SRC / plan.STATIC_DIR / "index.html"):
+        raise SystemExit("The built frontend is older than frontend/src: run `npm run build` in frontend/ first.")
     output_dir.mkdir(parents=True, exist_ok=True)
     report = output_dir / REPORT_NAME
     args = plan.nuitka_args(src=SRC, output_dir=output_dir, version=version, report=report)
