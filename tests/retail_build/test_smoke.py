@@ -12,12 +12,11 @@ import pytest
 
 from database import location
 from retail_build import smoke
+from retail_build.plan import COLLABORATOR_ONLY_PACKAGES
 from retail_build.smoke import SmokeFailure, run_smoke
 
 REAL_DEFAULT_DATA_FOLDER = location.default_data_folder
 SRC = Path(__file__).resolve().parents[2] / "src"
-
-COLLABORATOR_ONLY_PACKAGES = ("statement_export", "categorisation", "sanitising", "advisor", "budget_suggestions", "beem")
 
 # The app as the compiled build runs it, minus the compile: `retail_app.main`
 # with the browser silenced and the baked-in Version pointed at `build_info`.

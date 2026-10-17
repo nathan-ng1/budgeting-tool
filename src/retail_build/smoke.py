@@ -26,11 +26,11 @@ from pathlib import Path
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
+from dashboard.changelog import COLLABORATOR_ONLY_TITLE
 from database import location
 from launcher.launch import INSTANCE_FILE_NAME, read_instance
 from retail_app import CHECK_FOLDER_PICKER_FLAG
 
-COLLABORATOR_ONLY_GROUP = "Collaborator Edition only"
 STARTUP_TIMEOUT_SECONDS = 90
 QUIT_TIMEOUT_SECONDS = 15
 PICKER_TIMEOUT_SECONDS = 60
@@ -135,7 +135,7 @@ def _check_version(port: int, expected_version: str | None) -> None:
     history = info.get("history")
     if not history:
         raise SmokeFailure("The app has no Version History")
-    if any(group["title"].lower() == COLLABORATOR_ONLY_GROUP.lower() for entry in history for group in entry["groups"]):
+    if any(group["title"].lower() == COLLABORATOR_ONLY_TITLE.lower() for entry in history for group in entry["groups"]):
         raise SmokeFailure("The Version History contains Collaborator-only items")
 
 
