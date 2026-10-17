@@ -66,7 +66,7 @@ The result is in `retail-build/retail_app.dist/` (git-ignored). The smoke test m
 (USD, checked October 2026): Linux $0.006, Windows $0.010, macOS $0.062. GitHub's older docs said Windows minutes
 use up the free allowance at 2x and macOS at 10x; the current docs list rates instead and no longer say, so check
 the usage on the billing page after the first private run. Eight releases were tagged in the first two weeks of
-October 2026; a steady cadence of a few a month is the plan. At roughly 15 minutes a Windows build (an estimate
-until a CI run is timed), a build is about $0.15 if billed, so a few a month stay within the free minutes or cost
-a dollar or two even at the old 2x. The macOS build (Issue #253) costs about six times as much per minute. Pull
-requests only start the build when they touch the build files, so ordinary work costs nothing.
+October 2026; a steady cadence of a few a month is the plan. The first CI run took 8 minutes 13 seconds (7 of them
+compiling), billed as 9, so a Windows build costs about $0.09, or 18 free minutes if the old 2x still applies. A
+few a month stay inside the free allowance or cost cents. The macOS build (Issue #253) costs about six times as
+much per minute. Pull requests only start the build when they touch the build files, so ordinary work costs nothing.
